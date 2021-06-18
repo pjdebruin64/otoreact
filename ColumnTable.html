@@ -1,0 +1,65 @@
+<script type=module>
+    import {RUpdate, RVAR} from '../OtoReact/RHTML.js';
+    globalThis.data = [{name:'Piet', age:18}, {name:'Tine', age:19}];
+</script>
+<COMPONENT name=ColumnTable>
+    <signature>
+        <columnTable>
+            <TableTemplate>
+                <HeaderCells1></HeaderCells1>
+                <HeaderCells2></HeaderCells2>>
+                <HeaderCells3></HeaderCells3>
+                <BodyCells></BodyCells>
+                <FooterCells1></FooterCells1>
+            </TableTemplate>
+
+            <DefineColumn>
+                <Header1></Header1>
+                <header2></header2>
+                <Header3></Header3>
+                <Body1 sourceRec></Body1>
+                <Footer1></Footer1>
+            </DefineColumn>
+        </columnTable>
+    </signature>
+
+    <script>
+        let headerCells1 = [], bodyCells = [];
+    </script>
+
+    <template>
+        <DefineColumn>
+            <Header1 apply="headerCells.push(this.childNodes); this.innerHTML=''"></Header1>
+            <BodyCells apply="bodyCells.push(this.childNodes); this.innerHTML=''"></BodyCells>>
+        </DefineColumn>
+
+        <TableTemplate>
+            <HeaderCells apply="this.childNodes.push(...headerCells1);"></HeaderCells>
+            <BodyCells apply="this.childNodes.push(...bodyCells"></BodyCells>
+        </TableTemplate>
+
+    </template>
+</COMPONENT>
+
+<ColumnTable>
+    <tableTemplate>
+        <table.>
+            <thead.><tr.><HeaderCells1></HeaderCells1></tr.></thead.>
+            <tbody.>
+                <foreach let=rec of="data">
+                    <BodyCells sourceRec="rec"></BodyCells>
+                </foreach>
+            </tbody.>
+        </table.>
+    </tableTemplate>
+
+    <DefineColumn>
+        <Header1><th>Name</th></Header1>
+        <Body1 sourceRec><td>{sourceRec.name}</td></Body1>
+    </DefineColumn>
+    
+    <DefineColumn>
+        <Header1><th>Age</th></Header1>
+        <Body1 sourceRec><td>{sourceRec.age}</td></Body1>
+    </DefineColumn>
+</ColumnTable>
