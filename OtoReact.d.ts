@@ -26,7 +26,8 @@ declare class Component {
     Parameters: Array<string>;
     Slots: Array<Component>;
     constructor(TagName: string, Parameters?: Array<string>, Slots?: Array<Component>);
-    Builder: ElmBuilder;
+    Builders: ElmBuilder[];
+    ComponentEnv: Environment;
 }
 declare class RCompiler {
     private Context;
