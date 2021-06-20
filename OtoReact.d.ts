@@ -7,6 +7,7 @@ declare const defaultSettings: {
 export declare function RCompile(elm: HTMLElement, settings?: typeof defaultSettings): RCompiler;
 declare type Context = Array<string>;
 declare type Environment = Array<unknown>;
+declare type Dependent<T> = (env: Environment) => T;
 declare type Region = {
     parent: Element;
     start: ChildNode;
@@ -23,9 +24,15 @@ declare type Subscriber = {
 };
 declare class Component {
     TagName: string;
-    Parameters: Array<string>;
+    Parameters: Array<{
+        id: string;
+        default: Dependent<unknown>;
+    }>;
     Slots: Array<Component>;
-    constructor(TagName: string, Parameters?: Array<string>, Slots?: Array<Component>);
+    constructor(TagName: string, Parameters?: Array<{
+        id: string;
+        default: Dependent<unknown>;
+    }>, Slots?: Array<Component>);
     Builders: ElmBuilder[];
     ComponentEnv: Environment;
 }
@@ -57,8 +64,12 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompileChildNodes;
+    private CompileScript;
+    private CompileForeach;
+    private CompileElement;
     private CompileParam;
     private CompileInterpolatedString;
+    private CompileAttributeExpression;
     private CompileExpression;
 }
 interface Store {
