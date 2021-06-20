@@ -173,6 +173,16 @@ class RCompiler {
                                             comp.Slots.push(ParseSignature(elmSlot));
                                         return comp;
                                     }(elmSignature);
+                                    for (let srcChild of srcElm.children)
+                                        switch (srcChild.nodeName) {
+                                            case 'SCRIPT':
+                                                const builder = this.CompileScript(srcElm, srcChild);
+                                                if (builder)
+                                                    builders.push([builder, srcChild]);
+                                                break;
+                                            case 'STYLE':
+                                                break;
+                                        }
                                     this.Components.push(component);
                                     const template = RequiredChildElement(srcElm, 'TEMPLATE');
                                     this.Context.push(...component.Parameters);
@@ -241,141 +251,7 @@ class RCompiler {
                                 }
                                 break;
                             case 'FOREACH':
-                                {
-                                    const varName = OptionalAttribute(srcElm, 'let'), ofExpression = RequiredAttribute(srcElm, 'of');
-                                    if (!varName) {
-                                        const slot = this.Components.find(C => C.TagName == ofExpression);
-                                        if (!slot)
-                                            throw `Missing attribute [let]`;
-                                        const bodyBuilder = this.CompileChildNodes(srcElm);
-                                        srcParent.removeChild(srcElm);
-                                        builder = function FOREACH_Slot(region) {
-                                            const { parent, env } = region;
-                                            let { start, end, } = PrepareRegion(srcElm, region);
-                                            const subReg = { parent, start, end, env, };
-                                            const slotBuilders = slot.Builders;
-                                            for (let slotBuilder of slotBuilders) {
-                                                slot.Builders = [slotBuilder];
-                                                bodyBuilder.call(this, subReg);
-                                            }
-                                            slot.Builders = slotBuilders;
-                                            region.start = end.nextSibling;
-                                        };
-                                    }
-                                    else {
-                                        ;
-                                        ;
-                                        ;
-                                        const getRange = this.CompileExpression(ofExpression);
-                                        const indexName = srcElm.getAttribute('index');
-                                        const prevName = srcElm.getAttribute('previous');
-                                        const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
-                                        const updatesTo = srcElm.getAttribute('updates');
-                                        const getUpdatesTo = updatesTo && this.CompileExpression(updatesTo);
-                                        const contextLength = this.Context.length;
-                                        try {
-                                            const iVar = this.Context.push(varName) - 1;
-                                            const getKey = this.CompileExpression(srcElm.getAttribute('key'));
-                                            const getHash = this.CompileExpression(srcElm.getAttribute('hash'));
-                                            const iIndex = (indexName ? this.Context.push(indexName) : 0) - 1;
-                                            const iPrevious = (prevName ? this.Context.push(prevName) : 0) - 1;
-                                            if (srcElm.childNodes.length == 0)
-                                                throw "FOREACH has an empty body.\nIf you placed <FOREACH> within a <table>, then the parser has rearranged these elements.\nUse <table.>, <tr.> etc instead.";
-                                            const bodyBuilder = this.CompileChildNodes(srcElm);
-                                            srcParent.removeChild(srcElm);
-                                            builder = function FOREACH(region) {
-                                                const { parent, env } = region;
-                                                let { marker, start, end, bInit } = PrepareRegion(srcElm, region, null, (getKey == null));
-                                                const subReg = { parent, start, end, env, };
-                                                let index = 0, prevItem = null;
-                                                const keyMap = (bInit ? marker['keyMap'] = new Map() : marker['keyMap']);
-                                                const newMap = new Map();
-                                                for (const item of getRange(env)) {
-                                                    env[iVar] = item;
-                                                    const hash = getHash && getHash(env);
-                                                    const key = getKey ? getKey(env) : hash;
-                                                    newMap.set(key ?? {}, [item, hash]);
-                                                }
-                                                function RemoveStaleItemsHere() {
-                                                    let key;
-                                                    while (start != end && start && !newMap.has(key = start['key'])) {
-                                                        if (key != null)
-                                                            keyMap.delete(key);
-                                                        let node = start;
-                                                        start = start['endNode'].nextSibling;
-                                                        while (node != start) {
-                                                            const next = node.nextSibling;
-                                                            parent.removeChild(node);
-                                                            node = next;
-                                                        }
-                                                    }
-                                                }
-                                                RemoveStaleItemsHere();
-                                                for (const [key, [item, hash]] of newMap) {
-                                                    let rvar = (getUpdatesTo ? this.RVAR_Light(item, Array.from(getUpdatesTo(env).Subscribers))
-                                                        : bUpdateable ? this.RVAR_Light(item)
-                                                            : item);
-                                                    env[iVar] = rvar;
-                                                    if (iIndex >= 0)
-                                                        env[iIndex] = index;
-                                                    if (iPrevious >= 0)
-                                                        env[iPrevious] = prevItem;
-                                                    let marker;
-                                                    let subscriber = keyMap.get(key);
-                                                    if (subscriber && subscriber.marker.isConnected) {
-                                                        marker = subscriber.marker;
-                                                        if (marker != start) {
-                                                            let node = marker.nextSibling;
-                                                            marker = parent.insertBefore(marker, start);
-                                                            while (node != subscriber.end) {
-                                                                const next = node.nextSibling;
-                                                                parent.insertBefore(node, start);
-                                                                node = next;
-                                                            }
-                                                        }
-                                                        marker.textContent = `${varName}(${index})`;
-                                                        subReg.start = marker.nextSibling;
-                                                        subReg.end = subscriber.end;
-                                                    }
-                                                    else {
-                                                        marker = parent.insertBefore(document.createComment(`${varName}(${index})`), start);
-                                                        const endMarker = parent.insertBefore(document.createComment(`/${varName}`), start);
-                                                        marker['key'] = key;
-                                                        marker['endNode'] = subReg.start = subReg.end = endMarker;
-                                                        subscriber = {
-                                                            parent,
-                                                            marker,
-                                                            end: endMarker,
-                                                            builder: (bUpdateable ? bodyBuilder : undefined),
-                                                            env: (bUpdateable ? env.slice() : undefined),
-                                                        };
-                                                        if (key != null) {
-                                                            if (keyMap.has(key))
-                                                                throw `Duplicate key '${key}'`;
-                                                            keyMap.set(key, subscriber);
-                                                        }
-                                                    }
-                                                    if (hash != null
-                                                        && (hash == marker['hash']
-                                                            || (marker['hash'] = hash, false))) { }
-                                                    else
-                                                        bodyBuilder.call(this, subReg);
-                                                    start = subReg.end.nextSibling;
-                                                    if (bUpdateable)
-                                                        rvar.Subscribe(subscriber);
-                                                    prevItem = item;
-                                                    index++;
-                                                    RemoveStaleItemsHere();
-                                                }
-                                                env.length = contextLength;
-                                                region.start = end.nextSibling;
-                                            };
-                                        }
-                                        finally {
-                                            this.Context.length = contextLength;
-                                        }
-                                    }
-                                }
+                                builder = this.CompileForeach(srcParent, srcElm);
                                 break;
                             case 'INCLUDE':
                                 {
@@ -464,23 +340,10 @@ class RCompiler {
                                 break;
                             case 'WINDOW':
                             case 'PRINT':
-                                {
-                                }
+                                { }
                                 break;
                             case 'SCRIPT':
-                                {
-                                    srcParent.removeChild(srcElm);
-                                    if (!(this.settings.bRunScripts || srcElm.hasAttribute('nomodule')))
-                                        continue;
-                                    const content = this.CompileExpression(srcElm.textContent, '{}', true);
-                                    let bDone = false;
-                                    builder = function SCRIPT(region) {
-                                        if (!bDone) {
-                                            content(region.env);
-                                            bDone = true;
-                                        }
-                                    };
-                                }
+                                builder = this.CompileScript(srcParent, srcElm);
                                 break;
                             default:
                                 buildElement: {
@@ -711,7 +574,8 @@ class RCompiler {
                     srcNode.remove();
                     continue;
             }
-            builders.push([builder, srcNode]);
+            if (builder)
+                builders.push([builder, srcNode]);
         }
         ;
         this.sourceNodeCount += childNodes.length;
@@ -743,6 +607,154 @@ class RCompiler {
                 region.env.length = envLength;
             }
         };
+    }
+    CompileScript(srcParent, srcElm) {
+        srcParent.removeChild(srcElm);
+        if (!(this.settings.bRunScripts || srcElm.hasAttribute('nomodule')))
+            return null;
+        const content = this.CompileExpression(srcElm.textContent, '{}', true);
+        let bDone = false;
+        return function SCRIPT(region) {
+            if (!bDone) {
+                content(region.env);
+                bDone = true;
+            }
+        };
+    }
+    CompileForeach(srcParent, srcElm) {
+        const varName = OptionalAttribute(srcElm, 'let'), ofExpression = RequiredAttribute(srcElm, 'of');
+        if (!varName) {
+            const slot = this.Components.find(C => C.TagName == ofExpression);
+            if (!slot)
+                throw `Missing attribute [let]`;
+            const bodyBuilder = this.CompileChildNodes(srcElm);
+            srcParent.removeChild(srcElm);
+            return function FOREACH_Slot(region) {
+                const { parent, env } = region;
+                let { start, end, } = PrepareRegion(srcElm, region);
+                const subReg = { parent, start, end, env, };
+                const slotBuilders = slot.Builders;
+                for (let slotBuilder of slotBuilders) {
+                    slot.Builders = [slotBuilder];
+                    bodyBuilder.call(this, subReg);
+                }
+                slot.Builders = slotBuilders;
+                region.start = end.nextSibling;
+            };
+        }
+        else {
+            ;
+            ;
+            ;
+            const getRange = this.CompileExpression(ofExpression);
+            const indexName = srcElm.getAttribute('index');
+            const prevName = srcElm.getAttribute('previous');
+            const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
+            const updatesTo = srcElm.getAttribute('updates');
+            const getUpdatesTo = updatesTo && this.CompileExpression(updatesTo);
+            const contextLength = this.Context.length;
+            try {
+                const iVar = this.Context.push(varName) - 1;
+                const getKey = this.CompileExpression(srcElm.getAttribute('key'));
+                const getHash = this.CompileExpression(srcElm.getAttribute('hash'));
+                const iIndex = (indexName ? this.Context.push(indexName) : 0) - 1;
+                const iPrevious = (prevName ? this.Context.push(prevName) : 0) - 1;
+                if (srcElm.childNodes.length == 0)
+                    throw "FOREACH has an empty body.\nIf you placed <FOREACH> within a <table>, then the parser has rearranged these elements.\nUse <table.>, <tr.> etc instead.";
+                const bodyBuilder = this.CompileChildNodes(srcElm);
+                srcParent.removeChild(srcElm);
+                return function FOREACH(region) {
+                    const { parent, env } = region;
+                    let { marker, start, end, bInit } = PrepareRegion(srcElm, region, null, (getKey == null));
+                    const subReg = { parent, start, end, env, };
+                    let index = 0, prevItem = null;
+                    const keyMap = (bInit ? marker['keyMap'] = new Map() : marker['keyMap']);
+                    const newMap = new Map();
+                    for (const item of getRange(env)) {
+                        env[iVar] = item;
+                        const hash = getHash && getHash(env);
+                        const key = getKey ? getKey(env) : hash;
+                        newMap.set(key ?? {}, [item, hash]);
+                    }
+                    function RemoveStaleItemsHere() {
+                        let key;
+                        while (start != end && start && !newMap.has(key = start['key'])) {
+                            if (key != null)
+                                keyMap.delete(key);
+                            let node = start;
+                            start = start['endNode'].nextSibling;
+                            while (node != start) {
+                                const next = node.nextSibling;
+                                parent.removeChild(node);
+                                node = next;
+                            }
+                        }
+                    }
+                    RemoveStaleItemsHere();
+                    for (const [key, [item, hash]] of newMap) {
+                        let rvar = (getUpdatesTo ? this.RVAR_Light(item, Array.from(getUpdatesTo(env).Subscribers))
+                            : bUpdateable ? this.RVAR_Light(item)
+                                : item);
+                        env[iVar] = rvar;
+                        if (iIndex >= 0)
+                            env[iIndex] = index;
+                        if (iPrevious >= 0)
+                            env[iPrevious] = prevItem;
+                        let marker;
+                        let subscriber = keyMap.get(key);
+                        if (subscriber && subscriber.marker.isConnected) {
+                            marker = subscriber.marker;
+                            if (marker != start) {
+                                let node = marker.nextSibling;
+                                marker = parent.insertBefore(marker, start);
+                                while (node != subscriber.end) {
+                                    const next = node.nextSibling;
+                                    parent.insertBefore(node, start);
+                                    node = next;
+                                }
+                            }
+                            marker.textContent = `${varName}(${index})`;
+                            subReg.start = marker.nextSibling;
+                            subReg.end = subscriber.end;
+                        }
+                        else {
+                            marker = parent.insertBefore(document.createComment(`${varName}(${index})`), start);
+                            const endMarker = parent.insertBefore(document.createComment(`/${varName}`), start);
+                            marker['key'] = key;
+                            marker['endNode'] = subReg.start = subReg.end = endMarker;
+                            subscriber = {
+                                parent,
+                                marker,
+                                end: endMarker,
+                                builder: (bUpdateable ? bodyBuilder : undefined),
+                                env: (bUpdateable ? env.slice() : undefined),
+                            };
+                            if (key != null) {
+                                if (keyMap.has(key))
+                                    throw `Duplicate key '${key}'`;
+                                keyMap.set(key, subscriber);
+                            }
+                        }
+                        if (hash != null
+                            && (hash == marker['hash']
+                                || (marker['hash'] = hash, false))) { }
+                        else
+                            bodyBuilder.call(this, subReg);
+                        start = subReg.end.nextSibling;
+                        if (bUpdateable)
+                            rvar.Subscribe(subscriber);
+                        prevItem = item;
+                        index++;
+                        RemoveStaleItemsHere();
+                    }
+                    env.length = contextLength;
+                    region.start = end.nextSibling;
+                };
+            }
+            finally {
+                this.Context.length = contextLength;
+            }
+        }
     }
     CompileParam(elm, param) {
         if (elm.hasAttribute(`#${param}`))

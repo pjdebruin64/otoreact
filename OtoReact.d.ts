@@ -57,6 +57,8 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompileChildNodes;
+    private CompileScript;
+    private CompileForeach;
     private CompileParam;
     private CompileInterpolatedString;
     private CompileExpression;
