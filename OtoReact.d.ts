@@ -22,17 +22,15 @@ declare type Subscriber = {
     env: Environment;
     builder: ElmBuilder;
 };
+declare type Parameter = {
+    pid: string;
+    pdefault: Dependent<unknown>;
+};
 declare class Component {
     TagName: string;
-    Parameters: Array<{
-        id: string;
-        default: Dependent<unknown>;
-    }>;
+    Parameters: Array<Parameter>;
     Slots: Array<Component>;
-    constructor(TagName: string, Parameters?: Array<{
-        id: string;
-        default: Dependent<unknown>;
-    }>, Slots?: Array<Component>);
+    constructor(TagName: string, Parameters?: Array<Parameter>, Slots?: Array<Component>);
     Builders: ElmBuilder[];
     ComponentEnv: Environment;
 }
@@ -66,8 +64,9 @@ declare class RCompiler {
     private CompileChildNodes;
     private CompileScript;
     private CompileForeach;
+    private ParseSignature;
+    private CompileComponent;
     private CompileElement;
-    private CompileParam;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
     private CompileExpression;
@@ -93,4 +92,5 @@ declare class _RVAR<T> {
 export declare let RHTML: RCompiler;
 export declare let RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
 export declare let RUpdate: () => void;
+export declare function range(from?: number, to?: number, step?: number): Generator<number, void, unknown>;
 export {};

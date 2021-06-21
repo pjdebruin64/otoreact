@@ -39,16 +39,17 @@ type Dependent<T> = (env: Environment) => T;
 
 type Region     = {parent: Element, start:  ChildNode, end: ChildNode, env: Environment};
 type ElmBuilder = (this: RCompiler, reg: Region) => void;
-
+type FragmentCompiler = (srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) => ElmBuilder
 
 type Subscriber = {parent: Element, marker: ChildNode, end: ChildNode, env: Environment, builder: ElmBuilder };
 
 type Handler = (ev:Event) => any;
 
+type Parameter = {pid: string, pdefault: Dependent<unknown>};
 class Component {
     constructor(
         public TagName: string,
-        public Parameters: Array<{id: string, default: Dependent<unknown>}> = [],
+        public Parameters: Array<Parameter> = [],
         public Slots: Array<Component> = []
     ){ }
 
@@ -115,7 +116,7 @@ class RCompiler {
         this.handleUpdate = orgSetTimeout(() => {
             this.handleUpdate = null;
             this.DoUpdate();
-        }, 10);
+        }, 0);
     }.bind(this) as () => void;
 
     private DoUpdate() {
@@ -123,7 +124,7 @@ class RCompiler {
             return;
         if (!this.bHasReacts && this.bSomethingDirty)
             for (const s of this.AllRegions) this.DirtyRegions.add(s);
-        if (this.DirtyRegions.size == 0)
+        else if (this.DirtyRegions.size == 0)
             return;
         
         const t0 = Date.now();
@@ -210,62 +211,12 @@ class RCompiler {
                                 srcParent.removeChild(srcElm);
 
                                 const varName = OptionalAttribute(srcElm, 'name') ?? RequiredAttribute(srcElm, 'var');
-                                const trExpression = this.CompileAttributeExpression<unknown>(srcElm, 'value');
+                                const getValue = this.CompileAttributeExpression<unknown>(srcElm, 'value');
                                 const iVar = this.Context.push(varName) - 1;
 
                                 builder = function DEFINE(region) {
-                                        region.env[iVar] = trExpression(region.env);
+                                        region.env[iVar] = getValue(region.env);
                                     };
-                            } break;
-
-                            case 'COMPONENT': {
-                                srcParent.removeChild(srcElm);
-
-                                let elmSignature = srcElm.firstElementChild;
-                                if (elmSignature?.tagName == 'SIGNATURE')
-                                    elmSignature = elmSignature.firstElementChild;
-                                if (!elmSignature || elmSignature.tagName=='TEMPLATE')
-                                    throw `Missing signature`;
-
-                                const component =
-                                    function ParseSignature(elmSignature: Element): Component {
-                                        const comp = new Component(elmSignature.tagName);
-                                        for (const attr of elmSignature.attributes)
-                                            comp.Parameters.push(
-                                                /^#/.test(attr.name)
-                                                ?   { id: attr.nodeName.substr(1), default: attr.value ? this.CompileExpression(attr.value) : null }
-                                                :   { id: attr.nodeName, default: attr.value ? this.CompileInterpolatedString(attr.value) : null }
-                                            );
-                                        for (const elmSlot of elmSignature.children)
-                                            comp.Slots.push(ParseSignature(elmSlot));
-                                        return comp;
-                                    }(elmSignature);
-
-                                for(let srcChild of srcElm.children as Iterable<HTMLElement>)
-                                    switch (srcChild.nodeName) {
-                                        case 'SCRIPT':
-                                            const builder = this.CompileScript(srcElm, srcChild);
-                                            if (builder) builders.push([builder, srcChild]);
-                                            break;
-                                        case 'STYLE':
-
-                                            break;
-                                    }
-            
-                                this.Components.push(component);
-            
-                                const template = RequiredChildElement(srcElm, 'TEMPLATE') as HTMLTemplateElement;
-            
-                                this.Context.push(...component.Parameters.map(p => p.id));
-                                this.Components.push(...component.Slots);
-                                component.Builders = [ this.CompileChildNodes(template.content) ];
-                                this.Components.length -= component.Slots.length;
-                                this.Context.length -= component.Parameters.length;       
-                                
-                                builder = (reg) => {
-                                    // At runtime, we just have to remember the environment that matches the context
-                                    component.ComponentEnv = reg.env.slice();
-                                }
                             } break;
 
                             case 'IF': {
@@ -438,7 +389,11 @@ class RCompiler {
                             case 'WINDOW':
                             case 'PRINT': { } break;
 
-                            case 'SCRIPT': builder = this.CompileScript(srcParent, srcElm); break;
+                            case 'SCRIPT': 
+                                builder = this.CompileScript(srcParent, srcElm); break;
+
+                            case 'COMPONENT': 
+                                builders.push(... this.CompileComponent(srcParent, srcElm)); break;
 
                             default:
                                 builder = this.CompileElement(srcParent, srcElm); break;
@@ -516,12 +471,14 @@ class RCompiler {
         const script = srcElm.textContent
             //, bIsModule = (OptionalAttribute(srcElm, 'type') == 'module');
         let bDone = false;  
-        return function SCRIPT(_) {
-            //if (bIsModule)
-            //    import( `data:text/javascript;charset=utf-8,${encodeURI(script)}`);
-            //else
+        return function SCRIPT(_: Region) {
+            if (!bDone) {
+                //if (bIsModule)
+                //    import( `data:text/javascript;charset=utf-8,${encodeURI(script)}`);
+                //else
                 globalEval(`'use strict';${script}`);
-            bDone = true
+                bDone = true;
+            }
         };
             //const content = this.CompileExpression(script, '{}' , true); 
     }
@@ -584,7 +541,7 @@ class RCompiler {
                 srcParent.removeChild(srcElm);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return function FOREACH(region) {
+                return function FOREACH(this: RCompiler, region: Region) {
                         const {parent, env} = region;
                         let {marker, start, end, bInit} = PrepareRegion(srcElm, region, null, (getKey == null));
                         const subReg: Region = {parent, start, end, env, }
@@ -705,6 +662,64 @@ class RCompiler {
         }
     }
 
+    private ParseSignature(elmSignature: Element):  Component {
+        const comp = new Component(elmSignature.tagName);
+        for (const attr of elmSignature.attributes)
+            comp.Parameters.push(
+                /^#/.test(attr.name)
+                ? { pid: attr.nodeName.substr(1), pdefault: attr.value ? this.CompileExpression(attr.value) : null }
+                : { pid: attr.nodeName, pdefault: attr.value ? this.CompileInterpolatedString(attr.value) : null }
+            );
+        for (const elmSlot of elmSignature.children)
+            comp.Slots.push(this.ParseSignature(elmSlot));
+        return comp;
+    }
+
+    private CompileComponent(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement): [ElmBuilder, ChildNode][] {
+        srcParent.removeChild(srcElm);
+        const builders: [ElmBuilder, ChildNode][] = [];
+
+        let elmSignature = srcElm.firstElementChild;
+        if (elmSignature?.tagName == 'SIGNATURE')
+            elmSignature = elmSignature.firstElementChild;
+        if (!elmSignature || elmSignature.tagName=='TEMPLATE')
+            throw `Missing signature`;
+
+        const component = this.ParseSignature(elmSignature);
+
+        for(let srcChild of srcElm.children as Iterable<HTMLElement>)
+            switch (srcChild.nodeName) {
+                case 'SCRIPT':
+                    const builder = this.CompileScript(srcElm, srcChild);
+                    if (builder) builders.push([builder, srcChild]);
+                    break;
+                case 'STYLE':
+
+                    break;
+            }
+
+        this.Components.push(component);
+
+        const template = RequiredChildElement(srcElm, 'TEMPLATE') as HTMLTemplateElement;
+
+        this.Context.push(...component.Parameters.map(p => p.pid));
+        this.Components.push(...component.Slots);
+        try {
+            component.Builders = [ this.CompileChildNodes(template.content) ];
+        }
+        catch (err) {throw `${OuterOpenTag(template)} ${err}`;}
+        finally {
+            this.Components.length -= component.Slots.length;
+            this.Context.length -= component.Parameters.length;       
+        }
+        
+        builders.push( [function(this: RCompiler, reg) {
+            // At runtime, we just have to remember the environment that matches the context
+            component.ComponentEnv = reg.env.slice();
+        }, srcElm]);
+        return builders;
+    }
+
     private CompileElement(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) {
         // See if this node is a user-defined component
         for (let i = this.Components.length-1; i>=0; i--) {
@@ -713,9 +728,21 @@ class RCompiler {
                 /* We have a component - instance */
                 srcParent.removeChild(srcElm);
                 const contextLength = this.Context.length;
-
-                const computeParameters: Array<Dependent<unknown>> =
-                    component.Parameters.map(param => this.CompileParam(srcElm, param.id));
+                let attVal: string;
+                const computeParameters: Array<Dependent<unknown>> = [];
+                for (const {pid, pdefault} of component.Parameters)
+                    try {
+                        computeParameters.push(
+                        ( (attVal = srcElm.getAttribute(`#${pid}`)) != null
+                        ? this.CompileExpression( attVal )
+                        : (attVal = srcElm.getAttribute(pid)) != null
+                        ? this.CompileInterpolatedString( attVal )
+                        : pdefault
+                        ? (_env) => pdefault(component.ComponentEnv)
+                        : thrower(`Missing parameter [${pid}]`)
+                        ))
+                    }
+                    catch (err) { throw `[${pid}]: ${err}`; }
 
                 const slotBuilders : ElmBuilder[][] =
                     component.Slots.map(slot => {
@@ -724,11 +751,11 @@ class RCompiler {
                             if (slotElm.tagName == slot.TagName) 
                                 try {
                                     for (const param of slot.Parameters)
-                                        this.Context.push( RequiredAttribute(slotElm, param.id) || param.id );
+                                        this.Context.push( RequiredAttribute(slotElm, param.pid) || param.pid );
                                     slotBuilderArray.push(this.CompileChildNodes(slotElm))
                                 }
                                 catch (err) {
-                                    throw `${OuterOpenTag(slotElm)}: ${err}`;
+                                    throw `${OuterOpenTag(slotElm)} ${err}`;
                                 }
                                 finally { this.Context.length = contextLength; }
                         return slotBuilderArray;
@@ -935,12 +962,6 @@ class RCompiler {
                     (elm as HTMLScriptElement).text = elm.textContent;
             };
         }
-    }
-
-    private CompileParam(elm: HTMLElement, param: string): Dependent<unknown> {
-        if (elm.hasAttribute(`#${param}`))
-            return this.CompileExpression( elm.getAttribute(`#${param}`));
-        return this.CompileInterpolatedString( RequiredAttribute(elm, param));
     }
 
     private CompileInterpolatedString(data: string, name?: string): Dependent<string> {
@@ -1210,8 +1231,9 @@ function CBool(s: string|boolean, valOnEmpty?: boolean): boolean {
                 return null;
         }
     return s;
-
 }
+
+function thrower(err: string): never { throw err; }
 
 
 // Modify timer functions to include an RUpdate
@@ -1231,3 +1253,13 @@ Object.defineProperties(
     }
 );
 globalThis.RCompile = RCompile;
+
+export function* range(from?: number, to?: number, step: number = 1) {
+	if (to === undefined) {
+		to = from;
+		from = 0;
+	}
+	for (let i= from; i<to; i += step)
+		yield i;
+}
+globalThis.range = range;
