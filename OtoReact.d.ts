@@ -62,11 +62,13 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompileChildNodes;
+    private CallWithErrorHandling;
     private CompileScript;
     private CompileForeach;
     private ParseSignature;
     private CompileComponent;
-    private CompileElement;
+    private CompileComponentInstance;
+    private CompileRegularElement;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
     private CompileExpression;
@@ -92,5 +94,5 @@ declare class _RVAR<T> {
 export declare let RHTML: RCompiler;
 export declare let RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
 export declare let RUpdate: () => void;
-export declare function range(from?: number, to?: number, step?: number): Generator<number, void, unknown>;
+export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
 export {};

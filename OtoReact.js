@@ -144,6 +144,9 @@ class RCompiler {
             switch (srcNode.nodeType) {
                 case Node.ELEMENT_NODE:
                     const srcElm = srcNode;
+                    const reactOn = srcElm.getAttribute('reacton');
+                    if (reactOn != null)
+                        srcElm.attributes.removeNamedItem('reacton');
                     try {
                         switch (srcElm.nodeName) {
                             case 'DEFINE':
@@ -210,6 +213,7 @@ class RCompiler {
                                     };
                                 }
                                 break;
+                            case 'FOR':
                             case 'FOREACH':
                                 builder = this.CompileForeach(srcParent, srcElm);
                                 break;
@@ -277,23 +281,15 @@ class RCompiler {
                                     const bodyBuilder = this.CompileChildNodes(srcElm);
                                     builder = function RHTML(region) {
                                         const { parent, env } = region;
-                                        const elm = document.createElement('RHTML');
-                                        try {
-                                            bodyBuilder.call(this, { parent: elm, start: null, end: null, env });
-                                            const result = elm.innerText;
-                                            const { marker, start, end, bUpdate } = PrepareRegion(srcElm, region, result);
-                                            if (bUpdate) {
-                                                elm.innerHTML = elm.innerText;
-                                                const R = new RCompiler();
-                                                R.Compile(elm, { ...defaultSettings, bRunScripts: true });
-                                                R.Build({ parent, marker, start, end, env: [] });
-                                            }
-                                        }
-                                        catch (err) {
-                                            if (this.settings.bShowErrors)
-                                                parent.insertBefore(document.createTextNode(err), region.start);
-                                            else
-                                                throw err;
+                                        const tempElm = document.createElement('RHTML');
+                                        bodyBuilder.call(this, { parent: tempElm, start: null, end: null, env });
+                                        const result = tempElm.innerText;
+                                        const { marker, start, end, bUpdate } = PrepareRegion(srcElm, region, result);
+                                        if (bUpdate) {
+                                            tempElm.innerHTML = tempElm.innerText;
+                                            const R = new RCompiler();
+                                            R.Compile(tempElm, { ...defaultSettings, bRunScripts: true });
+                                            R.Build({ parent, marker, start, end, env: [] });
                                         }
                                     };
                                 }
@@ -309,20 +305,54 @@ class RCompiler {
                                 builders.push(...this.CompileComponent(srcParent, srcElm));
                                 break;
                             default:
-                                builder = this.CompileElement(srcParent, srcElm);
+                                compileDefault: {
+                                    for (let i = this.Components.length - 1; i >= 0; i--) {
+                                        const component = this.Components[i];
+                                        if (component.TagName == srcElm.tagName) {
+                                            builder = this.CompileComponentInstance(srcParent, srcElm, component);
+                                            break compileDefault;
+                                        }
+                                    }
+                                    builder = this.CompileRegularElement(srcParent, srcElm);
+                                }
                                 break;
                         }
                     }
                     catch (err) {
                         throw `${OuterOpenTag(srcElm)} ${err}`;
                     }
+                    if (reactOn) {
+                        if (!builder)
+                            throw `[reacton] not allowed on <${srcElm.tagName}>`;
+                        this.bHasReacts = true;
+                        const getDependencies = reactOn.split(',').map(expr => this.CompileExpression(expr));
+                        const bodyBuilder = builder;
+                        builder = function REACT(region) {
+                            const { parent, env } = region;
+                            let { start, end, marker, bInit } = PrepareRegion(srcElm, region, null, null, 'reacton');
+                            if (bInit) {
+                                const subscriber = {
+                                    parent, marker: marker, end,
+                                    builder: function reacton(reg) {
+                                        this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
+                                    },
+                                    env: env.slice(),
+                                };
+                                for (const getRvar of getDependencies) {
+                                    const rvar = getRvar(env);
+                                    rvar.Subscribe(subscriber);
+                                }
+                            }
+                            bodyBuilder.call(this, { parent, start, end, env, });
+                        };
+                    }
                     break;
                 case Node.TEXT_NODE:
                     const str = srcNode.data.replace(/^\s+|\s+$/g, ' ');
-                    const trExpres = this.CompileInterpolatedString(str);
+                    const getText = this.CompileInterpolatedString(str);
                     builder = function Text(region) {
                         const { parent, start, end, env } = region;
-                        const content = trExpres(env);
+                        const content = getText(env);
                         if (start == end)
                             parent.insertBefore(document.createTextNode(content), end);
                         else {
@@ -346,28 +376,35 @@ class RCompiler {
             const envLength = region.env.length;
             try {
                 for (const [builder, node] of builders)
-                    try {
-                        builder.call(this, region);
-                        const start = region.start;
-                        if (start && start['RError']) {
-                            region.start = start.nextSibling;
-                            start.remove();
-                        }
-                    }
-                    catch (err) {
-                        const message = node instanceof HTMLElement ? `${OuterOpenTag(node, 40)}${err}` : err;
-                        if (this.settings.bAbortOnError)
-                            throw message;
-                        console.log(message);
-                        if (this.settings.bShowErrors)
-                            region.parent.insertBefore(document.createTextNode(message), region.end)['RError'] = true;
-                    }
+                    this.CallWithErrorHandling(builder, node, region);
                 this.builtNodeCount += builders.length;
             }
             finally {
                 region.env.length = envLength;
             }
         };
+    }
+    CallWithErrorHandling(builder, srcNode, region) {
+        try {
+            try {
+                builder.call(this, region);
+            }
+            finally {
+                const nextStart = region.start;
+                if (nextStart && nextStart['RError']) {
+                    region.start = nextStart.nextSibling;
+                    region.parent.removeChild(nextStart);
+                }
+            }
+        }
+        catch (err) {
+            const message = srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
+            if (this.settings.bAbortOnError)
+                throw message;
+            console.log(message);
+            if (this.settings.bShowErrors)
+                region.parent.insertBefore(document.createTextNode(message), region.end)['RError'] = true;
+        }
     }
     CompileScript(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
@@ -566,225 +603,218 @@ class RCompiler {
             }, srcElm]);
         return builders;
     }
-    CompileElement(srcParent, srcElm) {
-        for (let i = this.Components.length - 1; i >= 0; i--) {
-            const component = this.Components[i];
-            if (component.TagName == srcElm.tagName) {
-                srcParent.removeChild(srcElm);
-                const contextLength = this.Context.length;
-                let attVal;
-                const computeParameters = [];
-                for (const { pid, pdefault } of component.Parameters)
+    CompileComponentInstance(srcParent, srcElm, component) {
+        srcParent.removeChild(srcElm);
+        let attVal;
+        const computeParameters = [];
+        for (const { pid, pdefault } of component.Parameters)
+            try {
+                computeParameters.push(((attVal = srcElm.getAttribute(`#${pid}`)) != null
+                    ? this.CompileExpression(attVal)
+                    : (attVal = srcElm.getAttribute(pid)) != null
+                        ? this.CompileInterpolatedString(attVal)
+                        : pdefault
+                            ? (_env) => pdefault(component.ComponentEnv)
+                            : thrower(`Missing parameter [${pid}]`)));
+            }
+            catch (err) {
+                throw `[${pid}]: ${err}`;
+            }
+        const slotBuilders = component.Slots.map(slot => {
+            const slotBuilderArray = [];
+            for (const slotElm of srcElm.children)
+                if (slotElm.tagName == slot.TagName) {
+                    const contextLength = this.Context.length;
                     try {
-                        computeParameters.push(((attVal = srcElm.getAttribute(`#${pid}`)) != null
-                            ? this.CompileExpression(attVal)
-                            : (attVal = srcElm.getAttribute(pid)) != null
-                                ? this.CompileInterpolatedString(attVal)
-                                : pdefault
-                                    ? (_env) => pdefault(component.ComponentEnv)
-                                    : thrower(`Missing parameter [${pid}]`)));
+                        for (const param of slot.Parameters)
+                            this.Context.push(RequiredAttribute(slotElm, param.pid) || param.pid);
+                        slotBuilderArray.push(this.CompileChildNodes(slotElm));
                     }
                     catch (err) {
-                        throw `[${pid}]: ${err}`;
-                    }
-                const slotBuilders = component.Slots.map(slot => {
-                    const slotBuilderArray = [];
-                    for (let slotElm of srcElm.children)
-                        if (slotElm.tagName == slot.TagName)
-                            try {
-                                for (const param of slot.Parameters)
-                                    this.Context.push(RequiredAttribute(slotElm, param.pid) || param.pid);
-                                slotBuilderArray.push(this.CompileChildNodes(slotElm));
-                            }
-                            catch (err) {
-                                throw `${OuterOpenTag(slotElm)} ${err}`;
-                            }
-                            finally {
-                                this.Context.length = contextLength;
-                            }
-                    return slotBuilderArray;
-                });
-                return (region) => {
-                    const { parent, env } = region;
-                    const { start, end } = PrepareRegion(srcElm, region);
-                    component.ComponentEnv.push(...computeParameters.map(arg => arg(env)));
-                    try {
-                        const prevBuilders = [];
-                        let i = 0;
-                        for (const slot of component.Slots) {
-                            prevBuilders.push(slot.Builders);
-                            slot.Builders = slotBuilders[i++];
-                            slot.ComponentEnv = env.slice();
-                        }
-                        try {
-                            for (let builder of component.Builders)
-                                builder.call(this, { parent, start, end, env: component.ComponentEnv, });
-                        }
-                        finally {
-                            for (const slot of component.Slots)
-                                slot.Builders = prevBuilders.shift();
-                        }
+                        throw `${OuterOpenTag(slotElm)} ${err}`;
                     }
                     finally {
-                        component.ComponentEnv.length -= component.Parameters.length;
+                        this.Context.length = contextLength;
                     }
-                };
+                }
+            return slotBuilderArray;
+        });
+        return (region) => {
+            const { parent, env } = region;
+            const { start, end } = PrepareRegion(srcElm, region);
+            const componentEnv = component.ComponentEnv.slice();
+            componentEnv.push(...computeParameters.map(arg => arg(env)));
+            const prevBuilders = [];
+            let i = 0;
+            for (const slot of component.Slots) {
+                prevBuilders.push(slot.Builders);
+                slot.Builders = slotBuilders[i++];
+                slot.ComponentEnv = env.slice();
+            }
+            try {
+                for (let builder of component.Builders)
+                    builder.call(this, { parent, start, end, env: componentEnv, });
+            }
+            finally {
+                i = 0;
+                for (const slot of component.Slots)
+                    slot.Builders = prevBuilders[i++];
+            }
+        };
+    }
+    CompileRegularElement(srcParent, srcElm) {
+        const nodeName = srcElm.nodeName.replace(/\.$/, '');
+        const arrModifiers = [];
+        for (const attr of srcElm.attributes) {
+            const attrName = attr.name;
+            let m;
+            try {
+                if (m = /^on(.*)$/i.exec(attrName)) {
+                    const oHandler = this.CompileExpression(`function ${attrName}(event){${CheckForComments(attr.value)}}`);
+                    arrModifiers.push({
+                        modType: ModifierType.Event, name: m[1],
+                        depValue: oHandler
+                    });
+                }
+                else if (m = /^#class:(.*)$/.exec(attrName))
+                    arrModifiers.push({
+                        modType: ModifierType.Class, name: m[1],
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^#style\.(.*)$/.exec(attrName))
+                    arrModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (attrName == '+style')
+                    arrModifiers.push({
+                        modType: ModifierType.AddToStyle, name: null,
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^#(.*)/.exec(attrName))
+                    arrModifiers.push({
+                        modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (attrName == "+class")
+                    arrModifiers.push({
+                        modType: ModifierType.AddToClassList, name: null,
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (attrName == "apply")
+                    arrModifiers.push({
+                        modType: ModifierType.Apply, name: null,
+                        depValue: this.CompileExpression(`function apply(){${CheckForComments(attr.value)}}`)
+                    });
+                else if (m = /^\*(\*)?(.*)$/.exec(attrName)) {
+                    const propName = CapitalizeProp(m[2]);
+                    const setter = this.CompileExpression(`function (){${attr.value} = this.${propName}; }`);
+                    arrModifiers.push({
+                        modType: ModifierType.Apply, name: null,
+                        depValue: setter,
+                    });
+                    arrModifiers.push({
+                        modType: ModifierType.Event, name: m[1] ? 'change' : 'input', tag: propName, depValue: setter,
+                    });
+                }
+                else if (m = /^@(@)?(.*)$/.exec(attrName)) {
+                    const propName = CapitalizeProp(m[2]);
+                    const setter = this.CompileExpression(`function (){${attr.value} = this.${propName}; }`);
+                    arrModifiers.push({
+                        modType: ModifierType.Prop, name: propName,
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                    arrModifiers.push({
+                        modType: ModifierType.Event, name: m[1] ? 'change' : 'input', tag: propName, depValue: setter,
+                    });
+                }
+                else
+                    arrModifiers.push({
+                        modType: ModifierType.Attr, name: attrName,
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
+            }
+            catch (err) {
+                throw (`[${attrName}]: ${err}`);
             }
         }
-        {
-            const nodeName = srcElm.nodeName.replace(/\.$/, '');
-            const arrModifiers = [];
-            for (const attr of srcElm.attributes) {
-                const attrName = attr.name;
-                let m;
-                try {
-                    if (m = /^on(.*)$/i.exec(attrName)) {
-                        const oHandler = this.CompileExpression(`function ${attrName}(event){${CheckForComments(attr.value)}}`);
-                        arrModifiers.push({
-                            modType: ModifierType.Event, name: m[1],
-                            depValue: oHandler
-                        });
-                    }
-                    else if (m = /^#class:(.*)$/.exec(attrName))
-                        arrModifiers.push({
-                            modType: ModifierType.Class, name: m[1],
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                    else if (m = /^#style\.(.*)$/.exec(attrName))
-                        arrModifiers.push({
-                            modType: ModifierType.Style, name: CapitalizeProp(m[1]),
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                    else if (attrName == '+style')
-                        arrModifiers.push({
-                            modType: ModifierType.AddToStyle, name: null,
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                    else if (m = /^#(.*)/.exec(attrName))
-                        arrModifiers.push({
-                            modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                    else if (attrName == "+class")
-                        arrModifiers.push({
-                            modType: ModifierType.AddToClassList, name: null,
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                    else if (attrName == "apply")
-                        arrModifiers.push({
-                            modType: ModifierType.Apply, name: null,
-                            depValue: this.CompileExpression(`function apply(){${CheckForComments(attr.value)}}`)
-                        });
-                    else if (m = /^\*(\*)?(.*)$/.exec(attrName)) {
-                        const propName = CapitalizeProp(m[2]);
-                        const setter = this.CompileExpression(`function (){${attr.value} = this.${propName}; }`);
-                        arrModifiers.push({
-                            modType: ModifierType.Apply, name: null,
-                            depValue: setter,
-                        });
-                        arrModifiers.push({
-                            modType: ModifierType.Event, name: m[1] ? 'change' : 'input', tag: propName, depValue: setter,
-                        });
-                    }
-                    else if (m = /^@(@)?(.*)$/.exec(attrName)) {
-                        const propName = CapitalizeProp(m[2]);
-                        const setter = this.CompileExpression(`function (){${attr.value} = this.${propName}; }`);
-                        arrModifiers.push({
-                            modType: ModifierType.Prop, name: propName,
-                            depValue: this.CompileExpression(attr.value)
-                        });
-                        arrModifiers.push({
-                            modType: ModifierType.Event, name: m[1] ? 'change' : 'input', tag: propName, depValue: setter,
-                        });
-                    }
-                    else
-                        arrModifiers.push({
-                            modType: ModifierType.Attr, name: attrName,
-                            depValue: this.CompileInterpolatedString(attr.value)
-                        });
-                }
-                catch (err) {
-                    throw (`[${attrName}]: ${err}`);
-                }
+        const childnodesBuilder = this.CompileChildNodes(srcElm);
+        return function Element(region) {
+            const { parent, start, end, env, } = region;
+            let elm, bNew;
+            if (bNew = (start == end)) {
+                elm = document.createElement(nodeName);
+                parent.insertBefore(elm, end);
             }
-            const childnodesBuilder = this.CompileChildNodes(srcElm);
-            return function Element(region) {
-                const { parent, start, end, env, } = region;
-                let elm, bNew;
-                if (bNew = (start == end)) {
+            else {
+                region.start = start.nextSibling;
+                if (start.nodeName != nodeName) {
                     elm = document.createElement(nodeName);
-                    parent.insertBefore(elm, end);
+                    parent.replaceChild(elm, srcElm);
+                    bNew = true;
                 }
                 else {
-                    region.start = start.nextSibling;
-                    if (start.nodeName != nodeName) {
-                        elm = document.createElement(nodeName);
-                        parent.replaceChild(elm, srcElm);
-                        bNew = true;
-                    }
-                    else {
-                        elm = start;
-                        elm.classList.remove(...elm.classList);
-                    }
+                    elm = start;
+                    elm.classList.remove(...elm.classList);
                 }
-                childnodesBuilder.call(this, { parent: elm, start: elm.firstChild, end: null, env, });
-                for (const mod of arrModifiers) {
-                    const attName = mod.name;
-                    try {
-                        const val = mod.depValue(env);
-                        switch (mod.modType) {
-                            case ModifierType.Attr:
-                                elm.setAttribute(attName, val ?? '');
-                                break;
-                            case ModifierType.Prop:
-                                if (val != null)
-                                    elm[attName] = val;
-                                else
-                                    delete elm[attName];
-                                break;
-                            case ModifierType.Event:
-                                {
-                                    const tag = `$$${mod.tag ?? attName}`;
-                                    let prevHandler;
-                                    if (prevHandler = elm[tag])
-                                        elm.removeEventListener(attName, prevHandler);
-                                    elm.addEventListener(attName, elm[tag] = UpdateHandler(this, val.bind(elm)));
-                                }
-                                break;
-                            case ModifierType.Class:
-                                if (val)
-                                    elm.classList.add(attName);
-                                break;
-                            case ModifierType.Style:
-                                if (val)
-                                    elm.style[attName] = val;
-                                else
-                                    delete elm.style[attName];
-                                break;
-                            case ModifierType.Apply:
-                                val.call(elm);
-                                break;
-                            case ModifierType.AddToStyle:
-                                Object.assign(elm.style, val);
-                                break;
-                            case ModifierType.AddToClassList:
-                                if (Array.isArray(val))
-                                    for (const className of val)
+            }
+            childnodesBuilder.call(this, { parent: elm, start: elm.firstChild, end: null, env, });
+            for (const mod of arrModifiers) {
+                const attName = mod.name;
+                try {
+                    const val = mod.depValue(env);
+                    switch (mod.modType) {
+                        case ModifierType.Attr:
+                            elm.setAttribute(attName, val ?? '');
+                            break;
+                        case ModifierType.Prop:
+                            if (val != null)
+                                elm[attName] = val;
+                            else
+                                delete elm[attName];
+                            break;
+                        case ModifierType.Event:
+                            {
+                                const tag = `$$${mod.tag ?? attName}`;
+                                let prevHandler;
+                                if (prevHandler = elm[tag])
+                                    elm.removeEventListener(attName, prevHandler);
+                                elm.addEventListener(attName, elm[tag] = UpdateHandler(this, val.bind(elm)));
+                            }
+                            break;
+                        case ModifierType.Class:
+                            if (val)
+                                elm.classList.add(attName);
+                            break;
+                        case ModifierType.Style:
+                            if (val)
+                                elm.style[attName] = val;
+                            else
+                                delete elm.style[attName];
+                            break;
+                        case ModifierType.Apply:
+                            val.call(elm);
+                            break;
+                        case ModifierType.AddToStyle:
+                            Object.assign(elm.style, val);
+                            break;
+                        case ModifierType.AddToClassList:
+                            if (Array.isArray(val))
+                                for (const className of val)
+                                    elm.classList.add(className);
+                            else
+                                for (const [className, bln] of Object.entries(val))
+                                    if (bln)
                                         elm.classList.add(className);
-                                else
-                                    for (const [className, bln] of Object.entries(val))
-                                        if (bln)
-                                            elm.classList.add(className);
-                        }
-                    }
-                    catch (err) {
-                        throw `[${attName}]: ${err}`;
                     }
                 }
-                if (nodeName == 'SCRIPT')
-                    elm.text = elm.textContent;
-            };
-        }
+                catch (err) {
+                    throw `[${attName}]: ${err}`;
+                }
+            }
+            if (nodeName == 'SCRIPT')
+                elm.text = elm.textContent;
+        };
     }
     CompileInterpolatedString(data, name) {
         const generators = [];
@@ -847,12 +877,13 @@ class RCompiler {
         }
     }
 }
-function PrepareRegion(srcElm, region, result = null, bForcedClear = false) {
+function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name) {
     let { parent, start } = region;
     let marker, end, bInit, bUpdate;
     if (bInit = !(start && (end = start['endNode']))) {
-        marker = parent.insertBefore(document.createComment(srcElm.tagName), start);
-        end = parent.insertBefore(document.createComment(`/${srcElm.tagName}`), start == srcElm ? srcElm.nextSibling : start);
+        name || (name = srcElm.tagName);
+        marker = parent.insertBefore(document.createComment(name), start);
+        end = parent.insertBefore(document.createComment(`/${name}`), start == srcElm ? start.nextSibling : start);
         marker['endNode'] = end;
     }
     else {
@@ -978,7 +1009,7 @@ function OptionalChildElement(elm, name) {
     return result;
 }
 function OuterOpenTag(elm, maxLength) {
-    return Abbreviate(/<.*?>/.exec(elm.outerHTML)[0], maxLength);
+    return Abbreviate(/<.*?(?=>)/.exec(elm.outerHTML)[0], maxLength - 1) + '>';
 }
 function Abbreviate(s, maxLength) {
     if (maxLength && s.length > maxLength)
@@ -1014,12 +1045,12 @@ Object.defineProperties(globalThis, {
     setInterval: { get: () => RHTML.setInterval },
 });
 globalThis.RCompile = RCompile;
-export function* range(from, to, step = 1) {
-    if (to === undefined) {
-        to = from;
+export function* range(from, upto, step = 1) {
+    if (upto === undefined) {
+        upto = from;
         from = 0;
     }
-    for (let i = from; i < to; i += step)
+    for (let i = from; i < upto; i += step)
         yield i;
 }
 globalThis.range = range;

@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <head>
     <style>
         :root { 
@@ -34,6 +35,7 @@
         table.demo > tr > th, table.demo > tr > td > * { padding: 8px; }
         table.demo > tr > *:nth-child(1) {background-color: rgb(245, 245, 245);}
         table.demo > tr > *:nth-child(2) {background-color: rgb(225, 255, 181); min-width:375px;}
+        pre.nodisplay {display: none}
 
 
         .tic-tac-toe td {
@@ -74,7 +76,7 @@
     What&apos;s your name?
     <input type=text *value="yourName.V">
 </p>
-<if #cond="yourName.V">
+<if #cond="yourName.V" reacton=yourName>
     <p>
         Nice to meet you, \{yourName.V\}.
         <br>By the way, your name consists of \{yourName.V.length\} characters.
@@ -131,24 +133,37 @@
             </th.><th.>Live result</th.></tr.>
             <tr.>
                 <td.>
-                    <react on=rShow>
-                        <if #cond=rShow.V>
-                            <pre contenteditable=true spellcheck=false @innerText="MyRVAR.V"></pre>
-                        </if>
-                    </react>
+                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
+                    contenteditable=true spellcheck=false @innerText="MyRVAR.V"></pre>
                 </td.>
                 <td.><div>
-                    <react on="MyRVAR">
-                        <RHTML>
-                            {MyRVAR.V}
-                        </RHTML>
-                    </react>
+                    <RHTML reacton=MyRVAR>
+                        {MyRVAR.V}
+                    </RHTML>
                 </div></td.>
             </tr.>
         </table.>
     </template>
 </component>
 
+<h2>Limitations inflicted by the parser</h2>
+<h3>Re-arranged elements</h3>
+<h3>Attribute names are considered lowercase</h3>
+<h3>Missing error messages</h3>
+
+<h2>Setup</h2>
+
+<h2>Elements</h2>
+
+<h3>Attributes and properties</h3>
+
+<h3>Events</h3>
+
+<h3>Classes</h3>
+
+<h3>Styles</h3>
+
+<h3>Apply</h3>
 
 <h3>RVAR()</h3>
 <demo content="<script type=module>
@@ -171,16 +186,21 @@
     </p>
 </if>"></demo>
 
-<h3>&lt;FOREACH let #of&gt;</h3>
+
+<h3>&lt;IF #cond&gt;</h3>
+
+<h3>&lt;CASE&gt; &lt;WHEN #cond&gt; &lt;ELSE&gt;</h3>
+
+<h3>&lt;FOR let #of&gt;</h3>
 <demo content="<script nomodule>
     let P = RVAR('Participants', ['Joe', 'Mary', 'Eileen'] );
 </script>
 
 <p><b>Participants:</b></p>
 <ul>
-    <foreach let=participant #of=&quot;Participants.V&quot;>
+    <for let=participant #of=&quot;Participants.V&quot;>
         <li>\{participant\}</li>
-    </foreach>
+    </for>
 </ul>
 <p>
     New participant (Enter):
@@ -191,6 +211,9 @@
 </p>">
 </demo>
 
+<h3>&lt;DEFINE var #value&gt;</h3>
+
+<h3>&lt;SCRIPT&gt;</h3>
 
 <h3>&lt;COMPONENT&gt;</h3>
 <demo content="<script type=module>
@@ -215,7 +238,7 @@
     <template>
         <p><b>\{caption\}</b></p>
         <p>
-            <foreach let=item #of=TODO.V updates=TODO>
+            <for let=item #of=TODO.V updates=TODO>
                 <if cond='item[1] == bdone'>
                     <label>
                         <input type=checkbox @checked='item.U[1]'> 
@@ -223,7 +246,7 @@
                     </label>
                     <br>
                 </if>
-            </foreach>
+            </for>
         </p>
     </template>
 </component>
@@ -285,31 +308,27 @@
     </script>
 
     <table. class=tic-tac-toe style=&quot;grid-area: 2/1; width: fit-content; margin:1ex&quot;>
-        <react on=board>
-            <foreach let=row #of=&quot;board.V&quot;>
-                <tr.>
-                    <foreach let=cell #of=row updates=board>
-                        <td. onclick=&quot;!winner.V && !cell.V && Move(cell)&quot;
-                        >\{cell.V ?? ''\}</td.>
-                    </foreach>
-                </tr.>
-            </foreach>
-        </react>
+        <for let=row #of=&quot;board.V&quot; reacton=board>
+            <tr.>
+                <for let=cell #of=row updates=board>
+                    <td. onclick=&quot;!winner.V && !cell.V && Move(cell)&quot;
+                    >\{cell.V ?? ''\}</td.>
+                </for>
+            </tr.>
+        </for>
     </table.>
     <div style=&quot;grid-row: 2; grid-column: 2;&quot;>
-        <react on=toMove,winner>
-            <if #cond=&quot;winner.V&quot;>
-                <p><b>The winner is: <large>\{winner.V\}</large></b></p>
-            </if>
-            <p>Player to move: \{toMove.V\}</p>
-            <button onclick=&quot;ClearAll()&quot;>Clear</button>
-        </react>
+        <if #cond=&quot;winner.V&quot; reacton=winner>
+            <p><b>The winner is: <large>\{winner.V\}</large></b></p>
+        </if>
+        <p reacton=toMove>Player to move: \{toMove.V\}</p>
+        <button onclick=&quot;ClearAll()&quot;>Clear</button>
     </div>
 </div>">
 </demo>
 
 
-<h3>&lt;FOREACH #of&gt; over component slots</h3>
+<h3>&lt;FOR #of&gt; over component slots</h3>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false content="<script type=module>
     globalThis.data = [\{name:'Piet', age:18\}, \{name:'Tine', age:19\}];
@@ -324,17 +343,17 @@ Here is a component which allows one to define tables column by column.
     <template>
         <table.>
             <tr.>
-                <foreach of=HDEF>
+                <for of=HDEF>
                     <th.><HDEF></HDEF></th.>
-                </foreach>
+                </for>
             </tr.>
-            <foreach let=rec #of='datasource'>
+            <for let=rec #of='datasource'>
                 <tr.>
-                    <foreach of=DDEF>
+                    <for of=DDEF>
                         <td.><DDEF #item=rec></DDEF></th>
-                    </foreach>
+                    </for>
                 </tr.>
-            </foreach>
+            </for>
         </table.>
     </template>
 </component>
@@ -350,8 +369,12 @@ Here is a component which allows one to define tables column by column.
 >
 </demo>
 
-<h3>Routing</h3>
+<h3>&lt;INCLUDE src&gt;</h3>
 
-<h2>Setup</h2>
+<h3>&lt;IMPORT src&gt;</h3>
+
+<h3>&lt;RHTML&gt;</h3>
+
+<h3>Routing</h3>
 
 </body>
