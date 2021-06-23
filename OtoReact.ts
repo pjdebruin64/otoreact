@@ -37,7 +37,7 @@ type Environment = Array<unknown>;
 // Dit wordt de betekenis, denotatie, van een expressie van type T.
 type Dependent<T> = (env: Environment) => T;
 
-type Region     = {parent: Element, marker?: ChildNode, start:  ChildNode, bInit: boolean, env: Environment};
+type Region     = {parent: Element, marker?: ChildNode, start:  ChildNode, bInit: boolean, env: Environment, lastMarker?: ChildNode};
 type ElmBuilder = (this: RCompiler, reg: Region) => void;
 type ParentNode = HTMLElement|DocumentFragment;
 //type FragmentCompiler = (srcParent: ParentNode, srcElm: HTMLElement) => ElmBuilder
@@ -820,7 +820,6 @@ class RCompiler {
                     slot.Builders = prevBuilders[i++];
             }
         }
-
     }
 
     private CompileRegularElement(srcParent: ParentNode, srcElm: HTMLElement) {
@@ -905,10 +904,10 @@ class RCompiler {
 
         // Now the runtime action
         return function Element(region: Region) {
-            const {parent, start, bInit, env, } = region;
+            const {parent, start, bInit, env, lastMarker} = region;
             // Create the element
             let elm: HTMLElement;
-            if (start?.nodeType == Node.ELEMENT_NODE) {
+            if (!bInit || start == srcElm) {
                 region.start = start.nextSibling;
                 if ((start as HTMLElement).tagName == nodeName) {
                     elm = start as HTMLElement;
@@ -923,6 +922,9 @@ class RCompiler {
                 elm = document.createElement(nodeName);
                 parent.insertBefore(elm, start);
             }
+            if (bInit && lastMarker)
+                lastMarker['nextM'] = elm;
+            region.lastMarker = null;
             
             // Add all children
             childnodesBuilder.call(this, {parent: elm, start: elm.firstChild, bInit, env, });
@@ -1068,21 +1070,22 @@ class RCompiler {
     Anders worden zowel start- als eindmarkering vóór 'start' geplaatst.
 */
 function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, name?: string) {
-    let {parent, start, bInit} = region;
+    let {parent, start, bInit, lastMarker} = region;
     let marker: Comment, endMarker: Comment;
     if (bInit) {
         name ||= srcElm.tagName;
         marker = parent.insertBefore(document.createComment(name), start);
-        marker['endNode'] = endMarker = parent.insertBefore(
-            document.createComment(`/${name}`),
-            start == srcElm ? start.nextSibling : start);
+        if (lastMarker)
+            lastMarker['nextM'] = marker;
+        
+        //marker['endNode'] = endMarker = parent.insertBefore(document.createComment(`/${name}`), start);
+        region.start = start == srcElm ? start.nextSibling : start;
     }
     else {
         marker = start as Comment;
-        endMarker = marker['endNode'];
+        region.start = marker['nextM'];
     }
     start = marker.nextSibling;
-    region.start = endMarker.nextSibling;
 
     if (bInit ||= (bForcedClear || (result != marker['result'] ?? null)) ) {
         marker['result'] = result;
