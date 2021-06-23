@@ -12,7 +12,6 @@ declare type Region = {
     parent: Element;
     marker?: ChildNode;
     start: ChildNode;
-    end: ChildNode;
     bInit: boolean;
     env: Environment;
 };
@@ -20,7 +19,6 @@ declare type ElmBuilder = (this: RCompiler, reg: Region) => void;
 declare type Subscriber = {
     parent: Element;
     marker: ChildNode;
-    end: ChildNode;
     env: Environment;
     builder: ElmBuilder;
 };
