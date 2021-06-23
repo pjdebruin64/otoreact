@@ -10,8 +10,10 @@ declare type Environment = Array<unknown>;
 declare type Dependent<T> = (env: Environment) => T;
 declare type Region = {
     parent: Element;
+    marker?: ChildNode;
     start: ChildNode;
     end: ChildNode;
+    bInit: boolean;
     env: Environment;
 };
 declare type ElmBuilder = (this: RCompiler, reg: Region) => void;
@@ -62,6 +64,7 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompileChildNodes;
+    private CompileElement;
     private CallWithErrorHandling;
     private CompileScript;
     private CompileForeach;

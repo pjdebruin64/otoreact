@@ -16,7 +16,7 @@ export function RCompile(elm: HTMLElement, settings?: typeof defaultSettings) {
         orgSetTimeout(
             () => {
                 const t0 = Date.now();
-                R.Build({parent: elm, start: elm.firstChild, end: null, env: [], });
+                R.Build({parent: elm, start: elm.firstChild, end: null, bInit: true, env: [], });
                 console.log(`Built ${R.builtNodeCount} nodes in ${Date.now() - t0} ms`)
             }
         , 0);
@@ -37,9 +37,10 @@ type Environment = Array<unknown>;
 // Dit wordt de betekenis, denotatie, van een expressie van type T.
 type Dependent<T> = (env: Environment) => T;
 
-type Region     = {parent: Element, start:  ChildNode, end: ChildNode, env: Environment};
+type Region     = {parent: Element, marker?: ChildNode, start:  ChildNode, end: ChildNode, bInit: boolean, env: Environment};
 type ElmBuilder = (this: RCompiler, reg: Region) => void;
-type FragmentCompiler = (srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) => ElmBuilder
+type ParentNode = HTMLElement|DocumentFragment;
+//type FragmentCompiler = (srcParent: ParentNode, srcElm: HTMLElement) => ElmBuilder
 
 type Subscriber = {parent: Element, marker: ChildNode, end: ChildNode, env: Environment, builder: ElmBuilder };
 
@@ -193,288 +194,45 @@ class RCompiler {
     private sourceNodeCount = 0;   // To check for empty Content
     public builtNodeCount = 0;
 
-    private CompileChildNodes(srcParent: HTMLElement | DocumentFragment): ElmBuilder {
+    private CompileChildNodes(
+        srcParent: ParentNode, 
+        childNodes: ChildNode[] = Array.from( srcParent.childNodes )
+    ): ElmBuilder {
         const builders = [] as Array< [ElmBuilder, ChildNode] >;
         const contextLength = this.Context.length;
         const componentsLength = this.Components.length;
-
-        const childNodes = Array.from( srcParent.childNodes );
+;
         for (const srcNode of childNodes)
         {
-            let builder: ElmBuilder;
             switch (srcNode.nodeType) {
                 
                 case Node.ELEMENT_NODE:
-                    const srcElm = srcNode as HTMLElement;
-                    const reactOn = srcElm.getAttribute('reacton');
-                    if (reactOn != null)
-                        srcElm.attributes.removeNamedItem('reacton');
-                    try {
-                        switch (srcElm.nodeName) {
-                            case 'DEFINE': { // 'LET' staat de parser niet toe.
-                                // En <DEFINE> moet helaas afgesloten worden met </DEFINE>; <DEFINE /> wordt niet herkend.
-                                srcParent.removeChild(srcElm);
-
-                                const varName = OptionalAttribute(srcElm, 'name') ?? RequiredAttribute(srcElm, 'var');
-                                const getValue = this.CompileAttributeExpression<unknown>(srcElm, 'value');
-                                const iVar = this.Context.push(varName) - 1;
-
-                                builder = function DEFINE(region) {
-                                        region.env[iVar] = getValue(region.env);
-                                    };
-                            } break;
-
-                            case 'IF': {
-                                const computeCondition = this.CompileAttributeExpression<boolean>(srcElm, 'cond');
-                                const trThen = this.CompileChildNodes(srcElm);
-
-                                builder = function IF(region) {
-                                        const {parent, env} = region;
-                                        const result = computeCondition(region.env) ? true : false;
-                                        const {start, end} = PrepareRegion(srcElm, region, result);
-
-                                        if (result)
-                                            trThen.call(this, {parent, start, end, env, });
-                                    };
-                            } break;
-        
-                            case 'CASE': {
-                                const caseList = [] as Array<{condition: Dependent<boolean>, builder: ElmBuilder, child: HTMLElement}>;
-                                for (const child of srcElm.children as Iterable<HTMLElement>) {
-                                    switch (child.nodeName) {
-                                        case 'WHEN':
-                                            caseList.push({
-                                                condition: this.CompileAttributeExpression<boolean>(child, 'cond')
-                                                , builder: this.CompileChildNodes(child)
-                                                , child
-                                            });
-                                            break;
-                                        case 'ELSE':
-                                            caseList.push({
-                                                condition: (_env) => true
-                                                , builder: this.CompileChildNodes(child)
-                                                , child
-                                            });
-                                            break;
-                                    }
-                                }
-
-                                builder = function CASE(region) {
-                                    const {parent, env} = region;
-
-                                    let result: ElmBuilder = null;
-                                    for (const alt of caseList)
-                                        try {
-                                            if (alt.condition(region.env)) {
-                                                result = alt.builder; break;
-                                            }
-                                        } catch (err) { throw `${OuterOpenTag(alt.child)}${err}`; }
-                                        
-                                    const {start, end} = PrepareRegion(srcElm, region, result);
-                                    if (result)
-                                        result.call(this, {parent, start, end, env, });
-                                };
-                            } break;
-                                    
-                            case 'FOR':
-                            case 'FOREACH':
-                                builder = this.CompileForeach(srcParent, srcElm);
-                            break;
-                                
-                            case 'INCLUDE': {
-                                const src = RequiredAttribute(srcElm, 'src');
-                                const context = this.Context.slice(), components = this.Components.slice();
-                                // Placeholder that will contain a Template when the file has been received
-                                let C: RCompiler = null;
-                                // List of nodes that have to be build when the builder is received
-                                let arrToBuild: Array<Region> = [];
-                                
-                                fetch(src)
-                                .then(async response => {
-                                    const textContent = await response.text();
-                                    // Parse the contents of the file
-                                    const parser = new DOMParser();
-                                    const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
-
-                                    // Compile the parsed contents of the file in the original context
-                                    C = new RCompiler(context, components);
-                                    C.Compile(parsedContent.body, this.settings, );
-
-                                    // Achterstallige Builds uitvoeren
-                                    for (const {parent, start, end, env} of arrToBuild)
-                                        if (parent.isConnected)   // Sommige zijn niet meer nodig
-                                        {
-                                            parent.removeChild(start);
-                                            C.Builder({parent, start: end, end, env, });
-                                        }
-
-                                    arrToBuild = null;
-                                });
-
-                                builder = 
-                                    // Runtime routine
-                                    function INCLUDE (region) {
-                                        const {parent, env} = region;
-                                        const {start, end} = PrepareRegion(srcElm, region);
-
-                                        // Als de builder ontvangen is, dan meteen uitvoeren
-                                        if (C?.Builder)
-                                            C.Builder({parent, start, end, env, });
-                                        else
-                                            // Anders het bouwen uitstellen tot later
-                                            arrToBuild.push({parent, start, end, env: env.slice(), });    // Kopie van de environment maken
-                                    };
-                            } break;
-
-                            case 'REACT': {
-                                this.bHasReacts = true;
-                                const expList = RequiredAttribute(srcElm, 'on', true).split(',');
-                                const getDependencies = expList.map( expr => this.CompileExpression<_RVAR<unknown>>(expr) );
-
-                                // We transformeren de template in een routine die gewenste content genereert
-                                const bodyBuilder = this.CompileChildNodes(srcElm);
-                                
-                                builder = function REACT(region) {
-                                    const {parent, env } = region;
-                                    let {start, end, marker, bInit} = PrepareRegion(srcElm, region);
-
-                                    if (bInit) {
-                                        if (start == srcElm) {
-                                            start = srcElm.firstChild;
-                                            srcElm.replaceWith(...srcElm.childNodes );
-                                        }
-
-                                        const subscriber: Subscriber = {
-                                            parent, marker: marker, end,
-                                            builder: bodyBuilder,
-                                            env: env.slice(),
-                                        };
-                                
-                                        // Subscribe bij de gegeven variabelen
-                                        for(const getRvar of getDependencies) {
-                                            const rvar = getRvar(env);
-                                            rvar.Subscribe(subscriber);
-                                        }
-                                    }
-                
-                                    bodyBuilder.call(this, {parent, start, end, env, });
-                                }
-                            } break;
-
-                            case 'RHTML': {
-                                const bodyBuilder = this.CompileChildNodes(srcElm);
-
-                                builder = function RHTML(region) {
-                                    const {parent, env} = region;
-
-                                    const tempElm = document.createElement('RHTML');
-                                    bodyBuilder.call(this, {parent: tempElm, start: null, end: null, env});
-                                    const result = tempElm.innerText
-
-                                    const {marker, start, end, bUpdate} = PrepareRegion(srcElm, region, result);
-
-                                    if (bUpdate) {
-                                        tempElm.innerHTML = tempElm.innerText;
-
-                                        const R = new RCompiler();
-                                        R.Compile(tempElm, {...defaultSettings, bRunScripts: true });
-
-                                        R.Build({parent, marker, start, end, env: []});
-                                    }
-                                };                                
-                            } break;
-
-                            case 'WINDOW':
-                            case 'PRINT': { } break;
-
-                            case 'SCRIPT': 
-                                builder = this.CompileScript(srcParent, srcElm); break;
-
-                            case 'COMPONENT': 
-                                builders.push(... this.CompileComponent(srcParent, srcElm)); break;
-
-                            default:
-                            compileDefault: {
-                                // See if this node is a user-defined component
-                                for (let i = this.Components.length-1; i>=0; i--) {
-                                    const component: Component = this.Components[i];
-                                    if (component.TagName == srcElm.tagName) {
-                                        /* We have a component - instance */
-                                        builder = this.CompileComponentInstance(srcParent, srcElm, component);
-                                        break compileDefault;
-                                    }
-                                }
-                                    
-                                /* It's regular element that should be included in the runtime output */
-                                builder = this.CompileRegularElement(srcParent, srcElm); 
-                            }
-                            break;
-                        }
-                    }
-                    catch (err) { 
-                        throw `${OuterOpenTag(srcElm)} ${err}`; 
-                    }
-
-                    if (reactOn) {
-                        if (!builder)
-                            throw `[reacton] not allowed on <${srcElm.tagName}>`;
-
-                        this.bHasReacts = true;
-                        const getDependencies = reactOn.split(',').map( expr => this.CompileExpression<_RVAR<unknown>>(expr) );
-
-                        // We transformeren de template in een routine die gewenste content genereert
-                        const bodyBuilder = builder;
-                        
-                        builder = function REACT(region) {
-                            const {parent, env } = region;
-                            let {start, end, marker, bInit} = PrepareRegion(srcElm, region, null, null, 'reacton');
-
-                            if (bInit) {
-                                const subscriber: Subscriber = {
-                                    parent, marker: marker, end,
-                                    builder: function reacton(this: RCompiler, reg: Region) {
-                                        this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
-                                    },
-                                    env: env.slice(),
-                                };
-                        
-                                // Subscribe bij de gegeven variabelen
-                                for(const getRvar of getDependencies) {
-                                    const rvar = getRvar(env);
-                                    rvar.Subscribe(subscriber);
-                                }
-                            }
-        
-                            bodyBuilder.call(this, {parent, start, end, env, });
-                        }
-
-                    }
-
+                    builders.push(... this.CompileElement(srcParent, srcNode as HTMLElement))
                     break;
 
                 case Node.TEXT_NODE:
                     const str = (srcNode as Text).data.replace(/^\s+|\s+$/g, ' ');
                     const getText = this.CompileInterpolatedString( str );
 
-                    builder = function Text(region) {
-                        const {parent, start, end, env} = region;
-                        const content = getText(env);
-                        if (start == end) 
-                            parent.insertBefore(document.createTextNode(content), end);
-                        else
-                        {
-                            (start as Text).textContent = content;
-                            region.start = start.nextSibling;
-                        }
-                    };
+                    builders.push( [
+                        function Text(region: Region) {
+                            const start = region.start, 
+                                content = getText(region.env);
+                            if (start?.nodeType == Node.TEXT_NODE) {
+                                (start as Text).data = content;
+                                region.start = start.nextSibling;
+                            }
+                            else
+                                region.parent.insertBefore(document.createTextNode(content), start);
+                            
+                        },
+                        srcNode] );
                     break;
 
                 default:    // Other nodes (especially comments) are removed
-                    srcNode.remove();
+                    srcParent.removeChild(srcNode);
                     continue;
             }
-            if (builder)
-                builders.push([builder, srcNode]);
         };
         this.sourceNodeCount += childNodes.length;
 
@@ -494,8 +252,240 @@ class RCompiler {
             };
     }
 
-    private CallWithErrorHandling(builder: ElmBuilder, srcNode: ChildNode, region: Region){
-        
+    private CompileElement(srcParent: ParentNode, srcElm: HTMLElement): [ElmBuilder, ChildNode][] {
+        let builder: ElmBuilder = null;
+        const reactOn = srcElm.getAttribute('reacton');
+        if (reactOn != null)
+            srcElm.attributes.removeNamedItem('reacton');
+        try {
+            switch (srcElm.nodeName) {
+                case 'DEFINE': { // 'LET' staat de parser niet toe.
+                    // En <DEFINE> moet helaas afgesloten worden met </DEFINE>; <DEFINE /> wordt niet herkend.
+                    srcParent.removeChild(srcElm);
+                    const rvarName = GetAttribute(srcElm, 'rvar');
+                    const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
+                    const getValue = this.CompileAttributeExpression<unknown>(srcElm, 'value');
+                    const iVar = this.Context.push(varName) - 1;
+
+                    builder = function DEFINE(region) {
+                            const value = getValue && getValue(region.env);
+                            region.env[iVar] = rvarName ? RVAR(null, value) : value;
+                        };
+                } break;
+
+                case 'IF':
+                case 'CASE': {
+                    const caseList = [] as Array<{condition: Dependent<boolean>, builder: ElmBuilder, child: HTMLElement}>;
+                    const getCondition = this.CompileAttributeExpression<boolean>(srcElm, 'cond', false);
+                    const bodyNodes: ChildNode[] = [];
+                    for (const child of srcElm.children as Iterable<HTMLElement>) {
+                        switch (child.nodeName) {
+                            case 'WHEN':
+                                caseList.push({
+                                    condition: this.CompileAttributeExpression<boolean>(child, 'cond')
+                                    , builder: this.CompileChildNodes(child)
+                                    , child
+                                });
+                                break;
+                            case 'ELSE':
+                                caseList.push({
+                                    condition: (_env) => true
+                                    , builder: this.CompileChildNodes(child)
+                                    , child
+                                });
+                                break;
+                            default: bodyNodes.push(child);
+                        }
+                    }
+                    if (getCondition)
+                        caseList.unshift({
+                            condition: getCondition,
+                            builder: this.CompileChildNodes(srcElm, bodyNodes),
+                            child: srcElm
+                        });
+
+                    builder = function CASE(region) {
+                        let result: ElmBuilder = null;
+                        for (const alt of caseList)
+                            try {
+                                if (alt.condition(region.env)) {
+                                    result = alt.builder; break;
+                                }
+                            } catch (err) { throw `${OuterOpenTag(alt.child)}${err}`; }
+                            
+                        const subregion = PrepareRegion(srcElm, region, result);
+                        if (result)
+                            result.call(this, subregion);
+                    };
+                } break;
+                        
+                case 'FOR':
+                case 'FOREACH':
+                    builder = this.CompileForeach(srcParent, srcElm);
+                break;
+                    
+                case 'INCLUDE': {
+                    const src = GetAttribute(srcElm, 'src', true);
+                    const context = this.Context.slice(), components = this.Components.slice();
+                    // Placeholder that will contain a Template when the file has been received
+                    let C: RCompiler = null;
+                    // List of nodes that have to be build when the builder is received
+                    let arrToBuild: Array<Region> = [];
+                    
+                    fetch(src)
+                    .then(async response => {
+                        
+                        const textContent = await response.text();
+                        // Parse the contents of the file
+                        const parser = new DOMParser();
+                        const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
+
+                        // Compile the parsed contents of the file in the original context
+                        C = new RCompiler(context, components);
+                        C.Compile(parsedContent.body, this.settings, );
+
+                        // Achterstallige Builds uitvoeren
+                        for (const region of arrToBuild)
+                            if (region.parent.isConnected)   // Sommige zijn misschien niet meer nodig
+                                C.Builder(region);
+
+                        arrToBuild = null;
+                    });
+
+                    builder = 
+                        // Runtime routine
+                        function INCLUDE (region) {
+                            const subregion = PrepareRegion(srcElm, region);
+
+                            // Als de builder ontvangen is, dan meteen uitvoeren
+                            if (C?.Builder)
+                                C.Builder(subregion);
+                            else {
+                                // Anders het bouwen uitstellen tot later
+                                subregion.env = region.env.slice();    // Kopie van de environment maken
+                                arrToBuild.push(subregion);
+                            }
+                        };
+                } break;
+
+                case 'REACT': {
+                    this.bHasReacts = true;
+                    const expList = GetAttribute(srcElm, 'on', true, true).split(',');
+                    const getDependencies = expList.map( expr => this.CompileExpression<_RVAR<unknown>>(expr) );
+
+                    // We transformeren de template in een routine die gewenste content genereert
+                    const bodyBuilder = this.CompileChildNodes(srcElm);
+                    
+                    builder = function REACT(region) {
+                        let subregion = PrepareRegion(srcElm, region);
+
+                        if (subregion.bInit) {
+                            if (subregion.start == srcElm) {
+                                subregion.start = srcElm.firstChild;
+                                srcElm.replaceWith(...srcElm.childNodes );
+                            }
+
+                            const subscriber: Subscriber = {
+                                ...subregion,
+                                builder: bodyBuilder,
+                                env: subregion.env.slice(),
+                            };
+                    
+                            // Subscribe bij de gegeven variabelen
+                            for(const getRvar of getDependencies) {
+                                const rvar = getRvar(subregion.env);
+                                rvar.Subscribe(subscriber);
+                            }
+                        }
+    
+                        bodyBuilder.call(this, subregion);
+                    }
+                } break;
+
+                case 'RHTML': {
+                    const bodyBuilder = this.CompileChildNodes(srcElm);
+
+                    builder = function RHTML(region) {
+                        const tempElm = document.createElement('RHTML');
+                        bodyBuilder.call(this, {parent: tempElm, start: null, end: null, env: region.env, bInit: true});
+                        const result = tempElm.innerText
+
+                        const subregion = PrepareRegion(srcElm, region, result);
+
+                        if (subregion.bInit) {
+                            tempElm.innerHTML = tempElm.innerText;
+
+                            const R = new RCompiler();
+                            subregion.env = [];
+                            R.Compile(tempElm, {...defaultSettings, bRunScripts: true });
+
+                            R.Build(subregion);
+                        }
+                    };                                
+                } break;
+
+                //case 'WINDOW':
+                //case 'PRINT': { } break;
+
+                case 'SCRIPT': 
+                    builder = this.CompileScript(srcParent, srcElm); break;
+
+                case 'COMPONENT': 
+                    return this.CompileComponent(srcParent, srcElm)
+
+                default:
+                compileDefault: {
+                    // See if this node is a user-defined component
+                    for (let i = this.Components.length-1; i>=0; i--) {
+                        const component: Component = this.Components[i];
+                        if (component.TagName == srcElm.tagName) {
+                            /* We have a component - instance */
+                            builder = this.CompileComponentInstance(srcParent, srcElm, component);
+                            break compileDefault;
+                        }
+                    }
+                        
+                    /* It's a regular element that should be included in the runtime output */
+                    builder = this.CompileRegularElement(srcParent, srcElm); 
+                }
+                break;
+            }
+        }
+        catch (err) { 
+            throw `${OuterOpenTag(srcElm)} ${err}`; 
+        }
+
+        if (reactOn) {
+            this.bHasReacts = true;
+            const getDependencies = reactOn.split(',').map( expr => this.CompileExpression<_RVAR<unknown>>(expr) );
+
+            const bodyBuilder = builder;
+            builder = function REACT(region) {
+                let subregion = PrepareRegion(srcElm, region, null, null, 'reacton');
+
+                if (region.bInit) {
+                    const subscriber: Subscriber = {
+                        ...subregion,
+                        builder: function reacton(this: RCompiler, reg: Region) {
+                            this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
+                        },
+                        env: region.env.slice(),
+                    };
+            
+                    // Subscribe bij de gegeven variabelen
+                    for(const getRvar of getDependencies) {
+                        const rvar = getRvar(region.env);
+                        rvar.Subscribe(subscriber);
+                    }
+                }
+
+                bodyBuilder.call(this, subregion);
+            }
+        }
+        return [[builder, srcElm]];
+    }
+
+    private CallWithErrorHandling(builder: ElmBuilder, srcNode: ChildNode, region: Region){        
         try { 
             try {
                 builder.call(this, region);
@@ -521,12 +511,12 @@ class RCompiler {
         }
     }
 
-    private CompileScript(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) {
+    private CompileScript(srcParent: ParentNode, srcElm: HTMLElement) {
         srcParent.removeChild(srcElm);
         if (!(this.settings.bRunScripts || srcElm.hasAttribute('nomodule')))
             return null;
         const script = srcElm.textContent
-            //, bIsModule = (OptionalAttribute(srcElm, 'type') == 'module');
+            //, bIsModule = (GetAttribute(srcElm, 'type') == 'module');
         let bDone = false;  
         return function SCRIPT(_: Region) {
             if (!bDone) {
@@ -537,14 +527,13 @@ class RCompiler {
                 bDone = true;
             }
         };
-            //const content = this.CompileExpression(script, '{}' , true); 
     }
 
-    private CompileForeach(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) {
-        const varName = OptionalAttribute(srcElm, 'let');
+    private CompileForeach(srcParent: ParentNode, srcElm: HTMLElement) {
+        const varName = GetAttribute(srcElm, 'let');
         if (!varName) { 
             /* Iterate over multiple slot instances */
-            const ofExpression = OptionalAttribute(srcElm, 'of');
+            const ofExpression = GetAttribute(srcElm, 'of', true, true);
             const slot = this.Components.find(C => C.TagName == ofExpression)
             if (!slot)
                 throw `Missing attribute [let]`;
@@ -553,17 +542,13 @@ class RCompiler {
             srcParent.removeChild(srcElm);
 
             return function FOREACH_Slot(region) {
-                
-                const {parent, env} = region;
-                let { start, end, } = PrepareRegion(srcElm, region);
-                const subReg: Region = {parent, start, end, env, }
+                let subregion = PrepareRegion(srcElm, region);
                 const slotBuilders = slot.Builders;
                 for (let slotBuilder of slotBuilders) {
                     slot.Builders = [slotBuilder];
-                    bodyBuilder.call(this, subReg);
+                    bodyBuilder.call(this, subregion);
                 }
                 slot.Builders = slotBuilders;
-                region.start = end.nextSibling;
             }
         }
         else { /* A regular iteration */
@@ -599,17 +584,15 @@ class RCompiler {
 
                 // Dit wordt de runtime routine voor het updaten:
                 return function FOREACH(this: RCompiler, region: Region) {
-                        const {parent, env} = region;
-                        let {marker, start, end, bInit} = PrepareRegion(srcElm, region, null, (getKey == null));
-                        const subReg: Region = {parent, start, end, env, }
+                        let subregion = PrepareRegion(srcElm, region, null, (getKey == null));
+                        let {parent, marker, start, end, env} = subregion;
 
-                        let index = 0, prevItem: Item = null;
 
                         // Map of previous data, if any
                         const keyMap: Map<Key, Subscriber>
-                            = (bInit ? marker['keyMap'] = new Map() : marker['keyMap']);
+                            = (region.bInit ? marker['keyMap'] = new Map() : marker['keyMap']);
                         // Map of the newly obtained data
-                        const newMap: Map<Key, [Item, Hash] > = new Map();
+                        const newMap: Map<Key, [Item, Hash]> = new Map();
                         for (const item of getRange(env)) {
                             env[iVar] = item;
                             const hash = getHash && getHash(env);
@@ -633,6 +616,7 @@ class RCompiler {
                         }
                         RemoveStaleItemsHere();
 
+                        let index = 0, prevItem: Item = null;
                         // Voor elke waarde in de range
                         for (const [key, [item, hash]] of newMap) {
                             // Environment instellen
@@ -665,20 +649,19 @@ class RCompiler {
                                 }
                                 
                                 (marker as Comment).textContent = `${varName}(${index})`;
-                                subReg.start = marker.nextSibling;
-                                subReg.end = subscriber.end;
+                                subregion.start = marker.nextSibling;
+                                subregion.end = subscriber.end;
                             }
                             else {
                                 // Item has to be newly created
+                                subregion.bInit = true;
                                 marker =  parent.insertBefore(document.createComment(`${varName}(${index})`), start);
                                 const endMarker = parent.insertBefore(document.createComment(`/${varName}`), start);
                                 marker['key'] = key;
-                                marker['endNode'] = subReg.start = subReg.end = endMarker;
-                                
+                                marker['endNode'] = subregion.start = subregion.end = endMarker;
                                 subscriber = {
-                                    parent,
-                                    marker, 
-                                    end: endMarker,
+                                    ...subregion,
+                                    marker,
                                     builder: (bUpdateable ? bodyBuilder : undefined),
                                     env: (bUpdateable ? env.slice() : undefined), 
                                 }
@@ -695,9 +678,9 @@ class RCompiler {
                                     )
                             ) { }   // Nothing to do
                             else    // Body berekenen
-                                bodyBuilder.call(this, subReg);
+                                bodyBuilder.call(this, subregion);
 
-                            start = subReg.end.nextSibling;
+                            start = subregion.end.nextSibling;
                             if (bUpdateable)
                                 (rvar as _RVAR<Item>).Subscribe(subscriber);
 
@@ -732,7 +715,7 @@ class RCompiler {
         return comp;
     }
 
-    private CompileComponent(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement): [ElmBuilder, ChildNode][] {
+    private CompileComponent(srcParent: ParentNode, srcElm: HTMLElement): [ElmBuilder, ChildNode][] {
         srcParent.removeChild(srcElm);
         const builders: [ElmBuilder, ChildNode][] = [];
 
@@ -777,7 +760,7 @@ class RCompiler {
         return builders;
     }
 
-    private CompileComponentInstance(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement,
+    private CompileComponentInstance(srcParent: ParentNode, srcElm: HTMLElement,
         component: Component) {
         srcParent.removeChild(srcElm);
         let attVal: string;
@@ -804,7 +787,7 @@ class RCompiler {
                         const contextLength = this.Context.length;
                         try {
                             for (const param of slot.Parameters)
-                                this.Context.push( RequiredAttribute(slotElm, param.pid) || param.pid );
+                                this.Context.push( GetAttribute(slotElm, param.pid, true) || param.pid );
                             slotBuilderArray.push(this.CompileChildNodes(slotElm))
                         }
                         catch (err) {
@@ -816,8 +799,8 @@ class RCompiler {
             });
 
         return (region: Region) => {
-            const {parent, env} = region;
-            const {start, end} = PrepareRegion(srcElm, region);
+            const subregion = PrepareRegion(srcElm, region);
+            const env = subregion.env;  
             const componentEnv = component.ComponentEnv.slice();    // Copy, just in case the component is recursive
             componentEnv.push( ...computeParameters.map(arg => arg(env)) )
             const prevBuilders = [];        
@@ -829,7 +812,7 @@ class RCompiler {
             }
 
             try { for (let builder of component.Builders)
-                    builder.call(this, {parent, start, end, env: componentEnv, }); 
+                    builder.call(this, {...subregion, env: componentEnv, }); 
                 }
             finally {
                 i = 0;
@@ -840,7 +823,7 @@ class RCompiler {
 
     }
 
-    private CompileRegularElement(srcParent: HTMLElement | DocumentFragment, srcElm: HTMLElement) {
+    private CompileRegularElement(srcParent: ParentNode, srcElm: HTMLElement) {
         // Remove trailing dots
         const nodeName = srcElm.nodeName.replace(/\.$/, '');
 
@@ -931,31 +914,28 @@ class RCompiler {
         const childnodesBuilder = this.CompileChildNodes(srcElm);
 
         // Now the runtime action
-        return function Element(region) {
-            const {parent, start, end, env, } = region;
+        return function Element(region: Region) {
+            const {parent, start, bInit, env, } = region;
             // Create the element
-            let elm: HTMLElement, bNew: boolean;
-            if (bNew = (start == end)) {
-                elm = document.createElement(nodeName);
-                parent.insertBefore(elm, end);
-            }
-            else {
+            let elm: HTMLElement;
+            if (start?.nodeType == Node.ELEMENT_NODE) {
                 region.start = start.nextSibling;
-                
-                if (start.nodeName != nodeName) {
-                    elm = document.createElement(nodeName);
-                    parent.replaceChild(elm, srcElm);
-                    bNew = true;
-                }   
-                else {
+                if ((start as HTMLElement).tagName == nodeName) {
                     elm = start as HTMLElement;
-                    //delete elm.className;
                     elm.classList.remove(...elm.classList);
                 }
+                else {
+                    (elm = document.createElement(nodeName)).append(...start.childNodes);
+                    parent.replaceChild(elm, start);
+                }
+            }
+            else {
+                elm = document.createElement(nodeName);
+                parent.insertBefore(elm, start);
             }
             
             // Add all children
-            childnodesBuilder.call(this, {parent: elm, start: elm.firstChild, end: null, env, });
+            childnodesBuilder.call(this, {parent: elm, start: elm.firstChild, end: null, bInit, env, });
 
             // Apply all modifiers: adding attributes, classes, styles, events
             for (const mod of arrModifiers) {
@@ -1046,8 +1026,8 @@ class RCompiler {
         }
     }
 
-    private CompileAttributeExpression<T>(elm: HTMLElement, attName: string) {
-        return this.CompileExpression<T>(RequiredAttribute(elm, attName, true));
+    private CompileAttributeExpression<T>(elm: HTMLElement, attName: string, bRequired?: boolean) {
+        return this.CompileExpression<T>(GetAttribute(elm, attName, bRequired, true));
     }
 
     private CompileExpression<T>(
@@ -1098,9 +1078,9 @@ class RCompiler {
     Anders worden zowel start- als eindmarkering vóór 'start' geplaatst.
 */
 function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, name?: string) {
-    let {parent, start} = region;
-    let marker: ChildNode, end: ChildNode, bInit: boolean, bUpdate: boolean;
-    if (bInit = !(start && (end = start['endNode']))) {
+    let {parent, start, bInit} = region;
+    let marker: ChildNode, end: ChildNode;
+    if (bInit) {
         name ||= srcElm.tagName;
         marker = parent.insertBefore(document.createComment(name), start);
         end = parent.insertBefore(
@@ -1110,11 +1090,12 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     }
     else {
         marker = start;
+        end = marker['endNode'];
     }
     start = marker.nextSibling;
     region.start = end.nextSibling;
 
-    if (bUpdate = (bForcedClear || (result != marker['result'] ?? null)) ) {
+    if (bInit ||= (bForcedClear || (result != marker['result'] ?? null)) ) {
         marker['result'] = result;
         while (start != end) {
             const next = start.nextSibling;
@@ -1122,7 +1103,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
             start = next;
         }
     }
-    return {marker, start, end, bInit, bUpdate};
+    return {parent, marker, start, end, bInit, env: region.env};
 }
 
 // Deze routine zet een gegeven MouseHandler om in een handler die hetzelfde doet en daarna alle benodigde elementen update
@@ -1236,18 +1217,15 @@ function CheckForComments(script: string) {
     return hasComments ? script + '\n' : script;
 }
 
-function RequiredAttribute(elm: HTMLElement, name: string, bHashAllowed = false) {
+function GetAttribute(elm: HTMLElement, name: string, bRequired?: boolean, bHashAllowed?: boolean) {
     let value = elm.getAttribute(name);
     if (value==null && bHashAllowed) {
         name = `#${name}`;
         value = elm.getAttribute(name);
     }
-    if (value == null)
+    if (value == null && bRequired)
         throw `Missing attribute [${name}]`;
     return value;
-}
-function OptionalAttribute(elm: HTMLElement, name: string) {
-    return elm.getAttribute(name);
 }
 function RequiredChildElement(elm: HTMLElement, name: string) {
     const result = OptionalChildElement(elm, name);
@@ -1256,15 +1234,15 @@ function RequiredChildElement(elm: HTMLElement, name: string) {
     return result;
 }
 function OptionalChildElement(elm: HTMLElement, name: string) {
-    let child = elm.firstElementChild;
-    let result = null;
+    let child = elm.firstElementChild as HTMLElement;
+    let result: HTMLElement = null;
     while (child) {
         if (name=='*' || child.tagName==name) {
             if (result)
                 throw `Multiple child elements <${name}>`;
             result = child;
         }
-        child = child.nextElementSibling;
+        child = child.nextElementSibling as HTMLElement;
     }
     return result;
 }
