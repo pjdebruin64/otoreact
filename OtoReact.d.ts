@@ -3,8 +3,13 @@ declare const defaultSettings: {
     bShowErrors: boolean;
     bStripSpaces: boolean;
     bRunScripts: boolean;
+    bBuild: boolean;
 };
-export declare function RCompile(elm: HTMLElement, settings?: typeof defaultSettings): RCompiler;
+declare type FullSettings = typeof defaultSettings;
+declare type Settings = {
+    [Property in keyof FullSettings]+?: FullSettings[Property];
+};
+export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
 declare type Context = Array<string>;
 declare type Environment = Array<unknown>;
 declare type Dependent<T> = (env: Environment) => T;
@@ -14,6 +19,7 @@ declare type Region = {
     start: ChildNode;
     bInit: boolean;
     env: Environment;
+    lastMarker?: ChildNode;
 };
 declare type ElmBuilder = (this: RCompiler, reg: Region) => void;
 declare type Subscriber = {
@@ -39,11 +45,12 @@ declare class RCompiler {
     private Components;
     instanceNum: number;
     constructor(Context?: Context, Components?: Component[]);
-    Compile(elm: HTMLElement, settings: typeof defaultSettings): void;
+    Compile(elm: HTMLElement, settings: Settings): void;
     Build(reg: Region & {
         marker?: ChildNode;
     }): void;
-    private settings;
+    Settings: FullSettings;
+    ToBuild: Region[];
     private AllRegions;
     private Builder;
     private bCompiled;

@@ -5,21 +5,20 @@ const defaultSettings = {
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bStripSpaces:   true,   // To do
     bRunScripts:    false,
+    bBuild:         true,
 }
+type FullSettings = typeof defaultSettings
+type Settings = { [Property in keyof FullSettings]+?: FullSettings[Property] }
 
-export function RCompile(elm: HTMLElement, settings?: typeof defaultSettings) {    
+export function RCompile(elm: HTMLElement, settings?: Settings) {    
     try {
 
         const R = RHTML;
         R.Compile(elm, {...defaultSettings, ...settings});
+        R.ToBuild.push({parent: elm, start: elm.firstChild, bInit: true, env: [], })
 
-        orgSetTimeout(
-            () => {
-                const t0 = Date.now();
-                R.Build({parent: elm, start: elm.firstChild, bInit: true, env: [], });
-                console.log(`Built ${R.builtNodeCount} nodes in ${Date.now() - t0} ms`)
-            }
-        , 0);
+        if (R.Settings.bBuild)
+            RUpdate();
         
         return R;
     }
@@ -77,9 +76,9 @@ class RCompiler {
     // Compile a source tree into an ElmBuilder
     public Compile(
         elm: HTMLElement, 
-        settings: typeof defaultSettings,
+        settings: Settings,
     ) {
-        this.settings = {...defaultSettings, ...settings, };
+        this.Settings = {...defaultSettings, ...settings, };
         const t0 = Date.now();
         const savedRCompiler = RHTML;
         this.Builder = this.CompileChildNodes(elm);
@@ -99,7 +98,8 @@ class RCompiler {
         RHTML = savedRCompiler;
     }
 
-    private settings: typeof defaultSettings;
+    public Settings: FullSettings;
+    public ToBuild: Region[] = [];
     private AllRegions: Subscriber[] = [];
     private Builder: ElmBuilder;
 
@@ -123,30 +123,41 @@ class RCompiler {
     private DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
             return;
+        
+        this.bUpdating = true;
+
+        if (this.ToBuild.length) {
+            const t0 = Date.now();
+            this.builtNodeCount = 0;
+            for (const reg of this.ToBuild)
+                this.Build(reg);
+            console.log(`Built ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
+            this.ToBuild = [];
+        }
+
         if (!this.bHasReacts && this.bSomethingDirty)
             for (const s of this.AllRegions) this.DirtyRegions.add(s);
-        else if (this.DirtyRegions.size == 0)
-            return;
         
-        const t0 = Date.now();
-        this.builtNodeCount = 0;
-        this.bUpdating = true;
-        this.bSomethingDirty = false;
-        let savedRCompiler = RHTML;
-        RHTML = this;
-        for (const {parent, marker, builder, env} of this.DirtyRegions) {
-            try { 
-                builder.call(this, {parent, start: marker ? marker.nextSibling : parent.firstChild, env, }); 
+        if (this.DirtyRegions.size) {
+            let savedRCompiler = RHTML;
+            RHTML = this;
+            const t0 = Date.now();
+            this.builtNodeCount = 0;
+            this.bSomethingDirty = false;
+            for (const {parent, marker, builder, env} of this.DirtyRegions) {
+                try { 
+                    builder.call(this, {parent, start: marker ? marker.nextSibling : parent.firstChild, env, }); 
+                }
+                catch (err) {
+                    const msg = `ERROR: ${err}`;
+                    console.log(msg);
+                }
             }
-            catch (err) {
-                const msg = `ERROR: ${err}`;
-                console.log(msg);
-            }
+            console.log(`Updated ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
+            this.DirtyRegions.clear();
+            RHTML = savedRCompiler;
         }
-        this.DirtyRegions.clear();
-        RHTML = savedRCompiler;
         this.bUpdating = false;
-        console.log(`Updated ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
     }
 
     /* A "responsive variable" is a variable which listeners can subscribe to.
@@ -216,14 +227,18 @@ class RCompiler {
 
                     builders.push( [
                         function Text(region: Region) {
-                            const start = region.start, 
-                                content = getText(region.env);
-                            if (start?.nodeType == Node.TEXT_NODE) {
+                            const {start, lastMarker, bInit} = region, content = getText(region.env);
+                            let text: Text;
+                            if (bInit && start != srcNode)
+                                text = region.parent.insertBefore(document.createTextNode(content), start);
+                            else {
                                 (start as Text).data = content;
                                 region.start = start.nextSibling;
                             }
-                            else
-                                region.parent.insertBefore(document.createTextNode(content), start);
+                            if (lastMarker) {
+                                lastMarker['nextM'] = text;
+                                region.lastMarker = null;
+                            }
                             
                         },
                         srcNode] );
@@ -342,7 +357,7 @@ class RCompiler {
 
                         // Compile the parsed contents of the file in the original context
                         C = new RCompiler(context, components);
-                        C.Compile(parsedContent.body, this.settings, );
+                        C.Compile(parsedContent.body, this.Settings, );
 
                         // Achterstallige Builds uitvoeren
                         for (const region of arrToBuild)
@@ -417,7 +432,7 @@ class RCompiler {
 
                             const R = new RCompiler();
                             subregion.env = [];
-                            R.Compile(tempElm, {...defaultSettings, bRunScripts: true });
+                            R.Compile(tempElm, {bRunScripts: true });
 
                             R.Build(subregion);
                         }
@@ -488,25 +503,25 @@ class RCompiler {
     }
 
     private CallWithErrorHandling(builder: ElmBuilder, srcNode: ChildNode, region: Region){        
-        try { 
+        try {
             try {
                 builder.call(this, region);
             }
             finally {
-                const nextStart = region.start;
-                if (nextStart && nextStart['RError']) {
-                    region.start = nextStart.nextSibling;
-                    region.parent.removeChild(nextStart);
+                let start: ChildNode;
+                if ((start = region.start) && start['RError']) {
+                    region.parent.removeChild(start);
+                    region.start = start.nextSibling;
                 }
             }
         } 
         catch (err) { 
             const message = 
                 srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
-            if (this.settings.bAbortOnError)
+            if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.settings.bShowErrors)
+            if (this.Settings.bShowErrors)
                 region.parent.insertBefore(
                     document.createTextNode(message), region.start
                 )['RError'] = true;
@@ -515,7 +530,7 @@ class RCompiler {
 
     private CompileScript(srcParent: ParentNode, srcElm: HTMLElement) {
         srcParent.removeChild(srcElm);
-        if (!(this.settings.bRunScripts || srcElm.hasAttribute('nomodule')))
+        if (!(this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')))
             return null;
         const script = srcElm.textContent
             //, bIsModule = (GetAttribute(srcElm, 'type') == 'module');
@@ -602,15 +617,14 @@ class RCompiler {
 
                         function RemoveStaleItemsHere() {
                             let key: Key;
-                            while ((start as Object)?.hasOwnProperty('key') && !newMap.has(key = start['key'])) {
+                            while (start && start != region.start && !newMap.has(key = start['key'])) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                let node = start;
-                                start = (start['endNode'] as ChildNode).nextSibling;
-                                while (node != start) {
-                                    const next = node.nextSibling;
-                                    parent.removeChild(node);
-                                    node = next;
+                                const nextMarker = (start['nextM'] as ChildNode);
+                                while (start != nextMarker) {
+                                    const next = start.nextSibling;
+                                    parent.removeChild(start);
+                                    start = next;
                                 }
                             }
                         }
@@ -631,39 +645,42 @@ class RCompiler {
                             if (iPrevious >= 0)
                                 env[iPrevious] = prevItem;
 
-                            let marker: ChildNode, endMarker: ChildNode;
+                            let marker: ChildNode;
                             let subscriber = keyMap.get(key);
+                            let childRegion: ReturnType<typeof PrepareRegion>;
                             if (subscriber && subscriber.marker.isConnected) {
                                 // Item already occurs in the series
-                                subregion.bInit = false;
                                 marker = subscriber.marker;
-                                endMarker = marker['endNode'];
+                                const nextMarker = marker['nextM'];
                                 
                                 if (marker != start) {
                                     // Item has to be moved
                                     let node = marker
-                                    while(true) {
-                                        const next = node?.nextSibling;
+                                    while(node != nextMarker) {
+                                        const next = node.nextSibling;
                                         parent.insertBefore(node, start);
-                                        if (node == endMarker) break;
                                         node = next;
                                     }
                                 }
                                 
                                 (marker as Comment).textContent = `${varName}(${index})`;
-                                subregion.start = marker.nextSibling;
-                                start = endMarker.nextSibling;
+
+
+                                subregion.bInit = false;
+                                subregion.start = marker;
+                                const lastMarker = subregion.lastMarker;
+                                childRegion = PrepareRegion(null, subregion, null, false);
+                                if (lastMarker)
+                                    lastMarker['nextM'] = marker;
+                                subregion.lastMarker = marker;
                             }
                             else {
                                 // Item has to be newly created
                                 subregion.bInit = true;
-                                marker =  parent.insertBefore(document.createComment(`${varName}(${index})`), start);
-                                endMarker = parent.insertBefore(document.createComment(`/${varName}`), start);
-                                marker['key'] = key;
-                                marker['endNode'] = subregion.start = endMarker;
+                                subregion.start = start;
+                                childRegion = PrepareRegion(null,  subregion, null, true, `${varName}(${index})`);
                                 subscriber = {
-                                    ...subregion,
-                                    marker,
+                                    ...childRegion,
                                     builder: (bUpdateable ? bodyBuilder : undefined),
                                     env: (bUpdateable ? env.slice() : undefined), 
                                 }
@@ -672,15 +689,19 @@ class RCompiler {
                                         throw `Duplicate key '${key}'`;
                                     keyMap.set(key, subscriber);
                                 }
+                                marker = childRegion.marker
+                                marker['key'] = key;
                             }
 
                             if (hash != null
                                 && ( hash == marker['hash'] as Hash
                                     || (marker['hash'] = hash, false)
                                     )
-                            ) { }   // Nothing to do
+                            ) { 
+                                // Nothing
+                            }
                             else    // Body berekenen
-                                bodyBuilder.call(this, subregion);
+                                bodyBuilder.call(this, childRegion);
 
                             if (bUpdateable)
                                 (rvar as _RVAR<Item>).Subscribe(subscriber);
@@ -688,6 +709,7 @@ class RCompiler {
                             prevItem = item;
                             index++;
                             
+                            start = subregion.start;
                             RemoveStaleItemsHere();
                         }
 
@@ -922,9 +944,10 @@ class RCompiler {
                 elm = document.createElement(nodeName);
                 parent.insertBefore(elm, start);
             }
-            if (bInit && lastMarker)
+            if (lastMarker) {
                 lastMarker['nextM'] = elm;
-            region.lastMarker = null;
+                region.lastMarker = null;
+            }
             
             // Add all children
             childnodesBuilder.call(this, {parent: elm, start: elm.firstChild, bInit, env, });
@@ -1007,7 +1030,6 @@ class RCompiler {
 
         return (env) => {
             try {
-                //return generators.map(gen => ( typeof gen == 'string' ? gen : gen(env) ?? '')).join();
                 let result = "";
                 for (const gen of generators)
                     result += 
@@ -1045,9 +1067,9 @@ class RCompiler {
                 } 
                 catch (err) { 
                     const message = `${errorInfo}${err}`;
-                    if (bReturnErrors && !this.settings.bAbortOnError) {
+                    if (bReturnErrors && !this.Settings.bAbortOnError) {
                         console.log(message);
-                        return (this.settings.bShowErrors ? message : "") as unknown as T;
+                        return (this.Settings.bShowErrors ? message : "") as unknown as T;
                     }
                     else
                         throw message;
@@ -1069,17 +1091,20 @@ class RCompiler {
         De start-markering moet dan geplaatst worden vóór dit bron-element, en de eind-markering er direct ná
     Anders worden zowel start- als eindmarkering vóór 'start' geplaatst.
 */
-function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, name?: string) {
+function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, name?: string)
+    : Region & {marker: Comment}
+{
     let {parent, start, bInit, lastMarker} = region;
     let marker: Comment, endMarker: Comment;
     if (bInit) {
         name ||= srcElm.tagName;
-        marker = parent.insertBefore(document.createComment(name), start);
+        marker = region.lastMarker = parent.insertBefore(document.createComment(name), start);
         if (lastMarker)
             lastMarker['nextM'] = marker;
         
         //marker['endNode'] = endMarker = parent.insertBefore(document.createComment(`/${name}`), start);
-        region.start = start == srcElm ? start.nextSibling : start;
+        if (start && start == srcElm)
+            region.start = start.nextSibling;
     }
     else {
         marker = start as Comment;
@@ -1089,7 +1114,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
 
     if (bInit ||= (bForcedClear || (result != marker['result'] ?? null)) ) {
         marker['result'] = result;
-        while (start != endMarker) {
+        while (start != region.start) {
             const next = start.nextSibling;
             parent.removeChild(start);
             start = next;

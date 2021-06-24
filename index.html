@@ -8,7 +8,7 @@
             max-width: 900pt; margin: auto;
             border: solid 3pt lightgrey;
             padding: 6pt;
-            line-height: 120%;
+            line-height: 125%;
         }
 
         .sample {
@@ -27,6 +27,9 @@
             width: fit-content;
         }
 
+        dt  {font-weight: bold; margin-top: 1ex; }
+        li  {margin: .5ex 0}
+
         table.demo   { margin: 2ex auto; }
         table.demo > tr > th, table.demo > tr > td {
             border: var(--RedBorder);
@@ -43,6 +46,8 @@
             border: 2px solid; 
             text-align: center; vertical-align: middle;
         }
+
+        RHTML {display: none;}
     </style>
 
     <!-- <script type=module src='../OtoReact/OtoReact.js'></script> -->
@@ -84,7 +89,7 @@
 </if>`'
 ></define>
 
-<div class=sample style="width: 300pt">
+<div class=sample style="width: 300pt; height: 108px;">
     <RHTML>{greeting}</RHTML>
 </div>
 
@@ -97,7 +102,7 @@
     <br>This results in both a much better user experience and much less server load.
 </p>
 <p>
-    "OtoReact" is a small and fast framework to attain this by loading so-called "Reactive HTML" straight into the browser.
+    "OtoReact" is a small and fast framework to attain this by loading so-called "Reactive HTML" (or "RHTML") straight into the browser.
     <br>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
     <br>Reactive HTML is very easy to learn, and one doesn't need to install a compiler, a bunch of libraries, or <i>anything</i>.
     <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
@@ -119,7 +124,7 @@
     <li>
         Some, like <a href="https://jquery.com/" target=_blank>JQuery</a> and <a href="https://reactjs.org/" target=_blank>React</a>, offer tools to make it easier to manipulate the DOM.
         <br>All manipulation is still done from within the JavaScript you write, and you need a good understanding of DOM manipulation and JavaScript in general.
-        <br>The respective libraries
+        <br>The respective libraries can in some cases be loaded straight into the browser without compilation.
     </li>
     <li>
         Others, like <a href="https://angular.io/" target=_blank>Angular</a> and <a href="https://svelte.dev/" target=_blank>Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains just the data model and the data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
@@ -128,7 +133,7 @@
     </li>
 </ol>
 <p>
-    Reactive HTML is an attempt to get the advantages of describing the desired reactive layout by a HTML template, without the overhead
+    Reactive HTML gives you the advantages of describing the desired reactive layout by a HTML template, without the hassle of installing a compiler,
 </p>
 
 <import src="./demo.html">
@@ -164,11 +169,38 @@
 </component>
 
 <h2>Limitations inflicted by the parser</h2>
+Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
 <dl>
     <dt>Re-arranged elements</dt>
+    <dd>
+        The HTML parser forces elements to be arranged according to HTML rules, and will silently rearrange them if they are not.
+        <br>Notably:
+        <ul>
+            <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate elements.
+                <br>If, e.g., a &lt;table&gt; contains a &lt;for&gt; loop containing a &lt;tr&gt;, then the parser will move the &lt;for&gt; <i>before</i> the &lt;table&gt;, while leaving the &lt;tr&gt; inside.
+                <br>Thus OtoReact sees &lt;for ...&gt;&lt;/for&gt;&lt;table&gt;&lt;tr&gt;..., and may give a misleading error about the &lt;tr&gt; containing an loop variable.
+                <br>To get the loop right, OtoReact allows you to put a dot after any tag name: &lt;table.&gt;&lt;for ...&gt;&lt;tr.&gt;...
+                <br>When compiling, the dot will be removed. 
+            </li>
+            <li>
+                The paragraph-element &lt;p&gt; does not allow block-level elements inside, but allows unknown elements.
+                <br>Thus, if you write "&lt;p&gt; ... &lt;if ...&gt; &lt;ul&gt; ...", without closing the &lt;p&gt;, either because you know the parser will automatically close it when needed, or because you didn't know &lt;ul&gt; is not allowed inside &lt;p&gt;, then the parser will silently close the &lt;p&gt; <i>after</i> the &lt;if&gt;, and the &lt;ul&gt; ends up <i>outside</i> the &lt;if&gt;, without you being informed.
+                <br>To avoid this, make a habit of always closing all elements.
+            </li>
+        </ul>
+    </dd>
     <dt>Attribute names are considered lowercase</dt>
+    <dd>
+        As attribute names in HTML are case-insensitive, the parser makes them all silently lowercase.
+        <br>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.
+        <br>There is also a feature for conditional classes (#class:someclass="bln"), which will only work for class names in lowercase.
+    </dd>
     <dt>Missing error messages</dt>
+    <dd>
+        There are more cases where the browser doesn't inform you of errors, which may result in strange behaviour.
+    </dd>
 </dl>
+I imagine Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.
 
 <h2>Setup</h2>
 <ol>
