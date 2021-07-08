@@ -18,13 +18,15 @@ export function RCompile(elm, settings) {
         window.alert(`Re-Act error: ${err}`);
     }
 }
-class Component {
+class Construct {
     constructor(TagName, Parameters = [], Slots = []) {
         this.TagName = TagName;
         this.Parameters = Parameters;
         this.Slots = Slots;
     }
 }
+let VisibleConstructs = new Map();
+function NewConstruct() { }
 const globalEval = eval;
 var ModifierType;
 (function (ModifierType) {
@@ -39,10 +41,10 @@ var ModifierType;
 })(ModifierType || (ModifierType = {}));
 let num = 0;
 class RCompiler {
-    constructor(Context = [], Components = []) {
-        this.Context = Context;
-        this.Components = Components;
+    constructor(clone) {
         this.instanceNum = num++;
+        this.Context = [];
+        this.HiddenConstructs = [];
         this.ToBuild = [];
         this.AllRegions = [];
         this.bCompiled = false;
@@ -72,6 +74,22 @@ class RCompiler {
         }.bind(this);
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
+        if (clone) {
+            this.Context = clone.Context.slice();
+            this.Constructs = new Map(clone.Constructs);
+        }
+        else
+            this.Constructs = new Map();
+    }
+    AddConstruct(C) {
+        this.HiddenConstructs.push([C.TagName, this.Constructs.get(C.TagName)]);
+        this.Constructs.set(C.TagName, C);
+    }
+    RestoreConstructs(count) {
+        for (let i = 0; i < count; i++) {
+            const [name, C] = this.HiddenConstructs.pop();
+            this.Constructs.set(name, C);
+        }
     }
     Compile(elm, settings) {
         this.Settings = { ...defaultSettings, ...settings, };
@@ -128,11 +146,14 @@ class RCompiler {
         }
         this.bUpdating = false;
     }
-    RVAR_Light(t, subscribers = []) {
+    RVAR_Light(t, updatesTo = []) {
         if (!t._Subscribers) {
-            t._Subscribers = subscribers;
+            t._Subscribers = [];
+            t._UpdatesTo = updatesTo;
             const R = this;
             Object.defineProperty(t, 'U', { get: function () {
+                    for (const rvar of t._UpdatesTo)
+                        rvar.SetDirty();
                     for (const sub of t._Subscribers)
                         R.DirtyRegions.add(sub);
                     return t;
@@ -145,7 +166,7 @@ class RCompiler {
     CompileChildNodes(srcParent, childNodes = Array.from(srcParent.childNodes)) {
         const builders = [];
         const contextLength = this.Context.length;
-        const componentsLength = this.Components.length;
+        const hiddenLength = this.HiddenConstructs.length;
         ;
         for (const srcNode of childNodes) {
             switch (srcNode.nodeType) {
@@ -180,7 +201,7 @@ class RCompiler {
         }
         ;
         this.sourceNodeCount += childNodes.length;
-        this.Components.length = componentsLength;
+        this.RestoreConstructs(this.HiddenConstructs.length - hiddenLength);
         this.Context.length = contextLength;
         return function ChildNodes(region) {
             const envLength = region.env.length;
@@ -209,8 +230,12 @@ class RCompiler {
                         const getValue = this.CompileAttributeExpression(srcElm, 'value');
                         const iVar = this.Context.push(varName) - 1;
                         builder = function DEFINE(region) {
-                            const value = getValue && getValue(region.env);
-                            region.env[iVar] = rvarName ? RVAR(null, value) : value;
+                            const { marker } = PrepareRegion(srcElm, region);
+                            if (region.bInit) {
+                                const value = getValue && getValue(region.env);
+                                marker['rValue'] = rvarName ? RHTML.RVAR(null, value) : value;
+                            }
+                            region.env[iVar] = marker['rValue'];
                         };
                     }
                     break;
@@ -218,13 +243,13 @@ class RCompiler {
                 case 'CASE':
                     {
                         const caseList = [];
-                        const getCondition = this.CompileAttributeExpression(srcElm, 'cond', false);
+                        const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression(srcElm, 'cond', true);
                         const bodyNodes = [];
                         for (const child of srcElm.children) {
                             switch (child.nodeName) {
                                 case 'WHEN':
                                     caseList.push({
-                                        condition: this.CompileAttributeExpression(child, 'cond'),
+                                        condition: this.CompileAttributeExpression(child, 'cond', true),
                                         builder: this.CompileChildNodes(child),
                                         child
                                     });
@@ -270,15 +295,13 @@ class RCompiler {
                 case 'INCLUDE':
                     {
                         const src = GetAttribute(srcElm, 'src', true);
-                        const context = this.Context.slice(), components = this.Components.slice();
-                        let C = null;
+                        let C = new RCompiler(this);
                         let arrToBuild = [];
                         fetch(src)
                             .then(async (response) => {
                             const textContent = await response.text();
                             const parser = new DOMParser();
                             const parsedContent = parser.parseFromString(textContent, 'text/html');
-                            C = new RCompiler(context, components);
                             C.Compile(parsedContent.body, this.Settings);
                             for (const region of arrToBuild)
                                 if (region.parent.isConnected)
@@ -288,7 +311,7 @@ class RCompiler {
                         builder =
                             function INCLUDE(region) {
                                 const subregion = PrepareRegion(srcElm, region);
-                                if (C?.Builder)
+                                if (C.bCompiled)
                                     C.Builder(subregion);
                                 else {
                                     subregion.env = region.env.slice();
@@ -327,6 +350,7 @@ class RCompiler {
                 case 'RHTML':
                     {
                         const bodyBuilder = this.CompileChildNodes(srcElm);
+                        srcParent.removeChild(srcElm);
                         builder = function RHTML(region) {
                             const tempElm = document.createElement('RHTML');
                             bodyBuilder.call(this, { parent: tempElm, start: null, env: region.env, bInit: true });
@@ -349,14 +373,11 @@ class RCompiler {
                     return this.CompileComponent(srcParent, srcElm);
                 default:
                     compileDefault: {
-                        for (let i = this.Components.length - 1; i >= 0; i--) {
-                            const component = this.Components[i];
-                            if (component.TagName == srcElm.tagName) {
-                                builder = this.CompileComponentInstance(srcParent, srcElm, component);
-                                break compileDefault;
-                            }
-                        }
-                        builder = this.CompileRegularElement(srcParent, srcElm);
+                        const component = this.Constructs.get(srcElm.tagName);
+                        if (component)
+                            builder = this.CompileComponentInstance(srcParent, srcElm, component);
+                        else
+                            builder = this.CompileRegularElement(srcParent, srcElm);
                     }
                     break;
             }
@@ -369,10 +390,11 @@ class RCompiler {
             const getDependencies = reactOn.split(',').map(expr => this.CompileExpression(expr));
             const bodyBuilder = builder;
             builder = function REACT(region) {
-                let subregion = PrepareRegion(srcElm, region, null, null, 'reacton');
+                let { parent, marker } = PrepareRegion(srcElm, region, null, null, 'reacton');
+                bodyBuilder.call(this, region);
                 if (region.bInit) {
                     const subscriber = {
-                        ...subregion,
+                        parent, marker,
                         builder: function reacton(reg) {
                             this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
                         },
@@ -383,7 +405,6 @@ class RCompiler {
                         rvar.Subscribe(subscriber);
                     }
                 }
-                bodyBuilder.call(this, subregion);
             };
         }
         if (builder)
@@ -429,7 +450,7 @@ class RCompiler {
         const varName = GetAttribute(srcElm, 'let');
         if (!varName) {
             const ofExpression = GetAttribute(srcElm, 'of', true, true);
-            const slot = this.Components.find(C => C.TagName == ofExpression);
+            const slot = this.Constructs.get(ofExpression);
             if (!slot)
                 throw `Missing attribute [let]`;
             const bodyBuilder = this.CompileChildNodes(srcElm);
@@ -491,7 +512,7 @@ class RCompiler {
                     RemoveStaleItemsHere();
                     let index = 0, prevItem = null;
                     for (const [key, [item, hash]] of newMap) {
-                        let rvar = (getUpdatesTo ? this.RVAR_Light(item, Array.from(getUpdatesTo(env).Subscribers))
+                        let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
                             : bUpdateable ? this.RVAR_Light(item)
                                 : item);
                         env[iVar] = rvar;
@@ -561,7 +582,7 @@ class RCompiler {
         }
     }
     ParseSignature(elmSignature) {
-        const comp = new Component(elmSignature.tagName);
+        const comp = new Construct(elmSignature.tagName);
         for (const attr of elmSignature.attributes)
             comp.Parameters.push(/^#/.test(attr.name)
                 ? { pid: attr.nodeName.substr(1), pdefault: attr.value ? this.CompileExpression(attr.value) : null }
@@ -589,10 +610,11 @@ class RCompiler {
                 case 'STYLE':
                     break;
             }
-        this.Components.push(component);
+        this.AddConstruct(component);
         const template = RequiredChildElement(srcElm, 'TEMPLATE');
         this.Context.push(...component.Parameters.map(p => p.pid));
-        this.Components.push(...component.Slots);
+        for (const S of component.Slots)
+            this.AddConstruct(S);
         try {
             component.Builders = [this.CompileChildNodes(template.content)];
         }
@@ -600,11 +622,11 @@ class RCompiler {
             throw `${OuterOpenTag(template)} ${err}`;
         }
         finally {
-            this.Components.length -= component.Slots.length;
+            this.RestoreConstructs(component.Slots.length);
             this.Context.length -= component.Parameters.length;
         }
         builders.push([function (reg) {
-                component.ComponentEnv = reg.env.slice();
+                component.ConstructEnv = reg.env.slice();
             }, srcElm]);
         return builders;
     }
@@ -619,7 +641,7 @@ class RCompiler {
                     : (attVal = srcElm.getAttribute(pid)) != null
                         ? this.CompileInterpolatedString(attVal)
                         : pdefault
-                            ? (_env) => pdefault(component.ComponentEnv)
+                            ? (_env) => pdefault(component.ConstructEnv)
                             : thrower(`Missing parameter [${pid}]`)));
             }
             catch (err) {
@@ -647,14 +669,14 @@ class RCompiler {
         return (region) => {
             const subregion = PrepareRegion(srcElm, region);
             const env = subregion.env;
-            const componentEnv = component.ComponentEnv.slice();
+            const componentEnv = component.ConstructEnv.slice();
             componentEnv.push(...computeParameters.map(arg => arg(env)));
             const prevBuilders = [];
             let i = 0;
             for (const slot of component.Slots) {
                 prevBuilders.push(slot.Builders);
                 slot.Builders = slotBuilders[i++];
-                slot.ComponentEnv = env.slice();
+                slot.ConstructEnv = env.slice();
             }
             try {
                 for (let builder of component.Builders)
@@ -713,7 +735,7 @@ class RCompiler {
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
                     const propName = CapitalizeProp(m[3]);
-                    const setter = this.CompileExpression(`function (){if(${attr.value}!==this.${propName}) ${attr.value}=this.${propName}; }`);
+                    const setter = this.CompileExpression(`function (){let ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
                     arrModifiers.push(m[1] == '*'
                         ? { modType: ModifierType.Apply, name: null, depValue: setter, }
                         : { modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
@@ -815,7 +837,7 @@ class RCompiler {
     CompileInterpolatedString(data, name) {
         const generators = [];
         function addString(s) {
-            generators.push(s.replace(/\\(?=[{}\\])/g, ''));
+            generators.push(s.replace(/\\([{}\\])/g, '$1'));
         }
         const reg = /(?<!\\)\{(.*?)(?<!\\)\}|$/gs;
         while (reg.lastIndex < data.length) {
@@ -875,10 +897,9 @@ class RCompiler {
 }
 function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name) {
     let { parent, start, bInit, lastMarker } = region;
-    let marker, endMarker;
+    let marker;
     if (bInit) {
-        name || (name = srcElm.tagName);
-        marker = region.lastMarker = parent.insertBefore(document.createComment(name), start);
+        marker = region.lastMarker = parent.insertBefore(document.createComment(name || srcElm.tagName), start);
         if (lastMarker)
             lastMarker['nextM'] = marker;
         if (start && start == srcElm)
@@ -889,8 +910,8 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name
         region.start = marker['nextM'];
     }
     start = marker.nextSibling;
-    if (bInit || (bInit = bForcedClear || (result != marker['result'] ?? null))) {
-        marker['result'] = result;
+    if (bInit || (bInit = bForcedClear || (result != marker['rResult'] ?? null))) {
+        marker['rResult'] = result;
         while (start != region.start) {
             const next = start.nextSibling;
             parent.removeChild(start);
@@ -1028,11 +1049,10 @@ function CBool(s, valOnEmpty) {
     return s;
 }
 function thrower(err) { throw err; }
-const orgSetTimeout = setTimeout;
-const orgSetInterval = setInterval;
+const orgSetTimeout = globalThis.setTimeout;
+const orgSetInterval = globalThis.setInterval;
 export let RHTML = new RCompiler();
-export let RVAR = RHTML.RVAR;
-export let RUpdate = RHTML.RUpdate;
+export const RVAR = RHTML.RVAR, RUpdate = RHTML.RUpdate, setTimeout = RHTML.setTimeout, setInterval = RHTML.setInterval;
 Object.defineProperties(globalThis, {
     RVAR: { get: () => RHTML.RVAR },
     RUpdate: { get: () => RHTML.RUpdate },

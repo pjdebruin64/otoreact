@@ -46,16 +46,19 @@ type Subscriber = {parent: Element, marker: ChildNode, env: Environment, builder
 type Handler = (ev:Event) => any;
 
 type Parameter = {pid: string, pdefault: Dependent<unknown>};
-class Component {
+class Construct {
     constructor(
         public TagName: string,
         public Parameters: Array<Parameter> = [],
-        public Slots: Array<Component> = []
+        public Slots: Array<Construct> = []
     ){ }
 
     Builders: ElmBuilder[];
-    ComponentEnv: Environment;
+    ConstructEnv: Environment;
 }
+let VisibleConstructs: Map<string, Construct> = new Map();
+function NewConstruct() {}
+
 type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>,
     _UpdatesTo?: Array<_RVAR<unknown>>,
@@ -69,13 +72,29 @@ enum ModifierType {Attr, Prop, Class, Style, Event, Apply, AddToStyle, AddToClas
 let num=0;
 class RCompiler {
     instanceNum = num++;
+    private Context: Context = [];
+    private Constructs: Map<string, Construct>;
+    private HiddenConstructs: Array<[string, Construct]>= [];
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
-    constructor(
-        private Context: Context = [], 
-        private Components: Component[] = [],
-    ) { 
+    constructor(clone?: RCompiler) { 
+        if (clone) {
+            this.Context = clone.Context.slice();
+            this.Constructs = new Map(clone.Constructs);
+        }
+        else
+            this.Constructs = new Map();
     }
+
+    private AddConstruct(C: Construct) {
+        this.HiddenConstructs.push([C.TagName, this.Constructs.get(C.TagName)]);
+        this.Constructs.set(C.TagName, C);
+    }
+    private RestoreConstructs(count: number) {
+        for (let i=0; i<count; i++) {
+            const [name, C] = this.HiddenConstructs.pop();
+            this.Constructs.set(name, C);
+        }}
 
     // Compile a source tree into an ElmBuilder
     public Compile(
@@ -116,7 +135,7 @@ class RCompiler {
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
     private handleUpdate: number = null;
-    public RUpdate = function RUpdate() {
+    public RUpdate = function RUpdate(this: RCompiler) {
         clearTimeout(this.handleUpdate);
         this.handleUpdate = orgSetTimeout(() => {
             this.handleUpdate = null;
@@ -219,7 +238,7 @@ class RCompiler {
     ): ElmBuilder {
         const builders = [] as Array< [ElmBuilder, ChildNode] >;
         const contextLength = this.Context.length;
-        const componentsLength = this.Components.length;
+        const hiddenLength = this.HiddenConstructs.length;
 ;
         for (const srcNode of childNodes)
         {
@@ -259,7 +278,7 @@ class RCompiler {
         };
         this.sourceNodeCount += childNodes.length;
 
-        this.Components.length = componentsLength;
+        this.RestoreConstructs(this.HiddenConstructs.length - hiddenLength)
         this.Context.length = contextLength;
 
         return function ChildNodes(region) {
@@ -353,9 +372,8 @@ class RCompiler {
                     
                 case 'INCLUDE': {
                     const src = GetAttribute(srcElm, 'src', true);
-                    const context = this.Context.slice(), components = this.Components.slice();
                     // Placeholder that will contain a Template when the file has been received
-                    let C: RCompiler = null;
+                    let C: RCompiler = new RCompiler(this);
                     // List of nodes that have to be build when the builder is received
                     let arrToBuild: Array<Region> = [];
                     
@@ -368,7 +386,6 @@ class RCompiler {
                         const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
                         // Compile the parsed contents of the file in the original context
-                        C = new RCompiler(context, components);
                         C.Compile(parsedContent.body, this.Settings, );
 
                         // Achterstallige Builds uitvoeren
@@ -392,7 +409,7 @@ class RCompiler {
                             const subregion = PrepareRegion(srcElm, region);
 
                             // Als de builder ontvangen is, dan meteen uitvoeren
-                            if (C?.Builder)
+                            if (C.bCompiled)
                                 C.Builder(subregion);
                             else {
                                 // Anders het bouwen uitstellen tot later
@@ -471,17 +488,13 @@ class RCompiler {
                 default:
                 compileDefault: {
                     // See if this node is a user-defined component
-                    for (let i = this.Components.length-1; i>=0; i--) {
-                        const component: Component = this.Components[i];
-                        if (component.TagName == srcElm.tagName) {
-                            /* We have a component - instance */
-                            builder = this.CompileComponentInstance(srcParent, srcElm, component);
-                            break compileDefault;
-                        }
-                    }
-                        
-                    /* It's a regular element that should be included in the runtime output */
-                    builder = this.CompileRegularElement(srcParent, srcElm); 
+                    const component = this.Constructs.get(srcElm.tagName)
+                    if (component)
+                        /* We have a component - instance */
+                        builder = this.CompileComponentInstance(srcParent, srcElm, component);
+                    else                        
+                        /* It's a regular element that should be included in the runtime output */
+                        builder = this.CompileRegularElement(srcParent, srcElm); 
                 }
                 break;
             }
@@ -571,7 +584,7 @@ class RCompiler {
         if (!varName) { 
             /* Iterate over multiple slot instances */
             const ofExpression = GetAttribute(srcElm, 'of', true, true);
-            const slot = this.Components.find(C => C.TagName == ofExpression)
+            const slot = this.Constructs.get(ofExpression)
             if (!slot)
                 throw `Missing attribute [let]`;
 
@@ -744,8 +757,8 @@ class RCompiler {
         }
     }
 
-    private ParseSignature(elmSignature: Element):  Component {
-        const comp = new Component(elmSignature.tagName);
+    private ParseSignature(elmSignature: Element):  Construct {
+        const comp = new Construct(elmSignature.tagName);
         for (const attr of elmSignature.attributes)
             comp.Parameters.push(
                 /^#/.test(attr.name)
@@ -780,30 +793,31 @@ class RCompiler {
                     break;
             }
 
-        this.Components.push(component);
+        this.AddConstruct(component);
 
         const template = RequiredChildElement(srcElm, 'TEMPLATE') as HTMLTemplateElement;
 
         this.Context.push(...component.Parameters.map(p => p.pid));
-        this.Components.push(...component.Slots);
+        for (const S of component.Slots)
+            this.AddConstruct(S);
         try {
             component.Builders = [ this.CompileChildNodes(template.content) ];
         }
         catch (err) {throw `${OuterOpenTag(template)} ${err}`;}
         finally {
-            this.Components.length -= component.Slots.length;
+            this.RestoreConstructs(component.Slots.length);
             this.Context.length -= component.Parameters.length;       
         }
         
         builders.push( [function(this: RCompiler, reg) {
             // At runtime, we just have to remember the environment that matches the context
-            component.ComponentEnv = reg.env.slice();
+            component.ConstructEnv = reg.env.slice();
         }, srcElm]);
         return builders;
     }
 
     private CompileComponentInstance(srcParent: ParentNode, srcElm: HTMLElement,
-        component: Component) {
+        component: Construct) {
         srcParent.removeChild(srcElm);
         let attVal: string;
         const computeParameters: Array<Dependent<unknown>> = [];
@@ -811,11 +825,11 @@ class RCompiler {
             try {
                 computeParameters.push(
                 ( (attVal = srcElm.getAttribute(`#${pid}`)) != null
-                ? this.CompileExpression( attVal )
+                    ? this.CompileExpression( attVal )
                 : (attVal = srcElm.getAttribute(pid)) != null
-                ? this.CompileInterpolatedString( attVal )
+                    ? this.CompileInterpolatedString( attVal )
                 : pdefault
-                ? (_env) => pdefault(component.ComponentEnv)
+                    ? (_env) => pdefault(component.ConstructEnv)
                 : thrower(`Missing parameter [${pid}]`)
                 ))
             }
@@ -843,14 +857,14 @@ class RCompiler {
         return (region: Region) => {
             const subregion = PrepareRegion(srcElm, region);
             const env = subregion.env;  
-            const componentEnv = component.ComponentEnv.slice();    // Copy, just in case the component is recursive
+            const componentEnv = component.ConstructEnv.slice();    // Copy, just in case the component is recursive
             componentEnv.push( ...computeParameters.map(arg => arg(env)) )
             const prevBuilders = [];        
             let i = 0;
             for (const slot of component.Slots) {
                 prevBuilders.push(slot.Builders);
                 slot.Builders = slotBuilders[i++];
-                slot.ComponentEnv = env.slice();
+                slot.ConstructEnv = env.slice();
             }
 
             try { for (let builder of component.Builders)

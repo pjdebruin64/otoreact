@@ -10,9 +10,7 @@ declare type Settings = {
     [Property in keyof FullSettings]+?: FullSettings[Property];
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
-declare type Context = Array<string>;
 declare type Environment = Array<unknown>;
-declare type Dependent<T> = (env: Environment) => T;
 declare type Region = {
     parent: Element;
     marker?: ChildNode;
@@ -28,23 +26,14 @@ declare type Subscriber = {
     env: Environment;
     builder: ElmBuilder;
 };
-declare type Parameter = {
-    pid: string;
-    pdefault: Dependent<unknown>;
-};
-declare class Component {
-    TagName: string;
-    Parameters: Array<Parameter>;
-    Slots: Array<Component>;
-    constructor(TagName: string, Parameters?: Array<Parameter>, Slots?: Array<Component>);
-    Builders: ElmBuilder[];
-    ComponentEnv: Environment;
-}
 declare class RCompiler {
-    private Context;
-    private Components;
     instanceNum: number;
-    constructor(Context?: Context, Components?: Component[]);
+    private Context;
+    private Constructs;
+    private HiddenConstructs;
+    constructor(clone?: RCompiler);
+    private AddConstruct;
+    private RestoreConstructs;
     Compile(elm: HTMLElement, settings: Settings): void;
     Build(reg: Region & {
         marker?: ChildNode;
@@ -100,7 +89,6 @@ declare class _RVAR<T> {
     SetDirty(): void;
 }
 export declare let RHTML: RCompiler;
-export declare let RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
-export declare let RUpdate: () => void;
+export declare const RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>, RUpdate: () => void, setTimeout: any, setInterval: any;
 export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
 export {};
