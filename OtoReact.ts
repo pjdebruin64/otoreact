@@ -56,7 +56,11 @@ class Component {
     Builders: ElmBuilder[];
     ComponentEnv: Environment;
 }
-type RVAR_Light<T> = T & {_Subscribers?: Array<Subscriber>, Subscribe?: (sub:Subscriber) => void};
+type RVAR_Light<T> = T & {
+    _Subscribers?: Array<Subscriber>,
+    _UpdatesTo?: Array<_RVAR<unknown>>,
+    Subscribe?: (sub:Subscriber) => void
+};
 
 const globalEval = eval;
 
@@ -112,7 +116,7 @@ class RCompiler {
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
     private handleUpdate: number = null;
-    public RUpdate = function RUpdate(this: RCompiler) {
+    public RUpdate = function RUpdate() {
         clearTimeout(this.handleUpdate);
         this.handleUpdate = orgSetTimeout(() => {
             this.handleUpdate = null;
@@ -183,14 +187,18 @@ class RCompiler {
 
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
-        subscribers: Array<Subscriber> = [],
+        //: Array<Subscriber> = [],
+        updatesTo: Array<_RVAR<unknown>> = [],
     ): RVAR_Light<T> {
         if (!t._Subscribers) {
-            t._Subscribers = subscribers;
+            t._Subscribers = []; //subscribers;
+            t._UpdatesTo = updatesTo;
             const R: RCompiler = this;
             Object.defineProperty(t, 'U',
                 {get:
                     function() {
+                        for(const rvar of t._UpdatesTo)
+                            rvar.SetDirty();
                         for(const sub of t._Subscribers)
                             R.DirtyRegions.add(sub);
                         return t;
@@ -283,21 +291,25 @@ class RCompiler {
                     const iVar = this.Context.push(varName) - 1;
 
                     builder = function DEFINE(region) {
-                            const value = getValue && getValue(region.env);
-                            region.env[iVar] = rvarName ? RVAR(null, value) : value;
+                            const {marker} = PrepareRegion(srcElm, region);
+                            if (region.bInit){
+                                const value = getValue && getValue(region.env);
+                                marker['rValue'] = rvarName ? RHTML.RVAR(null, value) : value;
+                            }
+                            region.env[iVar] = marker['rValue']
                         };
                 } break;
 
                 case 'IF':
                 case 'CASE': {
                     const caseList = [] as Array<{condition: Dependent<boolean>, builder: ElmBuilder, child: HTMLElement}>;
-                    const getCondition = this.CompileAttributeExpression<boolean>(srcElm, 'cond', false);
+                    const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression<boolean>(srcElm, 'cond', true);
                     const bodyNodes: ChildNode[] = [];
                     for (const child of srcElm.children as Iterable<HTMLElement>) {
                         switch (child.nodeName) {
                             case 'WHEN':
                                 caseList.push({
-                                    condition: this.CompileAttributeExpression<boolean>(child, 'cond')
+                                    condition: this.CompileAttributeExpression<boolean>(child, 'cond', true)
                                     , builder: this.CompileChildNodes(child)
                                     , child
                                 });
@@ -370,6 +382,13 @@ class RCompiler {
                     builder = 
                         // Runtime routine
                         function INCLUDE (region) {
+                            /*
+                            const {start, bInit} = region;
+                            if (bInit && start == srcElm) {
+                                region.start = start.nextSibling;
+                                region.parent.removeChild(start);
+                            }
+                            */
                             const subregion = PrepareRegion(srcElm, region);
 
                             // Als de builder ontvangen is, dan meteen uitvoeren
@@ -419,6 +438,7 @@ class RCompiler {
 
                 case 'RHTML': {
                     const bodyBuilder = this.CompileChildNodes(srcElm);
+                    srcParent.removeChild(srcElm);
 
                     builder = function RHTML(region) {
                         const tempElm = document.createElement('RHTML');
@@ -476,12 +496,14 @@ class RCompiler {
 
             const bodyBuilder = builder;
             builder = function REACT(region) {
-                let subregion = PrepareRegion(srcElm, region, null, null, 'reacton');
+                let {parent, marker} = PrepareRegion(srcElm, region, null, null, 'reacton');
+
+                bodyBuilder.call(this, region);
 
                 if (region.bInit) {
                     const subscriber: Subscriber = {
-                        ...subregion,
-                        builder: function reacton(this: RCompiler, reg: Region) {
+                        parent, marker,
+                        builder: function reacton(reg: Region) {
                             this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
                         },
                         env: region.env.slice(),
@@ -493,8 +515,6 @@ class RCompiler {
                         rvar.Subscribe(subscriber);
                     }
                 }
-
-                bodyBuilder.call(this, subregion);
             }
         }
         if (builder)
@@ -635,7 +655,7 @@ class RCompiler {
                         for (const [key, [item, hash]] of newMap) {
                             // Environment instellen
                             let rvar: Item =
-                                ( getUpdatesTo ? this.RVAR_Light(item as object, Array.from(getUpdatesTo(env).Subscribers))
+                                ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
                                 : bUpdateable ? this.RVAR_Light(item as object)
                                 : item
                                 );
@@ -900,7 +920,8 @@ class RCompiler {
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) { // *, **, @, @@
                     const propName = CapitalizeProp(m[3]);
-                    const setter = this.CompileExpression<Handler>(`function (){if(${attr.value}!==this.${propName}) ${attr.value}=this.${propName}; }`);
+                    const setter = this.CompileExpression<Handler>(
+                        `function (){let ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
                     arrModifiers.push(
                         m[1] == '*'
                         ? { modType: ModifierType.Apply, name: null,     depValue: setter, }
@@ -1012,7 +1033,7 @@ class RCompiler {
     private CompileInterpolatedString(data: string, name?: string): Dependent<string> {
         const generators: Array< string | Dependent<unknown> > = [];
         function addString(s: string) {
-            generators.push( s.replace(/\\(?=[{}\\])/g, '') );
+            generators.push( s.replace(/\\([{}\\])/g, '$1') );
         }
 
         const reg = //  /(?:\{((?:[^{}]|\{[^{}]*\})*?)\})|$/gs;
@@ -1095,14 +1116,12 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     : Region & {marker: Comment}
 {
     let {parent, start, bInit, lastMarker} = region;
-    let marker: Comment, endMarker: Comment;
+    let marker: Comment;
     if (bInit) {
-        name ||= srcElm.tagName;
-        marker = region.lastMarker = parent.insertBefore(document.createComment(name), start);
+        marker = region.lastMarker = parent.insertBefore(document.createComment(name || srcElm.tagName), start);
         if (lastMarker)
             lastMarker['nextM'] = marker;
         
-        //marker['endNode'] = endMarker = parent.insertBefore(document.createComment(`/${name}`), start);
         if (start && start == srcElm)
             region.start = start.nextSibling;
     }
@@ -1112,8 +1131,8 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     }
     start = marker.nextSibling;
 
-    if (bInit ||= (bForcedClear || (result != marker['result'] ?? null)) ) {
-        marker['result'] = result;
+    if (bInit ||= (bForcedClear || (result != marker['rResult'] ?? null)) ) {
+        marker['rResult'] = result;
         while (start != region.start) {
             const next = start.nextSibling;
             parent.removeChild(start);
@@ -1294,11 +1313,14 @@ function thrower(err: string): never { throw err; }
 
 
 // Modify timer functions to include an RUpdate
-const orgSetTimeout = setTimeout;
-const orgSetInterval = setInterval;
+const orgSetTimeout = globalThis.setTimeout;
+const orgSetInterval = globalThis.setInterval;
 export let RHTML = new RCompiler();
-export let RVAR = RHTML.RVAR;
-export let RUpdate = RHTML.RUpdate;
+export const 
+    RVAR = RHTML.RVAR, 
+    RUpdate = RHTML.RUpdate,
+    setTimeout = RHTML.setTimeout, 
+    setInterval = RHTML.setInterval;
 
 Object.defineProperties(
     globalThis,
