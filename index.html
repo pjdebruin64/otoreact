@@ -87,10 +87,18 @@
 </head>
 <body style='display:none' onload="msg('All loaded')">
 
+<!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
+<component>
+    <a href #target="undefined" #download="undefined"></a>
+    <template>
+        <a #href="href" #target="!target && /^http/i.test(href) ? '_blank' : target" #download="download"><content></content></a>
+    </template>
+</component>
+
 <h1>Reactive HTML through the OtoReact framework</h1>
 
 <define name=greeting #value=
-'`<script type=module>RVAR(&apos;yourName&apos;)</script>
+'`<define rvar=&apos;yourName&apos;></define>
 <p>
     What&apos;s your name?
     <input type=text *value="yourName.V">
@@ -108,7 +116,7 @@
 </div>
 
 <p>
-    '<i>Reactive web applications</i>', or '<a href="https://en.wikipedia.org/wiki/Single-page_application" target=_blank>Single Page Application</a>s', are web applications that, when possible, react immediately on user input, timer events etc, or server data requested by the application, instead of waiting for the web server to generate and send a new HTML page.
+    '<i>Reactive web applications</i>', or '<a href="https://en.wikipedia.org/wiki/Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or server data requested by the application, instead of waiting for the web server to generate and send a new HTML page.
     <br>A tiny example you see above; please enter some data.
 </p>
 <p>
@@ -136,12 +144,12 @@
 </p>
 <ol>
     <li>
-        Some, like <a href="https://jquery.com/" target=_blank>JQuery</a> and <a href="https://reactjs.org/" target=_blank>React</a>, offer tools to make it easier to manipulate the DOM.
+        Some, like <a href="https://jquery.com/">JQuery</a> and <a href="https://reactjs.org/">React</a>, offer tools to make it easier to manipulate the DOM.
         <br>All manipulation is still done from within the JavaScript you write, and you need a good understanding of DOM manipulation and JavaScript in general.
         <br>The respective libraries can in some cases be loaded straight into the browser without compilation.
     </li>
     <li>
-        Others, like <a href="https://angular.io/" target=_blank>Angular</a> and <a href="https://svelte.dev/" target=_blank>Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains just the data model and the data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
+        Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains just the data model and the data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
         <br>You don't need write code to manipulate the DOM at all anymore; this is done by the framework.
         <br>The source code files have to be compiled on you development machine. You need to install the compiler, and quite some modules for each application (which for Angular may take more than 1GB per application).
     </li>
@@ -258,10 +266,11 @@ I imagine Reactive HTML one day being natively supported by the browser. In that
 </ol>
 Both code lines can either be placed right into you HTML file:
 <pre class=sourcecode>
-<elm>script type=module</elm>
+&lt;script type=module&gt;
     import \{ RCompile \} from './OtoReact.js';
     RCompile( document.body );
-<elm>/script</elm></pre>
+&lt;/script&gt;
+</pre>
 , or inside a JavaScript (or TypeScript) module you load from your HTML file.
 
 <h2>Text with embedded expressions</h2>
@@ -301,21 +310,21 @@ You can modify the snippet of source code above and see its result immediately.
 <demo content=
 "<script type=module>
     // Create a &quot;Reactive variable&quot; with a name and an initial value
-    RVAR('yourName2');
-    /* Now 'yourName2' has been added to the global environment,
-      and 'yourName2.V' refers to the value of the variable,
+    RVAR('yourName');
+    /* Now 'yourName' has been added to the global environment,
+      and 'yourName.V' refers to the value of the variable,
       so that assignments to this value can be tracked. */
 </script>
 
 <p>What's your name?
-    <input type=text *value=&quot;yourName2.V&quot;>
+    <input type=text *value=&quot;yourName.V&quot;>
     <!-- The &quot;*&quot; introduces an output binding for the input element.
-      Anytime an input event happens, 'yourName2.V' will be updated,
+      Anytime an input event happens, 'yourName.V' will be updated,
       and the DOM as well  -->
 </p>
-<if #cond=&quot;yourName2.V&quot;>
-    <p>Nice to meet you, \{yourName2.V\}.
-    <br>By the way, your name consists of \{yourName2.V.length\} characters.
+<if #cond=&quot;yourName.V&quot;>
+    <p>Nice to meet you, \{yourName.V\}.
+    <br>By the way, your name consists of \{yourName.V.length\} characters.
     </p>
 </if>"></demo>
 
@@ -427,17 +436,20 @@ You can modify the snippet of source code above and see its result immediately.
         let board =     RVAR('board');
         let toMove =    RVAR('toMove', 'X');
         let winner =    RVAR('winner');
+        let count = 0;
 
         globalThis.ClearAll = function() \{
             board.V = Board();
             winner.V = null;
+            count = 0;
         \}
         ClearAll();
 
         globalThis.Move = function(cell) \{
+            count++;
             cell.U.V = toMove.V;
             toMove.V = (toMove.V=='X' ? 'O' : 'X');
-            winner.V = CheckWinner(board.V);
+            winner.V = CheckWinner(board.V) || count==9;
         \}
 
         function CheckRow(c1, c2, c3) \{
@@ -457,7 +469,7 @@ You can modify the snippet of source code above and see its result immediately.
     </script>
 
     <table. class=tic-tac-toe style=&quot;grid-area: 2/1; width: fit-content; margin:1ex&quot;>
-        <for let=row #of=&quot;board.V&quot; reacton=board>
+        <for let=row #of=&quot;board.V&quot;>
             <tr.>
                 <for let=cell #of=row updates=board>
                     <td. onclick=&quot;!winner.V && !cell.V && Move(cell)&quot;
@@ -467,10 +479,13 @@ You can modify the snippet of source code above and see its result immediately.
         </for>
     </table.>
     <div style=&quot;grid-row: 2; grid-column: 2;&quot;>
-        <if #cond=&quot;winner.V&quot; reacton=winner>
-            <p><b>The winner is: <large>\{winner.V\}</large></b></p>
-        </if>
-        <p reacton=toMove>Player to move: \{toMove.V\}</p>
+        <p>
+            <case>
+                <when #cond=&quot;winner.V==true&quot;><b>It's a draw.</b></when>
+                <when #cond=&quot;winner.V&quot;><b>The winner is: <large>\{winner.V\}</large></b></when>
+                <else>Player to move: \{toMove.V\}</else>
+            </case>
+        </p>
         <button onclick=&quot;ClearAll()&quot;>Clear</button>
     </div>
 </div>">
