@@ -89,7 +89,7 @@
 
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target="undefined" #download="undefined"></a>
+    <a href #target? download?></a>
     <template>
         <a #href="href" #target="!target && /^http/i.test(href) ? '_blank' : target" #download="download"><content></content></a>
     </template>
@@ -266,10 +266,10 @@ I imagine Reactive HTML one day being natively supported by the browser. In that
 </ol>
 Both code lines can either be placed right into you HTML file:
 <pre class=sourcecode>
-&lt;script type=module&gt;
+&lt;script type=module>
     import \{ RCompile \} from './OtoReact.js';
     RCompile( document.body );
-&lt;/script&gt;
+&lt;/script>
 </pre>
 , or inside a JavaScript (or TypeScript) module you load from your HTML file.
 
@@ -422,6 +422,23 @@ You can modify the snippet of source code above and see its result immediately.
 </demo>
 
 
+Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a target='_blank' attribute:
+<demo content="<component>
+    <a href #target? download?></a>
+    <template>
+        <a #href=&quot;href&quot; 
+            #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot; 
+            #download=&quot;download&quot;>
+            <content></content>
+        </a>
+    </template>
+</component>
+
+This link opens in a blank window:
+<a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
+</demo>
+
+
 <h3>&lt;REACT on&gt;, reacton</h3>
 <demo #bShow=false content=
 "<div style=&quot;display: grid; width: 300pt; background-color: white;&quot;>
@@ -434,7 +451,7 @@ You can modify the snippet of source code above and see its result immediately.
         function Row()  \{return [Cell(), Cell(), Cell()]; \}
         function Board() \{return [Row(), Row(), Row()]; \}
         let board =     RVAR('board');
-        let toMove =    RVAR('toMove', 'X');
+        let toMove =    RVAR('toMove', '✕');
         let winner =    RVAR('winner');
         let count = 0;
 
@@ -448,7 +465,7 @@ You can modify the snippet of source code above and see its result immediately.
         globalThis.Move = function(cell) \{
             count++;
             cell.U.V = toMove.V;
-            toMove.V = (toMove.V=='X' ? 'O' : 'X');
+            toMove.V = (toMove.V=='✕' ? '◯' : '✕');
             winner.V = CheckWinner(board.V) || count==9;
         \}
 

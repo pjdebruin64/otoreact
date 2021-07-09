@@ -752,12 +752,18 @@ class RCompiler {
 
     private ParseSignature(elmSignature: Element):  Construct {
         const comp = new Construct(elmSignature.tagName);
-        for (const attr of elmSignature.attributes)
+        for (const attr of elmSignature.attributes) {
+            const m = /^(#)?(.*?)(\?)?$/.exec(attr.name);
             comp.Parameters.push(
-                /^#/.test(attr.name)
-                ? { pid: attr.nodeName.substr(1), pdefault: attr.value ? this.CompileExpression(attr.value) : null }
-                : { pid: attr.nodeName, pdefault: attr.value != null ? this.CompileInterpolatedString(attr.value) : null }
+                { pid: m[2]
+                , pdefault: 
+                    attr.value != '' 
+                    ? (m[1] ? this.CompileExpression(attr.value) :  this.CompileInterpolatedString(attr.value))
+                    : m[3] ? (_) => undefined
+                    : null 
+                }
             );
+            }
         comp.Slots.set('CONTENT', new Construct('CONTENT'))
         for (const elmSlot of elmSignature.children)
             comp.Slots.set(elmSlot.tagName, this.ParseSignature(elmSlot));
@@ -770,8 +776,6 @@ class RCompiler {
         const builders: [ElmBuilder, ChildNode][] = [];
 
         let elmSignature = srcElm.firstElementChild;
-        if (elmSignature?.tagName == 'SIGNATURE')
-            elmSignature = elmSignature.firstElementChild;
         if (!elmSignature || elmSignature.tagName=='TEMPLATE')
             throw `Missing signature`;
 
