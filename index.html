@@ -55,6 +55,20 @@
         pre.nodisplay {display: none}
 
 
+                
+        .flex-container {
+        display: flex; flex-wrap: wrap; align-items: center;
+        background-color: gray;
+        }
+
+        .flex-container > div {
+        background-color: #f1f1f1;
+        margin: 4px;
+        padding: 8px;
+        font-size: 18px;
+        }
+
+
         .tic-tac-toe td {
             height:32pt;width: 32pt; 
             border: 2px solid; 
@@ -87,11 +101,47 @@
 </head>
 <body style='display:none' onload="msg('All loaded')">
 
+<!-- Component to demonstrate RHTML -->
+<component>
+    <demo content #bshow=true></demo>
+    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+    <script>
+        function ColorCode(html) {
+            return html.replace(
+                    /[<&]/g, c => ({'<': '&lt;', '&': '&amp;'}[c])
+                ).replace(/\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
+        }
+    </script>
+    
+    <template>
+        <define rvar=MyRVAR #value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
+        <define rvar=rShow  #value="bshow"></define>
+        <table. class=demo>
+            <tr.><th.>
+                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
+                Editable source code
+            </th.><th.>Live result</th.></tr.>
+            <tr.>
+                <td.>
+                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
+                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
+                </td.>
+                <td.><div>
+                    <RHTML reacton=MyRVAR>
+                        {MyRVAR.V}
+                    </RHTML>
+                </div></td.>
+            </tr.>
+        </table.>
+    </template>
+</component>
+
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? download?></a>
+    <a href #target? download?><content></content></a>
     <template>
-        <a #href="href" #target="!target && /^http/i.test(href) ? '_blank' : target" #download="download"><content></content></a>
+        <a #href="href" #target="!target && /^http/i.test(href) ? '_blank' : target" #download="download"
+        ><content></content></a>
     </template>
 </component>
 
@@ -157,45 +207,6 @@
 <p>
     Reactive HTML gives you the advantages of describing the desired reactive layout by a HTML template, without the hassle of installing and using a compiler and managing quite a number of configuration files.
 </p>
-
-<import src="./demo.html">
-    <demo content bshow></demo>
-</import>
-
-<!-- Component to demonstrate RHTML -->
-<component>
-    <demo content #bshow=true></demo>
-    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script>
-        function ColorCode(html) {
-            return html.replace(
-                    /[<&]/g, c => ({'<': '&lt;', '&': '&amp;'}[c])
-                ).replace(/\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
-        }
-    </script>
-    
-    <template>
-        <define rvar=MyRVAR #value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
-        <define rvar=rShow  #value="bshow"></define>
-        <table. class=demo>
-            <tr.><th.>
-                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                Editable source code
-            </th.><th.>Live result</th.></tr.>
-            <tr.>
-                <td.>
-                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
-                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
-                </td.>
-                <td.><div>
-                    <RHTML reacton=MyRVAR>
-                        {MyRVAR.V}
-                    </RHTML>
-                </div></td.>
-            </tr.>
-        </table.>
-    </template>
-</component>
 
 <h2>Limitations inflicted by the parser</h2>
 Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
@@ -334,13 +345,13 @@ You can modify the snippet of source code above and see its result immediately.
 
 <h3>Attributes and properties</h3>
 
-<h3>Events</h3>
+<h3>HTML-events</h3>
+
+<h3>RHTML-events</h3>
 
 <h3>Classes</h3>
 
 <h3>Styles</h3>
-
-<h3>Apply</h3>
 
 <h3>&lt;IF #cond&gt;</h3>
 
@@ -424,13 +435,12 @@ You can modify the snippet of source code above and see its result immediately.
 
 Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a target='_blank' attribute:
 <demo content="<component>
-    <a href #target? download?></a>
+    <a href #target? download?><content></content></a>
     <template>
         <a #href=&quot;href&quot; 
             #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot; 
-            #download=&quot;download&quot;>
-            <content></content>
-        </a>
+            #download=&quot;download&quot;
+        ><content></content></a>
     </template>
 </component>
 
@@ -438,6 +448,36 @@ This link opens in a blank window:
 <a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
 </demo>
 
+<p>A recursive component, showing nested lists of lists:</p>
+
+<demo content=
+"<component recursive>
+    <showList #list></showList>
+    <template>
+        <div class=flex-container>
+            <for let=item #of=list>
+                <div>
+                    <case>
+                        <when #cond=&quot;Array.isArray(item)&quot;>
+                            <showList #list=item></showList>
+                        </when>
+                        <else>
+                            \{item\}
+                        </else>
+                    </case>
+                </div>
+            </for>
+        </div>
+    </template>
+</component>   
+<div>
+    <define rvar=list 
+        #value=&quot;'[1, [2,3], [[41,42],5] ]'&quot;></define>
+    <p>JavaScript list: <input type=text @value=&quot;list.V&quot; size=40></p>
+    <showList #list=&quot;eval(list.V)&quot;></showList>
+</div>
+<p>You can modify the list definition above.</p>"
+></demo>
 
 <h3>&lt;REACT on&gt;, reacton</h3>
 <demo #bShow=false content=

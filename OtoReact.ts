@@ -70,26 +70,64 @@ enum ModifierType {Attr, Prop, Class, Style, Event, Apply, AddToStyle, AddToClas
 let num=0;
 class RCompiler {
     instanceNum = num++;
-    private Context: Context = [];
+    private Context: Context;
+    private ContextMap: Map<string, number>;
+
     private Constructs: Map<string, Construct>;
     private HiddenConstructs: Array<[string, Construct]>= [];
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(clone?: RCompiler) { 
-        if (clone) {
-            this.Context = clone.Context.slice();
-            this.Constructs = new Map(clone.Constructs);
-        }
-        else
-            this.Constructs = new Map();
+        this.Context    = clone ? clone.Context.slice() : [];
+        this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
+        this.Constructs = clone ? new Map(clone.Constructs) : new Map();
     }
 
+    private hiddenEnv: Array<[number, unknown]> = [];
+    private NewVar(name: string): (env: Environment) => (value: unknown) => void {
+        if (!name)
+            return (_) => (_) => {};
+
+        let i = this.ContextMap.get(name);
+        const bNewName = i == null;
+        if (bNewName){
+            i = this.Context.push(name) - 1;
+            this.ContextMap.set(name, i);
+        }
+        return function InitVar(this: RCompiler, env: Environment) {
+            if (bNewName)
+                env.push(null);
+            else
+                this.hiddenEnv.push([i, env[i]]);
+            
+            return function SetVar(value: unknown) {
+                env[i] = value;
+            }
+            }.bind(this) as (env: Environment) => (value?: unknown) => void            
+    }
+    private RestoreContext(contextLength: number) {
+        this.Context.length = contextLength;
+    }
+    private SaveEnv(env:Environment): [number, number] {
+        return [env.length, this.hiddenEnv.length];
+    }
+    private RestoreEnv(env: Environment, [envLength, hiddenLength]: [number, number]) {
+        for (let j = this.hiddenEnv.length; j>hiddenLength; j--) {
+            const [i, value] = this.hiddenEnv.pop();
+            env[i] = value;
+        }
+        env.length = envLength;
+    }
+
+    private SaveConstructs(): number {
+        return this.HiddenConstructs.length;
+    }
     private AddConstruct(C: Construct) {
         this.HiddenConstructs.push([C.TagName, this.Constructs.get(C.TagName)]);
         this.Constructs.set(C.TagName, C);
     }
-    private RestoreConstructs(count: number) {
-        for (let i=0; i<count; i++) {
+    private RestoreConstructs(savedConstructs: number) {
+        for (let i=this.HiddenConstructs.length; i>savedConstructs; i--) {
             const [name, C] = this.HiddenConstructs.pop();
             this.Constructs.set(name, C);
         }}
@@ -236,7 +274,7 @@ class RCompiler {
     ): ElmBuilder {
         const builders = [] as Array< [ElmBuilder, ChildNode] >;
         const contextLength = this.Context.length;
-        const hiddenLength = this.HiddenConstructs.length;
+        const savedConstructs = this.SaveConstructs();
 ;
         for (const srcNode of childNodes)
         {
@@ -276,18 +314,18 @@ class RCompiler {
         };
         this.sourceNodeCount += childNodes.length;
 
-        this.RestoreConstructs(this.HiddenConstructs.length - hiddenLength)
-        this.Context.length = contextLength;
+        this.RestoreConstructs(savedConstructs)
+        this.RestoreContext(contextLength);
 
         return function ChildNodes(region) {
-                const envLength = region.env.length;
+                const saveEnv = this.SaveEnv(region.env);
                 try {
                     for(const [builder, node] of builders)
                         this.CallWithErrorHandling(builder, node, region);
                     this.builtNodeCount += builders.length;
                 }
                 finally {
-                    region.env.length = envLength;
+                    this.RestoreEnv(region.env, saveEnv)
                 }
             };
     }
@@ -310,15 +348,15 @@ class RCompiler {
                         const rvarName = GetAttribute(srcElm, 'rvar');
                         const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
                         const getValue = this.CompileAttributeExpression<unknown>(srcElm, 'value');
-                        const iVar = this.Context.push(varName) - 1;
+                        const newVar = this.NewVar(varName);
 
                         builder = function DEFINE(region) {
                                 const {marker} = PrepareRegion(srcElm, region);
                                 if (region.bInit){
                                     const value = getValue && getValue(region.env);
-                                    marker['rValue'] = rvarName ? RHTML.RVAR(null, value) : value;
+                                    marker['rValue'] = rvarName ? this.RVAR(null, value) : value;
                                 }
-                                region.env[iVar] = marker['rValue']
+                                newVar(region.env)(marker['rValue']);
                             };
                     } break;
 
@@ -490,7 +528,7 @@ class RCompiler {
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        builder = this.CompileRegularElement(srcParent, srcElm);
+                        builder = this.CompileRegularElement(srcElm);
                 }
         }
         catch (err) { 
@@ -548,10 +586,14 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.Settings.bShowErrors)
-                region.parent.insertBefore(
-                    document.createTextNode(message), region.start
-                )['RError'] = true;
+            if (this.Settings.bShowErrors) {
+                const RError = 
+                    region.parent.insertBefore(
+                        document.createTextNode(message), region.start
+                    );
+                RError['RError'] = true;
+                
+                }
         }
     }
 
@@ -609,14 +651,14 @@ class RCompiler {
             const contextLength = this.Context.length;
             try {
                 // Voeg de loop-variabele toe aan de context
-                const iVar = this.Context.push(varName) - 1;
+                const initVar = this.NewVar(varName);
 
                 const getKey = this.CompileAttributeExpression<Key>(srcElm, 'key');
                 const getHash = this.CompileAttributeExpression<Hash>(srcElm, 'hash');
 
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
-                const iIndex = (indexName ? this.Context.push(indexName) : 0) - 1;
-                const iPrevious = (prevName ? this.Context.push(prevName) : 0) - 1;
+                const initIndex = this.NewVar(indexName);
+                const initPrevious = this.NewVar(prevName);
                 
                 // Compileer alle childNodes
                 if (srcElm.childNodes.length ==0)
@@ -629,14 +671,16 @@ class RCompiler {
                 return function FOREACH(this: RCompiler, region: Region) {
                         let subregion = PrepareRegion(srcElm, region, null, (getKey == null));
                         let {parent, marker, start, env} = subregion;
+                        const saveEnv = this.SaveEnv(env);
 
                         // Map of previous data, if any
                         const keyMap: Map<Key, Subscriber>
                             = (region.bInit ? marker['keyMap'] = new Map() : marker['keyMap']);
                         // Map of the newly obtained data
                         const newMap: Map<Key, [Item, Hash]> = new Map();
+                        const setVar = initVar(env);
                         for (const item of getRange(env)) {
-                            env[iVar] = item;
+                            setVar(item);
                             const hash = getHash && getHash(env);
                             const key = getKey ? getKey(env) : hash;
                             newMap.set(key ?? {}, [item, hash]);
@@ -657,6 +701,9 @@ class RCompiler {
                         }
                         RemoveStaleItemsHere();
 
+                        const setIndex = initIndex(env);
+                        const setPrevious = initPrevious(env);
+
                         let index = 0, prevItem: Item = null;
                         // Voor elke waarde in de range
                         for (const [key, [item, hash]] of newMap) {
@@ -666,11 +713,9 @@ class RCompiler {
                                 : bUpdateable ? this.RVAR_Light(item as object)
                                 : item
                                 );
-                            env[iVar] = rvar;
-                            if (iIndex >= 0)
-                                env[iIndex] = index;
-                            if (iPrevious >= 0)
-                                env[iPrevious] = prevItem;
+                            setVar(rvar);
+                            setIndex(index);
+                            setPrevious(prevItem);
 
                             let marker: ChildNode;
                             let subscriber = keyMap.get(key);
@@ -740,12 +785,11 @@ class RCompiler {
                         }
 
                         // Oude environment herstellen
-                        env.length = contextLength;
+                        this.RestoreEnv(env, saveEnv);
                     };
             }
             finally {
-                // Herstel de oude context
-                this.Context.length = contextLength;
+                this.RestoreContext(contextLength);
             }
         }
     }
@@ -764,7 +808,6 @@ class RCompiler {
                 }
             );
             }
-        comp.Slots.set('CONTENT', new Construct('CONTENT'))
         for (const elmSlot of elmSignature.children)
             comp.Slots.set(elmSlot.tagName, this.ParseSignature(elmSlot));
         return comp;
@@ -797,6 +840,7 @@ class RCompiler {
 
         const template = RequiredChildElement(srcElm, 'TEMPLATE') as HTMLTemplateElement;
 
+        const savedConstructs = this.SaveConstructs();
         this.Context.push(...component.Parameters.map(p => p.pid));
         for (const S of component.Slots.values())
             this.AddConstruct(S);
@@ -805,7 +849,7 @@ class RCompiler {
         }
         catch (err) {throw `${OuterOpenTag(template)} ${err}`;}
         finally {
-            this.RestoreConstructs(component.Slots.size);
+            this.RestoreConstructs(savedConstructs);
             this.Context.length -= component.Parameters.length;       
         }
         
@@ -849,16 +893,16 @@ class RCompiler {
                     (slotElm = (node as HTMLElement)).tagName
                     ))
             ) {
-                    const contextLength = this.Context.length;
-                    try {
-                        for (const param of Slot.Parameters)
-                            this.Context.push( GetAttribute(slotElm, param.pid, true) || param.pid );
-                        slotBuilders.get(slotElm.tagName).push(this.CompileChildNodes(slotElm))
-                    }
-                    catch (err) {
-                        throw `${OuterOpenTag(slotElm)} ${err}`;
-                    }
-                    finally { this.Context.length = contextLength; }
+                const contextLength = this.Context.length;
+                try {
+                    for (const param of Slot.Parameters)
+                        this.Context.push( GetAttribute(slotElm, param.pid, true) || param.pid );
+                    slotBuilders.get(slotElm.tagName).push(this.CompileChildNodes(slotElm))
+                }
+                catch (err) {
+                    throw `${OuterOpenTag(slotElm)} ${err}`;
+                }
+                finally { this.RestoreContext(contextLength); }
             }
             else
                 contentNodes.push(node);
@@ -894,7 +938,7 @@ class RCompiler {
         }
     }
 
-    private CompileRegularElement(srcParent: ParentNode, srcElm: HTMLElement) {
+    private CompileRegularElement(srcElm: HTMLElement) {
         // Remove trailing dots
         const nodeName = srcElm.nodeName.replace(/\.$/, '');
 
@@ -1063,10 +1107,10 @@ class RCompiler {
     private CompileInterpolatedString(data: string, name?: string): Dependent<string> {
         const generators: Array< string | Dependent<unknown> > = [];
         function addString(s: string) {
-            generators.push( s.replace(/\\([{}\\])/g, '$1') );
+            generators.push( s.replace(/\\([{}\\])/g, '$1') );  // Replace '\{' etc by '{'
         }
 
-        const reg = //  /(?:\{((?:[^{}]|\{[^{}]*\})*?)\})|$/gs;
+        const reg =
             /(?<!\\)\{(.*?)(?<!\\)\}|$/gs;
         while (reg.lastIndex < data.length) {
             const lastIndex = reg.lastIndex

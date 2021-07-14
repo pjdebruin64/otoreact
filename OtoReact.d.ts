@@ -29,9 +29,16 @@ declare type Subscriber = {
 declare class RCompiler {
     instanceNum: number;
     private Context;
+    private ContextMap;
     private Constructs;
     private HiddenConstructs;
     constructor(clone?: RCompiler);
+    private hiddenEnv;
+    private NewVar;
+    private RestoreContext;
+    private SaveEnv;
+    private RestoreEnv;
+    private SaveConstructs;
     private AddConstruct;
     private RestoreConstructs;
     Compile(elm: HTMLElement, settings: Settings): void;
