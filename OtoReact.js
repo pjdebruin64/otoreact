@@ -95,8 +95,11 @@ class RCompiler {
             };
         }.bind(this);
     }
-    RestoreContext(contextLength) {
-        this.Context.length = contextLength;
+    SaveContext() {
+        return this.Context.length;
+    }
+    RestoreContext(savedContext) {
+        this.Context.length = savedContext;
     }
     SaveEnv(env) {
         return [env.length, this.hiddenEnv.length];
@@ -195,7 +198,7 @@ class RCompiler {
     }
     CompileChildNodes(srcParent, childNodes = Array.from(srcParent.childNodes)) {
         const builders = [];
-        const contextLength = this.Context.length;
+        const savedContext = this.SaveContext();
         const savedConstructs = this.SaveConstructs();
         ;
         for (const srcNode of childNodes) {
@@ -232,7 +235,7 @@ class RCompiler {
         ;
         this.sourceNodeCount += childNodes.length;
         this.RestoreConstructs(savedConstructs);
-        this.RestoreContext(contextLength);
+        this.RestoreContext(savedContext);
         return function ChildNodes(region) {
             const saveEnv = this.SaveEnv(region.env);
             try {
@@ -503,7 +506,7 @@ class RCompiler {
             const prevName = srcElm.getAttribute('previous');
             const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
             const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
-            const contextLength = this.Context.length;
+            const savedContext = this.SaveContext();
             try {
                 const initVar = this.NewVar(varName);
                 const getKey = this.CompileAttributeExpression(srcElm, 'key');
@@ -608,7 +611,7 @@ class RCompiler {
                 };
             }
             finally {
-                this.RestoreContext(contextLength);
+                this.RestoreContext(savedContext);
             }
         }
     }
@@ -616,7 +619,7 @@ class RCompiler {
         const comp = new Construct(elmSignature.tagName);
         for (const attr of elmSignature.attributes) {
             const m = /^(#)?(.*?)(\?)?$/.exec(attr.name);
-            comp.Parameters.push({ pid: m[2],
+            comp.Parameters.push({ name: m[2],
                 pdefault: attr.value != ''
                     ? (m[1] ? this.CompileExpression(attr.value) : this.CompileInterpolatedString(attr.value))
                     : m[3] ? (_) => undefined
@@ -648,8 +651,10 @@ class RCompiler {
         if (bRecursive)
             this.AddConstruct(component);
         const template = RequiredChildElement(srcElm, 'TEMPLATE');
+        const savedContext = this.SaveContext();
         const savedConstructs = this.SaveConstructs();
-        this.Context.push(...component.Parameters.map(p => p.pid));
+        for (const p of component.Parameters)
+            p.lvar = this.NewVar(p.name);
         for (const S of component.Slots.values())
             this.AddConstruct(S);
         try {
@@ -660,7 +665,7 @@ class RCompiler {
         }
         finally {
             this.RestoreConstructs(savedConstructs);
-            this.Context.length -= component.Parameters.length;
+            this.RestoreContext(savedContext);
         }
         if (!bRecursive)
             this.AddConstruct(component);
@@ -671,40 +676,41 @@ class RCompiler {
     }
     CompileComponentInstance(srcParent, srcElm, component) {
         srcParent.removeChild(srcElm);
-        let attVal;
         const computeParameters = [];
-        for (const { pid, pdefault } of component.Parameters)
+        for (const { name, pdefault } of component.Parameters)
             try {
-                computeParameters.push(((attVal = srcElm.getAttribute(`#${pid}`)) != null
+                let attVal;
+                computeParameters.push(((attVal = srcElm.getAttribute(`#${name}`)) != null
                     ? this.CompileExpression(attVal)
-                    : (attVal = srcElm.getAttribute(pid)) != null
+                    : (attVal = srcElm.getAttribute(name)) != null
                         ? this.CompileInterpolatedString(attVal)
                         : pdefault != null
                             ? (_env) => pdefault(component.ConstructEnv)
-                            : thrower(`Missing parameter [${pid}]`)));
+                            : thrower(`Missing parameter [${name}]`)));
             }
             catch (err) {
-                throw `[${pid}]: ${err}`;
+                throw `[${name}]: ${err}`;
             }
-        const contentNodes = new Array();
         const slotBuilders = new Map();
         for (const [name, _] of component.Slots)
             slotBuilders.set(name, []);
+        const contentNodes = new Array();
         for (const node of srcElm.childNodes) {
             let slotElm, Slot;
             if (node.nodeType == Node.ELEMENT_NODE
                 && (Slot = component.Slots.get((slotElm = node).tagName))) {
-                const contextLength = this.Context.length;
+                const savedContext = this.SaveContext(), savedConstructs = this.SaveConstructs();
                 try {
                     for (const param of Slot.Parameters)
-                        this.Context.push(GetAttribute(slotElm, param.pid, true) || param.pid);
+                        this.Context.push(GetAttribute(slotElm, param.name, true) || param.name);
                     slotBuilders.get(slotElm.tagName).push(this.CompileChildNodes(slotElm));
                 }
                 catch (err) {
                     throw `${OuterOpenTag(slotElm)} ${err}`;
                 }
                 finally {
-                    this.RestoreContext(contextLength);
+                    this.RestoreContext(savedContext);
+                    this.RestoreConstructs(savedConstructs);
                 }
             }
             else

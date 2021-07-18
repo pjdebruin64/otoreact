@@ -35,6 +35,7 @@ declare class RCompiler {
     constructor(clone?: RCompiler);
     private hiddenEnv;
     private NewVar;
+    private SaveContext;
     private RestoreContext;
     private SaveEnv;
     private RestoreEnv;
