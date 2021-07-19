@@ -33,6 +33,7 @@ declare class RCompiler {
     private Constructs;
     private HiddenConstructs;
     constructor(clone?: RCompiler);
+    private SaveContext;
     private hiddenEnv;
     private NewVar;
     private RestoreContext;
@@ -41,6 +42,9 @@ declare class RCompiler {
     private SaveConstructs;
     private AddConstruct;
     private RestoreConstructs;
+    private hiddenConstructEnvs;
+    private SaveHiddenCEnvs;
+    private RestoreHiddenCEnvs;
     Compile(elm: HTMLElement, settings: Settings): void;
     Build(reg: Region & {
         marker?: ChildNode;
@@ -71,7 +75,8 @@ declare class RCompiler {
     private CompileForeach;
     private ParseSignature;
     private CompileComponent;
-    private CompileComponentInstance;
+    private CompileConstructTemplate;
+    private CompileConstructInstance;
     private CompileRegularElement;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
