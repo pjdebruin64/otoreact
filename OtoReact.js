@@ -633,7 +633,7 @@ class RCompiler {
         const comp = new Construct(elmSignature.tagName);
         for (const attr of elmSignature.attributes) {
             const m = /^(#)?(.*?)(\?)?$/.exec(attr.name);
-            comp.Parameters.push({ pid: m[2],
+            comp.Parameters.push({ name: m[2],
                 pdefault: attr.value != ''
                     ? (m[1] ? this.CompileExpression(attr.value) : this.CompileInterpolatedString(attr.value))
                     : m[3] ? (_) => undefined
@@ -680,7 +680,7 @@ class RCompiler {
         const savedContext = this.SaveContext();
         const savedConstructs = this.SaveConstructs();
         for (let param of construct.Parameters)
-            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.pid, true) || param.pid);
+            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.name, true) || param.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
@@ -696,20 +696,20 @@ class RCompiler {
     }
     CompileConstructInstance(srcParent, srcElm, construct) {
         srcParent.removeChild(srcElm);
-        let attVal;
         const computeParameters = [];
-        for (const { pid, pdefault } of construct.Parameters)
+        for (const { name, pdefault } of construct.Parameters)
             try {
-                computeParameters.push(((attVal = srcElm.getAttribute(`#${pid}`)) != null
+                let attVal;
+                computeParameters.push(((attVal = srcElm.getAttribute(`#${name}`)) != null
                     ? this.CompileExpression(attVal)
-                    : (attVal = srcElm.getAttribute(pid)) != null
+                    : (attVal = srcElm.getAttribute(name)) != null
                         ? this.CompileInterpolatedString(attVal)
                         : pdefault != null
                             ? (_env) => pdefault(construct.ConstructEnv)
-                            : thrower(`Missing parameter [${pid}]`)));
+                            : thrower(`Missing parameter [${name}]`)));
             }
             catch (err) {
-                throw `[${pid}]: ${err}`;
+                throw `[${name}]: ${err}`;
             }
         const slotBuilders = new Map();
         for (const name of construct.Slots.keys())

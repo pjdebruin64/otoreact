@@ -44,8 +44,9 @@ type ParentNode = HTMLElement|DocumentFragment;
 type Subscriber = {parent: Element, marker: ChildNode, env: Environment, builder: ElmBuilder };
 
 type Handler = (ev:Event) => any;
+type LVar = (env: Environment) => (value: unknown) => void;
 
-type Parameter = {pid: string, pdefault: Dependent<unknown>, initVar?: LVar};
+type Parameter = {name: string, pdefault: Dependent<unknown>, initVar?: LVar};
 class Construct {
     constructor(
         public TagName: string,
@@ -63,7 +64,6 @@ type RVAR_Light<T> = T & {
     _UpdatesTo?: Array<_RVAR<unknown>>,
     Subscribe?: (sub:Subscriber) => void
 };
-type LVar = (env: Environment) => (value: unknown) => void;
 
 const globalEval = eval;
 
@@ -108,7 +108,7 @@ class RCompiler {
             return function SetVar(value: unknown) {
                 env[i] = value;
             }
-            }.bind(this) as (env: Environment) => (value?: unknown) => void            
+            }.bind(this) as LVar            
     }
     private RestoreContext(contextLength: number) {
         for (let j = this.Context.length; j > contextLength; j--) {
@@ -819,7 +819,7 @@ class RCompiler {
         for (const attr of elmSignature.attributes) {
             const m = /^(#)?(.*?)(\?)?$/.exec(attr.name);
             comp.Parameters.push(
-                { pid: m[2]
+                { name: m[2]
                 , pdefault: 
                     attr.value != '' 
                     ? (m[1] ? this.CompileExpression(attr.value) :  this.CompileInterpolatedString(attr.value))
@@ -880,7 +880,7 @@ class RCompiler {
         const savedContext = this.SaveContext();
         const savedConstructs = this.SaveConstructs();
         for (let param of construct.Parameters)
-            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.pid, true) || param.pid);
+            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.name, true) || param.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
@@ -896,21 +896,21 @@ class RCompiler {
     private CompileConstructInstance(srcParent: ParentNode, srcElm: HTMLElement,
         construct: Construct) {
         srcParent.removeChild(srcElm);
-        let attVal: string;
         const computeParameters: Array<Dependent<unknown>> = [];
-        for (const {pid, pdefault} of construct.Parameters)
+        for (const {name, pdefault} of construct.Parameters)
             try {
+                let attVal: string;
                 computeParameters.push(
-                ( (attVal = srcElm.getAttribute(`#${pid}`)) != null
+                ( (attVal = srcElm.getAttribute(`#${name}`)) != null
                     ? this.CompileExpression( attVal )
-                : (attVal = srcElm.getAttribute(pid)) != null
+                : (attVal = srcElm.getAttribute(name)) != null
                     ? this.CompileInterpolatedString( attVal )
                 : pdefault != null
                     ? (_env) => pdefault(construct.ConstructEnv)
-                : thrower(`Missing parameter [${pid}]`)
+                : thrower(`Missing parameter [${name}]`)
                 ))
             }
-            catch (err) { throw `[${pid}]: ${err}`; }
+            catch (err) { throw `[${name}]: ${err}`; }
 
         const slotBuilders = new Map<string, ElmBuilder[]>();
         for (const name of construct.Slots.keys())
