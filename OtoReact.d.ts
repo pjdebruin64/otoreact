@@ -33,18 +33,11 @@ declare class RCompiler {
     private Constructs;
     private HiddenConstructs;
     constructor(clone?: RCompiler);
-    private SaveContext;
-    private hiddenEnv;
+    private restoreActions;
+    private Save;
+    private Restore;
     private NewVar;
-    private RestoreContext;
-    private SaveEnv;
-    private RestoreEnv;
-    private SaveConstructs;
     private AddConstruct;
-    private RestoreConstructs;
-    private hiddenConstructEnvs;
-    private SaveHiddenCEnvs;
-    private RestoreHiddenCEnvs;
     Compile(elm: HTMLElement, settings: Settings): void;
     Build(reg: Region & {
         marker?: ChildNode;

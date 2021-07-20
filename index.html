@@ -435,7 +435,7 @@ You can modify the snippet of source code above and see its result immediately.
 </demo>
 
 
-Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a target='_blank' attribute:
+Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:
 <demo content="<component>
     <a href #target? download?><content></content></a>
     <template>
@@ -449,6 +449,7 @@ Here is a component that redefines <elm>a</elm> to ensures that all links with n
 This link opens in a blank window:
 <a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
 </demo>
+<p>By the way, if you want to insert the original <elm>a</elm> HTML element, you can write '<elm>a. &hellip;</elm>'. </p>
 
 <p>A recursive component, showing nested lists of lists:</p>
 
@@ -456,10 +457,6 @@ This link opens in a blank window:
 "<component recursive>
     <showList #list></showList>
     <template>
-        <component>
-          <LL></LL>
-          <template>\{list.length}</template>
-        </component>
         <div class=flex-container>
             <for let=item #of=list>
                 <div>
@@ -472,7 +469,7 @@ This link opens in a blank window:
                         </else>
                     </case>
                 </div>
-            </for> (<LL></LL>)
+            </for>
         </div>
     </template>
 </component>   
