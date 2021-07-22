@@ -81,13 +81,15 @@
 
     <!-- <script type=module src='../OtoReact/OtoReact.js'></script> -->
     <script>
-        const s = Date.now();
+        let s = Date.now();
         function msg(m) {
             console.log(`${Date.now() - s} ${m}`);
         }
     </script>
     <script type=module>
-
+        msg('Document parsed');
+    </script>
+    <script type=module>
         import {RCompile} from './OtoReact.js';
         msg('OtoReact loaded');
         RCompile(document.body);
@@ -101,7 +103,6 @@
     </script>
 </head>
 <body style='display:none' onload="msg('All loaded')">
-
 <!-- Component to demonstrate RHTML -->
 <component>
     <demo content #bshow=true></demo>
@@ -140,11 +141,11 @@
 
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? download?><content></content></a>
-    <template>
-        <a #href="href" #target="!target && /^http/i.test(href) ? '_blank' : target" #download="download"
-        ><content></content></a>
-    </template>
+    <a href #target? download? title?><content></content></a>
+    <template><a. #href="href" #download="download" #title="title"
+        #target="!target && /^http/i.test(href) ? '_blank' : target"
+        ><content></content></a.
+    ></template>
 </component>
 
 <h1>Reactive HTML through the OtoReact framework</h1>
@@ -176,7 +177,11 @@
     <br>This results in both a much better user experience and much less server load.
 </p>
 <p>
-    "OtoReact" is a small and fast framework to attain this by loading so-called "Reactive HTML" (or "RHTML") straight into the browser.
+    Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <i>framework</i> makes it much easier to create a reactive web application.
+</p>
+<p>
+    <b><i>OtoReact</i></b> is a small and fast framework to easily attain reactivity by loading so-called "Reactive HTML", or <b><i>RHTML</i></b>, straight into the browser.
     <br>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
     <br>Reactive HTML is very easy to learn, and one doesn't need to install a compiler, a bunch of libraries, or <i>anything</i>.
     <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
@@ -188,11 +193,7 @@
 <pre class=sourcecode #innerText="greeting"></pre>
 
 <p>
-    Reactivity is always attained by means of JavaScript programming code running inside the web browser. The javaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
-    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code.
-</p>
-<p>
-    There exist quite a number of libraries and frameworks to make it easier to build reactive web applications. I distinguish two main categories:
+    There exist quite a number of alternative libraries and frameworks to make it easier to build reactive web applications. I distinguish two main categories:
 </p>
 <ol>
     <li>
@@ -201,13 +202,13 @@
         <br>The respective libraries can in some cases be loaded straight into the browser without compilation.
     </li>
     <li>
-        Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains just the data model and the data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
+        Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains the data model and data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
         <br>You don't need write code to manipulate the DOM at all anymore; this is done by the framework.
         <br>The source code files have to be compiled on you development machine. You need to install the compiler, and quite some modules for each application (which for Angular may take more than 1GB per application).
     </li>
 </ol>
 <p>
-    Reactive HTML gives you the advantages of describing the desired reactive layout by a HTML template, without the hassle of installing and using a compiler and managing quite a number of configuration files.
+    Reactive HTML gives you the advantages of describing the desired reactive layout by a HTML template, separate from your programming code, without the hassle of installing and using a compiler and managing quite a number of configuration files.
 </p>
 
 <h2>Limitations inflicted by the parser</h2>
@@ -287,7 +288,7 @@ Both code lines can either be placed right into you HTML file:
 , or inside a JavaScript (or TypeScript) module you load from your HTML file.
 
 <h2>Text with embedded expressions</h2>
-All text content and all HTML attributes inside RHTML code, except event handlers, may contained embedded expressions between braces.
+All text content and all HTML text attributes inside RHTML code may contained embedded expressions between braces.
 <br>To include a normal pair of braces, at least one of them must be escaped with a backslash.
 <demo content="1 + 1 = \{1 + 1\}
 \\{ Check \\}"></demo>
@@ -297,6 +298,64 @@ You can modify the snippet of source code above and see its result immediately.
     (This interactive demo is itself defined as an RHTML component.)
 </p>
 
+<h2>Constructs</h2>
+<p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
+<ul>
+    <li>
+        <elm>DEFINE</elm> introduces a local variable or reactive variable
+    </li>
+    <li>
+        <elm>IF</elm> specifies a conditional block of RHTML
+    </li>
+    <li>
+        <elm>CASE</elm> specifies a series of alternative conditional blocks of RHTML
+    </li>
+    <li>
+        <elm>FOR</elm> specifies a repeating block of RHTML, with a number of additional features
+    </li>
+    <li>
+        <elm>COMPONENT</elm> introduces user-defined constructs.
+        <br>Components may be recursive and may have <i>slots</i>, which are themselves full-fledged constructs.
+    </li>
+    <li>
+        <elm>INCLUDE</elm> asynchronously includes a separate RHTML file into your application
+    </li>
+    <li>
+        <elm>IMPORT</elm> asynchronously imports components defined in a separate file into your application
+    </li>
+    <li>
+        <elm>RHTML</elm> dynamically compiles a string as RHTML.
+        <br>This is used in the demo component you see on this page.
+    </li>
+    <li>
+        <elm>REACT on</elm> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
+        <br>The RHTML attribute <code>reacton</code> does the same thing.
+    </li>
+</ul>
+
+<h2>RHTML functions</h2>
+The OtoReact library makes the following functions available for import. They are added to the global environment as well.
+<ul>
+    <li>
+        <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML
+    </li>
+    <li>
+        <code>RUpdate()</code> updates the DOM. This function is called automatically after each event listener defined in RHTML has executed, but there <i>may</i> be cases where you want to call it explicitly. E.g.:
+        <ul>
+            <li>When you want the DOM to be updated in the midst of an (asynchronous) event listener</li>
+            <li>When you have <a href="https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener" title="EventTarget.addEventListener()">added event listeners</a> from JavaScript code instead of in RHTML</li>
+        </ul>
+    </li>
+    <li>
+        <code>RVAR(name?, initialValue?)</code> creates a reactive variable
+    </li>
+    <li>
+        <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range function</a>. You can use this with <elm>FOR</elm>.
+    </li>
+    <li>
+        <code>setTimeout</code> and <code>setInterval</code> are redefined to call <code>RUpdate</code> after each timer event
+    </li>
+</ul>
 
 <h2>RVAR(): Reactive VARiable's</h2>
 <p>
@@ -304,7 +363,7 @@ You can modify the snippet of source code above and see its result immediately.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
 </p>
 <p>
-    RVAR's are created either by calling <code>RVAR(name?, value?)</code> from JavaScript, or by using the <elm>define rvar</elm> directive, see below.
+    RVAR's are created either by calling <code>RVAR(name?, value?)</code> from JavaScript, or by using the <elm>define rvar</elm> construct, see below.
     <br>The created RVAR is returned and may be stored in a local variable.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
@@ -359,7 +418,7 @@ You can modify the snippet of source code above and see its result immediately.
 
 <h3>&lt;CASE&gt; &lt;WHEN #cond&gt; &lt;ELSE&gt;</h3>
 
-<h3>&lt;FOR let #of&gt;</h3>
+<h3>&lt;FOR let #of index? #key? #hash?&gt;</h3>
 <demo content="<!-- Here we use a local RVAR -->
 <define rvar=Participants #value=&quot;['Joe', 'Mary', 'Eileen']&quot;></define>
 
@@ -434,27 +493,10 @@ You can modify the snippet of source code above and see its result immediately.
 </p>">
 </demo>
 
-
-Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:
-<demo content="<component>
-    <a href #target? download?><content></content></a>
-    <template>
-        <a #href=&quot;href&quot; 
-            #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot; 
-            #download=&quot;download&quot;
-        ><content></content></a>
-    </template>
-</component>
-
-This link opens in a blank window:
-<a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
-</demo>
-<p>By the way, if you want to insert the original <elm>a</elm> HTML element, you can write '<elm>a. &hellip;</elm>'. </p>
-
-<p>A recursive component, showing nested lists of lists:</p>
-
-<demo content=
-"<component recursive>
+<p>Components may be recursive, i.e. refer to themselve.
+<br>Here is a recursive component, imaging nested lists of lists:</p>
+<demo #bShow=false content=
+"<component>
     <showList #list></showList>
     <template>
         <div class=flex-container>
@@ -473,14 +515,30 @@ This link opens in a blank window:
         </div>
     </template>
 </component>   
-<div>
-    <define rvar=list 
-        #value=&quot;'[1, [2,3,4], [[41,42],5] ]'&quot;></define>
-    <p>JavaScript list: <input type=text @value=&quot;list.V&quot; size=40></p>
-    <showList #list=&quot;eval(list.V)&quot;></showList>
-</div>
-<p>You can modify the list definition above.</p>"
+
+<define rvar=list 
+    #value=&quot;'[1, [2,3,4], [[41,42],5] ]'&quot;></define>
+<p>JavaScript list: <input type=text @value=&quot;list.V&quot; size=40></p>
+<showList #list=&quot;eval(list.V)&quot;></showList>
+<p>You can modify the list definition above and see the result.</p>"
 ></demo>
+
+<p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.
+<br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
+<demo content="<component>
+    <a href #target? download?><content></content></a>
+    <template>
+        <a. #href=&quot;href&quot; 
+            #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot; 
+            #download=&quot;download&quot;
+        ><content></content></a.>
+    </template>
+</component>
+
+This link opens in a blank window:
+<a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
+</demo>
+
 
 <h3>&lt;REACT on&gt;, reacton</h3>
 <demo #bShow=false content=
@@ -585,9 +643,11 @@ Here is a component which allows one to define tables column by column.
 <!-- Now the actual table definition: -->
 
 <tablemaker #datasource='globalThis.data'>
+    <!-- First column -->
     <HDEF>Naam</HDEF>
     <DDEF item>\{item.name\}</DDEF>
 
+    <!-- Second column -->
     <HDEF>Leeftijd</HDEF>
     <DDEF item=record>\{record.age\}</DDEF>
 </tablemaker>"

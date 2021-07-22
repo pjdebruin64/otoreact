@@ -11,21 +11,36 @@ declare type Settings = {
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
 declare type Environment = Array<unknown>;
+declare type Marker = ChildNode & {
+    nextM?: Marker;
+    rResult?: unknown;
+    rValue?: unknown;
+    hash?: Hash;
+    key?: Key;
+    keyMap?: Map<Key, Subscriber>;
+    errorNode?: Text;
+};
 declare type Region = {
     parent: Element;
-    marker?: ChildNode;
-    start: ChildNode;
+    marker?: Marker;
+    start: Marker;
     bInit: boolean;
     env: Environment;
-    lastMarker?: ChildNode;
+    lastMarker?: Marker;
 };
-declare type ElmBuilder = (this: RCompiler, reg: Region) => void;
+declare type ElmBuilder = ((this: RCompiler, reg: Region) => void) & {
+    bTrim?: boolean;
+};
 declare type Subscriber = {
     parent: Element;
     marker: ChildNode;
     env: Environment;
     builder: ElmBuilder;
 };
+interface Key {
+}
+interface Hash {
+}
 declare class RCompiler {
     instanceNum: number;
     private Context;
@@ -46,6 +61,8 @@ declare class RCompiler {
     ToBuild: Region[];
     private AllRegions;
     private Builder;
+    private bTrimLeft;
+    private bTrimRight;
     private bCompiled;
     private bHasReacts;
     DirtyRegions: Set<Subscriber>;
