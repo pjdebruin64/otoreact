@@ -381,10 +381,11 @@ class RCompiler {
                         const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
                         const getValue = this.CompileAttributeExpression<unknown>(srcElm, 'value');
                         const newVar = this.NewVar(varName);
+                        const bReact = GetAttribute(srcElm, 'react') != null;
 
                         builder = function DEFINE(region) {
                                 const {marker} = PrepareRegion(srcElm, region);
-                                if (region.bInit){
+                                if (region.bInit || bReact){
                                     const value = getValue && getValue(region.env);
                                     marker.rValue = rvarName ? this.RVAR(null, value) : value;
                                 }
@@ -703,120 +704,119 @@ class RCompiler {
                     let subregion = PrepareRegion(srcElm, region, null, (getKey == null));
                     let {parent, marker, start, env} = subregion;
                     const saved = this.Save();
-
-                    // Map of previous data, if any
-                    const keyMap: Map<Key, Subscriber>
-                        = (region.bInit ? marker.keyMap = new Map() : marker.keyMap);
-                    // Map of the newly obtained data
-                    const newMap: Map<Key, [Item, Hash]> = new Map();
-                    const setVar = initVar(env);
-                    for (const item of getRange(env)) {
-                        setVar(item);
-                        const hash = getHash && getHash(env);
-                        const key = getKey ? getKey(env) : hash;
-                        newMap.set(key ?? {}, [item, hash]);
-                    }
-
-                    function RemoveStaleItemsHere() {
-                        let key: Key;
-                        while (start && start != region.start && !newMap.has(key = start.key)) {
-                            if (key != null)
-                                keyMap.delete(key);
-                            const nextMarker = start.nextM;
-                            while (start != nextMarker) {
-                                const next = start.nextSibling;
-                                parent.removeChild(start);
-                                start = next;
-                            }
+                    try {
+                        // Map of previous data, if any
+                        const keyMap: Map<Key, Subscriber>
+                            = (region.bInit ? marker.keyMap = new Map() : marker.keyMap);
+                        // Map of the newly obtained data
+                        const newMap: Map<Key, [Item, Hash]> = new Map();
+                        const setVar = initVar(env);
+                        for (const item of getRange(env)) {
+                            setVar(item);
+                            const hash = getHash && getHash(env);
+                            const key = getKey ? getKey(env) : hash;
+                            newMap.set(key ?? {}, [item, hash]);
                         }
-                    }
-                    RemoveStaleItemsHere();
 
-                    const setIndex = initIndex(env);
-                    const setPrevious = initPrevious(env);
-
-                    let index = 0, prevItem: Item = null;
-                    // Voor elke waarde in de range
-                    for (const [key, [item, hash]] of newMap) {
-                        // Environment instellen
-                        let rvar: Item =
-                            ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
-                            : bUpdateable ? this.RVAR_Light(item as object)
-                            : item
-                            );
-                        setVar(rvar);
-                        setIndex(index);
-                        setPrevious(prevItem);
-
-                        let marker: Marker;
-                        let subscriber = keyMap.get(key);
-                        let childRegion: ReturnType<typeof PrepareRegion>;
-                        if (subscriber && subscriber.marker.isConnected) {
-                            // Item already occurs in the series
-                            marker = subscriber.marker;
-                            const nextMarker = marker.nextM;
-                            
-                            if (marker != start) {
-                                // Item has to be moved
-                                let node = marker
-                                while(node != nextMarker) {
-                                    const next = node.nextSibling;
-                                    parent.insertBefore(node, start);
-                                    node = next;
+                        function RemoveStaleItemsHere() {
+                            let key: Key;
+                            while (start && start != region.start && !newMap.has(key = start.key)) {
+                                if (key != null)
+                                    keyMap.delete(key);
+                                const nextMarker = start.nextM;
+                                while (start != nextMarker) {
+                                    const next = start.nextSibling;
+                                    parent.removeChild(start);
+                                    start = next;
                                 }
                             }
-                            
-                            (marker as Comment).textContent = `${varName}(${index})`;
-
-                            subregion.bInit = false;
-                            subregion.start = marker;
-                            const lastMarker = subregion.lastMarker;
-                            childRegion = PrepareRegion(null, subregion, null, false);
-                            if (lastMarker)
-                                lastMarker.nextM = marker;
-                            subregion.lastMarker = marker;
                         }
-                        else {
-                            // Item has to be newly created
-                            subregion.bInit = true;
-                            subregion.start = start;
-                            childRegion = PrepareRegion(null,  subregion, null, true, `${varName}(${index})`);
-                            subscriber = {
-                                ...childRegion,
-                                builder: (bUpdateable ? bodyBuilder : undefined),
-                                env: (bUpdateable ? env.slice() : undefined), 
-                            }
-                            if (key != null) {
-                                if (keyMap.has(key))
-                                    throw `Duplicate key '${key}'`;
-                                keyMap.set(key, subscriber);
-                            }
-                            marker = childRegion.marker
-                            marker.key = key;
-                        }
-
-                        if (hash != null
-                            && ( hash == marker.hash as Hash
-                                || (marker.hash = hash, false)
-                                )
-                        ) { 
-                            // Nothing
-                        }
-                        else    // Body berekenen
-                            bodyBuilder.call(this, childRegion);
-
-                        if (bUpdateable)
-                            (rvar as _RVAR<Item>).Subscribe(subscriber);
-
-                        prevItem = item;
-                        index++;
-                        
-                        start = subregion.start;
                         RemoveStaleItemsHere();
-                    }
 
-                    // Oude environment herstellen
-                    this.Restore(saved);
+                        const setIndex = initIndex(env);
+                        const setPrevious = initPrevious(env);
+
+                        let index = 0, prevItem: Item = null;
+                        // Voor elke waarde in de range
+                        for (const [key, [item, hash]] of newMap) {
+                            // Environment instellen
+                            let rvar: Item =
+                                ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
+                                : bUpdateable ? this.RVAR_Light(item as object)
+                                : item
+                                );
+                            setVar(rvar);
+                            setIndex(index);
+                            setPrevious(prevItem);
+
+                            let marker: Marker;
+                            let subscriber = keyMap.get(key);
+                            let childRegion: ReturnType<typeof PrepareRegion>;
+                            if (subscriber && subscriber.marker.isConnected) {
+                                // Item already occurs in the series
+                                marker = subscriber.marker;
+                                const nextMarker = marker.nextM;
+                                
+                                if (marker != start) {
+                                    // Item has to be moved
+                                    let node = marker
+                                    while(node != nextMarker) {
+                                        const next = node.nextSibling;
+                                        parent.insertBefore(node, start);
+                                        node = next;
+                                    }
+                                }
+                                
+                                (marker as Comment).textContent = `${varName}(${index})`;
+
+                                subregion.bInit = false;
+                                subregion.start = marker;
+                                const lastMarker = subregion.lastMarker;
+                                childRegion = PrepareRegion(null, subregion, null, false);
+                                if (lastMarker)
+                                    lastMarker.nextM = marker;
+                                subregion.lastMarker = marker;
+                            }
+                            else {
+                                // Item has to be newly created
+                                subregion.bInit = true;
+                                subregion.start = start;
+                                childRegion = PrepareRegion(null,  subregion, null, true, `${varName}(${index})`);
+                                subscriber = {
+                                    ...childRegion,
+                                    builder: (bUpdateable ? bodyBuilder : undefined),
+                                    env: (bUpdateable ? env.slice() : undefined), 
+                                }
+                                if (key != null) {
+                                    if (keyMap.has(key))
+                                        throw `Duplicate key '${key}'`;
+                                    keyMap.set(key, subscriber);
+                                }
+                                marker = childRegion.marker
+                                marker.key = key;
+                            }
+
+                            if (hash != null
+                                && ( hash == marker.hash as Hash
+                                    || (marker.hash = hash, false)
+                                    )
+                            ) { 
+                                // Nothing
+                            }
+                            else    // Body berekenen
+                                bodyBuilder.call(this, childRegion);
+
+                            if (bUpdateable)
+                                (rvar as _RVAR<Item>).Subscribe(subscriber);
+
+                            prevItem = item;
+                            index++;
+                            
+                            start = subregion.start;
+                            RemoveStaleItemsHere();
+                        }
+                    }
+                    finally { this.Restore(saved); }
                 };
             }
             else { 
@@ -832,7 +832,7 @@ class RCompiler {
 
                 return function FOREACH_Slot(region) {
                     let subregion = PrepareRegion(srcElm, region);
-                    const saved= this.savedContext();
+                    const saved= this.saveContext();
                     const slotBuilders = slot.Builders;
                     try {
                         const setIndex = initIndex(region.environment);
@@ -850,9 +850,7 @@ class RCompiler {
                 }
             }
         }
-        finally {
-            this.Restore(saved);
-        }
+        finally { this.Restore(saved); }
     }
 
     private ParseSignature(elmSignature: Element):  Construct {
@@ -913,9 +911,10 @@ class RCompiler {
             // At runtime, we just have to remember the environment that matches the context
             const prevEnv = component.ConstructEnv;
             component.ConstructEnv = reg.env.slice();
+            /*
             this.restoreActions.push(
                 () => { component.ConstructEnv = prevEnv; }
-            )
+            ) */
         }, srcElm]);
         return builders;
     }
@@ -980,7 +979,7 @@ class RCompiler {
 
         return (region: Region) => {
             const subregion = PrepareRegion(srcElm, region);
-            const env = subregion.env;  
+            const env = subregion.env;
             const componentEnv = construct.ConstructEnv.slice();    // Copy, just in case the component is recursive
             const saved = this.Save();
             let i = 0;
@@ -1001,9 +1000,7 @@ class RCompiler {
                 for (const builder of construct.Builders)
                     builder.call(this, {...subregion, env: componentEnv, }); 
             }
-            finally {
-                this.Restore(saved);
-            }
+            finally { this.Restore(saved); }
         }
     }
 

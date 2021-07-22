@@ -369,7 +369,7 @@ The OtoReact library makes the following functions available for import. They ar
     <br>So if you write:
     <pre>
 &lt;script type=module>
-    let A = RVAR('B');
+    const A = RVAR('B');
     &hellip;
     </pre>
     , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere.
@@ -400,9 +400,8 @@ The OtoReact library makes the following functions available for import. They ar
     </p>
 </if>"></demo>
 
-<h2>Local and global variables</h2>
-
-<h2>Elements</h2>
+<h2>HTML Elements</h2>
+All elements 
 
 <h3>Attributes and properties</h3>
 
@@ -413,6 +412,42 @@ The OtoReact library makes the following functions available for import. They ar
 <h3>Classes</h3>
 
 <h3>Styles</h3>
+
+<h2>RHTML Construct details</h2>
+
+<h3>&lt;DEFINE var #value react?&gt;, local variables</h3>
+<p>
+    <code><elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local immutable variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>The variable is visible in all local expressions from the <elm>/DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
+    <br>It cannot be assigned to, but when its value is an RVAR or some other object, then one can of course modify its properties.
+</p>
+<p>
+    The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
+    <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
+</p>
+<p>
+    <code><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local reactive variable <code><i>name</i></code>.
+    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>)"</elm></code><elm>/DEFINE</elm></code>.
+</p>
+<p>
+    <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
+</p>
+<p>
+    Local variable names obey strict <a href="https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
+</p>
+<demo content=
+"<def var=a #value=&quot;10&quot;></def>
+<def var=f #value=&quot;(x) => a+x&quot;></def>
+
+<p> \{a}, \{f(1)} </p>
+
+<p>
+    <def var=a #value=20></def>
+    \{a}, \{f(2)}
+</p>
+
+<p> \{a} </p>"
+></demo>
 
 <h3>&lt;IF #cond&gt;</h3>
 
@@ -440,8 +475,6 @@ The OtoReact library makes the following functions available for import. They ar
 </p>">
 </demo>
 
-<h3>&lt;DEFINE var #value&gt;</h3>
-
 <h3>&lt;SCRIPT&gt;</h3>
 
 <h3>&lt;COMPONENT&gt;</h3>
@@ -455,8 +488,8 @@ The OtoReact library makes the following functions available for import. They ar
         if (inputElement.value) \{
             TODO.U.push( [inputElement.value, false] );
             inputElement.value = '';
-        \}
-    \}
+        }
+    }
 </script>
 
 <!-- Define a component, showing a filtered list of to-do-items, with a caption -->
