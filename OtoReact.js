@@ -632,7 +632,7 @@ class RCompiler {
                 srcParent.removeChild(srcElm);
                 return function FOREACH_Slot(region) {
                     let subregion = PrepareRegion(srcElm, region);
-                    const saved = this.saveContext();
+                    const saved = this.Save();
                     const slotBuilders = slot.Builders;
                     try {
                         const setIndex = initIndex(region.environment);
@@ -755,7 +755,7 @@ class RCompiler {
         if (contentSlot)
             slotBuilders.get('CONTENT').push(this.CompileConstructTemplate(contentSlot, srcElm, srcElm, true));
         this.bTrimLeft = false;
-        return (region) => {
+        return function INSTANCE(region) {
             const subregion = PrepareRegion(srcElm, region);
             const env = subregion.env;
             const componentEnv = construct.ConstructEnv.slice();

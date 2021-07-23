@@ -401,9 +401,11 @@ The OtoReact library makes the following functions available for import. They ar
 </if>"></demo>
 
 <h2>HTML Elements</h2>
-All elements 
+All source elements that are not RHTML or user-defined constructs, are
 
-<h3>Attributes and properties</h3>
+<h3>HTML-attributes</h3>
+
+<h3>DOM-properties</h3>
 
 <h3>HTML-events</h3>
 
@@ -449,11 +451,11 @@ All elements
 <p> \{a} </p>"
 ></demo>
 
-<h3>&lt;IF #cond&gt;</h3>
+<h3>&lt;IF cond&gt;</h3>
 
-<h3>&lt;CASE&gt; &lt;WHEN #cond&gt; &lt;ELSE&gt;</h3>
+<h3>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h3>
 
-<h3>&lt;FOR let #of index? #key? #hash?&gt;</h3>
+<h3>&lt;FOR let of index? key? hash?&gt;</h3>
 <demo content="<!-- Here we use a local RVAR -->
 <define rvar=Participants #value=&quot;['Joe', 'Mary', 'Eileen']&quot;></define>
 
@@ -705,5 +707,18 @@ Here is a component which allows one to define tables column by column.
 <h3>Routing</h3>
 
 <h3>Persistence</h3>
+
+<h4>Bug</h4>
+<for let=i of="range(2)">
+    <component>
+        <a></a>
+        <template>i={i}</template>
+    </component>
+    <def rvar=bln value=true></def>
+    <p>
+        <button onclick="bln.V = !bln.V">{i}</button>
+        <if cond="bln.V" reacton=bln><a></a></if>
+    </p>
+</for>
 
 </body>

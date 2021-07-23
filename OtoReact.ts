@@ -830,9 +830,9 @@ class RCompiler {
                 const bodyBuilder = this.CompileChildNodes(srcElm, bBlockLevel);
                 srcParent.removeChild(srcElm);
 
-                return function FOREACH_Slot(region) {
+                return function FOREACH_Slot(this: RCompiler, region) {
                     let subregion = PrepareRegion(srcElm, region);
-                    const saved= this.saveContext();
+                    const saved= this.Save();
                     const slotBuilders = slot.Builders;
                     try {
                         const setIndex = initIndex(region.environment);
@@ -977,7 +977,7 @@ class RCompiler {
             );
         this.bTrimLeft = false;
 
-        return (region: Region) => {
+        return function INSTANCE(this: RCompiler, region: Region) {
             const subregion = PrepareRegion(srcElm, region);
             const env = subregion.env;
             const componentEnv = construct.ConstructEnv.slice();    // Copy, just in case the component is recursive
