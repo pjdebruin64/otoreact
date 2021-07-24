@@ -21,10 +21,18 @@
             }
         .sourcecode {
             display: block;
-            margin: 2ex auto;
-            padding: 8px;
+            padding: 4px 8px;
             border: var(--RedBorder);
             width: fit-content;
+            background-color: rgb(245, 245, 245);
+        }
+        pre.sourcecode {
+            margin: 2ex auto;
+        }
+        span.sourcecode, code.sourcecode {
+            display: inline-block;
+            font-family: 'Lucida Console', monospace;
+            font-size: 90%;
         }
         pre { margin: 1ex 0;}
         pre, code, elm {
@@ -102,7 +110,7 @@
         delete globalThis.import;
     </script>
 </head>
-<body style='display:none' onload="msg('All loaded')">
+<body style='display:none' onload="msg('All loaded');">
 <!-- Component to demonstrate RHTML -->
 <component>
     <demo content #bshow=true></demo>
@@ -117,8 +125,8 @@
     </script>
     
     <template>
-        <define rvar=MyRVAR #value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
-        <define rvar=rShow  #value="bshow"></define>
+        <define rvar=MyRVAR value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
+        <define rvar=rShow  value="bshow"></define>
         <table. class=demo>
             <tr.><th.>
                 <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
@@ -150,7 +158,7 @@
 
 <h1>Reactive HTML through the OtoReact framework</h1>
 
-<define name=greeting #value=
+<define name=greeting value=
 '`<define rvar=&apos;yourName&apos;></define>
 <p>
     What&apos;s your name?
@@ -164,7 +172,8 @@
 </if>`'
 ></define>
 
-<div class=sample style="width: 300pt; height: 108px;">
+<div class=sample style="width: 300pt; height: 108px;"
+onCreate="this.getElementsByTagName('input')[0].focus()">
     <RHTML>{greeting}</RHTML>
 </div>
 
@@ -287,8 +296,9 @@ Both code lines can either be placed right into you HTML file:
 </pre>
 , or inside a JavaScript (or TypeScript) module you load from your HTML file.
 
-<h2>Text with embedded expressions</h2>
-All text content and all HTML text attributes inside RHTML code may contained embedded expressions between braces.
+<h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
+All text content and all HTML attributes inside RHTML code may contained embedded JavaScript expressions between braces.
+<br>This is called <a href="https://en.wikipedia.org/wiki/String_interpolation">string interpolation</a>.
 <br>To include a normal pair of braces, at least one of them must be escaped with a backslash.
 <demo content="1 + 1 = \{1 + 1\}
 \\{ Check \\}"></demo>
@@ -363,7 +373,7 @@ The OtoReact library makes the following functions available for import. They ar
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
 </p>
 <p>
-    RVAR's are created either by calling <code>RVAR(name?, value?)</code> from JavaScript, or by using the <elm>define rvar</elm> construct, see below.
+    RVAR's are created either by calling <code>RVAR(name?, value?)</code> from JavaScript, or by using the <elm>define rvar</elm> construct, see <a href=#define>below</a>.
     <br>The created RVAR is returned and may be stored in a local variable.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
@@ -372,7 +382,16 @@ The OtoReact library makes the following functions available for import. They ar
     const A = RVAR('B');
     &hellip;
     </pre>
-    , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere.
+    , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one whouldn't use different local and global names).
+</p>
+<p>
+    A reactive variable is an object, distinct from the value of the variable.
+    <br>To get or set the value of an RVAR <code>x</code>, one writes <code class=sourcecode>x.V</code>. When <code>x.V</code> is set, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
+</p>
+<p>
+    When you are modifying, not the value of a variable, but properties of the value, the variable has to be marked as dirty as well.
+    <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
+    <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array.
 </p>
 <p>
     You may inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <elm>REACT</elm> element or the <code>react</code> attribute, see below.
@@ -401,15 +420,34 @@ The OtoReact library makes the following functions available for import. They ar
 </if>"></demo>
 
 <h2>HTML Elements</h2>
-All source elements that are not RHTML or user-defined constructs, are
+<p>All source elements that are not RHTML or user-defined constructs, build HTML elements.</p>
+<p>All trailing dots in the tagname are removed.</p>
+<p>Source attributes are compiled as described below.</p>
 
-<h3>HTML-attributes</h3>
+<h3>HTML attributes</h3>
+<p>All source attributes that do not fall in any of the categories below, are compiled as HTML attributes.
+    <br>They may use <a href="#StringInterpolation">string interpolation</a>.
+</p>
+<demo content=
+'<define rvar=x value=2></define>
+<p title="sqrt(\{x.V}) = \{Math.sqrt(x.V)}">
+    What is sqrt(\{x.V})? Check the tooltip.
+</p>
+<button onclick="x.V += 1">Increment</button>
+'></demo>
 
-<h3>DOM-properties</h3>
+<h3>DOM properties</h3>
+<p>
+    The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
+    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <span class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</span>
+</p>
+<p>
+    Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
+</p>
 
-<h3>HTML-events</h3>
+<h3>HTML events</h3>
 
-<h3>RHTML-events</h3>
+<h3>RHTML events</h3>
 
 <h3>Classes</h3>
 
@@ -417,9 +455,9 @@ All source elements that are not RHTML or user-defined constructs, are
 
 <h2>RHTML Construct details</h2>
 
-<h3>&lt;DEFINE var #value react?&gt;, local variables</h3>
+<h3 id=define>&lt;DEFINE var value react?&gt;, local variables</h3>
 <p>
-    <code><elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local immutable variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <code><elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local immutable variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>The variable is visible in all local expressions from the <elm>/DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
     <br>It cannot be assigned to, but when its value is an RVAR or some other object, then one can of course modify its properties.
 </p>
@@ -428,23 +466,23 @@ All source elements that are not RHTML or user-defined constructs, are
     <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
 </p>
 <p>
-    <code><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local reactive variable <code><i>name</i></code>.
-    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>)"</elm></code><elm>/DEFINE</elm></code>.
+    <code><elm>DEFINE rvar=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local reactive variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> value="RVAR(null, <i>expression</i>)"</elm></code><elm>/DEFINE</elm></code>.
 </p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
 </p>
 <p>
-    Local variable names obey strict <a href="https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
+    Local variable names (including loop variables and component parameters) obey strict <a href="https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
 <demo content=
-"<def var=a #value=&quot;10&quot;></def>
-<def var=f #value=&quot;(x) => a+x&quot;></def>
+"<def var=a value=&quot;10&quot;></def>
+<def var=f value=&quot;(x) => a+x&quot;></def>
 
 <p> \{a}, \{f(1)} </p>
 
 <p>
-    <def var=a #value=20></def>
+    <def var=a value=20></def>
     \{a}, \{f(2)}
 </p>
 
@@ -457,7 +495,7 @@ All source elements that are not RHTML or user-defined constructs, are
 
 <h3>&lt;FOR let of index? key? hash?&gt;</h3>
 <demo content="<!-- Here we use a local RVAR -->
-<define rvar=Participants #value=&quot;['Joe', 'Mary', 'Eileen']&quot;></define>
+<define rvar=Participants value=&quot;['Joe', 'Mary', 'Eileen']&quot;></define>
 
 <p><b>Participants:</b></p>
 <ul>
@@ -534,11 +572,12 @@ All source elements that are not RHTML or user-defined constructs, are
 "<component>
     <showList #list></showList>
     <template>
-        <div class=flex-container>
+        <div class=flex-container> <!-- Styling omitted -->
             <for let=item #of=list>
                 <div>
                     <case>
                         <when #cond=&quot;Array.isArray(item)&quot;>
+                            <!-- Recursive invocation -->
                             <showList #list=item></showList>
                         </when>
                         <else>
@@ -552,7 +591,7 @@ All source elements that are not RHTML or user-defined constructs, are
 </component>   
 
 <define rvar=list 
-    #value=&quot;'[1, [2,3,4], [[41,42],5] ]'&quot;></define>
+    value=&quot;'[1, [2,3,4], [[41,42],5], \'OtoLift\' ]'&quot;></define>
 <p>JavaScript list: <input type=text @value=&quot;list.V&quot; size=40></p>
 <showList #list=&quot;eval(list.V)&quot;></showList>
 <p>You can modify the list definition above and see the result.</p>"

@@ -11,7 +11,7 @@ export function RCompile(elm, settings) {
         R.Compile(elm, { ...defaultSettings, ...settings });
         R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: [], });
         if (R.Settings.bBuild)
-            RUpdate();
+            R.RUpdate();
         return R;
     }
     catch (err) {
@@ -36,7 +36,7 @@ var ModifierType;
     ModifierType[ModifierType["Class"] = 2] = "Class";
     ModifierType[ModifierType["Style"] = 3] = "Style";
     ModifierType[ModifierType["Event"] = 4] = "Event";
-    ModifierType[ModifierType["Apply"] = 5] = "Apply";
+    ModifierType[ModifierType["PseudoEvent"] = 5] = "PseudoEvent";
     ModifierType[ModifierType["AddToStyle"] = 6] = "AddToStyle";
     ModifierType[ModifierType["AddToClassList"] = 7] = "AddToClassList";
 })(ModifierType || (ModifierType = {}));
@@ -56,11 +56,11 @@ class RCompiler {
         this.bUpdating = false;
         this.handleUpdate = null;
         this.RUpdate = function RUpdate() {
-            clearTimeout(this.handleUpdate);
-            this.handleUpdate = orgSetTimeout(() => {
-                this.handleUpdate = null;
-                this.DoUpdate();
-            }, 0);
+            if (!this.handleUpdate)
+                this.handleUpdate = setTimeout(() => {
+                    this.handleUpdate = null;
+                    this.DoUpdate();
+                }, 0);
         }.bind(this);
         this.RVAR = function (name, initialValue, storage) {
             let V = new _RVAR(this, name, initialValue, storage);
@@ -69,12 +69,6 @@ class RCompiler {
             return V;
         }.bind(this);
         this.rvarList = [];
-        this.setTimeout = function (handler, timeout, ...args) {
-            return orgSetTimeout(UpdateTimerHandler(this, handler), timeout, ...args);
-        }.bind(this);
-        this.setInterval = function (handler, timeout, ...args) {
-            return orgSetInterval(UpdateTimerHandler(this, handler), timeout, ...args);
-        }.bind(this);
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.Context = clone ? clone.Context.slice() : [];
@@ -180,10 +174,13 @@ class RCompiler {
             t._UpdatesTo = updatesTo;
             const R = this;
             Object.defineProperty(t, 'U', { get: function () {
-                    for (const rvar of t._UpdatesTo)
-                        rvar.SetDirty();
                     for (const sub of t._Subscribers)
                         R.DirtyRegions.add(sub);
+                    if (t._UpdatesTo.length)
+                        for (const rvar of t._UpdatesTo)
+                            rvar.SetDirty();
+                    else
+                        R.RUpdate();
                     return t;
                 }
             });
@@ -210,8 +207,8 @@ class RCompiler {
                     break;
                 case Node.TEXT_NODE:
                     const str = srcNode.data
-                        .replace(/^\s+/g, this.bTrimLeft ? '' : ' ')
-                        .replace(/\s+$/, ' ');
+                        .replace(/^[ \t\r\n]+/g, this.bTrimLeft ? '' : ' ')
+                        .replace(/\[ \t\r\n]+$/, ' ');
                     if (str != '') {
                         this.bTrimLeft = / $/.test(str);
                         const getText = this.CompileInterpolatedString(str);
@@ -702,7 +699,7 @@ class RCompiler {
         component.Builders = [
             this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
         ];
-        builders.push([function (reg) {
+        builders.push([function COMPONENT(reg) {
                 const prevEnv = component.ConstructEnv;
                 component.ConstructEnv = reg.env.slice();
             }, srcElm]);
@@ -789,9 +786,10 @@ class RCompiler {
             let m;
             try {
                 if (m = /^on(.*)$/i.exec(attrName)) {
-                    const oHandler = this.CompileExpression(`function ${attrName}(event){${CheckForComments(attr.value)}}`);
+                    const oHandler = this.CompileExpression(`function ${attrName}(event){${attr.value}\n}`);
                     arrModifiers.push({
-                        modType: ModifierType.Event, name: m[1],
+                        modType: /^on(create|update)$/.test(attrName) ? ModifierType.PseudoEvent : ModifierType.Event,
+                        name: CapitalizeProp(m[0]),
                         depValue: oHandler
                     });
                 }
@@ -820,19 +818,14 @@ class RCompiler {
                         modType: ModifierType.AddToClassList, name: null,
                         depValue: this.CompileExpression(attr.value)
                     });
-                else if (attrName == "apply")
-                    arrModifiers.push({
-                        modType: ModifierType.Apply, name: null,
-                        depValue: this.CompileExpression(`function apply(){${CheckForComments(attr.value)}}`)
-                    });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
                     const propName = CapitalizeProp(m[3]);
                     const setter = this.CompileExpression(`function (){let ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
                     arrModifiers.push(m[1] == '*'
-                        ? { modType: ModifierType.Apply, name: null, depValue: setter, }
+                        ? { modType: ModifierType.Event, name: null, depValue: setter, }
                         : { modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
                     arrModifiers.push({
-                        modType: ModifierType.Event, name: m[2] ? 'change' : 'input', tag: propName, depValue: setter,
+                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
                     });
                 }
                 else
@@ -888,13 +881,7 @@ class RCompiler {
                                 delete elm[attName];
                             break;
                         case ModifierType.Event:
-                            {
-                                const tag = `$$${mod.tag ?? attName}`;
-                                let prevHandler;
-                                if (prevHandler = elm[tag])
-                                    elm.removeEventListener(attName, prevHandler);
-                                elm.addEventListener(attName, elm[tag] = UpdateHandler(this, val.bind(elm)));
-                            }
+                            elm[attName] = val;
                             break;
                         case ModifierType.Class:
                             if (val)
@@ -906,8 +893,9 @@ class RCompiler {
                             else
                                 delete elm.style[attName];
                             break;
-                        case ModifierType.Apply:
-                            val.call(elm);
+                        case ModifierType.PseudoEvent:
+                            if (bInit || attName == 'onupdate')
+                                val.call(elm);
                             break;
                         case ModifierType.AddToStyle:
                             Object.assign(elm.style, val);
@@ -944,7 +932,7 @@ class RCompiler {
                 generators.push(fixed.replace(/\\([{}\\])/g, '$1'));
             if (m[1])
                 generators.push(this.CompileExpression(m[1], '{}', null, true));
-            if (m[1] || /\S/.test(fixed))
+            if (m[1] || /[^ \t\r\n]/.test(fixed))
                 isBlank = false;
         }
         const dep = (env) => {
@@ -968,10 +956,9 @@ class RCompiler {
     CompileExpression(expr, delims = "\"\"", bScript = false, bReturnErrors = false, name) {
         if (expr == null)
             return null;
-        expr = CheckForComments(expr);
         let depExpr = bScript
-            ? `([${this.Context.join(',')}]) => {'use strict';${expr}}`
-            : `([${this.Context.join(',')}]) => (${expr})`;
+            ? `([${this.Context.join(',')}]) => {'use strict';${expr}\n}`
+            : `([${this.Context.join(',')}]) => (${expr}\n)`;
         const errorInfo = `${name ? `[${name}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
         try {
             const routine = globalEval(depExpr);
@@ -1024,12 +1011,6 @@ function UpdateHandler(R, handler) {
     return handler &&
         function ReactiveHandler(ev) {
             const result = handler(ev);
-            if (result instanceof Promise) {
-                result.then(R.RUpdate);
-                ev.preventDefault();
-                return;
-            }
-            R.RUpdate();
             if (result === false)
                 ev.preventDefault();
             return result;
@@ -1065,7 +1046,7 @@ class _RVAR {
         }
     }
     get U() { this.SetDirty(); return this._Value; }
-    set U(t) { this.V = t; this.rRuntime.RUpdate(); }
+    set U(t) { this.V = t; }
     SetDirty() {
         for (const sub of this.Subscribers)
             if (sub.parent.isConnected)
@@ -1073,16 +1054,8 @@ class _RVAR {
             else
                 this.Subscribers.delete(sub);
         this.rRuntime.bSomethingDirty = true;
+        this.rRuntime.RUpdate();
     }
-}
-function UpdateTimerHandler(R, handler) {
-    return function (...args) {
-        const result = handler(...args);
-        if (result instanceof Promise)
-            result.then(R.RUpdate);
-        else
-            R.RUpdate();
-    };
 }
 function CapitalizeProp(lcName) {
     let m;
@@ -1090,10 +1063,6 @@ function CapitalizeProp(lcName) {
     while (m = /^(.*(align|animation|aria|background|border|bottom|class|client|column|content|element|font|image|inner|left|right|rule|top|value))([a-z])(.*)$/.exec(lcName))
         lcName = `${m[1]}${m[3].toUpperCase()}${m[4]}`;
     return lcName;
-}
-function CheckForComments(script) {
-    const hasComments = /\/\/[^\n]*$/.test(script);
-    return hasComments ? script + '\n' : script;
 }
 function GetAttribute(elm, name, bRequired, bHashAllowed) {
     let value = elm.getAttribute(name);
@@ -1149,15 +1118,11 @@ function CBool(s, valOnEmpty) {
     return s;
 }
 function thrower(err) { throw err; }
-const orgSetTimeout = globalThis.setTimeout;
-const orgSetInterval = globalThis.setInterval;
 export let RHTML = new RCompiler();
-export const RVAR = RHTML.RVAR, RUpdate = RHTML.RUpdate, setTimeout = RHTML.setTimeout, setInterval = RHTML.setInterval;
+export const RVAR = RHTML.RVAR, RUpdate = RHTML.RUpdate;
 Object.defineProperties(globalThis, {
     RVAR: { get: () => RHTML.RVAR },
     RUpdate: { get: () => RHTML.RUpdate },
-    setTimeOut: { get: () => RHTML.setTimeout },
-    setInterval: { get: () => RHTML.setInterval },
 });
 globalThis.RCompile = RCompile;
 export function* range(from, upto, step = 1) {
