@@ -9,7 +9,7 @@ export function RCompile(elm, settings) {
     try {
         const R = RHTML;
         R.Compile(elm, { ...defaultSettings, ...settings });
-        R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: [], });
+        R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), });
         if (R.Settings.bBuild)
             R.RUpdate();
         return R;
@@ -17,6 +17,16 @@ export function RCompile(elm, settings) {
     catch (err) {
         window.alert(`Re-Act error: ${err}`);
     }
+}
+function NewEnv() {
+    const env = [];
+    env.CEnvs = new Map();
+    return env;
+}
+function CloneEnv(env) {
+    const clone = env.slice();
+    clone.CEnvs = new Map(env.CEnvs.entries());
+    return clone;
 }
 ;
 ;
@@ -44,7 +54,6 @@ let num = 0;
 class RCompiler {
     constructor(clone) {
         this.instanceNum = num++;
-        this.HiddenConstructs = [];
         this.restoreActions = [];
         this.ToBuild = [];
         this.AllRegions = [];
@@ -95,23 +104,17 @@ class RCompiler {
             this.restoreActions.push(() => this.ContextMap.delete(this.Context.pop()));
         }
         return function InitVar(env) {
-            if (bNewName) {
-                env.push(null);
-                this.restoreActions.push(() => env.pop());
-            }
-            else {
-                const prev = env[i];
-                this.restoreActions.push(() => { env[i] = prev; });
-            }
+            const prev = env[i];
+            this.restoreActions.push(() => { env[i] = prev; });
             return function SetVar(value) {
                 env[i] = value;
             };
         }.bind(this);
     }
     AddConstruct(C) {
-        const CName = C.TagName, prevC = this.Constructs.get(C.TagName);
+        const CName = C.TagName, savedConstr = this.Constructs.get(C.TagName);
         this.Constructs.set(CName, C);
-        this.restoreActions.push(() => this.Constructs.set(CName, prevC));
+        this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
     }
     Compile(elm, settings) {
         this.Settings = { ...defaultSettings, ...settings, };
@@ -119,16 +122,16 @@ class RCompiler {
         const savedRCompiler = RHTML;
         this.Builder = this.CompileChildNodes(elm);
         RHTML = savedRCompiler;
+        this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
-        this.bCompiled = true;
     }
     Build(reg) {
         let savedRCompiler = RHTML;
         RHTML = this;
         this.Builder(reg);
         this.AllRegions.push({
-            parent: reg.parent, marker: reg.marker, builder: this.Builder, env: []
+            parent: reg.parent, marker: reg.marker, builder: this.Builder, env: NewEnv()
         });
         RHTML = savedRCompiler;
     }
@@ -136,37 +139,41 @@ class RCompiler {
         if (!this.bCompiled || this.bUpdating)
             return;
         this.bUpdating = true;
-        if (this.ToBuild.length) {
-            const t0 = Date.now();
-            this.builtNodeCount = 0;
-            for (const reg of this.ToBuild)
-                this.Build(reg);
-            console.log(`Built ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
-            this.ToBuild = [];
-        }
-        if (!this.bHasReacts && this.bSomethingDirty)
-            for (const s of this.AllRegions)
-                this.DirtyRegions.add(s);
-        if (this.DirtyRegions.size) {
-            let savedRCompiler = RHTML;
-            RHTML = this;
-            const t0 = Date.now();
-            this.builtNodeCount = 0;
-            this.bSomethingDirty = false;
-            for (const { parent, marker, builder, env } of this.DirtyRegions) {
-                try {
-                    builder.call(this, { parent, start: marker ? marker.nextSibling : parent.firstChild, env, });
-                }
-                catch (err) {
-                    const msg = `ERROR: ${err}`;
-                    console.log(msg);
-                }
+        let savedRCompiler = RHTML;
+        try {
+            if (this.ToBuild.length) {
+                const t0 = Date.now();
+                this.builtNodeCount = 0;
+                for (const reg of this.ToBuild)
+                    this.Build(reg);
+                console.log(`Built ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
+                this.ToBuild = [];
             }
-            console.log(`Updated ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
+            if (!this.bHasReacts && this.bSomethingDirty)
+                for (const s of this.AllRegions)
+                    this.DirtyRegions.add(s);
+            if (this.DirtyRegions.size) {
+                RHTML = this;
+                const t0 = Date.now();
+                this.builtNodeCount = 0;
+                this.bSomethingDirty = false;
+                for (const { parent, marker, builder, env } of this.DirtyRegions) {
+                    try {
+                        builder.call(this, { parent, start: marker ? marker.nextSibling : parent.firstChild, env, });
+                    }
+                    catch (err) {
+                        const msg = `ERROR: ${err}`;
+                        console.log(msg);
+                    }
+                }
+                console.log(`Updated ${this.builtNodeCount} nodes in ${Date.now() - t0} ms`);
+            }
+        }
+        finally {
             this.DirtyRegions.clear();
             RHTML = savedRCompiler;
+            this.bUpdating = false;
         }
-        this.bUpdating = false;
     }
     RVAR_Light(t, updatesTo = []) {
         if (!t._Subscribers) {
@@ -358,7 +365,7 @@ class RCompiler {
                                     if (C.bCompiled)
                                         C.Builder(subregion);
                                     else {
-                                        subregion.env = region.env.slice();
+                                        subregion.env = CloneEnv(region.env);
                                         arrToBuild.push(subregion);
                                     }
                                 };
@@ -402,7 +409,7 @@ class RCompiler {
                                     const subscriber = {
                                         ...subregion,
                                         builder: bodyBuilder,
-                                        env: subregion.env.slice(),
+                                        env: CloneEnv(subregion.env),
                                     };
                                     for (const getRvar of getDependencies) {
                                         const rvar = getRvar(subregion.env);
@@ -425,7 +432,7 @@ class RCompiler {
                                 if (subregion.bInit) {
                                     tempElm.innerHTML = tempElm.innerText;
                                     const R = new RCompiler();
-                                    subregion.env = [];
+                                    subregion.env = NewEnv();
                                     R.Compile(tempElm, { bRunScripts: true });
                                     R.Build(subregion);
                                 }
@@ -438,7 +445,7 @@ class RCompiler {
                     case 'COMPONENT':
                         return this.CompileComponent(srcParent, srcElm);
                     default:
-                        builder = this.CompileRegularElement(srcElm);
+                        builder = this.CompileHTMLElement(srcElm);
                         break;
                 }
         }
@@ -458,7 +465,7 @@ class RCompiler {
                         builder: function reacton(reg) {
                             this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
                         },
-                        env: region.env.slice(),
+                        env: CloneEnv(region.env),
                     };
                     for (const getRvar of getDependencies) {
                         const rvar = getRvar(region.env);
@@ -590,7 +597,7 @@ class RCompiler {
                                 subscriber = {
                                     ...childRegion,
                                     builder: (bUpdateable ? bodyBuilder : undefined),
-                                    env: (bUpdateable ? env.slice() : undefined),
+                                    env: (bUpdateable ? CloneEnv(env) : undefined),
                                 };
                                 if (key != null) {
                                     if (keyMap.has(key))
@@ -630,18 +637,18 @@ class RCompiler {
                 return function FOREACH_Slot(region) {
                     let subregion = PrepareRegion(srcElm, region);
                     const saved = this.Save();
-                    const slotBuilders = slot.Builders;
+                    const slotBuilders = slot.InstanceBuilders;
                     try {
                         const setIndex = initIndex(region.environment);
                         let index = 0;
                         for (const slotBuilder of slotBuilders) {
                             setIndex(index++);
-                            slot.Builders = [slotBuilder];
+                            slot.InstanceBuilders = [slotBuilder];
                             bodyBuilder.call(this, subregion);
                         }
                     }
                     finally {
-                        slot.Builders = slotBuilders;
+                        slot.InstanceBuilders = slotBuilders;
                         this.Restore(saved);
                     }
                 };
@@ -695,14 +702,17 @@ class RCompiler {
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
         const component = this.ParseSignature(elmSignature);
+        const tagName = component.TagName;
         this.AddConstruct(component);
-        component.Builders = [
+        builders.push([function COMPONENT({ env }) {
+                const prevEnv = env.CEnvs.get(tagName);
+                env.CEnvs.set(tagName, CloneEnv(env));
+                this.restoreActions.push(() => { env.CEnvs.set(tagName, prevEnv); });
+            }.bind(this), srcElm]);
+        ;
+        component.InstanceBuilders = [
             this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
         ];
-        builders.push([function COMPONENT(reg) {
-                const prevEnv = component.ConstructEnv;
-                component.ConstructEnv = reg.env.slice();
-            }, srcElm]);
         return builders;
     }
     CompileConstructTemplate(construct, contentNode, srcElm, bInstance) {
@@ -723,6 +733,7 @@ class RCompiler {
     }
     CompileConstructInstance(srcParent, srcElm, construct) {
         srcParent.removeChild(srcElm);
+        const tagName = construct.TagName;
         const computeParameters = [];
         for (const { name, pdefault } of construct.Parameters)
             try {
@@ -732,7 +743,7 @@ class RCompiler {
                     : (attVal = srcElm.getAttribute(name)) != null
                         ? this.CompileInterpolatedString(attVal)
                         : pdefault != null
-                            ? (_env) => pdefault(construct.ConstructEnv)
+                            ? (env) => pdefault(env.CEnvs.get(construct.TagName))
                             : thrower(`Missing parameter [${name}]`)));
             }
             catch (err) {
@@ -754,30 +765,40 @@ class RCompiler {
         this.bTrimLeft = false;
         return function INSTANCE(region) {
             const subregion = PrepareRegion(srcElm, region);
-            const env = subregion.env;
-            const componentEnv = construct.ConstructEnv.slice();
+            const localEnv = subregion.env;
+            const constructEnv = subregion.env = localEnv.CEnvs.get(tagName);
+            const saveEnv = constructEnv.CEnvs.get(tagName);
+            constructEnv.CEnvs.set(tagName, constructEnv);
             const saved = this.Save();
-            let i = 0;
-            for (const param of construct.Parameters) {
-                param.initVar(componentEnv)(computeParameters[i](env));
-                i++;
-            }
-            for (const [name, slot] of construct.Slots) {
-                const prevBuilders = slot.Builders, prevEnv = slot.ConstructEnv;
-                slot.Builders = slotBuilders.get(name);
-                slot.ConstructEnv = env.slice();
-                this.restoreActions.push(() => { slot.Builders = prevBuilders; slot.ConstructEnv = prevEnv; });
-            }
             try {
-                for (const builder of construct.Builders)
-                    builder.call(this, { ...subregion, env: componentEnv, });
+                let i = 0;
+                for (const param of construct.Parameters) {
+                    param.initVar(constructEnv)(computeParameters[i](localEnv));
+                    i++;
+                }
+                if (construct.Slots.size) {
+                    const envClone = CloneEnv(localEnv);
+                    for (const [slotName, slot] of construct.Slots) {
+                        const saveBuilders = slot.InstanceBuilders;
+                        const saveEnv = constructEnv.CEnvs.get(slotName);
+                        slot.InstanceBuilders = slotBuilders.get(slotName);
+                        constructEnv.CEnvs.set(slotName, envClone);
+                        this.restoreActions.push(() => {
+                            slot.InstanceBuilders = saveBuilders;
+                            constructEnv.CEnvs.set(slotName, saveEnv);
+                        });
+                    }
+                }
+                for (const builder of construct.InstanceBuilders)
+                    builder.call(this, subregion);
             }
             finally {
                 this.Restore(saved);
+                constructEnv.CEnvs.set(tagName, saveEnv);
             }
         };
     }
-    CompileRegularElement(srcElm) {
+    CompileHTMLElement(srcElm) {
         const nodeName = srcElm.nodeName.replace(/\.+$/, '');
         const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\D|HR|LI|OL|P|PRE|TABLE|T[RD]|UL)$/.test(nodeName);
         const arrModifiers = [];
@@ -843,7 +864,7 @@ class RCompiler {
         const childnodesBuilder = this.CompileChildNodes(srcElm, bTrim);
         if (bTrim)
             this.bTrimLeft = true;
-        const builder = function Element(region) {
+        const builder = function ELEMENT(region) {
             const { parent, start, bInit, env, lastMarker } = region;
             let elm;
             if (!bInit || start == srcElm) {

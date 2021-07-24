@@ -10,7 +10,9 @@ declare type Settings = {
     [Property in keyof FullSettings]+?: FullSettings[Property];
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
-declare type Environment = Array<unknown>;
+declare type Environment = Array<unknown> & {
+    CEnvs: Map<string, Environment>;
+};
 declare type Marker = ChildNode & {
     nextM?: Marker;
     rResult?: unknown;
@@ -46,7 +48,6 @@ declare class RCompiler {
     private Context;
     private ContextMap;
     private Constructs;
-    private HiddenConstructs;
     constructor(clone?: RCompiler);
     private restoreActions;
     private Save;
@@ -85,7 +86,7 @@ declare class RCompiler {
     private CompileComponent;
     private CompileConstructTemplate;
     private CompileConstructInstance;
-    private CompileRegularElement;
+    private CompileHTMLElement;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
     private CompileExpression;
