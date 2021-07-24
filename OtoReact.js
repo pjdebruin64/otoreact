@@ -20,12 +20,12 @@ export function RCompile(elm, settings) {
 }
 function NewEnv() {
     const env = [];
-    env.CEnvs = new Map();
+    env.constructDefs = new Map();
     return env;
 }
 function CloneEnv(env) {
     const clone = env.slice();
-    clone.CEnvs = new Map(env.CEnvs.entries());
+    clone.constructDefs = new Map(env.constructDefs.entries());
     return clone;
 }
 ;
@@ -627,28 +627,29 @@ class RCompiler {
                 };
             }
             else {
-                const ofExpression = GetAttribute(srcElm, 'of', true, true);
-                const slot = this.Constructs.get(ofExpression);
+                const slotName = GetAttribute(srcElm, 'of', true, true);
+                const slot = this.Constructs.get(slotName);
                 if (!slot)
                     throw `Missing attribute [let]`;
                 const initIndex = this.NewVar(indexName);
                 const bodyBuilder = this.CompileChildNodes(srcElm, bBlockLevel);
                 srcParent.removeChild(srcElm);
                 return function FOREACH_Slot(region) {
-                    let subregion = PrepareRegion(srcElm, region);
+                    const subregion = PrepareRegion(srcElm, region);
+                    const env = subregion.env;
                     const saved = this.Save();
-                    const slotBuilders = slot.InstanceBuilders;
+                    const slotDef = env.constructDefs.get(slotName);
                     try {
                         const setIndex = initIndex(region.environment);
                         let index = 0;
-                        for (const slotBuilder of slotBuilders) {
+                        for (const slotBuilder of slotDef.instanceBuilders) {
                             setIndex(index++);
-                            slot.InstanceBuilders = [slotBuilder];
+                            env.constructDefs.set(slotName, { instanceBuilders: [slotBuilder], constructEnv: slotDef.constructEnv });
                             bodyBuilder.call(this, subregion);
                         }
                     }
                     finally {
-                        slot.InstanceBuilders = slotBuilders;
+                        env.constructDefs.set(slotName, slotDef);
                         this.Restore(saved);
                     }
                 };
@@ -704,15 +705,14 @@ class RCompiler {
         const component = this.ParseSignature(elmSignature);
         const tagName = component.TagName;
         this.AddConstruct(component);
-        builders.push([function COMPONENT({ env }) {
-                const prevEnv = env.CEnvs.get(tagName);
-                env.CEnvs.set(tagName, CloneEnv(env));
-                this.restoreActions.push(() => { env.CEnvs.set(tagName, prevEnv); });
-            }.bind(this), srcElm]);
-        ;
-        component.InstanceBuilders = [
+        const instanceBuilders = [
             this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
         ];
+        builders.push([function COMPONENT({ env }) {
+                const prevEnv = env.constructDefs.get(tagName);
+                env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
+                this.restoreActions.push(() => { env.constructDefs.set(tagName, prevEnv); });
+            }.bind(this), srcElm]);
         return builders;
     }
     CompileConstructTemplate(construct, contentNode, srcElm, bInstance) {
@@ -743,7 +743,7 @@ class RCompiler {
                     : (attVal = srcElm.getAttribute(name)) != null
                         ? this.CompileInterpolatedString(attVal)
                         : pdefault != null
-                            ? (env) => pdefault(env.CEnvs.get(construct.TagName))
+                            ? (env) => pdefault(env.constructDefs.get(construct.TagName).constructEnv)
                             : thrower(`Missing parameter [${name}]`)));
             }
             catch (err) {
@@ -766,9 +766,11 @@ class RCompiler {
         return function INSTANCE(region) {
             const subregion = PrepareRegion(srcElm, region);
             const localEnv = subregion.env;
-            const constructEnv = subregion.env = localEnv.CEnvs.get(tagName);
-            const saveEnv = constructEnv.CEnvs.get(tagName);
-            constructEnv.CEnvs.set(tagName, constructEnv);
+            const constructDef = localEnv.constructDefs.get(tagName);
+            const { instanceBuilders, constructEnv } = constructDef;
+            subregion.env = constructEnv;
+            const savedDef = constructEnv.constructDefs.get(tagName);
+            constructEnv.constructDefs.set(tagName, constructDef);
             const saved = this.Save();
             try {
                 let i = 0;
@@ -777,24 +779,21 @@ class RCompiler {
                     i++;
                 }
                 if (construct.Slots.size) {
-                    const envClone = CloneEnv(localEnv);
-                    for (const [slotName, slot] of construct.Slots) {
-                        const saveBuilders = slot.InstanceBuilders;
-                        const saveEnv = constructEnv.CEnvs.get(slotName);
-                        slot.InstanceBuilders = slotBuilders.get(slotName);
-                        constructEnv.CEnvs.set(slotName, envClone);
+                    const slotEnv = CloneEnv(localEnv);
+                    for (const slotName of construct.Slots.keys()) {
+                        const savedDef = constructEnv.constructDefs.get(slotName);
+                        constructEnv.constructDefs.set(slotName, { instanceBuilders: slotBuilders.get(slotName), constructEnv: slotEnv });
                         this.restoreActions.push(() => {
-                            slot.InstanceBuilders = saveBuilders;
-                            constructEnv.CEnvs.set(slotName, saveEnv);
+                            constructEnv.constructDefs.set(slotName, savedDef);
                         });
                     }
                 }
-                for (const builder of construct.InstanceBuilders)
+                for (const builder of instanceBuilders)
                     builder.call(this, subregion);
             }
             finally {
                 this.Restore(saved);
-                constructEnv.CEnvs.set(tagName, saveEnv);
+                constructEnv.constructDefs.set(tagName, savedDef);
             }
         };
     }

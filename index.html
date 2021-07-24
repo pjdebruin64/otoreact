@@ -762,7 +762,17 @@ Here is a component which allows one to define tables column by column.
 </for>
 
 <h4>Test 2</h4>
+<component>
+    <c><slot></slot></c>
+    <template>
+        <define rvar=r value=1></define>
+        <p reacton=r>
+            <slot></slot> {r.V}
+            <button onclick="r.V++">increase</button>
+        </p>
+    </template>
+</component>
 
-
-
+<c><slot>A</slot></c>
+<c><slot>B</slot></c>
 </body>

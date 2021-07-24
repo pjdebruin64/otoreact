@@ -31,15 +31,18 @@ export function RCompile(elm: HTMLElement, settings?: Settings) {
 // Een context is een rij identifiers die in een te transformeren DOM-tree kunnen voorkomen, maar waarvan de waarde nog niet bekend is
 type Context = Array<string>;
 // Een environment is een rij concrete waarden voor de identifiers IN EEN GEGEVEN CONTEXT
-type Environment = Array<unknown> & {CEnvs: Map<string, Environment>};
+type Environment = 
+    Array<unknown> & {
+        constructDefs: Map<string, {instanceBuilders: ElmBuilder[], constructEnv: Environment}>
+    };
 function NewEnv(): Environment { 
     const env = [] as Environment;
-    env.CEnvs = new Map();
+    env.constructDefs = new Map();
     return env;
 }
 function CloneEnv(env: Environment): Environment {
     const clone = env.slice() as Environment;
-    clone.CEnvs = new Map(env.CEnvs.entries());
+    clone.constructDefs = new Map(env.constructDefs.entries());
     return clone;
 }
 // Een afhankelijke waarde in een gegeven context is een waarde die afhangt van een environment.
@@ -67,6 +70,8 @@ interface Item {};  // Three unknown but distinct types
 interface Key {};
 interface Hash {};
 
+type ConstructBuilder = (slotBuilders: Array<ConstructBuilder[]>) => ElmBuilder[];
+
 type Parameter = {name: string, pdefault: Dependent<unknown>, initVar?: LVar};
 class Construct {
     constructor(
@@ -75,7 +80,8 @@ class Construct {
         public Slots = new Map<string, Construct>(),
     ){ }
 
-    InstanceBuilders: ElmBuilder[]; // These builders must be executed to build an INSTANCE of the construct.
+    //InstanceBuilders: ElmBuilder[]; // These builders must be executed to build an INSTANCE of the construct.
+    // In case of a component, there will be one, obtained from the component template.
     // In case of slots, there may be multiple builders.
 }
 
@@ -820,8 +826,8 @@ class RCompiler {
             }
             else { 
                 /* Iterate over multiple slot instances */
-                const ofExpression = GetAttribute(srcElm, 'of', true, true);
-                const slot = this.Constructs.get(ofExpression)
+                const slotName = GetAttribute(srcElm, 'of', true, true);
+                const slot = this.Constructs.get(slotName)
                 if (!slot)
                     throw `Missing attribute [let]`;
 
@@ -830,20 +836,21 @@ class RCompiler {
                 srcParent.removeChild(srcElm);
 
                 return function FOREACH_Slot(this: RCompiler, region) {
-                    let subregion = PrepareRegion(srcElm, region);
+                    const subregion = PrepareRegion(srcElm, region);
+                    const env = subregion.env;
                     const saved= this.Save();
-                    const slotBuilders = slot.InstanceBuilders;
+                    const slotDef = env.constructDefs.get(slotName);
                     try {
                         const setIndex = initIndex(region.environment);
                         let index = 0;
-                        for (const slotBuilder of slotBuilders) {
+                        for (const slotBuilder of slotDef.instanceBuilders) {
                             setIndex(index++);
-                            slot.InstanceBuilders = [slotBuilder];
+                            env.constructDefs.set(slotName, {instanceBuilders: [slotBuilder], constructEnv: slotDef.constructEnv});
                             bodyBuilder.call(this, subregion);
                         }
                     }
                     finally {
-                        slot.InstanceBuilders = slotBuilders;
+                        env.constructDefs.set(slotName, slotDef);
                         this.Restore(saved);
                     }
                 }
@@ -901,23 +908,24 @@ class RCompiler {
         const component = this.ParseSignature(elmSignature);
         const tagName = component.TagName;
 
-        this.AddConstruct(component)
+        this.AddConstruct(component);
+        
+        // Deze builder bouwt de component-instances op
+        const instanceBuilders = [
+            this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+        ];
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         builders.push([  function COMPONENT(this: RCompiler, {env}: Region) {
             // At runtime, we just have to remember the environment that matches the context
             // And keep the previous remembered environment, in case of recursive constructs
-            const prevEnv = env.CEnvs.get(tagName);
-            env.CEnvs.set(tagName, CloneEnv(env));
+            const prevEnv = env.constructDefs.get(tagName);
+            env.constructDefs.set(tagName, {instanceBuilders, constructEnv: CloneEnv(env)});
             this.restoreActions.push(
-                () => { env.CEnvs.set(tagName,  prevEnv); }
+                () => { env.constructDefs.set(tagName,  prevEnv); }
             );
-        }.bind(this) as ElmBuilder, srcElm ]);;
+        }.bind(this) as ElmBuilder, srcElm ]);
 
-        // Deze builder bouwt de component-instances op
-        component.InstanceBuilders = [
-            this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
-        ];
         
         return builders;
     }
@@ -937,8 +945,10 @@ class RCompiler {
         }
     }
 
-    private CompileConstructInstance(srcParent: ParentNode, srcElm: HTMLElement,
-        construct: Construct) {
+    private CompileConstructInstance(
+        srcParent: ParentNode, srcElm: HTMLElement,
+        construct: Construct
+    ) {
         srcParent.removeChild(srcElm);
         const tagName = construct.TagName;
         const computeParameters: Array<Dependent<unknown>> = [];
@@ -951,7 +961,7 @@ class RCompiler {
                 : (attVal = srcElm.getAttribute(name)) != null
                     ? this.CompileInterpolatedString( attVal )
                 : pdefault != null
-                    ? (env) => pdefault(env.CEnvs.get(construct.TagName))
+                    ? (env) => pdefault(env.constructDefs.get(construct.TagName).constructEnv)
                 : thrower(`Missing parameter [${name}]`)
                 ))
             }
@@ -986,10 +996,12 @@ class RCompiler {
             const localEnv = subregion.env;
 
             // The construct-template(s) will be executed in this construct-env
-            const constructEnv = subregion.env = localEnv.CEnvs.get(tagName);
+            const constructDef = localEnv.constructDefs.get(tagName);
+            const {instanceBuilders, constructEnv} =  constructDef;
+            subregion.env = constructEnv
             // In case the construct is recursive, it need to know it's own defining environment
-            const saveEnv = constructEnv.CEnvs.get(tagName)
-            constructEnv.CEnvs.set(tagName, constructEnv);   // Circular...
+            const savedDef = constructEnv.constructDefs.get(tagName)
+            constructEnv.constructDefs.set(tagName, constructDef);   // Circular...
 
             const saved = this.Save();
             try {
@@ -1001,26 +1013,23 @@ class RCompiler {
                 }
                 if (construct.Slots.size) {
                     // The instance-builders of the slots are to be installed
-                    const envClone = CloneEnv(localEnv);
-                    for (const [slotName, slot] of construct.Slots) {
-                        const saveBuilders = slot.InstanceBuilders;
-                        const saveEnv = constructEnv.CEnvs.get(slotName);
-                        slot.InstanceBuilders = slotBuilders.get(slotName);
-                        constructEnv.CEnvs.set(slotName, envClone);
+                    const slotEnv = CloneEnv(localEnv);
+                    for (const slotName of construct.Slots.keys()) {
+                        const savedDef = constructEnv.constructDefs.get(slotName);
+                        constructEnv.constructDefs.set(slotName, {instanceBuilders: slotBuilders.get(slotName), constructEnv: slotEnv});
                         this.restoreActions.push(
                             () => { 
-                                slot.InstanceBuilders = saveBuilders;
-                                constructEnv.CEnvs.set(slotName, saveEnv);
+                                constructEnv.constructDefs.set(slotName, savedDef);
                             }
                         );
                     }
                 }
-                for (const builder of construct.InstanceBuilders)
+                for (const builder of instanceBuilders)
                     builder.call(this, subregion); 
             }
             finally { 
                 this.Restore(saved);
-                constructEnv.CEnvs.set(tagName, saveEnv);    // Remove the circularity
+                constructEnv.constructDefs.set(tagName, savedDef);    // Remove the circularity
              }
         }
     }

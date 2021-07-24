@@ -11,7 +11,10 @@ declare type Settings = {
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
 declare type Environment = Array<unknown> & {
-    CEnvs: Map<string, Environment>;
+    constructDefs: Map<string, {
+        instanceBuilders: ElmBuilder[];
+        constructEnv: Environment;
+    }>;
 };
 declare type Marker = ChildNode & {
     nextM?: Marker;
