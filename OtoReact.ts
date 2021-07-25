@@ -1389,10 +1389,12 @@ class _RVAR<T>{
         this.rRuntime.RUpdate();
     }
 }
+const words = 'align|animation|aria|background|border|bottom|bounding|child|class|client|column|content|element|first|font|get|image|inner|is|last|left|node|offset|outer|owner|parent|right|rule|scroll|tab|text|top|value';
+const regCapitalize = new RegExp(`^(.*(${words}))([a-z])(.*)$`);
 function CapitalizeProp(lcName: string) {
     let m: RegExpExecArray;
-    lcName = lcName.replace('html', 'HTML');
-    while(m = /^(.*(align|animation|aria|background|border|bottom|class|client|column|content|element|font|image|inner|left|right|rule|top|value))([a-z])(.*)$/.exec(lcName))
+    lcName = lcName.replace(/html|uri/g, s => s.toUpperCase());
+    while(m = regCapitalize.exec(lcName))
         lcName = `${m[1]}${m[3].toUpperCase()}${m[4]}`;
     return lcName;
 }
