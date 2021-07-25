@@ -203,7 +203,7 @@ class RCompiler {
             switch (srcNode.nodeType) {
                 case Node.ELEMENT_NODE:
                     builders.push(...this.CompileElement(srcParent, srcNode, bBlockLevel));
-                    if (builders[builders.length - 1][0].bTrim) {
+                    if (builders.length && builders[builders.length - 1][0].bTrim) {
                         let i = builders.length - 2;
                         while (i >= 0 && builders[i][2]) {
                             srcParent.removeChild(builders[i][1]);
@@ -442,6 +442,9 @@ class RCompiler {
                     case 'SCRIPT':
                         builder = this.CompileScript(srcParent, srcElm);
                         break;
+                    case 'STYLE':
+                        builder = this.CompileStyle(srcParent, srcElm);
+                        break;
                     case 'COMPONENT':
                         return this.CompileComponent(srcParent, srcElm);
                     default:
@@ -509,6 +512,11 @@ class RCompiler {
                 bDone = true;
             }
         };
+    }
+    CompileStyle(srcParent, srcElm) {
+        srcParent.removeChild(srcElm);
+        document.head.appendChild(srcElm);
+        return null;
     }
     CompileForeach(srcParent, srcElm, bBlockLevel) {
         const varName = GetAttribute(srcElm, 'let');
@@ -686,6 +694,7 @@ class RCompiler {
                         builders.push([builder, srcChild]);
                     break;
                 case 'STYLE':
+                    this.CompileStyle(srcElm, srcChild);
                     break;
                 case 'TEMPLATE':
                     if (elmTemplate)

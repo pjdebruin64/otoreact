@@ -84,6 +84,7 @@ declare class RCompiler {
     private CompileElement;
     private CallWithErrorHandling;
     private CompileScript;
+    private CompileStyle;
     private CompileForeach;
     private ParseSignature;
     private CompileComponent;

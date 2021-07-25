@@ -308,7 +308,7 @@ class RCompiler {
                 
                 case Node.ELEMENT_NODE:
                     builders.push(... this.CompileElement(srcParent, srcNode as HTMLElement, bBlockLevel));
-                    if (builders[builders.length - 1][0].bTrim) {
+                    if (builders.length && builders[builders.length - 1][0].bTrim) {
                         let i = builders.length - 2;
                         while (i>=0 && builders[i][2]) {
                             srcParent.removeChild(builders[i][1]);
@@ -591,8 +591,11 @@ class RCompiler {
                     case 'SCRIPT': 
                         builder = this.CompileScript(srcParent, srcElm); break;
 
+                    case 'STYLE':
+                        builder = this.CompileStyle(srcParent, srcElm); break;
+
                     case 'COMPONENT': 
-                        return this.CompileComponent(srcParent, srcElm)
+                        return this.CompileComponent(srcParent, srcElm);
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -658,7 +661,7 @@ class RCompiler {
         }
     }
 
-    private CompileScript(srcParent: ParentNode, srcElm: HTMLElement) {
+    private CompileScript(srcParent: ParentNode, srcElm: HTMLElement): ElmBuilder {
         srcParent.removeChild(srcElm);
         if (!(this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')))
             return null;
@@ -674,6 +677,12 @@ class RCompiler {
                 bDone = true;
             }
         };
+    }
+
+    private CompileStyle(srcParent: ParentNode, srcElm: HTMLElement): ElmBuilder {
+        srcParent.removeChild(srcElm);
+        document.head.appendChild(srcElm);
+        return null;
     }
 
     private CompileForeach(srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean) {
@@ -892,7 +901,7 @@ class RCompiler {
                     if (builder) builders.push([builder, srcChild]);
                     break;
                 case 'STYLE':
-
+                    this.CompileStyle(srcElm, srcChild);
                     break;
                 case 'TEMPLATE':
                     if (elmTemplate) throw 'Double <TEMPLATE>';
