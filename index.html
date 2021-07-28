@@ -52,6 +52,11 @@
         dt  {font-weight: bold; margin-top: 1ex; }
         ol, ul, li  {margin: 1ex 0}
 
+        a { cursor: pointer; }
+        a:not([target]) {
+            text-decoration: none;
+            border-bottom: .25ex dashed;
+        }
     </style>
 
     <!-- <script type=module src='../OtoReact/OtoReact.js'></script> -->
@@ -338,7 +343,8 @@ The question marks indicate optional arguments.
 
 <h2>Scripts in RHTML</h2>
 <p>Scripts can be included anywhere using the <elm>SCRIPT</elm> element just as in HTML. The browser will automatically execute them once.
-<p>Scripts are always global. There is no provision for local scripts yet, but you can define a global class and create a local class instance using <elm>DEFINE</elm>, of course.
+<p>Scripts are always global.
+    <br>There is no provision for local scripts yet, but you can define a global class and create a local class instance using <elm>DEFINE</elm>, of course. There is a sample of this in the <a href="#TicTacToe">Tic-Tac-Toe demo</a> below.
 <p>
     You have to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, and that OtoReact is imported as a JavaScript module.
 </p>
@@ -353,7 +359,7 @@ The question marks indicate optional arguments.
         Scripts included with <elm>SCRIPT type=module</elm> are treated as a JavaScript <u>module</u>.
         <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
         <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
-        <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or better: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+        <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/globalThis">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
     </li>
     <li>
         (Scripts within the code samples in this document work still different, as these are contained within a string and are not automatically executed at all. OtoReact executes them as classic JavaScript.)
@@ -549,8 +555,6 @@ DOM properties are not static but can change. RHTML
 </p>">
 </demo>
 
-<h3>&lt;SCRIPT&gt;</h3>
-
 <h3>&lt;COMPONENT&gt;</h3>
 <demo content="<script type=module>
     // Define the data model of our todo list
@@ -662,7 +666,8 @@ This link opens in a blank window:
 
 
 <h3>&lt;REACT on&gt;, reacton</h3>
-<demo #bShow=false #content=TicTacToe>
+<div id=TicTacToe></div>
+<demo #bShow=false #content=sTicTacToe>
 </demo>
 
 
@@ -773,8 +778,54 @@ Here is a component which allows one to define tables column by column.
     </p>
 </if>`;
 
-let TicTacToe = 
-`<style>
+let sTicTacToe = 
+`<script type=module>
+    function Board() {
+        function Cell() {return {V: null}; }
+        function Row()  {return [Cell(), Cell(), Cell()]; }
+        return [Row(), Row(), Row()]; 
+    }
+
+    globalThis.TicTacToe = class TicTacToe {
+        board =     RVAR('board');
+        toMove =    RVAR('toMove', '✕');
+        winner =    RVAR('winner');
+        count = 0;
+
+        ClearAll() {
+            this.board.V = Board();
+            this.winner.V = null;
+            this.count = 0;
+        }
+        constructor() {
+            this.ClearAll();
+        }
+
+        Move(cell) {
+            cell.U.V = this.toMove.V;
+            this.count++;
+            this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
+            this.winner.V = this.CheckWinner(this.board.V) || this.count==9;
+        }
+
+        CheckWinner(b) {
+            function CheckRow(c1, c2, c3) {
+                return (c1.V && c1.V == c2.V && c2.V == c3.V
+                    ? c1.V : null);
+            }
+            let w = null;
+            for (let i=0;i<3;i++) {
+                w ||= CheckRow(...b[i]);
+                w ||= CheckRow(b[0][i], b[1][i], b[2][i]);
+            }
+            for (let i=-1;i<2;i+=2)
+                w ||= CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
+            return w;
+        }
+    }
+<${''}/script>
+
+<style>
     .tic-tac-toe td {
         height:32pt;width: 32pt; 
         border: 2px solid; 
@@ -782,77 +833,40 @@ let TicTacToe =
     }
 </style>
 
-<script type=module>
-    function Cell() {return {V: null}; }
-    function Row()  {return [Cell(), Cell(), Cell()]; }
-    function Board() {return [Row(), Row(), Row()]; }
-    let board =     RVAR('board');
-    let toMove =    RVAR('toMove', '✕');
-    let winner =    RVAR('winner');
-    let count = 0;
-
-    globalThis.ClearAll = function() {
-        board.V = Board();
-        winner.V = null;
-        count = 0;
-    }
-    ClearAll();
-
-    globalThis.Move = function(cell) {
-        count++;
-        cell.U.V = toMove.V;
-        toMove.V = (toMove.V=='✕' ? '◯' : '✕');
-        winner.V = CheckWinner(board.V) || count==9;
-    }
-
-    function CheckRow(c1, c2, c3) {
-        return (c1.V && c1.V == c2.V && c2.V == c3.V
-            ? c1.V : null);
-    }
-    function CheckWinner(board) {
-        let w = null;
-        for (let i=0;i<3;i++) {
-            w ||= CheckRow(...board[i]);
-            w ||= CheckRow(board[0][i], board[1][i], board[2][i]);
-        }
-        for (let i=-1;i<2;i+=2)
-            w ||= CheckRow(board[0][1+i], board[1][1], board[2][1-i]);
-        return w;
-    }
-<${''}/script>
-
 <div style="display: grid; width: 300pt; background-color: white;">
     <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
         <b>Tic-Tac-Toe</b>
     </div>
 
-    <table. class=tic-tac-toe 
+    <define var=T value="new TicTacToe()"></define>
+    <table. class=tic-tac-toe reacton=T.board
             style="grid-area: 2/1; width: fit-content; margin:1ex">
-        <for let=row #of="board.V">
+        <for let=row #of="T.board.V">
             <tr.>
-                <for let=cell #of=row updates=board>
-                    <td. onclick="!winner.V && !cell.V && Move(cell)"
+                <for let=cell #of=row updates=T.board>
+                    <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
                     >{cell.V ?? ''}</td.>
                 </for>
             </tr.>
         </for>
     </table.>
     <div style="grid-row: 2; grid-column: 2;">
-        <p>
+        <p reacton=T.winner,T.toMove>
             <case>
-                <when #cond="winner.V==true">
+                <when #cond="T.winner.V==true">
                     <b>It's a draw.</b>
                 </when>
-                <when #cond="winner.V">
-                    <b>The winner is: <large>{winner.V}</large></b>
+                <when #cond="T.winner.V">
+                    <b>The winner is: <large>{T.winner.V}</large></b>
                 </when>
                 <else>
-                    Player to move: {toMove.V}
+                    Player to move: {T.toMove.V}
                 </else>
             </case>
         </p>
-        <button onclick="ClearAll()">Clear</button>
+        <button onclick="T.ClearAll()">Clear</button>
     </div>
 </div>`;
 </script>
+
 </body>
