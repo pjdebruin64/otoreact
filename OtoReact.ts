@@ -1059,7 +1059,7 @@ class RCompiler {
     private CompileHTMLElement(srcElm: HTMLElement) {
         // Remove trailing dots
         const nodeName = srcElm.nodeName.replace(/\.+$/, '');
-        const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\D|HR|LI|OL|P|PRE|TABLE|T[RD]|UL)$/.test(nodeName)
+        const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|PRE|TABLE|T[RD]|UL)$/.test(nodeName)
 
         // We turn each given attribute into a modifier on created elements
         const arrModifiers = [] as Array<{

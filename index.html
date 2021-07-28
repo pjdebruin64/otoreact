@@ -25,7 +25,6 @@
             padding: 4px 8px;
             border: var(--RedBorder);
             width: fit-content;
-            background-color: rgb(245, 245, 245);
         }
         pre.sourcecode {
             margin: 2ex auto;
@@ -36,7 +35,7 @@
             font-size: 90%;
         }
         pre { margin: 1ex 0;}
-        pre, code, elm {
+        pre, code, elm, .sourcecode {
             color: darkblue;
             background-color: rgb(245, 245, 245);
             font-family: 'Lucida Console', monospace;
@@ -49,7 +48,7 @@
             content: ">";
         }
 
-        dt  {font-weight: bold; margin-top: 1ex; }
+        dt  {margin-top: 1ex; }
         ol, ul, li  {margin: 1ex 0}
 
         a { cursor: pointer; }
@@ -143,7 +142,7 @@
 <h1>Reactive HTML through the OtoReact framework</h1>
 
 <div class=sample style="width: 300pt; min-height: 108px;"
-onCreate="this.getElementsByTagName('input')[0].focus()">
+xonCreate="this.getElementsByTagName('input')[0].focus()">
      <RHTML>{Greeting}</RHTML>
 </div>
 
@@ -270,7 +269,7 @@ Note: We write construct names in uppercase and attribute names in lowercase her
 
 
 <h2>RHTML functions</h2>
-The OtoReact library makes the following functions available for import. They are added to the global environment as well.
+The OtoReact module makes the following functions available for import. They are added to the global environment as well.
 <ul>
     <li>
         <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML
@@ -385,8 +384,8 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
     </li>
     <li>
         The builder routine is called to perform the initial build.
-        <br>Any HTML elements within the RHTML, that are not within any RHTML conditional or loop or component construct, will remain in place and just be updated, not replaced. (So if they had received focus or input data befóre being compiled, they will keep this focus or input data.)
         <br>While building, any part of the resulting DOM tree which is marked to react on some RVAR, is registered with the RVAR <i>together</i> with its local 'environment' containing the value of all local variables at that point, and a local builder routine which can update that part of the DOM tree.
+        <br>(Any HTML element within the RHTML, that is not within any RHTML conditional or loop or component construct, will remain in place and just be updated, not replaced. So if it had received focus or input data befóre being compiled, it will keep this focus or input data.)
     </li>
     <li>
         Whenever some RVAR is marked dirty, it will schedule (by <a href="https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all registered DOM tree parts to get updated by their registered builder routine in the registered environment.
@@ -460,11 +459,33 @@ I imagine Reactive HTML one day being natively supported by the browser. In that
 </p>
 <demo content=
 '<define rvar=x value=2></define>
-<p title="sqrt(\{x.V}) = \{Math.sqrt(x.V)}">
+<p  title="sqrt(\{x.V}) = \{Math.sqrt(x.V)}"
+>
     What is sqrt(\{x.V})? Check the tooltip.
 </p>
 <button onclick="x.V += 1">Increment</button>
 '></demo>
+
+<h3>HTML events</h3>
+<p>
+    In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
+    <br>They may contain the name <code>event</code> which represents an object containing more information about the event.
+</p>
+<p>
+    In RHTML, this is exactly the same, see <code>onclick="x.V += 1"</code> in the demo above.
+</p>
+<ul>
+    <li>
+        RHTML event handler attributes do not have string interpolation; they are already JavaScript and braces have their normal JavaScript meaning.
+    </li>
+    <li>
+        RHTML event handlers may contain RHTML local variables; these will be bound to their values. Assignments to these variables (but not to their properties) are ignored.
+    </li>
+    <li>
+        As a bonus, the keyword <code>this</code> in RHTML event handlers is bound to the current HTMLElement object.
+        <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
+    </li>
+</ul>
 
 <h3>DOM properties</h3>
 <p>
@@ -479,17 +500,70 @@ I imagine Reactive HTML one day being natively supported by the browser. In that
 <p>
     Documentation of all properties can e.g. be found at <a href="https://developer.mozilla.org/en-US/docs/Web/API#interfaces">MDN</a> or at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
 </p>
+<p>
+    Note: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
+    <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
+</p>
 
-<h3>Two-way binding</h3>
-DOM properties are not static but can change. RHTML
+<h3>Output and two-way binding</h3>
+DOM properties are not static but can change. RHTML allows output and two-way binding for properties to expressions that can assigned to, in multiple variants.
+<br>Assignable expressions are global variables, array elements, and object properties, including RVAR values.
+<br>These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>
+<dl>
+    <dt><span class=sourcecode>@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/input_event">input event</a>.
+        <br>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
+    </dd>
+    <dt><span class=sourcecode>@@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event">change event</a>.
+        <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.</dd>
+    <dt><span class=sourcecode>*<i>propertyName</i>="<i>expression</i>"</span>
+    </dt>
+    <dd>
+        The property is left unchanged, but the expression receives the value of the property at element creation and at every input event.
+    </dd>
+    <dt><span class=sourcecode>**<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property is left unchanged, but the expression receives the value of the property at element creation and at every change event.
+    </dd>
+</dl>
 
-<h3>HTML events</h3>
+<h3>RHTML pseudo-events</h3>
+RHTML adds two event-like attributes to HTML elements:
+<dl>
+    <dt><code>oncreate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built).
+    </dd>
+    <dt><code>onupdate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built) <i>or updated</i>.
+    </dd>
+</dl>
+Notes: The name <code>event</code> is not available in handlers for these pseudo-events.
+<br>They are currently not available for RHTML constructs, only for HTML elements.
 
-<h3>RHTML events</h3>
+<h3>Class names</h3>
+"Class names" are used in HTML to select CSS styling properties, and can of course be set with the <code>class</code> attribute, or the <code>#className</code> or <code>#classList</code> DOM properties.
+<p>
+    Besides these, RHTML adds the following.
+</p>
+<dl>
+    <dt><code>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
+    <dd>
+        Class name <i>name</i> will be added to the element if and only if the expression evaluates to true (or another <a href="https://developer.mozilla.org/en-US/docs/Glossary/Truthy">truthy</a> value).
+    </dd>
+    <dt><code>+class="<i>objectExpression</i>"</code></dt>
+    <dd>
+        The expression should evaluate to an object.
+        <br>For every property <i>name</i> in the object, class name <i>name</i> will be added to the element if and only if the property value is true.
+    </dd>
+</dl>
+Just as other DOM properties, class names are recomputed at every update of the element.
 
-<h3>Classes</h3>
-
-<h3>Styles</h3>
+<h3>Element styles</h3>
 
 <h2>RHTML Construct details</h2>
 

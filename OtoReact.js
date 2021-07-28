@@ -827,7 +827,7 @@ class RCompiler {
     }
     CompileHTMLElement(srcElm) {
         const nodeName = srcElm.nodeName.replace(/\.+$/, '');
-        const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\D|HR|LI|OL|P|PRE|TABLE|T[RD]|UL)$/.test(nodeName);
+        const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|PRE|TABLE|T[RD]|UL)$/.test(nodeName);
         const arrModifiers = [];
         for (const attr of srcElm.attributes) {
             const attrName = attr.name;
