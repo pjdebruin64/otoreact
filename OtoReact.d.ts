@@ -36,6 +36,7 @@ declare type Region = {
 declare type ElmBuilder = ((this: RCompiler, reg: Region) => void) & {
     bTrim?: boolean;
 };
+declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Subscriber = {
     parent: Element;
     marker: ChildNode;
@@ -76,7 +77,6 @@ declare class RCompiler {
     RUpdate: () => void;
     private DoUpdate;
     RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
-    private rvarList;
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
@@ -85,7 +85,7 @@ declare class RCompiler {
     private CallWithErrorHandling;
     private CompileScript;
     private CompileStyle;
-    private CompileForeach;
+    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): (this: RCompiler, region: Region) => void;
     private ParseSignature;
     private CompileComponent;
     private CompileConstructTemplate;
@@ -102,8 +102,9 @@ interface Store {
 declare class _RVAR<T> {
     private rRuntime;
     private name?;
-    private storage?;
-    constructor(rRuntime: RCompiler, name?: string, initialValue?: T, storage?: Store);
+    private store?;
+    private storeName?;
+    constructor(rRuntime: RCompiler, name?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
     Subscribers: Set<Subscriber>;
     Subscribe(s: Subscriber): void;

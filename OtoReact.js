@@ -71,13 +71,9 @@ class RCompiler {
                     this.DoUpdate();
                 }, 0);
         }.bind(this);
-        this.RVAR = function (name, initialValue, storage) {
-            let V = new _RVAR(this, name, initialValue, storage);
-            if (!this.bUpdating)
-                this.rvarList.push(V);
-            return V;
+        this.RVAR = function (name, initialValue, store) {
+            return new _RVAR(this, name, initialValue, store, name);
         }.bind(this);
-        this.rvarList = [];
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.Context = clone ? clone.Context.slice() : [];
@@ -275,13 +271,16 @@ class RCompiler {
                             const rvarName = GetAttribute(srcElm, 'rvar');
                             const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
                             const getValue = this.CompileAttributeExpression(srcElm, 'value');
+                            const getStore = rvarName && this.CompileAttributeExpression(srcElm, 'store');
                             const newVar = this.NewVar(varName);
                             const bReact = GetAttribute(srcElm, 'react') != null;
                             builder = function DEFINE(region) {
                                 const { marker } = PrepareRegion(srcElm, region);
                                 if (region.bInit || bReact) {
                                     const value = getValue && getValue(region.env);
-                                    marker.rValue = rvarName ? this.RVAR(null, value) : value;
+                                    marker.rValue = rvarName
+                                        ? new _RVAR(this, null, value, getStore && getStore(region.env), rvarName)
+                                        : value;
                                 }
                                 newVar(region.env)(marker.rValue);
                             };
@@ -375,8 +374,15 @@ class RCompiler {
                         {
                             const src = GetAttribute(srcElm, 'src', true);
                             const mapComponents = new Map();
-                            for (const child of srcElm.children)
-                                mapComponents.set(child.tagName, this.ParseSignature(child));
+                            let arrToBuild = [];
+                            for (const child of srcElm.children) {
+                                const component = this.ParseSignature(child);
+                                function holdOn(reg) {
+                                    arrToBuild.push([reg, child.tagName]);
+                                }
+                                mapComponents.set(child.tagName, [component, [holdOn]]);
+                                this.AddConstruct(component);
+                            }
                             fetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
@@ -385,10 +391,23 @@ class RCompiler {
                                 for (const libElm of parsedContent.children)
                                     if (libElm.tagName == 'COMPONENT') {
                                         const compName = libElm.firstElementChild.tagName;
-                                        const component = mapComponents.get(compName);
+                                        const compPair = mapComponents.get(compName);
+                                        const elmTemplate = RequiredChildElement(libElm, 'TEMPLATE');
+                                        const instanceBuilder = this.CompileConstructTemplate(compPair[0], elmTemplate.content, elmTemplate);
+                                        compPair[1][0] = instanceBuilder;
                                     }
+                                for (const [region, tagName] of arrToBuild)
+                                    if (region.parent.isConnected)
+                                        for (const builder of mapComponents.get(tagName)[1])
+                                            builder.call(this, region);
                             });
-                            builder = function IMPORT(region) {
+                            builder = function IMPORT({ env }) {
+                                const constructEnv = CloneEnv(env);
+                                for (const [{ TagName }, instanceBuilders] of mapComponents.values()) {
+                                    const prevDef = env.constructDefs.get(TagName);
+                                    env.constructDefs.set(TagName, { instanceBuilders, constructEnv });
+                                    this.restoreActions.push(() => { env.constructDefs.set(TagName, prevDef); });
+                                }
                             };
                         }
                         ;
@@ -686,7 +705,7 @@ class RCompiler {
         srcParent.removeChild(srcElm);
         const builders = [];
         let elmSignature, elmTemplate;
-        for (let srcChild of Array.from(srcElm.children))
+        for (const srcChild of Array.from(srcElm.children))
             switch (srcChild.nodeName) {
                 case 'SCRIPT':
                     const builder = this.CompileScript(srcElm, srcChild);
@@ -718,15 +737,15 @@ class RCompiler {
             this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
         ];
         builders.push([function COMPONENT({ env }) {
-                const prevEnv = env.constructDefs.get(tagName);
+                const prevDef = env.constructDefs.get(tagName);
                 env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
-                this.restoreActions.push(() => { env.constructDefs.set(tagName, prevEnv); });
-            }.bind(this), srcElm]);
+                this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
+            }, srcElm]);
         return builders;
     }
     CompileConstructTemplate(construct, contentNode, srcElm, bInstance) {
         const saved = this.Save();
-        for (let param of construct.Parameters)
+        for (const param of construct.Parameters)
             param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.name, true) || param.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
@@ -951,14 +970,14 @@ class RCompiler {
     }
     CompileInterpolatedString(data, name) {
         const generators = [];
-        const reg = /(?<!\\)\{(.*?)(?<!\\)\}|$/gs;
+        const reg = /(?<![\\$])\$?\{(.*?)(?<!\\)\}|$/gs;
         let isBlank = true;
         while (reg.lastIndex < data.length) {
             const lastIndex = reg.lastIndex;
             const m = reg.exec(data);
             const fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
             if (fixed)
-                generators.push(fixed.replace(/\\([{}\\])/g, '$1'));
+                generators.push(fixed.replace(/\\([${}\\])/g, '$1'));
             if (m[1])
                 generators.push(this.CompileExpression(m[1], '{}', null, true));
             if (m[1] || /[^ \t\r\n]/.test(fixed))
@@ -1046,16 +1065,17 @@ function UpdateHandler(R, handler) {
         };
 }
 class _RVAR {
-    constructor(rRuntime, name, initialValue, storage) {
+    constructor(rRuntime, name, initialValue, store, storeName) {
         this.rRuntime = rRuntime;
         this.name = name;
-        this.storage = storage;
+        this.store = store;
+        this.storeName = storeName;
         this.Subscribers = new Set();
         if (name) {
             globalThis[name] = this;
         }
         let s;
-        if ((s = storage?.getItem(`RVAR_${name}`)) != null)
+        if ((s = store?.getItem(`RVAR_${storeName}`)) != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
@@ -1071,7 +1091,7 @@ class _RVAR {
         if (t !== this._Value) {
             this._Value = t;
             this.SetDirty();
-            this.storage?.setItem(`RVAR_${this.name}`, JSON.stringify(t));
+            this.store?.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
         }
     }
     get U() { this.SetDirty(); return this._Value; }
