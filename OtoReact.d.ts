@@ -88,6 +88,7 @@ declare class RCompiler {
     CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): (this: RCompiler, region: Region) => void;
     private ParseSignature;
     private CompileComponent;
+    private AnalyseComponent;
     private CreateComponentVars;
     private CompileSlotInstance;
     private CompileConstructTemplate;

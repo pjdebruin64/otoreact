@@ -1,62 +1,9 @@
 <!DOCTYPE html>
 <head>
     <meta charset="utf-8">
-    <link rel="shortcut icon" href="./otoreact.png" type="image/png"/>
-    <style>
-        :root { 
-            --OtoRed: rgb(226, 0, 0);
-            --RedBorder: solid 2px var(--OtoRed);
-            font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
-            max-width: 900pt; margin: auto;
-            border: solid 3pt lightgrey;
-            padding: 6pt;
-            line-height: 125%;
-        }
-
-        .sample {
-            display: block;
-            margin: 2ex auto; 
-            border: var(--RedBorder);
-            padding: 1ex 2ex;
-            background-color: rgb(225, 255, 181); min-width:375px;
-            }
-        .sourcecode {
-            display: block;
-            padding: 4px 8px;
-            border: var(--RedBorder);
-            width: fit-content;
-        }
-        pre.sourcecode {
-            margin: 2ex auto;
-        }
-        span.sourcecode, code.sourcecode {
-            display: inline-block;
-            font-family: 'Lucida Console', monospace;
-            font-size: 90%;
-        }
-        pre { margin: 1ex 0;}
-        pre, code, elm, .sourcecode {
-            color: darkblue;
-            background-color: rgb(245, 245, 245);
-            font-family: 'Lucida Console', monospace;
-            font-size: 90%;
-        }
-        elm::before{
-            content: "<";
-        }
-        elm::after{
-            content: ">";
-        }
-
-        dt  {margin-top: 1ex; }
-        ol, ul, li  {margin: 1ex 0}
-
-        a { cursor: pointer; }
-        a:not([target]) {
-            text-decoration: none;
-            border-bottom: .25ex dashed;
-        }
-    </style>
+    <link rel="shortcut icon" href="otoreact.png" type="image/png"/>
+    <link rel="stylesheet" href="index.css">
+    <link rel=preload href="components.html">
 
     <!-- <script type=module src='../OtoReact/OtoReact.js'></script> -->
     <script>
@@ -65,6 +12,7 @@
             console.log(`${Date.now() - s} ${m}`);
         }
     </script>
+    <script src="samples.js" defer></script>
     <script type=module>
         msg('Document parsed');
         
@@ -80,65 +28,19 @@
     </script>
 </head>
 <body style="display:none" onload="msg('All loaded'); document.body.style.display='';">
-<!-- Component to demonstrate RHTML -->
-<component>
-    <demo content #bshow=true></demo>
-    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script>
-        const mapping = {'<': '&lt;', '&': '&amp;'};
-        function ColorCode(html) {
-            return html.replace(
-                    /[<&]/g, c => mapping[c]
-                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
-        }
-    </script>
 
-    <style>
-        table.demo   { margin: 2ex auto; }
-        table.demo > tr > th, table.demo > tr > td {
-            border: var(--RedBorder);
-            vertical-align: top;
-        }
-        table.demo > tr > th, table.demo > tr > td > * { padding: 8px; }
-        table.demo > tr > *:nth-child(1) {background-color: rgb(245, 245, 245);}
-        table.demo > tr > *:nth-child(2) {background-color: rgb(225, 255, 181); min-width:375px;}
-        table.demo > tr > td:nth-child(1) > pre { color: darkblue; }
-        table.demo span.green { color: green; }
-        pre.nodisplay {display: none}
-    </style>
-    
-    <template>
-        <define rvar=MyRVAR value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
-        <define rvar=rShow  value="bshow"></define>
-        <table. class=demo>
-            <tr.><th.>
-                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                Editable source code
-            </th.><th.>Live result</th.></tr.>
-            <tr.>
-                <td.>
-                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
-                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
-                </td.>
-                <td.><div>
-                    <RHTML reacton=MyRVAR>
-                        {MyRVAR.V}
-                    </RHTML>
-                </div></td.>
-            </tr.>
-        </table.>
-    </template>
-</component>
-
-<import src="./components.html">
+<import src="components.html">
     <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
     <a href #target? download? title?><content></content></a>
+    <!-- Component to demonstrate RHTML -->
+    <demo content #bshow=true></demo>
+    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 </import>
 
 <h1>Reactive HTML through the OtoReact framework</h1>
 
 <div class=sample style="width: 300pt; min-height: 108px;">
-     <RHTML>{Greeting}</RHTML>
+     <RHTML>{sampleGreeting}</RHTML>
 </div>
 
 <p>
@@ -163,7 +65,7 @@
 <p>
     The tiny example above is generated by the following piece of Reactive HTML:
 </p>
-<pre class=sourcecode #innerText="Greeting"></pre>
+<pre class=sourcecode #innerText=sampleGreeting></pre>
 
 <p>
     There exist quite a number of alternative libraries and frameworks to make it easier to build reactive web applications. I distinguish two main categories:
@@ -736,55 +638,13 @@ This link opens in a blank window:
 
 <h3>&lt;REACT on&gt;, reacton</h3>
 <div id=TicTacToe></div>
-<demo #bShow=false #content=sTicTacToe>
+<demo #bShow=false #content=sampleTicTacToe>
 </demo>
 
 
 <h3>&lt;FOR #of&gt; over component slots</h3>
 Here is a component which allows one to define tables column by column.
-<demo #bShow=false content="<script>
-    globalThis.data = [
-        \{name:'Piet', age:18\}, 
-        \{name:'Tine', age:19\}
-    ];
-</script>
-    
-<component>
-   <TABLEMAKER datasource>
-      <HDEF></HDEF>
-      <DDEF item></DDEF>
-   </TABLEMAKER>
-
-   <template>
-      <table.>
-          <tr.>
-              <for of=HDEF>
-                  <th.><HDEF></HDEF></th.>
-              </for>
-          </tr.>
-          <for let=rec #of='datasource'>
-              <tr.>
-                  <for of=DDEF>
-                      <td.><DDEF #item=rec></DDEF></td.>
-                  </for>
-              </tr.>
-          </for>
-      </table.>
-   </template>
-</component>
-
-<!-- Now the actual table definition: -->
-
-<tablemaker #datasource='globalThis.data'>
-    <!-- First column -->
-    <HDEF>Naam</HDEF>
-    <DDEF item>\{item.name\}</DDEF>
-
-    <!-- Second column -->
-    <HDEF>Leeftijd</HDEF>
-    <DDEF item=record>\{record.age\}</DDEF>
-</tablemaker>"
->
+<demo #bShow=false #content=sampleTableMaker>
 </demo>
 
 <h3>&lt;INCLUDE src&gt;</h3>
@@ -803,139 +663,5 @@ Here is a component which allows one to define tables column by column.
 <h3>Routing</h3>
 
 <h3>Persistence</h3>
-<!--
-<h4>Test 1</h4>
-<for let=i of="range(2)">
-    <component>
-        <r></r>
-        <template>i={i}</template>
-    </component>
-    <def rvar=bln value=true></def>
-    <p>
-        <button onclick="bln.V = !bln.V">{i}</button>
-        <if cond="bln.V" reacton=bln><r></r></if>
-    </p>
-</for>
-
-<h4>Test 2</h4>
-<component>
-    <c><slot></slot></c>
-    <template>
-        <define rvar=r value=1></define>
-        <p reacton=r>
-            <slot></slot> {r.V}
-            <button onclick="r.V++">increase</button>
-        </p>
-    </template>
-</component>
-
-<c><slot>A</slot></c>
-<c><slot>B</slot></c>
--->
-
-<script>
-    let Greeting=
-`<define rvar='yourName' store=sessionStorage></define>
-<p>
-    What's your name?
-    <input type=text @value="yourName.V">
-</p>
-<if cond="yourName.V">
-    <p>
-        Nice to meet you, {yourName.V}.
-        <br>By the way, your name consists of {yourName.V.length} characters.
-    </p>
-</if>`;
-
-let sTicTacToe = 
-`<script type=module>
-    function Board() {
-        function Cell() {return {V: null}; }
-        function Row()  {return [Cell(), Cell(), Cell()]; }
-        return [Row(), Row(), Row()]; 
-    }
-
-    globalThis.TicTacToe = class TicTacToe {
-        board =     RVAR('board');
-        toMove =    RVAR('toMove', '✕');
-        winner =    RVAR('winner');
-        count = 0;
-
-        ClearAll() {
-            this.board.V = Board();
-            this.winner.V = null;
-            this.count = 0;
-        }
-        constructor() {
-            this.ClearAll();
-        }
-
-        Move(cell) {
-            cell.U.V = this.toMove.V;
-            this.count++;
-            this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
-            this.winner.V = this.CheckWinner(this.board.V) || this.count==9;
-        }
-
-        CheckWinner(b) {
-            function CheckRow(c1, c2, c3) {
-                return (c1.V && c1.V == c2.V && c2.V == c3.V
-                    ? c1.V : null);
-            }
-            let w = null;
-            for (let i=0;i<3;i++) {
-                w ||= CheckRow(...b[i]);
-                w ||= CheckRow(b[0][i], b[1][i], b[2][i]);
-            }
-            for (let i=-1;i<2;i+=2)
-                w ||= CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
-            return w;
-        }
-    }
-<${''}/script>
-
-<style>
-    .tic-tac-toe td {
-        height:32pt;width: 32pt; 
-        border: 2px solid; 
-        text-align: center; vertical-align: middle;
-    }
-</style>
-
-<div style="display: grid; width: 300pt; background-color: white;">
-    <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
-        <b>Tic-Tac-Toe</b>
-    </div>
-
-    <define var=T value="new TicTacToe()"></define>
-    <table. class=tic-tac-toe reacton=T.board
-            style="grid-area: 2/1; width: fit-content; margin:1ex">
-        <for let=row #of="T.board.V">
-            <tr.>
-                <for let=cell #of=row updates=T.board>
-                    <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
-                    >{cell.V ?? ''}</td.>
-                </for>
-            </tr.>
-        </for>
-    </table.>
-    <div style="grid-row: 2; grid-column: 2;">
-        <p reacton=T.winner,T.toMove>
-            <case>
-                <when #cond="T.winner.V==true">
-                    <b>It's a draw.</b>
-                </when>
-                <when #cond="T.winner.V">
-                    <b>The winner is: <large>{T.winner.V}</large></b>
-                </when>
-                <else>
-                    Player to move: {T.toMove.V}
-                </else>
-            </case>
-        </p>
-        <button onclick="T.ClearAll()">Clear</button>
-    </div>
-</div>`;
-</script>
 
 </body>

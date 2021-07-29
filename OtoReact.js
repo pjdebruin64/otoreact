@@ -79,6 +79,7 @@ class RCompiler {
         this.Context = clone ? clone.Context.slice() : [];
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
+        this.Settings = clone ? { ...clone.Settings } : undefined;
     }
     Save() {
         return this.restoreActions.length;
@@ -384,27 +385,37 @@ class RCompiler {
                                 }
                                 const saved = this.CreateComponentVars(component);
                                 mapComponents.set(child.tagName, [component, [holdOn], new RCompiler(this)]);
-                                this.AddConstruct(component);
                                 this.Restore(saved);
+                                this.AddConstruct(component);
                             }
                             globalFetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                for (const libElm of parsedContent.children)
+                                for (const libElm of parsedContent.body.children)
                                     if (libElm.tagName == 'COMPONENT') {
-                                        const compName = libElm.firstElementChild.tagName;
-                                        const [component, builders, compiler] = mapComponents.get(compName);
-                                        const elmTemplate = RequiredChildElement(libElm, 'TEMPLATE');
-                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
-                                        builders[0] = instanceBuilder;
+                                        const triple = mapComponents.get(libElm.firstElementChild.tagName);
+                                        if (triple) {
+                                            const [component, instanceBuilders, compiler] = triple;
+                                            compiler.Settings.bRunScripts = true;
+                                            const { elmTemplate, builders } = compiler.AnalyseComponent(libElm);
+                                            const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
+                                            instanceBuilders.length = 0;
+                                            instanceBuilders.push(...builders.map((b) => b[0]), instanceBuilder);
+                                            triple[2] = undefined;
+                                        }
                                     }
+                                for (const [tagName, triple] of mapComponents.entries())
+                                    if (triple[2])
+                                        throw `Component ${tagName} is missing in '${src}'`;
                                 for (const [region, tagName] of arrToBuild)
                                     if (region.parent.isConnected)
                                         for (const builder of mapComponents.get(tagName)[1])
                                             builder.call(this, region);
+                                arrToBuild.length = 0;
                             });
+                            srcParent.removeChild(srcElm);
                             builder = function IMPORT({ env }) {
                                 const constructEnv = CloneEnv(env);
                                 for (const [{ TagName }, instanceBuilders] of mapComponents.values()) {
@@ -525,16 +536,11 @@ class RCompiler {
     }
     CompileScript(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
-        if (!(this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')))
-            return null;
-        const script = srcElm.textContent;
-        let bDone = false;
-        return function SCRIPT(_) {
-            if (!bDone) {
-                globalEval(`'use strict';${script}`);
-                bDone = true;
-            }
-        };
+        if (this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')) {
+            const script = srcElm.textContent;
+            globalEval(`'use strict';${script}`);
+        }
+        return null;
     }
     CompileStyle(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
@@ -707,6 +713,27 @@ class RCompiler {
     }
     CompileComponent(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
+        const { elmSignature, elmTemplate, builders } = this.AnalyseComponent(srcElm);
+        const component = this.ParseSignature(elmSignature);
+        const tagName = component.TagName;
+        this.AddConstruct(component);
+        const saved = this.CreateComponentVars(component);
+        try {
+            const instanceBuilders = [
+                this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+            ];
+            builders.push([function COMPONENT({ env }) {
+                    const prevDef = env.constructDefs.get(tagName);
+                    env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
+                    this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
+                }, srcElm]);
+        }
+        finally {
+            this.Restore(saved);
+        }
+        return builders;
+    }
+    AnalyseComponent(srcElm) {
         const builders = [];
         let elmSignature, elmTemplate;
         for (const srcChild of Array.from(srcElm.children))
@@ -734,24 +761,7 @@ class RCompiler {
             throw `Missing signature`;
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
-        const component = this.ParseSignature(elmSignature);
-        const tagName = component.TagName;
-        this.AddConstruct(component);
-        const saved = this.CreateComponentVars(component);
-        try {
-            const instanceBuilders = [
-                this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
-            ];
-            builders.push([function COMPONENT({ env }) {
-                    const prevDef = env.constructDefs.get(tagName);
-                    env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
-                    this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
-                }, srcElm]);
-        }
-        finally {
-            this.Restore(saved);
-        }
-        return builders;
+        return { elmSignature, elmTemplate, builders };
     }
     CreateComponentVars(component) {
         const saved = this.Save();

@@ -109,6 +109,7 @@ class RCompiler {
         this.Context    = clone ? clone.Context.slice() : [];
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
+        this.Settings   = clone ? {...clone.Settings} : undefined;
     }
 
     private restoreActions: Array<() => void> = [];
@@ -511,8 +512,9 @@ class RCompiler {
                             }
                             const saved = this.CreateComponentVars(component);
                             mapComponents.set(child.tagName, [component, [holdOn], new RCompiler(this)]);
-                            this.AddConstruct(component);
                             this.Restore(saved);
+
+                            this.AddConstruct(component);
                         }
                         
                         globalFetch(src)
@@ -521,20 +523,31 @@ class RCompiler {
                             // Parse the contents of the file
                             const parser = new DOMParser();
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
-                            for (const libElm of parsedContent.children as Iterable<HTMLElement>)
+                            for (const libElm of parsedContent.body.children as Iterable<HTMLElement>)
                                 if (libElm.tagName=='COMPONENT') {
-                                    const compName = libElm.firstElementChild.tagName;
-                                    const [component, builders, compiler] = mapComponents.get(compName);
-                                    const elmTemplate = RequiredChildElement(libElm, 'TEMPLATE') as HTMLTemplateElement;
-                                    const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
-                                    builders[0] = instanceBuilder;
+                                    const triple = mapComponents.get(libElm.firstElementChild.tagName);
+                                    if (triple){
+                                        const [component, instanceBuilders, compiler] = triple;
+                                        compiler.Settings.bRunScripts = true;
+                                        const {elmTemplate, builders} = compiler.AnalyseComponent(libElm);
+                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+                                        instanceBuilders.length = 0;
+                                        instanceBuilders.push(...builders.map((b)=>b[0]), instanceBuilder)
+                                        triple[2] = undefined;
+                                    }
                                 }
+                            for (const [tagName, triple] of mapComponents.entries())
+                                if (triple[2])
+                                    throw `Component ${tagName} is missing in '${src}'`;
 
                             for (const [region, tagName] of arrToBuild)
                                 if (region.parent.isConnected)
                                     for (const builder of mapComponents.get(tagName)[1])
                                         builder.call(this, region);
+                            arrToBuild.length = 0;
                         });
+
+                        srcParent.removeChild(srcElm);
 
                         builder = function IMPORT({env}: Region) {
                             const constructEnv = CloneEnv(env);
@@ -679,22 +692,13 @@ class RCompiler {
         }
     }
 
-    private CompileScript(srcParent: ParentNode, srcElm: HTMLElement): ElmBuilder {
+    private CompileScript(srcParent: ParentNode, srcElm: HTMLElement) {
         srcParent.removeChild(srcElm);
-        if (!(this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')))
-            return null;
-        const script = srcElm.textContent
-            //, bIsModule = (GetAttribute(srcElm, 'type') == 'module');
-        let bDone = false;  
-        return function SCRIPT(_: Region) {
-            if (!bDone) {
-                //if (bIsModule)
-                //    import( `data:text/javascript;charset=utf-8,${encodeURI(script)}`);
-                //else
-                globalEval(`'use strict';${script}`);
-                bDone = true;
-            }
-        };
+        if (this.Settings.bRunScripts || srcElm.hasAttribute('nomodule')) {
+            const script = srcElm.textContent;
+            globalEval(`'use strict';${script}`);
+        }
+        return null;
     }
 
     private CompileStyle(srcParent: ParentNode, srcElm: HTMLElement): ElmBuilder {
@@ -907,31 +911,8 @@ class RCompiler {
 
     private CompileComponent(srcParent: ParentNode, srcElm: HTMLElement): [ElmBuilder, ChildNode][] {
         srcParent.removeChild(srcElm);
-        const builders: [ElmBuilder, ChildNode][] = [];
 
-        let elmSignature: HTMLElement, elmTemplate: HTMLTemplateElement;
-
-
-        for (const srcChild of Array.from(srcElm.children) as Iterable<HTMLElement>)
-            switch (srcChild.nodeName) {
-                case 'SCRIPT':
-                    const builder = this.CompileScript(srcElm, srcChild);
-                    if (builder) builders.push([builder, srcChild]);
-                    break;
-                case 'STYLE':
-                    this.CompileStyle(srcElm, srcChild);
-                    break;
-                case 'TEMPLATE':
-                    if (elmTemplate) throw 'Double <TEMPLATE>';
-                    elmTemplate = srcChild as HTMLTemplateElement;
-                    break;
-                default:
-                    if (elmSignature) throw 'Double signature';
-                    elmSignature = srcChild;
-                    break;
-            }
-        if (!elmSignature) throw `Missing signature`;
-        if (!elmTemplate) throw 'Missing <TEMPLATE>';
+        const {elmSignature, elmTemplate, builders} = this.AnalyseComponent(srcElm);
         const component = this.ParseSignature(elmSignature);
         const tagName = component.TagName;
 
@@ -958,6 +939,35 @@ class RCompiler {
         finally { this.Restore(saved); }
         
         return builders;
+    }
+
+    private AnalyseComponent(srcElm: HTMLElement) {
+
+        const builders: [ElmBuilder, ChildNode][] = [];
+        let elmSignature: HTMLElement, elmTemplate: HTMLTemplateElement;
+
+        for (const srcChild of Array.from(srcElm.children) as Iterable<HTMLElement>)
+            switch (srcChild.nodeName) {
+                case 'SCRIPT':
+                    const builder = this.CompileScript(srcElm, srcChild);
+                    if (builder) builders.push([builder, srcChild]);
+                    break;
+                case 'STYLE':
+                    this.CompileStyle(srcElm, srcChild);
+                    break;
+                case 'TEMPLATE':
+                    if (elmTemplate) throw 'Double <TEMPLATE>';
+                    elmTemplate = srcChild as HTMLTemplateElement;
+                    break;
+                default:
+                    if (elmSignature) throw 'Double signature';
+                    elmSignature = srcChild;
+                    break;
+            }
+        if (!elmSignature) throw `Missing signature`;
+        if (!elmTemplate) throw 'Missing <TEMPLATE>';
+
+        return {elmSignature, elmTemplate, builders};
     }
 
     private CreateComponentVars(component: Construct): SavedContext {

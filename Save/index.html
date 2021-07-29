@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="utf-8">
+    <link rel="shortcut icon" href="./otoreact.png" type="image/png"/>
+    <style>
+        :root { 
+            --OtoRed: rgb(226, 0, 0);
+            --RedBorder: solid 2px var(--OtoRed);
+            font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+            max-width: 900pt; margin: auto;
+            border: solid 3pt lightgrey;
+            padding: 6pt;
+            line-height: 125%;
+        }
+
+        .sample {
+            display: block;
+            margin: 2ex auto; 
+            border: var(--RedBorder);
+            padding: 1ex 2ex;
+            background-color: rgb(225, 255, 181); min-width:375px;
+            }
+        .sourcecode {
+            display: block;
+            padding: 4px 8px;
+            border: var(--RedBorder);
+            width: fit-content;
+        }
+        pre.sourcecode {
+            margin: 2ex auto;
+        }
+        span.sourcecode, code.sourcecode {
+            display: inline-block;
+            font-family: 'Lucida Console', monospace;
+            font-size: 90%;
+        }
+        pre { margin: 1ex 0;}
+        pre, code, elm, .sourcecode {
+            color: darkblue;
+            background-color: rgb(245, 245, 245);
+            font-family: 'Lucida Console', monospace;
+            font-size: 90%;
+        }
+        elm::before{
+            content: "<";
+        }
+        elm::after{
+            content: ">";
+        }
+
+        dt  {margin-top: 1ex; }
+        ol, ul, li  {margin: 1ex 0}
+
+        a { cursor: pointer; }
+        a:not([target]) {
+            text-decoration: none;
+            border-bottom: .25ex dashed;
+        }
+    </style>
+
+    <!-- <script type=module src='../OtoReact/OtoReact.js'></script> -->
+    <script>
+        let s = Date.now();
+        function msg(m) {
+            console.log(`${Date.now() - s} ${m}`);
+        }
+    </script>
+    <script type=module>
+        msg('Document parsed');
+        
+        delete globalThis.fetch;
+        delete globalThis.XMLHttpRequest;
+        delete globalThis.import;
+
+        import {RCompile} from './OtoReact.js';
+        msg('OtoReact loaded');
+        RCompile(document.body);
+        msg('Document compiled');
+        document.body.style.display='';
+    </script>
+</head>
+<body style="display:none" onload="msg('All loaded'); document.body.style.display='';">
+<!-- Component to demonstrate RHTML -->
+<component>
+    <demo content #bshow=true></demo>
+    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+    <script>
+        const mapping = {'<': '&lt;', '&': '&amp;'};
+        function ColorCode(html) {
+            return html.replace(
+                    /[<&]/g, c => mapping[c]
+                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
+        }
+    </script>
+
+    <style>
+        table.demo   { margin: 2ex auto; }
+        table.demo > tr > th, table.demo > tr > td {
+            border: var(--RedBorder);
+            vertical-align: top;
+        }
+        table.demo > tr > th, table.demo > tr > td > * { padding: 8px; }
+        table.demo > tr > *:nth-child(1) {background-color: rgb(245, 245, 245);}
+        table.demo > tr > *:nth-child(2) {background-color: rgb(225, 255, 181); min-width:375px;}
+        table.demo > tr > td:nth-child(1) > pre { color: darkblue; }
+        table.demo span.green { color: green; }
+        pre.nodisplay {display: none}
+    </style>
+    
+    <template>
+        <define rvar=MyRVAR value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
+        <define rvar=rShow  value="bshow"></define>
+        <table. class=demo>
+            <tr.><th.>
+                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
+                Editable source code
+            </th.><th.>Live result</th.></tr.>
+            <tr.>
+                <td.>
+                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
+                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
+                </td.>
+                <td.><div>
+                    <RHTML reacton=MyRVAR>
+                        {MyRVAR.V}
+                    </RHTML>
+                </div></td.>
+            </tr.>
+        </table.>
+    </template>
+</component>
+
+<!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
+<component>
+    <a href #target? download? title?><content></content></a>
+    <template><a. #href="href" #download="download" #title="title"
+        #target="!target && /^http/i.test(href) ? '_blank' : target"
+        ><content></content></a.
+    ></template>
+</component>
+
+<h1>Reactive HTML through the OtoReact framework</h1>
+
+<div class=sample style="width: 300pt; min-height: 108px;"
+xonCreate="this.getElementsByTagName('input')[0].focus()">
+     <RHTML>{Greeting}</RHTML>
+</div>
+
+<p>
+    '<i>Reactive web applications</i>', or '<a href="https://en.wikipedia.org/wiki/Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or server data requested by the application, instead of waiting for the web server to generate and send a new HTML page.
+    <br>A tiny example you see above; please enter some data.
+</p>
+<p>
+    When some server data is needed, then the application requests just the data and updates the shown page, instead of sending all input fields to the server and having the server create and send a new page.
+    <br>This results in both a much better user experience and much less server load.
+</p>
+<p>
+    Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <i>framework</i> makes it much easier to create a reactive web application.
+</p>
+<p>
+    <b>OtoReact</i></b> is a small and fast framework to easily attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>.
+    <br>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
+    <br>Reactive HTML is very easy to learn, and one doesn't need to install a compiler, a bunch of libraries, or <i>anything</i>.
+    <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
+    <br>Reactive HTML has a powerful component system, routing, pretty much everything you need.
+</p>
+<p>
+    The tiny example above is generated by the following piece of Reactive HTML:
+</p>
+<pre class=sourcecode #innerText="Greeting"></pre>
+
+<p>
+    There exist quite a number of alternative libraries and frameworks to make it easier to build reactive web applications. I distinguish two main categories:
+</p>
+<ol>
+    <li>
+        Some, like <a href="https://jquery.com/">JQuery</a> and <a href="https://reactjs.org/">React</a>, offer tools to make it easier to manipulate the DOM.
+        <br>All manipulation is still done from within the JavaScript you write, and you need a good understanding of DOM manipulation and JavaScript in general.
+        <br>The respective libraries can in some cases be loaded straight into the browser without compilation.
+    </li>
+    <li>
+        Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains the data model and data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
+        <br>You don't need write code to manipulate the DOM at all anymore; this is done by the framework.
+        <br>The source code files have to be compiled on you development machine. You need to install the compiler, and quite some modules for each application (which for Angular may take more than 1GB per application).
+    </li>
+</ol>
+<p>
+    Reactive HTML combines features of both approaches, giving you the advantages of describing the desired reactive layout by a HTML template, separate from your programming code, without the hassle of installing and using a compiler and managing quite a number of configuration files, and you need just a basic understanding of JavaScript.
+</p>
+
+
+<h2>Setup</h2>
+<ol>
+    <li>
+        Download <a href="./OtoReact.js" download>OtoReact.js</a> and place it somewhere on your server.
+        <br>It's just 30 kilobyte.
+    </li>
+    <li>
+        Import the OtoReact compiler into your application:
+        <pre>import \{ RCompile \} from './OtoReact.js';</pre>
+    </li>
+    <li>
+        Invoke the compiler on the part(s) of your page you wish to be reactive, e.g.:
+        <pre>RCompile( document.body );</pre>
+    </li>
+</ol>
+Both code lines can either be placed right into you HTML file:
+<pre class=sourcecode>
+<{}script type=module>
+    import \{ RCompile } from './OtoReact.js';
+    RCompile( document.body );
+<{}/script>
+</pre>
+, or inside a JavaScript (or TypeScript) module you load from your HTML file.
+
+<p>You may also want to hide all or part of your application until it has loaded, e.g. by using:
+<pre class="sourcecode">
+    <{}body style="display:none" onload="document.body.style.display='';">
+</pre>
+
+
+<h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
+All text content and all HTML attributes inside RHTML code, except scripts and event handlers, may contained embedded JavaScript expressions between braces.
+<br>This is called <a href="https://en.wikipedia.org/wiki/String_interpolation">string interpolation</a>.
+<br>To include a normal pair of braces, at least one of them must be escaped with a backslash.
+<demo content="1 + 1 = \{1 + 1\}
+\\{ Check \\}"></demo>
+If you prefer, you may add a dollar sign, like <code>\${1 + 1}</code>.
+<br>You can modify the snippet of source code above and see the result immediately.
+<p> (This interactive demo is itself defined as an RHTML component.)
+
+
+<h2>Constructs</h2>
+<p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
+<ul>
+    <li>
+        <elm>DEFINE</elm> introduces a local variable or reactive variable
+    </li>
+    <li>
+        <elm>IF</elm> specifies a conditional block of RHTML
+    </li>
+    <li>
+        <elm>CASE</elm> specifies a series of alternative conditional blocks of RHTML
+    </li>
+    <li>
+        <elm>FOR</elm> specifies a repeating block of RHTML, with a number of additional features
+    </li>
+    <li>
+        <elm>COMPONENT</elm> introduces user-defined constructs.
+        <br>Components may be recursive and may have <i>slots</i>, which are themselves full-fledged constructs.
+    </li>
+    <li>
+        <elm>INCLUDE</elm> asynchronously includes a separate RHTML file into your application
+    </li>
+    <li>
+        <elm>IMPORT</elm> asynchronously imports components defined in a separate file into your application
+    </li>
+    <li>
+        <elm>RHTML</elm> dynamically compiles a string as RHTML.
+        <br>This is used in the demo component you see on this page.
+    </li>
+    <li>
+        <elm>REACT on</elm> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
+        <br>The RHTML attribute <code>reacton</code> does the same thing.
+    </li>
+</ul>
+Note: We write construct names in uppercase and attribute names in lowercase here, but as in HTML, both are case independent.
+
+
+<h2>RHTML functions</h2>
+The OtoReact module makes the following functions available for import. They are added to the global environment as well.
+<ul>
+    <li>
+        <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML
+    </li>
+    <li>
+        <code>RVAR(name?, initialValue?, store?)</code> creates a reactive variable
+    </li>
+    <li>
+        <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range function</a>. You can use this with <elm>FOR</elm>.
+    </li>
+</ul>
+The question marks indicate optional arguments.
+<br>Note: JavaScript function and variable names are case dependent.
+
+
+<h2>RVAR(): Reactive VARiable's</h2>
+<p>
+    Reactive variables (RVAR's) are objects containing variable data on which RHTML elements may react.
+    <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
+</p>
+<p>
+    RVAR's are created either by calling <code>RVAR(name?, value?)</code> from JavaScript, or by using the <elm>define rvar</elm> construct, see <a href=#define>below</a>.
+    <br>The created RVAR is returned and may be stored in a local variable.
+    <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
+    <br>So if you write:
+    <pre>
+&lt;script type=module>
+    const A = RVAR('B');
+    &hellip;
+    </pre>
+    , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
+</p>
+<p>
+    A reactive variable is an object, distinct from the value of the variable.
+    <br>To get or set the value of an RVAR <code>x</code>, one writes <code class=sourcecode>x.V</code>. When <code>x.V</code> is set, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
+</p>
+<p>
+    When you are modifying, not the value of a variable, but properties of the value, the variable has to be marked as dirty as well.
+    <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
+    <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array.
+</p>
+<p>
+    You may inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <elm>REACT</elm> element or the <code>react</code> attribute, see below.
+    <br>If you do not, then the full trunk of compiled RHTML will react on all RVAR's.
+</p>
+
+<demo content=
+"<script type=module>
+    // Create a &quot;Reactive variable&quot; with a global name and
+    // an initial value
+    RVAR('yourName', '', sessionStorage);
+    /* Now 'yourName' has been added to the global environment,
+      and 'yourName.V' refers to the value of the variable,
+      so that assignments to this value can be tracked. */
+</script>
+
+<p>What's your name?
+    <input type=text @value=&quot;yourName.V&quot;>
+    <!-- The &quot;@&quot; introduces a two-way binding for the input element.
+      Anytime an input event happens, 'yourName.V' will be updated,
+      and the DOM as well  -->
+</p>
+<if #cond=&quot;yourName.V&quot; reacton=yourName>
+    <p> Nice to meet you, \{yourName.V\}.
+        <br>By the way, your name consists of \{yourName.V.length\}
+        characters.
+    </p>
+</if>"></demo>
+
+
+<h2>Scripts in RHTML</h2>
+<p>Scripts can be included anywhere using the <elm>SCRIPT</elm> element just as in HTML. The browser will automatically execute them once.
+<p>Scripts are always global.
+    <br>There is no provision for local scripts yet, but you can define a global class and create a local class instance using <elm>DEFINE</elm>, of course. There is a sample of this in the <a href="#TicTacToe">Tic-Tac-Toe demo</a> below.
+<p>
+    You have to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, and that OtoReact is imported as a JavaScript module.
+</p>
+<ul>
+    <li>
+        Scripts included with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
+        <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
+        <br>So they cannot execute OtoReact functions like <code>RVAR</code>, until OtoReact has been loaded.
+        <br>On the other hand, names defined in a classic script are automatically put in the global environment and are available in RHTML code.
+    </li>
+    <li>
+        Scripts included with <elm>SCRIPT type=module</elm> are treated as a JavaScript <u>module</u>.
+        <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
+        <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
+        <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/globalThis">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+    </li>
+    <li>
+        (Scripts within the code samples in this document work still different, as these are contained within a string and are not automatically executed at all. OtoReact executes them as classic JavaScript.)
+    </li>
+</ul>
+
+
+<h2>Styles</h2>
+Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
+<p>Styles sheets are always global. There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.</p>
+
+
+<h2>How it works</h2>
+OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translate the whole chunk of RHTML into one large string of JavaScript.
+<br>Rather:
+<ol>
+    <li>
+        Each snippet of JavaScript is compiled <i>separately</i> into a routine, by offering it to JavaScripts <code>eval</code> function (in global scope, of course).
+        <br>E.g., an RHTML property expression <code>a+b</code> is compiled by calling <code>eval("([a,b]) => (a+b)")</code>.
+    </li>
+    <li>
+        While traversing the RHTML document tree, all these tiny routines are combined by JavaScript functions into a large "builder" routine, which can build ór update the DOM tree according to the RHTML.
+    </li>
+    <li>
+        The builder routine is called to perform the initial build.
+        <br>While building, any part of the resulting DOM tree which is marked to react on some RVAR, is registered with the RVAR <i>together</i> with its local 'environment' containing the value of all local variables at that point, and a local builder routine which can update that part of the DOM tree.
+        <br>(Any HTML element within the RHTML, that is not within any RHTML conditional or loop or component construct, will remain in place and just be updated, not replaced. So if it had received focus or input data befóre being compiled, it will keep this focus or input data.)
+    </li>
+    <li>
+        Whenever some RVAR is marked dirty, it will schedule (by <a href="https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all registered DOM tree parts to get updated by their registered builder routine in the registered environment.
+        <br>The updating takes place at the next 'event cycle'.
+        <br>While updating, all present HTML elements will remain in place as much as possible, so that any elements that had received focus or input data will keep that.
+    </li>
+</ol>
+
+
+<h2>Limitations inflicted by the parser</h2>
+Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
+<dl>
+    <dt>Re-arranged elements</dt>
+    <dd>
+        The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently</i> rearrange them if they are not.
+        <br>Notably:
+        <ul>
+            <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
+                <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
+                <pre><elm>table</elm>
+    <elm>for let=x #of=&hellip;</elm>
+        <elm>tr</elm> &hellip; \{x\} &hellip; <elm>/tr</elm>
+    <elm>/for</elm>
+<elm>/table</elm></pre>
+                , then the parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
+                <br>Thus OtoReact sees:
+                <pre><elm>for let=x #of=&hellip;</elm><elm>/for</elm>
+<elm>table</elm><elm>tr</elm> &hellip; \{x\}&hellip; <elm>/tr</elm><elm>/table</elm></pre>
+                , and may give a misleading error about <code>x</code> being undefined.
+                <br>To get the loop right, OtoReact allows you to put a dot after any tag name, so the parser won't interfere:
+                <pre><elm>table.</elm>
+    <elm>for let=x #of=&hellip;</elm>
+        <elm>tr.</elm> &hellip; \{x\} &hellip; <elm>/tr.</elm>
+    <elm>/for</elm>
+<elm>/table.</elm></pre>
+                When compiling, the dot will be removed. 
+            </li>
+            <li>
+                The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
+                <br>Thus, if you write
+                <pre><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>ul</elm> &hellip; <elm>/ul</elm><elm>/if</elm></pre>
+                , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
+                <pre><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>/if</elm><elm>/p</elm>
+<elm>ul</elm> &hellip; <elm>/ul</elm></pre>
+                To avoid this, make a habit of always closing all elements.
+            </li>
+        </ul>
+    </dd>
+    <dt>Attribute names are considered lowercase</dt>
+    <dd>
+        As attribute names in HTML are case-insensitive, the parser makes them all silently lowercase.
+        <br>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.
+        <br>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), which will only work for class names in lowercase.
+    </dd>
+    <dt>Missing error messages</dt>
+    <dd>
+        There are more cases where the browser doesn't inform you of errors, which may result in strange behaviour.
+    </dd>
+</dl>
+I imagine Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.
+
+
+<h2>HTML Elements</h2>
+<p>All source elements that are not RHTML or user-defined constructs, build HTML elements.</p>
+<p>All trailing dots in the tag name are removed.</p>
+<p>Source attributes are compiled as described below.</p>
+
+<h3>HTML attributes</h3>
+<p>All source attributes that do not fall in any of the categories below, are compiled as HTML attributes.
+    <br>They may use <a href="#StringInterpolation">string interpolation</a>.
+</p>
+<demo content=
+'<define rvar=x value=2></define>
+<p  title="sqrt(\{x.V}) = \{Math.sqrt(x.V)}"
+>
+    What is sqrt(\{x.V})? Check the tooltip.
+</p>
+<button onclick="x.V += 1">Increment</button>
+'></demo>
+
+<h3>HTML events</h3>
+<p>
+    In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
+    <br>They may contain the name <code>event</code> which represents an object containing more information about the event.
+</p>
+<p>
+    In RHTML, this is exactly the same, see <code>onclick="x.V += 1"</code> in the demo above.
+</p>
+<ul>
+    <li>
+        RHTML event handler attributes do not have string interpolation; they are already JavaScript and braces have their normal JavaScript meaning.
+    </li>
+    <li>
+        RHTML event handlers may contain RHTML local variables; these will be bound to their values. Assignments to these variables (but not to their properties) are ignored.
+    </li>
+    <li>
+        As a bonus, the keyword <code>this</code> in RHTML event handlers is bound to the current HTMLElement object.
+        <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
+    </li>
+</ul>
+
+<h3>DOM properties</h3>
+<p>
+    The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
+    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <span class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</span>
+</p>
+<p>
+    Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
+    <br>So by setting a property rather than an attribute, you avoid unnecessary type conversions.
+    <br>Furthermore, there are some DOM properties that are not available as HTML attributes at all.
+</p>
+<p>
+    Documentation of all properties can e.g. be found at <a href="https://developer.mozilla.org/en-US/docs/Web/API#interfaces">MDN</a> or at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
+</p>
+<p>
+    Note: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
+    <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
+</p>
+
+<h3>Output and two-way binding</h3>
+DOM properties are not static but can change. RHTML allows output and two-way binding for properties to expressions that can assigned to, in multiple variants.
+<br>Assignable expressions are global variables, array elements, and object properties, including RVAR values.
+<br>These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>
+<dl>
+    <dt><span class=sourcecode>@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/input_event">input event</a>.
+        <br>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
+    </dd>
+    <dt><span class=sourcecode>@@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event">change event</a>.
+        <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.</dd>
+    <dt><span class=sourcecode>*<i>propertyName</i>="<i>expression</i>"</span>
+    </dt>
+    <dd>
+        The property is left unchanged, but the expression receives the value of the property at element creation and at every input event.
+    </dd>
+    <dt><span class=sourcecode>**<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dd>
+        The property is left unchanged, but the expression receives the value of the property at element creation and at every change event.
+    </dd>
+</dl>
+
+<h3>RHTML pseudo-events</h3>
+RHTML adds two event-like attributes to HTML elements:
+<dl>
+    <dt><code>oncreate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built).
+    </dd>
+    <dt><code>onupdate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built) <i>or updated</i>.
+    </dd>
+</dl>
+Notes: The name <code>event</code> is not available in handlers for these pseudo-events.
+<br>They are currently not available for RHTML constructs, only for HTML elements.
+
+<h3>Class names</h3>
+"Class names" are used in HTML to select CSS styling properties, and can of course be set with the <code>class</code> attribute, or the <code>#className</code> or <code>#classList</code> DOM properties.
+<p>
+    Besides these, RHTML adds the following.
+</p>
+<dl>
+    <dt><code>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
+    <dd>
+        Class name <i>name</i> will be added to the element if and only if the expression evaluates to true (or another <a href="https://developer.mozilla.org/en-US/docs/Glossary/Truthy">truthy</a> value).
+    </dd>
+    <dt><code>+class="<i>objectExpression</i>"</code></dt>
+    <dd>
+        The expression should evaluate to an object.
+        <br>For every property <i>name</i> in the object, class name <i>name</i> will be added to the element if and only if the property value is true.
+    </dd>
+</dl>
+Just as other DOM properties, class names are recomputed at every update of the element.
+
+<h3>Element styles</h3>
+
+<h2>RHTML Construct details</h2>
+
+<h3 id=define>&lt;DEFINE var value react?&gt;, local variables</h3>
+<p>
+    <code><elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local immutable variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>The variable is visible in all local expressions from the <elm>/DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
+    <br>It cannot be assigned to, but when its value is an RVAR or some other object, then one can of course modify its properties.
+</p>
+<p>
+    The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
+    <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
+</p>
+<p>
+    <code><elm>DEFINE rvar=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></code> introduces a local reactive variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> value="RVAR(null, <i>expression</i>)"</elm></code><elm>/DEFINE</elm></code>.
+</p>
+<p>
+    <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
+</p>
+<p>
+    Local variable names (including loop variables and component parameters) obey strict <a href="https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
+</p>
+<demo content=
+"<def var=a value=&quot;10&quot;></def>
+<def var=f value=&quot;(x) => a+x&quot;></def>
+
+<p> \{a}, \{f(1)} </p>
+
+<p>
+    <def var=a value=20></def>
+    \{a}, \{f(2)}
+</p>
+
+<p> \{a} </p>"
+></demo>
+
+<h3>&lt;IF cond&gt;</h3>
+
+<h3>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h3>
+
+<h3>&lt;FOR let of index? key? hash?&gt;</h3>
+<demo content="<!-- Here we use a local RVAR -->
+<define rvar=Participants value=&quot;['Joe', 'Mary', 'Eileen']&quot;></define>
+
+<p><b>Participants:</b></p>
+<ul>
+    <for let=participant #of=&quot;Participants.V&quot;>
+        <li>\{participant\}</li>
+    </for>
+</ul>
+<p>
+    New participant (Enter):
+    <br>
+    <input type=text onchange=&quot;
+        if(this.value) \{
+            Participants.U.push(this.value); this.value=''; 
+        \}
+    &quot;>
+<!-- &quot;this&quot; in all RHTML event handlers refers to the target element. -->
+<!-- Getting &quot;Participants.U&quot; means &quot;Participants&quot; will be marked as
+     changed, even though it is not assigned to. -->
+</p>">
+</demo>
+
+<h3>&lt;COMPONENT&gt;</h3>
+<demo content="<script type=module>
+    // Define the data model of our todo list
+    let TODO = RVAR('TODO',
+        [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
+    );
+    // Adding an item
+    globalThis.AddItem = function(inputElement) \{
+        if (inputElement.value) \{
+            TODO.U.push( [inputElement.value, false] );
+            inputElement.value = '';
+        }
+    }
+</script>
+
+<!-- Define a component, showing a filtered list of to-do-items, 
+    with a caption -->
+<component>
+    <!-- This is the component signature -->
+    <itemlist caption bDone></itemlist>
+
+    <template>
+        <p><b>\{caption\}</b></p>
+        <p>
+            <for let=item #of=TODO.V updates=TODO>
+                <!-- 'bdone' must be in lowercase -->
+                <if cond='item[1] == bdone'>
+                    <label>
+                        <input type=checkbox @checked='item.U[1]'> 
+                        \{item[0]\}
+                    </label>
+                    <br>
+                </if>
+            </for>
+        </p>
+    </template>
+</component>
+
+<!-- These elements should react on changes in RVAR 'TODO' -->
+<react on='TODO'>
+    <itemlist caption='To do:' #bDone=false></itemlist>
+    <itemlist caption='Done:'  #bDone=true ></itemlist>
+</react>
+<p>
+    New item (Enter):
+    <br>
+    <input type=text onchange=&quot;AddItem(this)&quot;>
+</p>">
+</demo>
+
+<p>Components may be recursive, i.e. refer to themselve.
+<br>Here is a recursive component, imaging nested lists of lists:</p>
+<demo #bShow=false content=
+"<component>
+    <showList #list></showList>
+    <style>
+        .flex-container \{
+            display: flex; flex-wrap: wrap; align-items: center;
+            background-color: gray;
+        }
+        .flex-container > div \{
+            background-color: #f1f1f1;
+            margin: 4px; padding: 8px; font-size: 18px;
+        }
+    </style>
+
+    <template>
+        <div class=flex-container>
+            <for let=item #of=list>
+                <div>
+                    <case>
+                        <when #cond=&quot;Array.isArray(item)&quot;>
+                            <!-- Recursive invocation -->
+                            <showList #list=item></showList>
+                        </when>
+                        <else>
+                            \{item\}
+                        </else>
+                    </case>
+                </div>
+            </for>
+        </div>
+    </template>
+</component>   
+
+<define rvar=list 
+    value=&quot;'[1, [2,3,4], [[41,42],5], \'Otolift\' ]'&quot;
+    store=sessionStorage></define>
+<p>JavaScript list: <input type=text @value=&quot;list.V&quot; size=40></p>
+<showList #list=&quot;eval(list.V)&quot;></showList>
+<p>You can modify the list definition above and see the result.</p>"
+></demo>
+
+<p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.
+<br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
+<demo content="<component>
+    <a href #target? download?><content></content></a>
+    <template>
+        <a. #href=&quot;href&quot; 
+            #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot; 
+            #download=&quot;download&quot;
+        ><content></content></a.>
+    </template>
+</component>
+
+This link opens in a blank window:
+<a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
+</demo>
+
+
+<h3>&lt;REACT on&gt;, reacton</h3>
+<div id=TicTacToe></div>
+<demo #bShow=false #content=sTicTacToe>
+</demo>
+
+
+<h3>&lt;FOR #of&gt; over component slots</h3>
+Here is a component which allows one to define tables column by column.
+<demo #bShow=false content="<script>
+    globalThis.data = [
+        \{name:'Piet', age:18\}, 
+        \{name:'Tine', age:19\}
+    ];
+</script>
+    
+<component>
+   <TABLEMAKER datasource>
+      <HDEF></HDEF>
+      <DDEF item></DDEF>
+   </TABLEMAKER>
+
+   <template>
+      <table.>
+          <tr.>
+              <for of=HDEF>
+                  <th.><HDEF></HDEF></th.>
+              </for>
+          </tr.>
+          <for let=rec #of='datasource'>
+              <tr.>
+                  <for of=DDEF>
+                      <td.><DDEF #item=rec></DDEF></td.>
+                  </for>
+              </tr.>
+          </for>
+      </table.>
+   </template>
+</component>
+
+<!-- Now the actual table definition: -->
+
+<tablemaker #datasource='globalThis.data'>
+    <!-- First column -->
+    <HDEF>Naam</HDEF>
+    <DDEF item>\{item.name\}</DDEF>
+
+    <!-- Second column -->
+    <HDEF>Leeftijd</HDEF>
+    <DDEF item=record>\{record.age\}</DDEF>
+</tablemaker>"
+>
+</demo>
+
+<h3>&lt;INCLUDE src&gt;</h3>
+<elm>INCLUDE src="&hellip;"</elm> allows you to include another RHTML file as if it were inserted into the main file.
+<br>The file is fetched, compiled and build <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
+<p>
+    You can insert code to be shown till the including is fulfilled.
+</p>
+
+<h3>&lt;IMPORT src&gt;</h3>
+
+<h3>&lt;RHTML&gt;</h3>
+
+<h3>&lt;DOCUMENT&gt;</h3>
+
+<h3>Routing</h3>
+
+<h3>Persistence</h3>
+<!--
+<h4>Test 1</h4>
+<for let=i of="range(2)">
+    <component>
+        <r></r>
+        <template>i={i}</template>
+    </component>
+    <def rvar=bln value=true></def>
+    <p>
+        <button onclick="bln.V = !bln.V">{i}</button>
+        <if cond="bln.V" reacton=bln><r></r></if>
+    </p>
+</for>
+
+<h4>Test 2</h4>
+<component>
+    <c><slot></slot></c>
+    <template>
+        <define rvar=r value=1></define>
+        <p reacton=r>
+            <slot></slot> {r.V}
+            <button onclick="r.V++">increase</button>
+        </p>
+    </template>
+</component>
+
+<c><slot>A</slot></c>
+<c><slot>B</slot></c>
+-->
+
+<script>
+    let Greeting=
+`<define rvar='yourName' store=sessionStorage></define>
+<p>
+    What's your name?
+    <input type=text @value="yourName.V">
+</p>
+<if cond="yourName.V">
+    <p>
+        Nice to meet you, {yourName.V}.
+        <br>By the way, your name consists of {yourName.V.length} characters.
+    </p>
+</if>`;
+
+let sTicTacToe = 
+`<script type=module>
+    function Board() {
+        function Cell() {return {V: null}; }
+        function Row()  {return [Cell(), Cell(), Cell()]; }
+        return [Row(), Row(), Row()]; 
+    }
+
+    globalThis.TicTacToe = class TicTacToe {
+        board =     RVAR('board');
+        toMove =    RVAR('toMove', '✕');
+        winner =    RVAR('winner');
+        count = 0;
+
+        ClearAll() {
+            this.board.V = Board();
+            this.winner.V = null;
+            this.count = 0;
+        }
+        constructor() {
+            this.ClearAll();
+        }
+
+        Move(cell) {
+            cell.U.V = this.toMove.V;
+            this.count++;
+            this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
+            this.winner.V = this.CheckWinner(this.board.V) || this.count==9;
+        }
+
+        CheckWinner(b) {
+            function CheckRow(c1, c2, c3) {
+                return (c1.V && c1.V == c2.V && c2.V == c3.V
+                    ? c1.V : null);
+            }
+            let w = null;
+            for (let i=0;i<3;i++) {
+                w ||= CheckRow(...b[i]);
+                w ||= CheckRow(b[0][i], b[1][i], b[2][i]);
+            }
+            for (let i=-1;i<2;i+=2)
+                w ||= CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
+            return w;
+        }
+    }
+<${''}/script>
+
+<style>
+    .tic-tac-toe td {
+        height:32pt;width: 32pt; 
+        border: 2px solid; 
+        text-align: center; vertical-align: middle;
+    }
+</style>
+
+<div style="display: grid; width: 300pt; background-color: white;">
+    <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
+        <b>Tic-Tac-Toe</b>
+    </div>
+
+    <define var=T value="new TicTacToe()"></define>
+    <table. class=tic-tac-toe reacton=T.board
+            style="grid-area: 2/1; width: fit-content; margin:1ex">
+        <for let=row #of="T.board.V">
+            <tr.>
+                <for let=cell #of=row updates=T.board>
+                    <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
+                    >{cell.V ?? ''}</td.>
+                </for>
+            </tr.>
+        </for>
+    </table.>
+    <div style="grid-row: 2; grid-column: 2;">
+        <p reacton=T.winner,T.toMove>
+            <case>
+                <when #cond="T.winner.V==true">
+                    <b>It's a draw.</b>
+                </when>
+                <when #cond="T.winner.V">
+                    <b>The winner is: <large>{T.winner.V}</large></b>
+                </when>
+                <else>
+                    Player to move: {T.toMove.V}
+                </else>
+            </case>
+        </p>
+        <button onclick="T.ClearAll()">Clear</button>
+    </div>
+</div>`;
+</script>
+
+</body>

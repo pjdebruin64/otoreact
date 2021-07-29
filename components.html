@@ -3,8 +3,9 @@
 <component>
     <demo content #bshow=true></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script>
+    <script type=module>
         const mapping = {'<': '&lt;', '&': '&amp;'};
+        globalThis.ColorCode = 
         function ColorCode(html) {
             return html.replace(
                     /[<&]/g, c => mapping[c]
