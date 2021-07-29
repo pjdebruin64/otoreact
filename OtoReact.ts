@@ -91,7 +91,7 @@ type RVAR_Light<T> = T & {
     Subscribe?: (sub:Subscriber) => void
 };
 
-const globalEval = eval;
+const globalEval = eval, globalFetch = fetch;
 
 enum ModifierType {Attr, Prop, Class, Style, Event, PseudoEvent, AddToStyle, AddToClassList}
 
@@ -461,7 +461,7 @@ class RCompiler {
                         // List of nodes that have to be build when the builder is received
                         let arrToBuild: Array<Region> = [];
                         
-                        fetch(src)
+                        globalFetch(src)
                         .then(async response => {
                             //if (response.status != 200)
 
@@ -510,7 +510,7 @@ class RCompiler {
                             this.AddConstruct(component);
                         }
                         
-                        fetch(src)
+                        globalFetch(src)
                         .then(async response => {
                             const textContent = await response.text();
                             // Parse the contents of the file

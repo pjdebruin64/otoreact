@@ -1,0 +1,59 @@
+
+<!-- Component to demonstrate RHTML -->
+<component>
+    <demo content #bshow=true></demo>
+    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+    <script>
+        const mapping = {'<': '&lt;', '&': '&amp;'};
+        function ColorCode(html) {
+            return html.replace(
+                    /[<&]/g, c => mapping[c]
+                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
+        }
+    </script>
+
+    <style>
+        table.demo   { margin: 2ex auto; }
+        table.demo > tr > th, table.demo > tr > td {
+            border: var(--RedBorder);
+            vertical-align: top;
+        }
+        table.demo > tr > th, table.demo > tr > td > * { padding: 8px; }
+        table.demo > tr > *:nth-child(1) {background-color: rgb(245, 245, 245);}
+        table.demo > tr > *:nth-child(2) {background-color: rgb(225, 255, 181); min-width:375px;}
+        table.demo > tr > td:nth-child(1) > pre { color: darkblue; }
+        table.demo span.green { color: green; }
+        pre.nodisplay {display: none}
+    </style>
+    
+    <template>
+        <define rvar=MyRVAR value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
+        <define rvar=rShow  value="bshow"></define>
+        <table. class=demo>
+            <tr.><th.>
+                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
+                Editable source code
+            </th.><th.>Live result</th.></tr.>
+            <tr.>
+                <td.>
+                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
+                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
+                </td.>
+                <td.><div>
+                    <RHTML reacton=MyRVAR>
+                        {MyRVAR.V}
+                    </RHTML>
+                </div></td.>
+            </tr.>
+        </table.>
+    </template>
+</component>
+
+<!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
+<component>
+    <a href #target? download? title?><content></content></a>
+    <template><a. #href="href" #download="download" #title="title"
+        #target="!target && /^http/i.test(href) ? '_blank' : target"
+        ><content></content></a.
+    ></template>
+</component>
