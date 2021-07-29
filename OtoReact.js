@@ -38,7 +38,7 @@ class Construct {
         this.Slots = Slots;
     }
 }
-const globalEval = eval;
+const globalEval = eval, globalFetch = fetch;
 var ModifierType;
 (function (ModifierType) {
     ModifierType[ModifierType["Attr"] = 0] = "Attr";
@@ -347,7 +347,7 @@ class RCompiler {
                             const src = GetAttribute(srcElm, 'src', true);
                             let C = new RCompiler(this);
                             let arrToBuild = [];
-                            fetch(src)
+                            globalFetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
@@ -360,11 +360,11 @@ class RCompiler {
                             });
                             builder =
                                 function INCLUDE(region) {
-                                    const subregion = PrepareRegion(srcElm, region);
                                     if (C.bCompiled)
-                                        C.Builder(subregion);
+                                        C.Builder(region);
                                     else {
-                                        subregion.env = CloneEnv(region.env);
+                                        const subregion = PrepareRegion(srcElm, region);
+                                        subregion.env = CloneEnv(subregion.env);
                                         arrToBuild.push(subregion);
                                     }
                                 };
@@ -377,13 +377,17 @@ class RCompiler {
                             let arrToBuild = [];
                             for (const child of srcElm.children) {
                                 const component = this.ParseSignature(child);
-                                function holdOn(reg) {
-                                    arrToBuild.push([reg, child.tagName]);
+                                function holdOn(region) {
+                                    const subregion = PrepareRegion(srcElm, region);
+                                    subregion.env = CloneEnv(subregion.env);
+                                    arrToBuild.push([subregion, child.tagName]);
                                 }
-                                mapComponents.set(child.tagName, [component, [holdOn]]);
+                                const saved = this.CreateComponentVars(component);
+                                mapComponents.set(child.tagName, [component, [holdOn], new RCompiler(this)]);
                                 this.AddConstruct(component);
+                                this.Restore(saved);
                             }
-                            fetch(src)
+                            globalFetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
@@ -391,10 +395,10 @@ class RCompiler {
                                 for (const libElm of parsedContent.children)
                                     if (libElm.tagName == 'COMPONENT') {
                                         const compName = libElm.firstElementChild.tagName;
-                                        const compPair = mapComponents.get(compName);
+                                        const [component, builders, compiler] = mapComponents.get(compName);
                                         const elmTemplate = RequiredChildElement(libElm, 'TEMPLATE');
-                                        const instanceBuilder = this.CompileConstructTemplate(compPair[0], elmTemplate.content, elmTemplate);
-                                        compPair[1][0] = instanceBuilder;
+                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
+                                        builders[0] = instanceBuilder;
                                     }
                                 for (const [region, tagName] of arrToBuild)
                                     if (region.parent.isConnected)
@@ -733,20 +737,32 @@ class RCompiler {
         const component = this.ParseSignature(elmSignature);
         const tagName = component.TagName;
         this.AddConstruct(component);
-        const instanceBuilders = [
-            this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
-        ];
-        builders.push([function COMPONENT({ env }) {
-                const prevDef = env.constructDefs.get(tagName);
-                env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
-                this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
-            }, srcElm]);
+        const saved = this.CreateComponentVars(component);
+        try {
+            const instanceBuilders = [
+                this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+            ];
+            builders.push([function COMPONENT({ env }) {
+                    const prevDef = env.constructDefs.get(tagName);
+                    env.constructDefs.set(tagName, { instanceBuilders, constructEnv: CloneEnv(env) });
+                    this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
+                }, srcElm]);
+        }
+        finally {
+            this.Restore(saved);
+        }
         return builders;
     }
-    CompileConstructTemplate(construct, contentNode, srcElm, bInstance) {
+    CreateComponentVars(component) {
+        const saved = this.Save();
+        for (const param of component.Parameters)
+            param.initVar = this.NewVar(param.name);
+        return saved;
+    }
+    CompileSlotInstance(construct, contentNode, srcElm) {
         const saved = this.Save();
         for (const param of construct.Parameters)
-            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.name, true) || param.name);
+            param.initVar = this.NewVar(GetAttribute(srcElm, param.name, true) || param.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
@@ -757,6 +773,16 @@ class RCompiler {
         }
         finally {
             this.Restore(saved);
+        }
+    }
+    CompileConstructTemplate(construct, contentNode, srcElm, bSlot) {
+        for (const S of construct.Slots.values())
+            this.AddConstruct(S);
+        try {
+            return this.CompileChildNodes(contentNode);
+        }
+        catch (err) {
+            throw `${OuterOpenTag(srcElm)} ${err}`;
         }
     }
     CompileConstructInstance(srcParent, srcElm, construct) {
@@ -784,12 +810,12 @@ class RCompiler {
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
                 && (Slot = construct.Slots.get((slotElm = node).tagName))) {
-                slotBuilders.get(slotElm.tagName).push(this.CompileConstructTemplate(Slot, slotElm, slotElm, true));
+                slotBuilders.get(slotElm.tagName).push(this.CompileSlotInstance(Slot, slotElm, slotElm));
                 srcElm.removeChild(node);
             }
         const contentSlot = construct.Slots.get('CONTENT');
         if (contentSlot)
-            slotBuilders.get('CONTENT').push(this.CompileConstructTemplate(contentSlot, srcElm, srcElm, true));
+            slotBuilders.get('CONTENT').push(this.CompileSlotInstance(contentSlot, srcElm, srcElm));
         this.bTrimLeft = false;
         return function INSTANCE(region) {
             const subregion = PrepareRegion(srcElm, region);

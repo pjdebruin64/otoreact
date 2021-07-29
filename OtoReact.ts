@@ -35,6 +35,7 @@ type Environment =
     Array<unknown> & {
         constructDefs: Map<string, {instanceBuilders: ElmBuilder[], constructEnv: Environment}>
     };
+type SavedContext = number;
 function NewEnv(): Environment { 
     const env = [] as Environment;
     env.constructDefs = new Map();
@@ -112,10 +113,10 @@ class RCompiler {
 
     private restoreActions: Array<() => void> = [];
 
-    private Save() {
+    private Save(): SavedContext {
         return this.restoreActions.length;
     }
-    private Restore(savedContext: number) {
+    private Restore(savedContext: SavedContext) {
         for (let j=this.restoreActions.length; j>savedContext; j--)
             this.restoreActions.pop()();
     }
@@ -484,14 +485,14 @@ class RCompiler {
                         builder = 
                             // Runtime routine
                             function INCLUDE(region) {
-                                const subregion = PrepareRegion(srcElm, region);
 
                                 // Als de builder ontvangen is, dan meteen uitvoeren
                                 if (C.bCompiled)
-                                    C.Builder(subregion);
+                                    C.Builder(region);
                                 else {
                                     // Anders het bouwen uitstellen tot later
-                                    subregion.env = CloneEnv(region.env);    // Kopie van de environment maken
+                                    const subregion = PrepareRegion(srcElm, region);
+                                    subregion.env = CloneEnv(subregion.env);    // Kopie van de environment maken
                                     arrToBuild.push(subregion);
                                 }
                             };
@@ -499,15 +500,19 @@ class RCompiler {
 
                     case 'IMPORT': {
                         const src = GetAttribute(srcElm, 'src', true);
-                        const mapComponents = new Map<string, [Construct, ElmBuilder[]]>();
+                        const mapComponents = new Map<string, [Construct, ElmBuilder[], RCompiler]>();
                         let arrToBuild: Array<[Region, string]> = [];
                         for (const child of srcElm.children) {
                             const component = this.ParseSignature(child);
-                            function holdOn(reg: Region) {
-                                arrToBuild.push([reg, child.tagName]);
+                            function holdOn(region: Region) {
+                                const subregion = PrepareRegion(srcElm, region);
+                                subregion.env = CloneEnv(subregion.env);    // Kopie van de environment maken
+                                arrToBuild.push([subregion, child.tagName]);
                             }
-                            mapComponents.set(child.tagName, [component, [holdOn]]);
+                            const saved = this.CreateComponentVars(component);
+                            mapComponents.set(child.tagName, [component, [holdOn], new RCompiler(this)]);
                             this.AddConstruct(component);
+                            this.Restore(saved);
                         }
                         
                         globalFetch(src)
@@ -519,10 +524,10 @@ class RCompiler {
                             for (const libElm of parsedContent.children as Iterable<HTMLElement>)
                                 if (libElm.tagName=='COMPONENT') {
                                     const compName = libElm.firstElementChild.tagName;
-                                    const compPair = mapComponents.get(compName);
+                                    const [component, builders, compiler] = mapComponents.get(compName);
                                     const elmTemplate = RequiredChildElement(libElm, 'TEMPLATE') as HTMLTemplateElement;
-                                    const instanceBuilder = this.CompileConstructTemplate(compPair[0], elmTemplate.content, elmTemplate)
-                                    compPair[1][0] = instanceBuilder;
+                                    const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+                                    builders[0] = instanceBuilder;
                                 }
 
                             for (const [region, tagName] of arrToBuild)
@@ -932,30 +937,40 @@ class RCompiler {
 
         this.AddConstruct(component);
         
-        // Deze builder bouwt de component-instances op
-        const instanceBuilders = [
-            this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
-        ];
+        const saved = this.CreateComponentVars(component);
+        try {
+            // Deze builder bouwt de component-instances op
+            const instanceBuilders = [
+                this.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+            ];
 
-        // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        builders.push([  function COMPONENT({env}: Region) {
-            // At runtime, we just have to remember the environment that matches the context
-            // And keep the previous remembered environment, in case of recursive constructs
-            const prevDef = env.constructDefs.get(tagName);
-            env.constructDefs.set(tagName, {instanceBuilders, constructEnv: CloneEnv(env)});
-            this.restoreActions.push(
-                () => { env.constructDefs.set(tagName,  prevDef); }
-            );
-        }, srcElm ]);
-
+            // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
+            builders.push([  function COMPONENT({env}: Region) {
+                // At runtime, we just have to remember the environment that matches the context
+                // And keep the previous remembered environment, in case of recursive constructs
+                const prevDef = env.constructDefs.get(tagName);
+                env.constructDefs.set(tagName, {instanceBuilders, constructEnv: CloneEnv(env)});
+                this.restoreActions.push(
+                    () => { env.constructDefs.set(tagName,  prevDef); }
+                );
+            }, srcElm ]);
+        }
+        finally { this.Restore(saved); }
         
         return builders;
     }
 
-    private CompileConstructTemplate(construct: Construct, contentNode: ParentNode, srcElm: HTMLElement, bInstance?: boolean): ElmBuilder {
+    private CreateComponentVars(component: Construct): SavedContext {
+        const saved = this.Save();
+        for (const param of component.Parameters)
+            param.initVar = this.NewVar(param.name);
+        return saved;
+    }
+
+    private CompileSlotInstance(construct: Construct, contentNode: ParentNode, srcElm: HTMLElement): ElmBuilder {
         const saved = this.Save();
         for (const param of construct.Parameters)
-            param.initVar = this.NewVar(bInstance && GetAttribute(srcElm, param.name, true) || param.name);
+            param.initVar = this.NewVar(GetAttribute(srcElm, param.name, true) || param.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
@@ -965,6 +980,16 @@ class RCompiler {
         finally {
             this.Restore(saved);      
         }
+    }
+
+    private CompileConstructTemplate(construct: Construct, contentNode: ParentNode, srcElm: HTMLElement, bSlot?: boolean): ElmBuilder {
+        
+        for (const S of construct.Slots.values())
+            this.AddConstruct(S);
+        try {
+            return this.CompileChildNodes(contentNode);
+        }
+        catch (err) {throw `${OuterOpenTag(srcElm)} ${err}`;}
     }
 
     private CompileConstructInstance(
@@ -1001,7 +1026,7 @@ class RCompiler {
                     ))
             ) {
                 slotBuilders.get(slotElm.tagName).push(
-                    this.CompileConstructTemplate(Slot, slotElm, slotElm, true)
+                    this.CompileSlotInstance(Slot, slotElm, slotElm)
                 );
                 srcElm.removeChild(node);
             }
@@ -1009,7 +1034,7 @@ class RCompiler {
         const contentSlot = construct.Slots.get('CONTENT');
         if (contentSlot)
             slotBuilders.get('CONTENT').push(
-                this.CompileConstructTemplate(contentSlot, srcElm, srcElm, true)
+                this.CompileSlotInstance(contentSlot, srcElm, srcElm)
             );
         this.bTrimLeft = false;
 

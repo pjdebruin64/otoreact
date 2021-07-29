@@ -130,19 +130,14 @@
     </template>
 </component>
 
-<!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-<component>
+<import src="./components.html">
+    <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
     <a href #target? download? title?><content></content></a>
-    <template><a. #href="href" #download="download" #title="title"
-        #target="!target && /^http/i.test(href) ? '_blank' : target"
-        ><content></content></a.
-    ></template>
-</component>
+</import>
 
 <h1>Reactive HTML through the OtoReact framework</h1>
 
-<div class=sample style="width: 300pt; min-height: 108px;"
-xonCreate="this.getElementsByTagName('input')[0].focus()">
+<div class=sample style="width: 300pt; min-height: 108px;">
      <RHTML>{Greeting}</RHTML>
 </div>
 
