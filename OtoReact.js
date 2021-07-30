@@ -222,7 +222,7 @@ class RCompiler {
                             if (bInit && start != srcNode)
                                 text = region.parent.insertBefore(document.createTextNode(content), start);
                             else {
-                                start.data = content;
+                                (text = start).data = content;
                                 region.start = start.nextSibling;
                             }
                             if (lastMarker) {
@@ -354,6 +354,7 @@ class RCompiler {
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
                                 C.Compile(parsedContent.body, this.Settings);
+                                this.bHasReacts || (this.bHasReacts = C.bHasReacts);
                                 for (const region of arrToBuild)
                                     if (region.parent.isConnected)
                                         C.Builder(region);
@@ -401,6 +402,7 @@ class RCompiler {
                                             compiler.Settings.bRunScripts = true;
                                             const { elmTemplate, builders } = compiler.AnalyseComponent(libElm);
                                             const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
+                                            this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
                                             instanceBuilders.length = 0;
                                             instanceBuilders.push(...builders.map((b) => b[0]), instanceBuilder);
                                             triple[2] = undefined;
@@ -516,7 +518,7 @@ class RCompiler {
         return [];
     }
     CallWithErrorHandling(builder, srcNode, region) {
-        const start = region.start;
+        let start = region.start;
         if (start?.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
@@ -529,9 +531,11 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.Settings.bShowErrors)
-                start.errorNode =
-                    region.parent.insertBefore(document.createTextNode(message), region.start);
+            if (this.Settings.bShowErrors) {
+                const errorNode = region.parent.insertBefore(document.createTextNode(message), region.start);
+                if (start || (start = region.marker))
+                    start.errorNode = errorNode;
+            }
         }
     }
     CompileScript(srcParent, srcElm) {
@@ -553,7 +557,7 @@ class RCompiler {
         const saved = this.Save();
         try {
             if (varName != null) {
-                const getRange = this.CompileAttributeExpression(srcElm, 'of');
+                const getRange = this.CompileAttributeExpression(srcElm, 'of', true);
                 const prevName = srcElm.getAttribute('previous');
                 const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
                 const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
@@ -932,14 +936,10 @@ class RCompiler {
             let elm;
             if (!bInit || start == srcElm) {
                 region.start = start.nextSibling;
-                if (start.tagName == nodeName) {
-                    elm = start;
-                    elm.classList.remove(...elm.classList);
-                }
-                else {
-                    (elm = document.createElement(nodeName)).append(...start.childNodes);
-                    parent.replaceChild(elm, start);
-                }
+                elm = start;
+                if (elm.tagName != nodeName)
+                    debugger;
+                elm.classList.remove(...elm.classList);
             }
             else {
                 elm = document.createElement(nodeName);
@@ -1074,13 +1074,13 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name
         if (lastMarker)
             lastMarker.nextM = marker;
         if (start && start == srcElm)
-            region.start = start.nextSibling;
+            region.start = start = start.nextSibling;
     }
     else {
         marker = start;
         region.start = marker.nextM;
+        start = marker.nextSibling;
     }
-    start = marker.nextSibling;
     if (bInit || (bInit = bForcedClear || (result != marker.rResult ?? null))) {
         marker.rResult = result;
         while (start != region.start) {
@@ -1090,15 +1090,6 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name
         }
     }
     return { parent, marker, start, bInit, env: region.env };
-}
-function UpdateHandler(R, handler) {
-    return handler &&
-        function ReactiveHandler(ev) {
-            const result = handler(ev);
-            if (result === false)
-                ev.preventDefault();
-            return result;
-        };
 }
 class _RVAR {
     constructor(rRuntime, name, initialValue, store, storeName) {

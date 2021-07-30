@@ -32,7 +32,8 @@ export function RCompile(elm: HTMLElement, settings?: Settings) {
 type Context = Array<string>;
 // Een environment is een rij concrete waarden voor de identifiers IN EEN GEGEVEN CONTEXT
 type Environment = 
-    Array<unknown> & {
+    Array<unknown> 
+    & {
         constructDefs: Map<string, {instanceBuilders: ElmBuilder[], constructEnv: Environment}>
     };
 type SavedContext = number;
@@ -283,6 +284,7 @@ class RCompiler {
                     }
                 }
             );
+            //Object.defineProperty(t, 'V', {get: () => this});
             t.Subscribe = function(sub: Subscriber) { t._Subscribers.push(sub); } ;
         }
         return t;
@@ -330,7 +332,7 @@ class RCompiler {
                             if (bInit && start != srcNode)
                                 text = region.parent.insertBefore(document.createTextNode(content), start);
                             else {
-                                (start as Text).data = content;
+                                (text = (start as Text)).data = content;
                                 region.start = start.nextSibling;
                             }
                             if (lastMarker) {
@@ -474,6 +476,7 @@ class RCompiler {
 
                             // Compile the parsed contents of the file in the original context
                             C.Compile(parsedContent.body, this.Settings, );
+                            this.bHasReacts ||= C.bHasReacts;
 
                             // Achterstallige Builds uitvoeren
                             for (const region of arrToBuild)
@@ -530,7 +533,8 @@ class RCompiler {
                                         const [component, instanceBuilders, compiler] = triple;
                                         compiler.Settings.bRunScripts = true;
                                         const {elmTemplate, builders} = compiler.AnalyseComponent(libElm);
-                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate)
+                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
+                                        this.bHasReacts ||= compiler.bHasReacts;
                                         instanceBuilders.length = 0;
                                         instanceBuilders.push(...builders.map((b)=>b[0]), instanceBuilder)
                                         triple[2] = undefined;
@@ -670,7 +674,7 @@ class RCompiler {
     }
 
     private CallWithErrorHandling(builder: ElmBuilder, srcNode: ChildNode, region: Region){
-        const start = region.start;
+        let start = region.start;
         if (start?.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
@@ -684,11 +688,15 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.Settings.bShowErrors)
-                start.errorNode = 
+            if (this.Settings.bShowErrors) {
+                const errorNode =
                     region.parent.insertBefore(
                         document.createTextNode(message), region.start
                     );
+                if (start ||= region.marker)
+                    start.errorNode = errorNode;
+                //else debugger;
+            }
         }
     }
 
@@ -713,7 +721,7 @@ class RCompiler {
         const saved = this.Save();
         try {
             if (varName != null) { /* A regular iteration */
-                const getRange = this.CompileAttributeExpression<Iterable<Item>>(srcElm, 'of' );
+                const getRange = this.CompileAttributeExpression<Iterable<Item>>(srcElm, 'of', true);
                 const prevName = srcElm.getAttribute('previous');
 
                 const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
@@ -1178,14 +1186,10 @@ class RCompiler {
             let elm: HTMLElement;
             if (!bInit || start == srcElm) {
                 region.start = start.nextSibling;
-                if ((start as HTMLElement).tagName == nodeName) {
-                    elm = start as HTMLElement;
-                    elm.classList.remove(...elm.classList);
-                }
-                else {
-                    (elm = document.createElement(nodeName)).append(...start.childNodes);
-                    parent.replaceChild(elm, start);
-                }
+                elm = start as HTMLElement;
+                if (elm.tagName != nodeName)
+                    debugger;
+                elm.classList.remove(...elm.classList);
             }
             else {
                 elm = document.createElement(nodeName);
@@ -1348,13 +1352,13 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
             lastMarker.nextM = marker;
         
         if (start && start == srcElm)
-            region.start = start.nextSibling;
+            region.start = start = start.nextSibling;
     }
     else {
         marker = start as Comment;
         region.start = marker.nextM;
+        start = marker.nextSibling;
     }
-    start = marker.nextSibling;
 
     if (bInit ||= (bForcedClear || (result != marker.rResult ?? null)) ) {
         marker.rResult = result;
@@ -1366,23 +1370,6 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     }
     return {parent, marker, start, bInit, env: region.env};
 }
-
-// Deze routine zet een gegeven MouseHandler om in een handler die hetzelfde doet en daarna alle benodigde elementen update
-function UpdateHandler(R: RCompiler, handler: Handler): Handler {
-    return handler &&
-        function ReactiveHandler(ev: Event) {
-            // console.log(`EVENT ${name}`);
-            const result = handler(ev);
-
-            // Als de handler, gedefinieerd als attribuut, false oplevert, dan wordt de default actie vanzelf voorkomen.
-            // Wij voegen de handler toe middels 'addEventListener' en dan gaat dat niet vanzelf.
-            // We lossen het zo op:
-            if (result === false)
-                ev.preventDefault();
-            return result;
-        };
-}
-
 
 interface Store {
     getItem(key: string): string | null;

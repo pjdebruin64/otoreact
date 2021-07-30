@@ -1,4 +1,4 @@
-let sampleGreeting=
+const sampleGreeting=
 `<define rvar='yourName' store=sessionStorage></define>
 <p>
     What's your name?
@@ -35,6 +35,95 @@ const sampleGreeting2 =
     </p>
 </if>`;
 
+const sampleTODO=
+`<script type=module>
+    // Define the data model of our todo list
+    let TODO = RVAR('TODO',
+        [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
+    );
+    // Adding an item
+    globalThis.AddItem = function(inputElement) {
+        if (inputElement.value) {
+            TODO.U.push( [inputElement.value, false] );
+            inputElement.value = '';
+        }
+    }
+</script>
+
+<!-- Define a component, showing a filtered list of to-do-items, 
+with a caption -->
+<component>
+    <!-- This is the component signature -->
+    <itemlist caption bDone></itemlist>
+
+    <template>
+        <p><b>{caption}</b></p>
+        <p>
+            <for let=item of=TODO.V updates=TODO>
+                <!-- 'bdone' must be in lowercase -->
+                <if cond='item[1] == bdone'>
+                    <label>
+                        <input type=checkbox @checked='item.U[1]'> 
+                        {item[0]}
+                    </label>
+                    <br>
+                </if>
+            </for>
+        </p>
+    </template>
+</component>
+
+<!-- These elements should react on changes in RVAR 'TODO' -->
+<react on='TODO'>
+    <itemlist caption='To do:' #bDone=false></itemlist>
+    <itemlist caption='Done:'  #bDone=true ></itemlist>
+</react>
+<p>
+    New item (Enter):
+    <br>
+    <input type=text onchange="AddItem(this)">
+</p>`;
+
+const sampleRecursion=
+`<component>
+    <showList #list></showList>
+    <style>
+        .flex-container {
+            display: flex; flex-wrap: wrap; align-items: center;
+            background-color: gray;
+        }
+        .flex-container > div {
+            background-color: #f1f1f1;
+            margin: 4px; padding: 8px; font-size: 18px;
+        }
+    </style>
+
+    <template>
+        <div class=flex-container>
+            <for let=item #of=list>
+                <div>
+                    <case>
+                        <when #cond="Array.isArray(item)">
+                            <!-- Recursive invocation -->
+                            <showList #list=item></showList>
+                        </when>
+                        <else>
+                            {item}
+                        </else>
+                    </case>
+                </div>
+            </for>
+        </div>
+    </template>
+</component>   
+
+<define rvar=list 
+    value="'[1, [2,3,4], [[41,42],5], \\'Otolift\\' ]'"
+    store=sessionStorage></define>
+<p>JavaScript list: <input type=text @value="list.V" size=40></p>
+<showList #list="eval(list.V)"></showList>
+<p>You can modify the list definition above and see the result.</p>`;
+
 const sampleTableMaker =
 `<component>
     <TABLEMAKER datasource>
@@ -49,7 +138,7 @@ const sampleTableMaker =
                     <th.><HDEF></HDEF></th.>
                 </for>
             </tr.>
-            <for let=rec #of='datasource'>
+            <for let=rec of='datasource'>
                 <tr.>
                     <for of=DDEF>
                         <td.><DDEF #item=rec></DDEF></td.>
@@ -72,7 +161,7 @@ const sampleTableMaker =
 <tablemaker #datasource='globalThis.data'>
     <!-- First column -->
     <HDEF>Naam</HDEF>
-    <DDEF item>\{item.name\}</DDEF>
+    <DDEF item>{item.name}</DDEF>
 
     <!-- Second column -->
     <HDEF>Leeftijd</HDEF>
