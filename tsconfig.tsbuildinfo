@@ -222,8 +222,13 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "52e8494a592e563cac299847f827c72565e0af3db044c854bdc9d2238b05208a",
+        "version": "af44d61d443087715f10b4ce5a385c9b8cffb19a5c1cc7cb3295d5e882fafec0",
         "signature": "dc0a66fd2cb7dba50918896cfe6ab252b95f8ee032a848a256f3e13bfad035b2",
+        "affectsGlobalScope": false
+      },
+      "./save/otoreact.ts": {
+        "version": "b16d5ce651dea5e327a5c349f1bc764ec461aaa5e5950f9753a99ae308a6b8c5",
+        "signature": "ec4a15fb4460a74afd21d5be276cee3dd1d015dfb8b7fc59676615aa303a6f27",
         "affectsGlobalScope": false
       }
     },
@@ -290,7 +295,8 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
-      "./otoreact.ts"
+      "./otoreact.ts",
+      "./save/otoreact.ts"
     ]
   },
   "version": "4.1.3"

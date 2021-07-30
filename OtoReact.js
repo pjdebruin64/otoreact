@@ -578,11 +578,14 @@ class RCompiler {
                         const keyMap = (region.bInit ? marker.keyMap = new Map() : marker.keyMap);
                         const newMap = new Map();
                         const setVar = initVar(env);
+                        const iterator = getRange(env);
+                        if (!iterator || typeof iterator[Symbol.iterator] != 'function')
+                            throw `[of]: Value (${iterator}) is not iterable`;
                         for (const item of getRange(env)) {
                             setVar(item);
                             const hash = getHash && getHash(env);
                             const key = getKey ? getKey(env) : hash;
-                            newMap.set(key ?? {}, [item, hash]);
+                            newMap.set(key ?? {}, { item, hash });
                         }
                         function RemoveStaleItemsHere() {
                             let key;
@@ -601,7 +604,7 @@ class RCompiler {
                         const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
                         let index = 0, prevItem = null;
-                        for (const [key, [item, hash]] of newMap) {
+                        for (const [key, { item, hash }] of newMap) {
                             let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
                                 : bUpdateable ? this.RVAR_Light(item)
                                     : item);
@@ -777,10 +780,8 @@ class RCompiler {
         const saved = this.Save();
         for (const param of construct.Parameters)
             param.initVar = this.NewVar(GetAttribute(srcElm, param.name, true) || param.name);
-        for (const S of construct.Slots.values())
-            this.AddConstruct(S);
         try {
-            return this.CompileChildNodes(contentNode);
+            return this.CompileConstructTemplate(construct, contentNode, srcElm);
         }
         catch (err) {
             throw `${OuterOpenTag(srcElm)} ${err}`;
@@ -789,7 +790,7 @@ class RCompiler {
             this.Restore(saved);
         }
     }
-    CompileConstructTemplate(construct, contentNode, srcElm, bSlot) {
+    CompileConstructTemplate(construct, contentNode, srcElm) {
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
@@ -809,7 +810,9 @@ class RCompiler {
                 computeParameters.push(((attVal = srcElm.getAttribute(`#${name}`)) != null
                     ? this.CompileExpression(attVal)
                     : (attVal = srcElm.getAttribute(name)) != null
-                        ? this.CompileInterpolatedString(attVal)
+                        ? (/^on/.test(name)
+                            ? this.CompileExpression(`(event)=>{${attVal}\n}`)
+                            : this.CompileInterpolatedString(attVal))
                         : pdefault != null
                             ? (env) => pdefault(env.constructDefs.get(construct.TagName).constructEnv)
                             : thrower(`Missing parameter [${name}]`)));
@@ -937,9 +940,12 @@ class RCompiler {
             if (!bInit || start == srcElm) {
                 region.start = start.nextSibling;
                 elm = start;
-                if (elm.tagName != nodeName)
-                    debugger;
-                elm.classList.remove(...elm.classList);
+                if (elm.tagName != nodeName) {
+                    (elm = document.createElement(nodeName)).append(...start.childNodes);
+                    parent.replaceChild(elm, start);
+                }
+                else
+                    elm.className = "";
             }
             else {
                 elm = document.createElement(nodeName);
@@ -1074,7 +1080,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name
         if (lastMarker)
             lastMarker.nextM = marker;
         if (start && start == srcElm)
-            region.start = start = start.nextSibling;
+            region.start = start.nextSibling;
     }
     else {
         marker = start;
@@ -1133,14 +1139,12 @@ class _RVAR {
         this.rRuntime.RUpdate();
     }
 }
-const words = 'align|animation|aria|background|border|bottom|bounding|child|class|client|column|content|element|first|font|get|image|inner|is|last|left|node|offset|outer|owner|parent|right|rule|scroll|tab|text|top|value';
-const regCapitalize = new RegExp(`^(.*(${words}))([a-z])(.*)$`);
+const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
+    + '|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|node|offset|outer|owner|parent'
+    + '|right|size|rule|scroll|tab|text|top|value|variant)';
+const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {
-    let m;
-    lcName = lcName.replace(/html|uri/g, s => s.toUpperCase());
-    while (m = regCapitalize.exec(lcName))
-        lcName = `${m[1]}${m[3].toUpperCase()}${m[4]}`;
-    return lcName;
+    return lcName.replace(regCapitalize, (char) => char.toUpperCase());
 }
 function GetAttribute(elm, name, bRequired, bHashAllowed) {
     let value = elm.getAttribute(name);

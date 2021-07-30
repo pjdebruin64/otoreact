@@ -35,6 +35,46 @@ const sampleGreeting2 =
     </p>
 </if>`;
 
+const sampleSqrt=
+`<define rvar=x value=2></define>
+<p  title="sqrt({x.V}) = {Math.sqrt(x.V)}"
+>
+    What is sqrt({x.V})? Check the tooltip.
+</p>
+<button onclick="x.V += 1">Increment</button>`;
+
+const sampleInlineStyles=
+`<define var=color value="'red'"></define>
+<p #style.backgroundColor="color"> Colored </p>
+
+<define var=myStyle 
+  value="{color: 'blue',fontStyle: 'italic'}"
+></define>
+<p +style="myStyle">My style</p>`;
+
+const sampleParticipants=
+`<!-- Here we use a local RVAR -->
+<define rvar=Participants value="['Joe', 'Mary', 'Eileen']"></define>
+
+<p><b>Participants:</b></p>
+<ul>
+    <for let=participant #of="Participants.V">
+        <li>{participant}</li>
+    </for>
+</ul>
+<p>
+    New participant (Enter):
+    <br>
+    <input type=text onchange="
+        if(this.value) {
+            Participants.U.push(this.value); this.value=''; 
+        }
+    ">
+<!-- "this" in all RHTML event handlers refers to the target element. -->
+<!-- Getting "Participants.U" means "Participants" will be marked as
+     changed, even though it is not assigned to. -->
+</p>`;
+
 const sampleTODO=
 `<script type=module>
     // Define the data model of our todo list
@@ -86,42 +126,42 @@ with a caption -->
 
 const sampleRecursion=
 `<component>
-    <showList #list></showList>
-    <style>
-        .flex-container {
-            display: flex; flex-wrap: wrap; align-items: center;
-            background-color: gray;
-        }
-        .flex-container > div {
-            background-color: #f1f1f1;
-            margin: 4px; padding: 8px; font-size: 18px;
-        }
-    </style>
+<showList #arg></showList>
+<style>
+    .flex-container {
+        display: flex; flex-wrap: wrap; align-items: center;
+        background-color: gray;
+    }
+    .flex-container > div {
+        background-color: #f1f1f1;
+        margin: 4px; padding: 8px; font-size: 18px;
+    }
+</style>
 
-    <template>
-        <div class=flex-container>
-            <for let=item #of=list>
-                <div>
-                    <case>
-                        <when #cond="Array.isArray(item)">
-                            <!-- Recursive invocation -->
-                            <showList #list=item></showList>
-                        </when>
-                        <else>
-                            {item}
-                        </else>
-                    </case>
-                </div>
-            </for>
-        </div>
-    </template>
+<template>
+    <case>
+        <when #cond="Array.isArray(arg)">
+            <div class=flex-container>
+                <for let=item #of=arg>
+                    <div>
+                        <!-- Recursive invocation -->
+                        <showList #arg=item></showList>
+                    </div>
+                </for>
+            </div>
+        </when>
+        <else>
+            {arg}
+        </else>
+    </case>
+</template>
 </component>   
 
 <define rvar=list 
-    value="'[1, [2,3,4], [[41,42],5], \\'Otolift\\' ]'"
-    store=sessionStorage></define>
+value="'[1, [2,3,4], [[41,42],5], \\'Otolift\\' ]'"
+store=sessionStorage></define>
 <p>JavaScript list: <input type=text @value="list.V" size=40></p>
-<showList #list="eval(list.V)"></showList>
+<showList #arg="eval(list.V)"></showList>
 <p>You can modify the list definition above and see the result.</p>`;
 
 const sampleTableMaker =

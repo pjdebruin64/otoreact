@@ -30,7 +30,7 @@ span.sourcecode, code.sourcecode {
     font-family: 'Lucida Console', monospace;
     font-size: 90%;
 }
-pre { margin: 1ex 0;}
+pre { margin: 1ex 2ex;}
 pre, code, elm, .sourcecode {
     color: darkblue;
     background-color: rgb(245, 245, 245);
@@ -44,7 +44,8 @@ elm::after{
     content: ">";
 }
 
-dt  {margin-top: 1ex; }
+dt  {margin-left:2ex; margin-top: 1ex; }
+dd  {margin-left:6ex}
 ol, ul, li  {margin: 1ex 0}
 
 a { cursor: pointer; }
