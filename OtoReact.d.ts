@@ -76,7 +76,7 @@ declare class RCompiler {
     private handleUpdate;
     RUpdate: () => void;
     private DoUpdate;
-    RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
+    RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
@@ -118,6 +118,6 @@ declare class _RVAR<T> {
     SetDirty(): void;
 }
 export declare let RHTML: RCompiler;
-export declare const RVAR: <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>, RUpdate: () => void;
+export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
 export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
 export {};

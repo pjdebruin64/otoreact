@@ -39,18 +39,28 @@
     <!-- Component to demonstrate RHTML -->
     <demo content #bshow=true></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+    <pageLayout>
+        <pageHead></pageHead>
+        <content>
+            <h1><content></content></h1>
+            <h2><content></content></h2>
+            <h3><content></content></h3>
+            <h4><content></content></h4>
+        </content>
+    </pageLayout>
 </import>
 
-<h1>Reactive HTML through the OtoReact framework</h1>
+<pageLayout>
+    <pageHead>Reactive HTML through the OtoReact framework</pageHead>
 
-<div class=sample style="width: 300pt; min-height: 108px;">
-     <RHTML>{sampleGreeting}</RHTML>
-</div>
+    <div class=sample style="width: 300pt; min-height: 108px;">
+        <RHTML>{sampleGreeting}</RHTML>
+    </div>
 
-<include src="introduction.html"></include>"
-<include src="htmlElements.html"></include>
-<include src="constructs.html"></include>
+    <include src="introduction.html"></include>"
+    <include src="htmlElements.html"></include>
+    <include src="constructs.html"></include>
 
-<h2>Routing</h2>
-
+    <h2>Routing</h2>
+</pageLayout>
 </body>

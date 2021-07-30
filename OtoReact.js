@@ -71,9 +71,6 @@ class RCompiler {
                     this.DoUpdate();
                 }, 0);
         }.bind(this);
-        this.RVAR = function (name, initialValue, store) {
-            return new _RVAR(this, name, initialValue, store, name);
-        }.bind(this);
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.Context = clone ? clone.Context.slice() : [];
@@ -172,6 +169,10 @@ class RCompiler {
             this.bUpdating = false;
         }
     }
+    RVAR(name, initialValue, store) {
+        return new _RVAR(this, name, initialValue, store, name);
+    }
+    ;
     RVAR_Light(t, updatesTo = []) {
         if (!t._Subscribers) {
             t._Subscribers = [];
@@ -1203,8 +1204,8 @@ function thrower(err) { throw err; }
 export let RHTML = new RCompiler();
 export const RVAR = RHTML.RVAR, RUpdate = RHTML.RUpdate;
 Object.defineProperties(globalThis, {
-    RVAR: { get: () => RHTML.RVAR },
-    RUpdate: { get: () => RHTML.RUpdate },
+    RVAR: { get: () => RHTML.RVAR.bind(RHTML) },
+    RUpdate: { get: () => RHTML.RUpdate.bind(RHTML) },
 });
 globalThis.RCompile = RCompile;
 export function* range(from, upto, step = 1) {

@@ -253,13 +253,13 @@ class RCompiler {
 
     /* A "responsive variable" is a variable which listeners can subscribe to.
     */
-    RVAR = function<T>(this: RCompiler,
+    RVAR<T>(
         name?: string, 
         initialValue?: T, 
         store?: Store
     ) {
         return new _RVAR<T>(this, name, initialValue, store, name);
-    }.bind(this) as <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
+    }; // as <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
@@ -392,7 +392,7 @@ class RCompiler {
                         const newVar = this.NewVar(varName);
                         const bReact = GetAttribute(srcElm, 'react') != null;
 
-                        builder = function DEFINE(region) {
+                        builder = function DEFINE(this: RCompiler, region) {
                                 const {marker} = PrepareRegion(srcElm, region);
                                 if (region.bInit || bReact){
                                     const value = getValue && getValue(region.env);
@@ -1519,8 +1519,8 @@ export const
 Object.defineProperties(
     globalThis,
     {
-        RVAR:       {get: () => RHTML.RVAR},
-        RUpdate:    {get: () => RHTML.RUpdate},
+        RVAR:       {get: () => RHTML.RVAR.bind(RHTML)},
+        RUpdate:    {get: () => RHTML.RUpdate.bind(RHTML)},
     }
 );
 globalThis.RCompile = RCompile;
