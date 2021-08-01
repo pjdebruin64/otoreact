@@ -9,7 +9,7 @@ declare type FullSettings = typeof defaultSettings;
 declare type Settings = {
     [Property in keyof FullSettings]+?: FullSettings[Property];
 };
-export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
+export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<RCompiler>;
 declare type Environment = Array<unknown> & {
     constructDefs: Map<string, {
         instanceBuilders: ElmBuilder[];
@@ -58,7 +58,8 @@ declare class RCompiler {
     private Restore;
     private NewVar;
     private AddConstruct;
-    Compile(elm: HTMLElement, settings: Settings): void;
+    private Tasks;
+    Compile(elm: HTMLElement, settings: Settings): Promise<void>;
     Build(reg: Region & {
         marker?: ChildNode;
     }): void;

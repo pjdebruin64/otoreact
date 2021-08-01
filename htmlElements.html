@@ -1,16 +1,15 @@
-
-<h2>HTML Elements</h2>
+<h1>HTML Elements</h1>
 <p>All source elements that are not RHTML or user-defined constructs, build HTML elements.</p>
 <p>All trailing dots in the tag name are removed.</p>
 <p>Source attributes are compiled as described below.</p>
 
-<h3>HTML attributes</h3>
+<h2>HTML attributes</h2>
 <p>All source attributes that do not fall in any of the categories below, are compiled as HTML attributes.
     <br>They may use <a href="#StringInterpolation">string interpolation</a>.
 </p>
 <demo #content=sampleSqrt></demo>
 
-<h3>HTML events</h3>
+<h2>HTML events</h2>
 <p>
     In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
     <br>They may contain the name <code>event</code> which represents an object containing more information about the event.
@@ -31,7 +30,7 @@
     </li>
 </ul>
 
-<h3>DOM properties</h3>
+<h2>DOM properties</h2>
 <p>
     The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
     <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <span class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</span>
@@ -49,7 +48,7 @@
     <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
 </p>
 
-<h3>Output and two-way binding</h3>
+<h2>Output and two-way binding</h2>
 DOM properties are not static but can change. RHTML allows output and two-way binding for properties to expressions that can assigned to, in multiple variants.
 <br>Assignable expressions are global variables, array elements, and object properties, including RVAR values.
 <br>These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
@@ -74,7 +73,7 @@ DOM properties are not static but can change. RHTML allows output and two-way bi
     </dd>
 </dl>
 
-<h3>RHTML pseudo-events</h3>
+<h2>RHTML pseudo-events</h2>
 RHTML adds two event-like attributes to HTML elements:
 <dl>
     <dt><code>oncreate</code></dt>
@@ -89,7 +88,7 @@ RHTML adds two event-like attributes to HTML elements:
 Notes: The name <code>event</code> is not available in handlers for these pseudo-events.
 <br>They are currently not available for RHTML constructs, only for HTML elements.
 
-<h3>Class names</h3>
+<h2>Class names</h2>
 <p>
     "Class names" are used in HTML to select CSS styling properties, and can of course be set with the <code>class</code> attribute, or the <code>#className</code> or <code>#classList</code> DOM properties.
     <br>Besides these, RHTML adds the following attributes:
@@ -107,7 +106,7 @@ Notes: The name <code>event</code> is not available in handlers for these pseudo
 </dl>
 Just as other DOM properties, class names are recomputed at every update of the element.
 
-<h3>Inline styles</h3>
+<h2>Inline styles</h2>
 HTML allows you set the style of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> attribute</a>.
 <br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
 <br>RHTML adds the following attributes:

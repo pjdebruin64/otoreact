@@ -27,11 +27,14 @@
         delete globalThis.XMLHttpRequest;
         delete globalThis.import;
         
-        RCompile(document.body);
-        msg('Document compiled');        
+        RCompile(document.body)
+        .then(() => {
+            document.body.hidden = false;
+            msg('Document compiled');
+        });
     </script>
 </head>
-<body hidden onload="msg('All loaded');document.body.hidden = false;">
+<body hidden onload="msg('All loaded');">
 
 <import src="components.html">
     <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -51,13 +54,17 @@
 </import>
 
 <pageLayout>
-    <pageHead>Reactive HTML through the OtoReact framework</pageHead>
+    <pageHead>
+        <div style="font-size: 170%; font-weight: bold;">
+            <larger>Reactive HTML</larger> through the <larger>OtoReact framework</larger>
+        </div>
+    </pageHead>
 
     <div class=sample style="width: 300pt; min-height: 108px;">
         <RHTML>{sampleGreeting}</RHTML>
     </div>
 
-    <include src="introduction.html"></include>"
+    <include src="introduction.html"></include>
     <include src="htmlElements.html"></include>
     <include src="constructs.html"></include>
 

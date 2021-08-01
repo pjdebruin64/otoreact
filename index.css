@@ -3,9 +3,6 @@
     --OtoRed: rgb(226, 0, 0);
     --RedBorder: solid 2px var(--OtoRed);
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
-    max-width: 900pt; margin: auto;
-    border: solid 3pt lightgrey;
-    padding: 6pt;
     line-height: 125%;
 }
 
@@ -30,8 +27,8 @@ span.sourcecode, code.sourcecode {
     font-family: 'Lucida Console', monospace;
     font-size: 90%;
 }
-pre { margin: 1ex 2ex;}
-pre, code, elm, .sourcecode {
+pre.sourcecode { margin: 1ex 2ex;}
+code, elm, .sourcecode {
     color: darkblue;
     background-color: rgb(245, 245, 245);
     font-family: 'Lucida Console', monospace;

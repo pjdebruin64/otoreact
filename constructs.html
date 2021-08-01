@@ -1,11 +1,10 @@
-
-<h2>RHTML Construct details</h2>
+<h1>RHTML Construct details</h1>
 
 N.B. All construct attributes which must be JavaScript expressions, like <code>value</code>, <code>cond</code>, and <code>of</code>, may be prefixed with a hash mark: <code>#value</code>, <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
-<h3 id=define>&lt;DEFINE var value react?&gt;, local variables</h3>
-<pre>
+<h2 id=define>&lt;DEFINE var value react?&gt;, local variables</h2>
+<pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
 <p>
@@ -17,7 +16,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
     <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
 </p>
-<pre><elm>DEFINE rvar=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> value="RVAR(null, <i>expression</i>)"</elm><elm>/DEFINE</elm></code>.
@@ -42,8 +41,8 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 <p> \{a} </p>"
 ></demo>
 
-<h3>&lt;IF cond&gt; &lt;ELSE&gt;</h3>
-<pre><elm>IF cond="<i>expr</i>"</elm> 
+<h2>&lt;IF cond&gt; &lt;ELSE&gt;</h2>
+<pre class=sourcecode><elm>IF cond="<i>expr</i>"</elm> 
     <i>ThenPart</i> 
     &lt;ELSE&gt; <i>ElsePart</i> &lt;/ELSE&gt;
 &lt;/IF&gt;
@@ -57,8 +56,8 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     </li>
 </ul>
 
-<h3>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h3>
-<pre>
+<h2>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h2>
+<pre class=sourcecode>
 &lt;CASE&gt;
     <elm>WHEN cond="<i>expr</i>"</elm> <i>WhenPart</i> &lt;/WHEN&gt;
     &hellip;
@@ -77,11 +76,11 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     </li>
 </ul>
 
-<h3>&lt;FOR let of index? key? hash?&gt;</h3>
+<h2>&lt;FOR let of index? key? hash?&gt;</h2>
 <demo #content="sampleParticipants">
 </demo>
 
-<h3>&lt;COMPONENT&gt;</h3>
+<h2>&lt;COMPONENT&gt;</h2>
 <demo #content=sampleTODO>
 </demo>
 
@@ -104,24 +103,24 @@ This link opens in a blank window:
 </demo>
 
 
-<h3>&lt;REACT on&gt;, reacton</h3>
+<h2>&lt;REACT on&gt;, reacton</h2>
 <div id=TicTacToe></div>
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
 
-<h3>&lt;FOR #of&gt; over component slots</h3>
+<h2>&lt;FOR #of&gt; over component slots</h2>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
-<h3>&lt;INCLUDE src&gt;</h3>
+<h2>&lt;INCLUDE src&gt;</h2>
 <elm>INCLUDE src="&hellip;"</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched, compiled and build <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 <p>
     You can insert code to be shown till the including is fulfilled.
 </p>
 
-<h3>&lt;IMPORT src&gt;</h3>
+<h2>&lt;IMPORT src&gt;</h2>
 
-<h3>&lt;RHTML&gt;</h3>
+<h2>&lt;RHTML&gt;</h2>
 
-<h3>&lt;DOCUMENT&gt;</h3>
+<h2>&lt;DOCUMENT&gt;</h2>

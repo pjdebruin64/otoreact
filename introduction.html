@@ -1,4 +1,4 @@
-
+<h1>Introduction</h1>
 <p>
     '<i>Reactive web applications</i>', or '<a href="{wikipedia}Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or server data requested by the application, instead of waiting for the web server to generate and send a new HTML page.
     <br>A tiny example you see above; please enter some data.
@@ -51,11 +51,11 @@
     </li>
     <li>
         Import the OtoReact compiler into your application:
-        <pre>import \{ RCompile \} from './OtoReact.js';</pre>
+        <pre class=sourcecode>import \{ RCompile \} from './OtoReact.js';</pre>
     </li>
     <li>
         Invoke the compiler on the part(s) of your page you wish to be reactive, e.g.:
-        <pre>RCompile( document.body );</pre>
+        <pre class=sourcecode>RCompile( document.body );</pre>
     </li>
 </ol>
 Both code lines can either be placed right into you HTML file:
@@ -73,7 +73,7 @@ Both code lines can either be placed right into you HTML file:
 </pre>
 
 
-<h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
+<h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts and event handlers, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wikipedia}String_interpolation">string interpolation</a>.
 <br>To include a normal pair of braces, at least one of them must be escaped with a backslash.
@@ -84,7 +84,7 @@ If you prefer, you may add a dollar sign, like <code>\${1 + 1}</code>.
 <p> (This interactive demo is itself defined as an RHTML component.)
 
 
-<h2>Constructs</h2>
+<h2>RHTML Cconstructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
@@ -148,7 +148,7 @@ The question marks indicate optional arguments.
     <br>The created RVAR is returned and may be stored in a local variable.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
-    <pre>
+    <pre class=sourcecode>
 &lt;script type=module>
     const A = RVAR('B');
     &hellip;
@@ -200,12 +200,12 @@ The question marks indicate optional arguments.
 </ul>
 
 
-<h2>Style sheets</h2>
+<h2>Style Sheets</h2>
 Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
 <p>Styles sheets are always global. There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.</p>
 
 
-<h2>How it works</h2>
+<h2>How It Works</h2>
 OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translate the whole chunk of RHTML into one large string of JavaScript.
 <br>Rather:
 <ol>
@@ -239,18 +239,18 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <ul>
             <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
                 <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
-                <pre><elm>table</elm>
+                <pre class=sourcecode><elm>table</elm>
     <elm>for let=x #of=&hellip;</elm>
         <elm>tr</elm> &hellip; \{x\} &hellip; <elm>/tr</elm>
     <elm>/for</elm>
 <elm>/table</elm></pre>
                 , then the parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
-                <pre><elm>for let=x #of=&hellip;</elm><elm>/for</elm>
+                <pre class=sourcecode><elm>for let=x #of=&hellip;</elm><elm>/for</elm>
 <elm>table</elm><elm>tr</elm> &hellip; \{x\}&hellip; <elm>/tr</elm><elm>/table</elm></pre>
                 , and may give a misleading error about <code>x</code> being undefined.
                 <br>To get the loop right, OtoReact allows you to put a dot after any tag name, so the parser won't interfere:
-                <pre><elm>table.</elm>
+                <pre class=sourcecode><elm>table.</elm>
     <elm>for let=x #of=&hellip;</elm>
         <elm>tr.</elm> &hellip; \{x\} &hellip; <elm>/tr.</elm>
     <elm>/for</elm>
@@ -260,9 +260,9 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
                 <br>Thus, if you write
-                <pre><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>ul</elm> &hellip; <elm>/ul</elm><elm>/if</elm></pre>
+                <pre class=sourcecode><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>ul</elm> &hellip; <elm>/ul</elm><elm>/if</elm></pre>
                 , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
-                <pre><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>/if</elm><elm>/p</elm>
+                <pre class=sourcecode><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>/if</elm><elm>/p</elm>
 <elm>ul</elm> &hellip; <elm>/ul</elm></pre>
                 To avoid this, make a habit of always closing all elements.
             </li>

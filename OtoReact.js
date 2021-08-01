@@ -5,10 +5,10 @@ const defaultSettings = {
     bRunScripts: false,
     bBuild: true,
 };
-export function RCompile(elm, settings) {
+export async function RCompile(elm, settings) {
     try {
         const R = RHTML;
-        R.Compile(elm, { ...defaultSettings, ...settings });
+        await R.Compile(elm, { ...defaultSettings, ...settings });
         R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), });
         if (R.Settings.bBuild)
             R.RUpdate();
@@ -110,12 +110,14 @@ class RCompiler {
         this.Constructs.set(CName, C);
         this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
     }
-    Compile(elm, settings) {
+    async Compile(elm, settings) {
         this.Settings = { ...defaultSettings, ...settings, };
         const t0 = Date.now();
         const savedRCompiler = RHTML;
+        this.Tasks = [];
         this.Builder = this.CompileChildNodes(elm);
         RHTML = savedRCompiler;
+        await Promise.all(this.Tasks);
         this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
@@ -349,24 +351,26 @@ class RCompiler {
                             const src = GetAttribute(srcElm, 'src', true);
                             let C = new RCompiler(this);
                             let arrToBuild = [];
-                            globalFetch(src)
+                            this.Tasks.push(globalFetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                C.Compile(parsedContent.body, this.Settings);
+                                await C.Compile(parsedContent.body, this.Settings);
                                 this.bHasReacts || (this.bHasReacts = C.bHasReacts);
                                 for (const region of arrToBuild)
-                                    if (region.parent.isConnected)
+                                    if (region.parent.isConnected) {
+                                        region.start = region.marker.nextSibling;
                                         C.Builder(region);
+                                    }
                                 arrToBuild = null;
-                            });
+                            }));
                             builder =
                                 function INCLUDE(region) {
+                                    const subregion = PrepareRegion(srcElm, region);
                                     if (C.bCompiled)
                                         C.Builder(region);
                                     else {
-                                        const subregion = PrepareRegion(srcElm, region);
                                         subregion.env = CloneEnv(subregion.env);
                                         arrToBuild.push(subregion);
                                     }
@@ -390,7 +394,7 @@ class RCompiler {
                                 this.Restore(saved);
                                 this.AddConstruct(component);
                             }
-                            globalFetch(src)
+                            this.Tasks.push(globalFetch(src)
                                 .then(async (response) => {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
@@ -417,7 +421,7 @@ class RCompiler {
                                         for (const builder of mapComponents.get(tagName)[1])
                                             builder.call(this, region);
                                 arrToBuild.length = 0;
-                            });
+                            }));
                             srcParent.removeChild(srcElm);
                             builder = function IMPORT({ env }) {
                                 const constructEnv = CloneEnv(env);
@@ -467,11 +471,13 @@ class RCompiler {
                                 const result = tempElm.innerText;
                                 const subregion = PrepareRegion(srcElm, region, result);
                                 if (subregion.bInit) {
-                                    tempElm.innerHTML = tempElm.innerText;
+                                    tempElm.innerHTML = result;
                                     const R = new RCompiler();
                                     subregion.env = NewEnv();
-                                    R.Compile(tempElm, { bRunScripts: true });
-                                    R.Build(subregion);
+                                    (async () => {
+                                        await R.Compile(tempElm, { bRunScripts: true });
+                                        R.Build(subregion);
+                                    })();
                                 }
                             };
                         }
@@ -1141,8 +1147,8 @@ class _RVAR {
     }
 }
 const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-    + '|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|node|offset|outer|owner|parent'
-    + '|right|size|rule|scroll|tab|text|top|value|variant)';
+    + '|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|margin|node|offset|outer'
+    + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|tab|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());

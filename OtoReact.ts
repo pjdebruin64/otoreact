@@ -10,11 +10,11 @@ const defaultSettings = {
 type FullSettings = typeof defaultSettings
 type Settings = { [Property in keyof FullSettings]+?: FullSettings[Property] }
 
-export function RCompile(elm: HTMLElement, settings?: Settings) {    
+export async function RCompile(elm: HTMLElement, settings?: Settings) {    
     try {
 
         const R = RHTML;
-        R.Compile(elm, {...defaultSettings, ...settings});
+        await R.Compile(elm, {...defaultSettings, ...settings});
         R.ToBuild.push({parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), })
 
         if (R.Settings.bBuild)
@@ -159,16 +159,21 @@ class RCompiler {
         );
     }
 
+    private Tasks: Array<Promise<void>>;
+
     // Compile a source tree into an ElmBuilder
-    public Compile(
+    public async Compile(
         elm: HTMLElement, 
         settings: Settings,
+
     ) {
         this.Settings = {...defaultSettings, ...settings, };
         const t0 = Date.now();
         const savedRCompiler = RHTML;
+        this.Tasks = [];
         this.Builder = this.CompileChildNodes(elm);
         RHTML = savedRCompiler;
+        await Promise.all(this.Tasks);
         this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
@@ -465,37 +470,41 @@ class RCompiler {
                         // List of nodes that have to be build when the builder is received
                         let arrToBuild: Array<Region> = [];
                         
-                        globalFetch(src)
-                        .then(async response => {
-                            //if (response.status != 200)
+                        this.Tasks.push(
+                            globalFetch(src)
+                            .then(async response => {
+                                //if (response.status != 200)
 
-                            const textContent = await response.text();
-                            // Parse the contents of the file
-                            const parser = new DOMParser();
-                            const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
+                                const textContent = await response.text();
+                                // Parse the contents of the file
+                                const parser = new DOMParser();
+                                const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
-                            // Compile the parsed contents of the file in the original context
-                            C.Compile(parsedContent.body, this.Settings, );
-                            this.bHasReacts ||= C.bHasReacts;
+                                // Compile the parsed contents of the file in the original context
+                                await C.Compile(parsedContent.body, this.Settings, );
+                                this.bHasReacts ||= C.bHasReacts;
 
-                            // Achterstallige Builds uitvoeren
-                            for (const region of arrToBuild)
-                                if (region.parent.isConnected)   // Sommige zijn misschien niet meer nodig
-                                    C.Builder(region);
-
-                            arrToBuild = null;
-                        });
+                                // Achterstallige Builds uitvoeren
+                                for (const region of arrToBuild)
+                                    if (region.parent.isConnected)   // Sommige zijn misschien niet meer nodig
+                                    {
+                                        region.start = region.marker.nextSibling;
+                                        C.Builder(region);
+                                    }
+                                arrToBuild = null;
+                            })
+                        );
 
                         builder = 
                             // Runtime routine
                             function INCLUDE(region) {
+                                const subregion = PrepareRegion(srcElm, region);
 
                                 // Als de builder ontvangen is, dan meteen uitvoeren
                                 if (C.bCompiled)
                                     C.Builder(region);
                                 else {
                                     // Anders het bouwen uitstellen tot later
-                                    const subregion = PrepareRegion(srcElm, region);
                                     subregion.env = CloneEnv(subregion.env);    // Kopie van de environment maken
                                     arrToBuild.push(subregion);
                                 }
@@ -520,36 +529,38 @@ class RCompiler {
                             this.AddConstruct(component);
                         }
                         
-                        globalFetch(src)
-                        .then(async response => {
-                            const textContent = await response.text();
-                            // Parse the contents of the file
-                            const parser = new DOMParser();
-                            const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
-                            for (const libElm of parsedContent.body.children as Iterable<HTMLElement>)
-                                if (libElm.tagName=='COMPONENT') {
-                                    const triple = mapComponents.get(libElm.firstElementChild.tagName);
-                                    if (triple){
-                                        const [component, instanceBuilders, compiler] = triple;
-                                        compiler.Settings.bRunScripts = true;
-                                        const {elmTemplate, builders} = compiler.AnalyseComponent(libElm);
-                                        const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
-                                        this.bHasReacts ||= compiler.bHasReacts;
-                                        instanceBuilders.length = 0;
-                                        instanceBuilders.push(...builders.map((b)=>b[0]), instanceBuilder)
-                                        triple[2] = undefined;
+                        this.Tasks.push(
+                            globalFetch(src)
+                            .then(async response => {
+                                const textContent = await response.text();
+                                // Parse the contents of the file
+                                const parser = new DOMParser();
+                                const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
+                                for (const libElm of parsedContent.body.children as Iterable<HTMLElement>)
+                                    if (libElm.tagName=='COMPONENT') {
+                                        const triple = mapComponents.get(libElm.firstElementChild.tagName);
+                                        if (triple){
+                                            const [component, instanceBuilders, compiler] = triple;
+                                            compiler.Settings.bRunScripts = true;
+                                            const {elmTemplate, builders} = compiler.AnalyseComponent(libElm);
+                                            const instanceBuilder = compiler.CompileConstructTemplate(component, elmTemplate.content, elmTemplate);
+                                            this.bHasReacts ||= compiler.bHasReacts;
+                                            instanceBuilders.length = 0;
+                                            instanceBuilders.push(...builders.map((b)=>b[0]), instanceBuilder)
+                                            triple[2] = undefined;
+                                        }
                                     }
-                                }
-                            for (const [tagName, triple] of mapComponents.entries())
-                                if (triple[2])
-                                    throw `Component ${tagName} is missing in '${src}'`;
+                                for (const [tagName, triple] of mapComponents.entries())
+                                    if (triple[2])
+                                        throw `Component ${tagName} is missing in '${src}'`;
 
-                            for (const [region, tagName] of arrToBuild)
-                                if (region.parent.isConnected)
-                                    for (const builder of mapComponents.get(tagName)[1])
-                                        builder.call(this, region);
-                            arrToBuild.length = 0;
-                        });
+                                for (const [region, tagName] of arrToBuild)
+                                    if (region.parent.isConnected)
+                                        for (const builder of mapComponents.get(tagName)[1])
+                                            builder.call(this, region);
+                                arrToBuild.length = 0;
+                            })
+                        );
 
                         srcParent.removeChild(srcElm);
 
@@ -612,13 +623,16 @@ class RCompiler {
                             const subregion = PrepareRegion(srcElm, region, result);
 
                             if (subregion.bInit) {
-                                tempElm.innerHTML = tempElm.innerText;
+                                tempElm.innerHTML = result;
 
                                 const R = new RCompiler();
                                 subregion.env = NewEnv();
-                                R.Compile(tempElm, {bRunScripts: true });
 
-                                R.Build(subregion);
+                                (async () => {
+                                    await R.Compile(tempElm, {bRunScripts: true });
+
+                                    R.Build(subregion);
+                                })();
                             }
                         };                                
                     } break;
@@ -1446,8 +1460,8 @@ class _RVAR<T>{
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
 const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-+'|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|node|offset|outer|owner|parent'
-+'|right|size|rule|scroll|tab|text|top|value|variant)';
++ '|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|margin|node|offset|outer'
++ '|outline|overflow|owner|padding|parent|right|size|rule|scroll|tab|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName: string) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
