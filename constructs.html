@@ -1,9 +1,9 @@
-<h1>RHTML Construct details</h1>
+<h1>RHTML Construct Details</h1>
 
 N.B. All construct attributes which must be JavaScript expressions, like <code>value</code>, <code>cond</code>, and <code>of</code>, may be prefixed with a hash mark: <code>#value</code>, <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
-<h2 id=define>&lt;DEFINE var value react?&gt;, local variables</h2>
+<h2 id=define>&lt;DEFINE var value react?&gt;, Local Variables</h2>
 <pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
@@ -77,6 +77,30 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 </ul>
 
 <h2>&lt;FOR let of index? key? hash?&gt;</h2>
+<pre class="sourcecode">
+&lt;FOR let=<i>name</i> of="<i>iterableExpression</i>"&gt;
+    <i>BodyPart</i>{}
+&lt;/FOR&gt;
+</pre>
+<p>
+    The FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
+</p>
+<p>
+    The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
+</p>
+<p>
+    Attribute <code>let=<i>name</i></code>is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
+</p>
+<h3>&hellip; index=</h3>
+    When <code>index=<i>indexName</i></code> is present, <i>indexName</i> becomes a local variable bound to the iteration count: 0 for the first iteration etc.
+<h3>&hellip; key=</h3>
+<p>
+
+</p>
+<h3>&hellip; hash=</h3>
+<h3>&hellip; updateable</h3>
+<h3>&hellip; updates=</h3>
+
 <demo #content="sampleParticipants">
 </demo>
 

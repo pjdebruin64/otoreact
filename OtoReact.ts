@@ -310,6 +310,7 @@ class RCompiler {
                 
                 case Node.ELEMENT_NODE:
                     builders.push(... this.CompileElement(srcParent, srcNode as HTMLElement, bBlockLevel));
+                    
                     if (builders.length && builders[builders.length - 1][0].bTrim) {
                         let i = builders.length - 2;
                         while (i>=0 && builders[i][2]) {
@@ -464,69 +465,50 @@ class RCompiler {
                         const src = GetAttribute(srcElm, 'src', true);
                         // Placeholder that will contain a Template when the file has been received
                         let C: RCompiler = new RCompiler(this);
-                        // List of nodes that have to be build when the builder is received
-                        let arrToBuild: Array<Region> = [];
                         
-                        this.Tasks.push(
-                            globalFetch(src)
-                            .then(async response => {
-                                //if (response.status != 200)
+                        const task = (async () => {
+                            const response = await globalFetch(src);
+                            //if (response.status != 200)
 
-                                const textContent = await response.text();
-                                // Parse the contents of the file
-                                const parser = new DOMParser();
-                                const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
+                            const textContent = await response.text();
+                            // Parse the contents of the file
+                            const parser = new DOMParser();
+                            const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
-                                // Compile the parsed contents of the file in the original context
-                                await C.Compile(parsedContent.body, this.Settings, );
-                                this.bHasReacts ||= C.bHasReacts;
-
-                                // Achterstallige Builds uitvoeren
-                                for (const region of arrToBuild)
-                                    if (region.parent.isConnected)   // Sommige zijn misschien niet meer nodig
-                                    {
-                                        region.start = region.marker.nextSibling;
-                                        C.Builder(region);
-                                    }
-                                arrToBuild = null;
-                            })
-                        );
+                            // Compile the parsed contents of the file in the original context
+                            await C.Compile(parsedContent.body, this.Settings, );
+                            this.bHasReacts ||= C.bHasReacts;
+                        })();
 
                         builder = 
                             // Runtime routine
                             async function INCLUDE(region) {
                                 const subregion = PrepareRegion(srcElm, region);
 
-                                // Als de builder ontvangen is, dan meteen uitvoeren
-                                if (C.bCompiled)
-                                    await C.Builder(region);
-                                else {
-                                    // Anders het bouwen uitstellen tot later
-                                    subregion.env = CloneEnv(subregion.env);    // Kopie van de environment maken
-                                    arrToBuild.push(subregion);
-                                }
+                                await task;
+                                await C.Builder(subregion);
                             };
                     } break;
 
                     case 'IMPORT': {
                         const src = GetAttribute(srcElm, 'src', true);
                         const mapComponents = new Map<string, [Signature, ElmBuilder[], RCompiler]>();
-                        let arrToBuild: Array<[Region, string]> = [];
+                        
                         for (const child of srcElm.children) {
                             const signature = this.ParseSignature(child);
-                            async function holdOn(region: Region) {
-                                const subregion = PrepareRegion(srcElm, region);
-                                subregion.env = CloneEnv(subregion.env);    // Kopie van de environment maken
-                                arrToBuild.push([subregion, child.tagName]);
+                            async function holdOn(this: RCompiler, region: Region) {
+                                await task;
+                                await builders[0].call(this, region);
                             }
+                            const builders:Array<ElmBuilder> = [holdOn];
                             const saved = this.CreateComponentVars(signature);
-                            mapComponents.set(child.tagName, [signature, [holdOn], new RCompiler(this)]);
+                            mapComponents.set(child.tagName, [signature, builders, new RCompiler(this)]);
                             this.Restore(saved);
 
                             this.AddConstruct(signature);
                         }
                         
-                        this.Tasks.push(
+                        const task =
                             (async () => {
                                 const response = await globalFetch(src);
                                 const textContent = await response.text();
@@ -550,15 +532,8 @@ class RCompiler {
                                 for (const [tagName, triple] of mapComponents.entries())
                                     if (triple[2])
                                         throw `Component ${tagName} is missing in '${src}'`;
-
-                                for (const [region, tagName] of arrToBuild)
-                                    if (region.parent.isConnected)
-                                        for (const builder of mapComponents.get(tagName)[1])
-                                            builder.call(this, region);
-                                arrToBuild.length = 0;
-                            })()
-                        );
-
+                            })();
+                        
                         srcParent.removeChild(srcElm);
 
                         builder = async function IMPORT({env}: Region) {
