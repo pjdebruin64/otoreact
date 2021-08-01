@@ -33,7 +33,7 @@ declare type Region = {
     env: Environment;
     lastMarker?: Marker;
 };
-declare type ElmBuilder = ((this: RCompiler, reg: Region) => void) & {
+declare type ElmBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {
     bTrim?: boolean;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
@@ -62,7 +62,7 @@ declare class RCompiler {
     Compile(elm: HTMLElement, settings: Settings): Promise<void>;
     Build(reg: Region & {
         marker?: ChildNode;
-    }): void;
+    }): Promise<void>;
     Settings: FullSettings;
     ToBuild: Region[];
     private AllRegions;
@@ -86,7 +86,7 @@ declare class RCompiler {
     private CallWithErrorHandling;
     private CompileScript;
     private CompileStyle;
-    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): (this: RCompiler, region: Region) => void;
+    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): ElmBuilder;
     private ParseSignature;
     private CompileComponent;
     private AnalyseComponent;
