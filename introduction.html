@@ -84,7 +84,7 @@ If you prefer, you may add a dollar sign, like <code>\${1 + 1}</code>.
 <p> (This interactive demo is itself defined as an RHTML component.)
 
 
-<h2>RHTML Cconstructs Overview</h2>
+<h2>RHTML Constructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
@@ -130,7 +130,7 @@ The OtoReact module makes the following functions available for import. They are
     <li>
         <code>RVAR(name?, initialValue?, store?)</code> creates a reactive variable
     </li>
-    <li>
+    <li id=rangeFunction>
         <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range function</a>. You can use this with <elm>FOR</elm>.
     </li>
 </ul>
@@ -181,13 +181,13 @@ The question marks indicate optional arguments.
 </p>
 <ul>
     <li>
-        Scripts included with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
+        Scripts in the main document file with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
         <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
         <br>So they cannot execute OtoReact functions like <code>RVAR</code>, until OtoReact has been loaded.
         <br>On the other hand, names defined in a classic script are automatically put in the global environment and are available in RHTML code.
     </li>
     <li>
-        Scripts included with <elm>SCRIPT type=module</elm> are treated as a JavaScript <u>module</u>.
+        Scripts in the main document file with <elm>SCRIPT type=module</elm> are treated as a JavaScript <u>module</u>.
         <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
         <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
         <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
@@ -196,6 +196,10 @@ The question marks indicate optional arguments.
         Scripts included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
         <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during compilation.
         <br>That means that OtoReact functions are available, names are not automatically global, but module functionality like <code>import</code> is not available, not even when you add <code>type=module</code>.
+    </li>
+    <li>
+        If you don't want this distinction between scripts in the main file and in included files, you can use <elm>SCRIPT nomodule</elm>.
+        <br>These are skipped by the browser, but always executed by OtoReact.
     </li>
 </ul>
 
@@ -222,7 +226,11 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
         <br>(Any HTML element within the RHTML, that is not within any RHTML conditional or loop or component construct, will remain in place and just be updated, not replaced. So if it had received focus or input data befóre being compiled, it will keep this focus or input data.)
     </li>
     <li>
-        Whenever some RVAR is marked dirty, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all registered DOM tree parts to get updated by their registered builder routine in the registered environment.
+        When the DOM tree has been built, the browser engine will compute the graphical document layout and graphically render its contents.
+        <br>It will do so again anytime the DOM tree changes.
+    </li>
+    <li>
+        Whenever some RVAR is marked dirty, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all registered DOM tree parts to get updated by their registered builder routine in its registered environment.
         <br>The updating takes place at the next 'event cycle'.
         <br>While updating, all present HTML elements will remain in place as much as possible, so that any elements that had received focus or input data will keep that.
     </li>
