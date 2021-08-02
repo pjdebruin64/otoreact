@@ -10,11 +10,11 @@ const defaultSettings = {
 type FullSettings = typeof defaultSettings
 type Settings = { [Property in keyof FullSettings]+?: FullSettings[Property] }
 
-export async function RCompile(elm: HTMLElement, settings?: Settings) {    
+export function RCompile(elm: HTMLElement, settings?: Settings) {    
     try {
 
         const R = RHTML;
-        await R.Compile(elm, {...defaultSettings, ...settings});
+        R.Compile(elm, {...defaultSettings, ...settings});
         R.ToBuild.push({parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), })
 
         if (R.Settings.bBuild)
@@ -155,10 +155,8 @@ class RCompiler {
         );
     }
 
-    private Tasks: Array<Promise<void>>;
-
     // Compile a source tree into an ElmBuilder
-    public async Compile(
+    public Compile(
         elm: HTMLElement, 
         settings: Settings,
 
@@ -166,10 +164,8 @@ class RCompiler {
         this.Settings = {...defaultSettings, ...settings, };
         const t0 = Date.now();
         const savedRCompiler = RHTML;
-        this.Tasks = [];
         this.Builder = this.CompileChildNodes(elm);
         RHTML = savedRCompiler;
-        await Promise.all(this.Tasks);
         this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
@@ -201,14 +197,14 @@ class RCompiler {
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
     private handleUpdate: number = null;
-    public RUpdate = function RUpdate(this: RCompiler) {
+    RUpdate() {
         //clearTimeout(this.handleUpdate);
         if (!this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
             }, 0);
-    }.bind(this) as () => void;
+    };
 
     private async DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
@@ -261,7 +257,7 @@ class RCompiler {
         store?: Store
     ) {
         return new _RVAR<T>(this, name, initialValue, store, name);
-    }; // as <T>(name?: string, initialValue?: T, storage?: Store) => _RVAR<T>;
+    }; // as <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>;
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
@@ -476,7 +472,7 @@ class RCompiler {
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
                             // Compile the parsed contents of the file in the original context
-                            await C.Compile(parsedContent.body, this.Settings, );
+                            C.Compile(parsedContent.body, this.Settings, );
                             this.bHasReacts ||= C.bHasReacts;
                         })();
 
@@ -602,7 +598,7 @@ class RCompiler {
                                 const R = new RCompiler();
                                 subregion.env = NewEnv();
 
-                                await R.Compile(tempElm, {bRunScripts: true });
+                                R.Compile(tempElm, {bRunScripts: true });
                                 await R.Build(subregion);
                             }
                         };                                
@@ -709,7 +705,7 @@ class RCompiler {
                 const getRange = this.CompileAttributeExpression<Iterable<Item>>(srcElm, 'of', true);
                 const prevName = srcElm.getAttribute('previous');
 
-                const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
+                const bReactive = CBool(srcElm.getAttribute('updateable') ?? srcElm.getAttribute('reactive'), true);
                 const getUpdatesTo = this.CompileAttributeExpression<_RVAR<unknown>>(srcElm, 'updates');
             
                 // Voeg de loop-variabele toe aan de context
@@ -774,7 +770,7 @@ class RCompiler {
                             // Environment instellen
                             let rvar: Item =
                                 ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
-                                : bUpdateable ? this.RVAR_Light(item as object)
+                                : bReactive ? this.RVAR_Light(item as object)
                                 : item
                                 );
                             setVar(rvar);
@@ -816,8 +812,8 @@ class RCompiler {
                                 childRegion = PrepareRegion(null,  subregion, null, true, `${varName}(${index})`);
                                 subscriber = {
                                     ...childRegion,
-                                    builder: (bUpdateable ? bodyBuilder : undefined),
-                                    env: (bUpdateable ? CloneEnv(env) : undefined), 
+                                    builder: (bReactive ? bodyBuilder : undefined),
+                                    env: (bReactive ? CloneEnv(env) : undefined), 
                                 }
                                 if (key != null) {
                                     if (keyMap.has(key))
@@ -838,7 +834,7 @@ class RCompiler {
                             else    // Body berekenen
                                 await bodyBuilder.call(this, childRegion);
 
-                            if (bUpdateable)
+                            if (bReactive)
                                 (rvar as _RVAR<Item>).Subscribe(subscriber);
 
                             prevItem = item;
@@ -1495,9 +1491,6 @@ function CBool(s: string|boolean, valOnEmpty?: boolean): boolean {
 function thrower(err: string): never { throw err; }
 
 export let RHTML = new RCompiler();
-export const 
-    RVAR = RHTML.RVAR, 
-    RUpdate = RHTML.RUpdate;
 
 Object.defineProperties(
     globalThis,
@@ -1507,6 +1500,9 @@ Object.defineProperties(
     }
 );
 globalThis.RCompile = RCompile;
+export const 
+    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, 
+    RUpdate = globalThis.RUpdate as () => void;
 
 export function* range(from: number, upto?: number, step: number = 1) {
 	if (upto === undefined) {

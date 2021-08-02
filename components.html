@@ -62,10 +62,9 @@
     <pageLayout>
         <pageHead></pageHead>
         <content>
-            <h1><content></content></h1>
-            <h2><content></content></h2>
-            <h3><content></content></h3>
-            <h4><content></content></h4>
+            <h1 id><content></content></h1>
+            <h2 id><content></content></h2>
+            <h3 id><content></content></h3>
         </content>
     </pageLayout>
 
@@ -78,8 +77,8 @@
             return numbers.slice(0, level+1).join(".");
         }
         const contents = RVAR('contents', []);
-        globalThis.addContent = function(level, id, headElm) {
-            contents.U.push({level, id, title: headElm.textContent });
+        globalThis.addContent = function(level, headElm) {
+            contents.U.push({level, id: headElm.id, title: headElm.textContent });
         }
     </script>
 
@@ -88,7 +87,6 @@
             display:  grid;
             grid-template-columns: 225pt 850pt;
             grid-gap: 3pt;
-            height: 98vh;
         }
         div.pageLayout > div{
             padding: 6pt;
@@ -98,11 +96,17 @@
         div.pageLeft    {
             grid-row: 2; grid-column: 1;
             font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            overflow-y: auto;
         }
         div.pageLeft > div {
             padding-left: 18pt;
             text-indent: -18pt;
         }
+        div.pageLeft > div.chapter {
+            margin-top: 1.25ex;
+            font-weight: bold;
+        }
+
         div.pageContent { 
             grid-row: 2; grid-column: 2; 
             overflow-y: scroll;
@@ -110,24 +114,31 @@
     </style>
 
     <template>
-        <div style="width: fit-content; margin: auto;">
-        <div class=pageLayout>
+        <div style="width: min-content; margin: auto;">
+        <div class=pageLayout
+            onCreate="
+                (   window.onresize=() => {
+                        this.style.height = `${window.innerHeight - 16}px`;    
+                    }
+                )();
+            "
+        >
             <div class=pageHead>
                 <pageHead></pageHead>
             </div>
             <div class=pageContent>
                 <content>
-                    <h1>
+                    <h1 id>
                         <def var=nr value="getNr(0)"></def>
-                        <h1. #id=nr onCreate="addContent(0, nr, this)">{nr} &nbsp;<content></content></h1.>
+                        <h1. #id="id||nr" onCreate="addContent(0, this)">{nr} &nbsp;<content></content></h1.>
                     </h1>
-                    <h2>
+                    <h2 id>
                         <def var=nr value="getNr(1)"></def>
-                        <h2. #id=nr onCreate="addContent(1, nr, this)">{nr} &nbsp;<content></content></h2.>
+                        <h2. #id="id||nr" onCreate="addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                     </h2>
-                    <h3>
+                    <h3 id>
                         <def var=nr value="getNr(2)"></def>
-                        <h3. #id=nr onCreate="addContent(2, nr, this)">{nr} &nbsp;<content></content></h3.>
+                        <h3. #id="id||nr" onCreate="addContent(2, this)">{nr} &nbsp;<content></content></h3.>
                     </h3>
                 </content>
             </div>
@@ -136,7 +147,7 @@
                     Table of contents
                 </center>
                 <for let=item #of=contents.V reacton=contents>
-                    <div #style.marginTop="item.level == 0 ? '1ex' : ''">
+                    <div #class:chapter="item.level == 0">
                         <a. href="#{item.id}">{item.title}</a.>
                     </div>
                 </for>

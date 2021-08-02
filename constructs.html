@@ -72,7 +72,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
         The first <i>WhenPart</i> for which the value of <i>expr</i> is truthy, is included in the document.
     </li>
     <li>
-        If none is, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
+        If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
 </ul>
 
@@ -83,23 +83,58 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 &lt;/FOR&gt;
 </pre>
 <p>
-    The FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
+    The normal FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
+    <br>(There is also a variant FOR-construct without attribute <code>let</code>, which <a href="#FORoverSlots">iterates over component slots</a>.)
 </p>
 <p>
     The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
 </p>
 <p>
-    Attribute <code>let=<i>name</i></code>is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
+    Attribute <code>let=<i>name</i></code> is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
 </p>
-<h3>&hellip; index=</h3>
-    When <code>index=<i>indexName</i></code> is present, <i>indexName</i> becomes a local variable bound to the iteration count: 0 for the first iteration etc.
-<h3>&hellip; key=</h3>
-<p>
+<dl>
+    <dt><code>index=<i>indexName</i></code></dt>
+    <dd>
+        When present, <i>indexName</i> becomes a local variable bound to the item number: 0 for the first item, 1 for the second, and so on.
+    </dd>
 
-</p>
-<h3>&hellip; hash=</h3>
-<h3>&hellip; updateable</h3>
-<h3>&hellip; updates=</h3>
+    <dt><code>key="<i>keyExpression</i>"</code></dt>
+    <dd>
+        When a FOR-construct has to be updated, items in the iteration may have been removed, added, reordered, or replaced.
+        <br>OtoReact does not make any assumption about these items; it will by default completely rebuild the FOR DOM-tree on every update.
+        <p>
+            If, however, you specify a <i>keyExpression</i>, which may refer to <i>name</i> and <i>indexName</i> and should compute a unique "key" value for each item in the iteration, then OtoReact will use this to identify old and new items.
+            <br>When an item in a new iteration has the same key value as an item in the previous iteration, then OtoReact won't rebuild its DOM-tree, but will move its previous DOM-tree to its (possibly) new position and will update it in-place.
+            <br>This has the following effects:
+        </p>
+        <ul>
+            <li>It is faster</li>
+            <li>If any input element in the tree had received focus or inputdata, then it will keep that focus or data</li>
+            <li>If the RHTML in <i>BodyPart</i> created any RVAR's or other objects, these won't be renewed but will keep their previous value</li>
+        </ul>
+        <p>
+            When all items in the iteration are distinct, then the key may be the item itself: <code>key=<it>name</it></code>.
+        </p>
+    </dd>
+
+    <dt><code>hash="<i>hashExpression</i>"</code></dt>
+    <dd>
+        Processing can be further speeded up by specifying a <i>hashExpression</i>.
+        <br>OtoReact cannot quickly detect whether some property (deep) inside an object has changed, so it will by default update all subtrees when updating the FOR-construct, meaning it will recompute all properties, conditions, et cetera.
+        <p>
+            If, however, you specify a <i>hashExpression</i>, then OtoReact will assume an item (identified by its key) has not changed when the value of <i>hashExpression</i> hasn't changed, and it won't spend time on updating its DOM subtree.
+        </p>
+    </dd>
+
+    <dt><code>reactive</code></dt>
+    <dd>
+
+    </dd>
+    <dt><code>updates="<i>rvarList</i>"</code></dt>
+    <dd>
+        
+    </dd>
+</dl>
 
 <demo #content="sampleParticipants">
 </demo>
@@ -132,7 +167,7 @@ This link opens in a blank window:
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
 
-<h2>&lt;FOR #of&gt; over component slots</h2>
+<h2 id=FORoverSlots>&lt;FOR #of&gt; over component slots</h2>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 

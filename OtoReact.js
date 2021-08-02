@@ -5,10 +5,10 @@ const defaultSettings = {
     bRunScripts: false,
     bBuild: true,
 };
-export async function RCompile(elm, settings) {
+export function RCompile(elm, settings) {
     try {
         const R = RHTML;
-        await R.Compile(elm, { ...defaultSettings, ...settings });
+        R.Compile(elm, { ...defaultSettings, ...settings });
         R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), });
         if (R.Settings.bBuild)
             R.RUpdate();
@@ -64,13 +64,6 @@ class RCompiler {
         this.DirtyRegions = new Set();
         this.bUpdating = false;
         this.handleUpdate = null;
-        this.RUpdate = function RUpdate() {
-            if (!this.handleUpdate)
-                this.handleUpdate = setTimeout(() => {
-                    this.handleUpdate = null;
-                    this.DoUpdate();
-                }, 0);
-        }.bind(this);
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.Context = clone ? clone.Context.slice() : [];
@@ -110,14 +103,12 @@ class RCompiler {
         this.Constructs.set(CName, C);
         this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
     }
-    async Compile(elm, settings) {
+    Compile(elm, settings) {
         this.Settings = { ...defaultSettings, ...settings, };
         const t0 = Date.now();
         const savedRCompiler = RHTML;
-        this.Tasks = [];
         this.Builder = this.CompileChildNodes(elm);
         RHTML = savedRCompiler;
-        await Promise.all(this.Tasks);
         this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
@@ -131,6 +122,14 @@ class RCompiler {
         });
         RHTML = savedRCompiler;
     }
+    RUpdate() {
+        if (!this.handleUpdate)
+            this.handleUpdate = setTimeout(() => {
+                this.handleUpdate = null;
+                this.DoUpdate();
+            }, 0);
+    }
+    ;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
             return;
@@ -355,7 +354,7 @@ class RCompiler {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                await C.Compile(parsedContent.body, this.Settings);
+                                C.Compile(parsedContent.body, this.Settings);
                                 this.bHasReacts || (this.bHasReacts = C.bHasReacts);
                             })();
                             builder =
@@ -459,7 +458,7 @@ class RCompiler {
                                     tempElm.innerHTML = result;
                                     const R = new RCompiler();
                                     subregion.env = NewEnv();
-                                    await R.Compile(tempElm, { bRunScripts: true });
+                                    R.Compile(tempElm, { bRunScripts: true });
                                     await R.Build(subregion);
                                 }
                             };
@@ -549,7 +548,7 @@ class RCompiler {
             if (varName != null) {
                 const getRange = this.CompileAttributeExpression(srcElm, 'of', true);
                 const prevName = srcElm.getAttribute('previous');
-                const bUpdateable = CBool(srcElm.getAttribute('updateable'), true);
+                const bReactive = CBool(srcElm.getAttribute('updateable') ?? srcElm.getAttribute('reactive'), true);
                 const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
                 const initVar = this.NewVar(varName);
                 const initIndex = this.NewVar(indexName);
@@ -596,7 +595,7 @@ class RCompiler {
                         let index = 0, prevItem = null;
                         for (const [key, { item, hash }] of newMap) {
                             let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
-                                : bUpdateable ? this.RVAR_Light(item)
+                                : bReactive ? this.RVAR_Light(item)
                                     : item);
                             setVar(rvar);
                             setIndex(index);
@@ -630,8 +629,8 @@ class RCompiler {
                                 childRegion = PrepareRegion(null, subregion, null, true, `${varName}(${index})`);
                                 subscriber = {
                                     ...childRegion,
-                                    builder: (bUpdateable ? bodyBuilder : undefined),
-                                    env: (bUpdateable ? CloneEnv(env) : undefined),
+                                    builder: (bReactive ? bodyBuilder : undefined),
+                                    env: (bReactive ? CloneEnv(env) : undefined),
                                 };
                                 if (key != null) {
                                     if (keyMap.has(key))
@@ -647,7 +646,7 @@ class RCompiler {
                             }
                             else
                                 await bodyBuilder.call(this, childRegion);
-                            if (bUpdateable)
+                            if (bReactive)
                                 rvar.Subscribe(subscriber);
                             prevItem = item;
                             index++;
@@ -726,7 +725,8 @@ class RCompiler {
                     env.constructDefs.set(tagName, construct);
                     construct.constructEnv = CloneEnv(env);
                     this.restoreActions.push(() => { env.constructDefs.set(tagName, prevDef); });
-                }, srcElm
+                },
+                srcElm
             ]);
         }
         finally {
@@ -1192,12 +1192,12 @@ function CBool(s, valOnEmpty) {
 }
 function thrower(err) { throw err; }
 export let RHTML = new RCompiler();
-export const RVAR = RHTML.RVAR, RUpdate = RHTML.RUpdate;
 Object.defineProperties(globalThis, {
     RVAR: { get: () => RHTML.RVAR.bind(RHTML) },
     RUpdate: { get: () => RHTML.RUpdate.bind(RHTML) },
 });
 globalThis.RCompile = RCompile;
+export const RVAR = globalThis.RVAR, RUpdate = globalThis.RUpdate;
 export function* range(from, upto, step = 1) {
     if (upto === undefined) {
         upto = from;

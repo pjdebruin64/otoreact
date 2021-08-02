@@ -27,11 +27,10 @@
         delete globalThis.XMLHttpRequest;
         delete globalThis.import;
         
-        RCompile(document.body)
-        .then(() => {
-            document.body.hidden = false;
-            msg('Document compiled');
-        });
+        RCompile(document.body);
+
+        document.body.hidden = false;
+        msg('Document compiled');
     </script>
 </head>
 <body hidden onload="msg('All loaded');">
@@ -45,22 +44,27 @@
     <pageLayout>
         <pageHead></pageHead>
         <content>
-            <h1><content></content></h1>
-            <h2><content></content></h2>
-            <h3><content></content></h3>
-            <h4><content></content></h4>
+            <h1 id?><content></content></h1>
+            <h2 id?><content></content></h2>
+            <h3 id?><content></content></h3>
         </content>
     </pageLayout>
 </import>
 
 <pageLayout>
     <pageHead>
-        <div style="font-size: 170%; font-weight: bold;">
-            <larger>Reactive HTML</larger> through the <larger>OtoReact framework</larger>
+        <div style="float:right; vertical-align: bottom;">
+            Made possible by:
+            <a href="https://www.otolift.com">
+                <img src="KoninklijkeOtolift.png" style="height:108px; object-fit:contain">
+            </a>
+        </div>
+        <div style="font-size: 240%; font-weight: bold; padding: 30px">
+            <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
         </div>
     </pageHead>
 
-    <div class=sample style="width: 300pt; min-height: 108px;">
+    <div class=sample style="width: 300pt; min-height: 108px;" id=sampleGreeting>
         <RHTML>{sampleGreeting}</RHTML>
     </div>
 
