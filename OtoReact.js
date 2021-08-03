@@ -491,7 +491,7 @@ class RCompiler {
                     const subscriber = {
                         parent, marker,
                         builder: async function reacton(reg) {
-                            this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
+                            await this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
                         },
                         env: CloneEnv(region.env),
                     };
@@ -885,6 +885,11 @@ class RCompiler {
                         modType: ModifierType.Style, name: CapitalizeProp(m[1]),
                         depValue: this.CompileExpression(attr.value)
                     });
+                else if (m = /^style\.(.*)$/.exec(attrName))
+                    arrModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
                 else if (attrName == '+style')
                     arrModifiers.push({
                         modType: ModifierType.AddToStyle, name: null,
@@ -1207,3 +1212,12 @@ export function* range(from, upto, step = 1) {
         yield i;
 }
 globalThis.range = range;
+export const docLocation = RVAR('docLocation', new URL(document.location.toString()));
+window.addEventListener('popstate', (event) => {
+    docLocation.V = new URL(document.URL);
+});
+docLocation['set'] = function (url, title) {
+    history.pushState(null, title, url);
+    docLocation.V = new URL(document.URL);
+    return false;
+};

@@ -257,20 +257,20 @@ let sampleTicTacToe =
 
 <style>
     .tic-tac-toe td {
-        height:32pt;width: 32pt; 
+        height:32pt; width: 32pt; 
         border: 2px solid; 
         text-align: center; vertical-align: middle;
     }
 </style>
 
-<div style="display: grid; width: 300pt; background-color: white;">
+<div style="display: grid; background-color: white; grid-template-columns: auto 120pt">
     <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
         <b>Tic-Tac-Toe</b>
     </div>
 
     <define var=T value="new TicTacToe()"></define>
     <table. class=tic-tac-toe reacton=T.board
-            style="grid-area: 2/1; width: fit-content; margin:1ex">
+            style="width: 110pt; margin:1ex">
         <for let=row #of="T.board.V">
             <tr.>
                 <for let=cell #of=row updates=T.board>
@@ -280,7 +280,7 @@ let sampleTicTacToe =
             </tr.>
         </for>
     </table.>
-    <div style="grid-row: 2; grid-column: 2;">
+    <div style="padding:1ex">
         <p reacton=T.winner,T.toMove>
             <case>
                 <when #cond="T.winner.V==true">

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <head>
     <meta charset="utf-8">
+    <title>The OtoReact framework</title>
     <link rel="shortcut icon" href="otoreact.png" type="image/png"/>
     <link rel="stylesheet" href="index.css">
     <link rel=preload href="components.html"    as=fetch crossorigin>
@@ -51,27 +52,32 @@
     </pageLayout>
 </import>
 
+<case reacton=docLocation>
+    <when cond="docLocation.V.pathname.match(/\/Routing$/i)">
+        <include src="Routing.html">
+    </when>
+    <else>
 <pageLayout>
     <pageHead>
-        <div style="float:right; vertical-align: bottom;">
-            Made possible by:
-            <a href="https://www.otolift.com">
-                <img src="KoninklijkeOtolift.png" style="height:108px; object-fit:contain">
-            </a>
-        </div>
-        <div style="font-size: 240%; font-weight: bold; padding: 30px">
-            <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
-        </div>
+        <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
     </pageHead>
 
-    <div class=sample style="width: 300pt; min-height: 108px;" id=sampleGreeting>
-        <RHTML>{sampleGreeting}</RHTML>
-    </div>
 
+    <div style="display: grid; grid-template-columns: 1fr min-content;">
+        <div class=sample style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" id=sampleGreeting>
+            <RHTML>{sampleGreeting}</RHTML>
+        </div>
+        <div style="grid-column: 2; transform: scale(0.85); justify-self: end">
+            <RHTML>{sampleTicTacToe}</RHTML>
+        </div>
+    </div>
+        
     <include src="introduction.html"></include>
     <include src="htmlElements.html"></include>
     <include src="constructs.html"></include>
 
-    <h2>Routing</h2>
 </pageLayout>
+            
+        </else>
+    </case>
 </body>

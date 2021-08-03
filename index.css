@@ -43,7 +43,7 @@ elm::after{
 
 dt  {margin-left:2ex; margin-top: 1ex; }
 dd  {margin-left:6ex}
-p, ol, ul, li  {margin: 1ex 0}
+p, ol, ul, li  {margin: .8ex 0}
 
 a { cursor: pointer; }
 a:not([target]) {

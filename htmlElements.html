@@ -109,9 +109,12 @@ Just as other DOM properties, class names are recomputed at every update of the 
 <h2>Inline Styles</h2>
 HTML allows you set the style of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> attribute</a>.
 <br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
-<br>One can, however, set its properties.
-<br>RHTML adds the following attributes:
+<br>One can, however, set its properties. RHTML recognizes the following attributes:
 <dl>
+    <dt><code>style.<i>name</i>="<i>string</i>"</code></dt>
+    <dd>
+        Style property <i>name</i> will be set to <code><i>string</i></code>, applying string interpolation.
+    </dd>
     <dt><code>#style.<i>name</i>="<i>expression</i>"</code></dt>
     <dd>
         Style property <i>name</i> will be set to the value of <code><i>expression</i></code>, when it is not <code>undefined</code>.

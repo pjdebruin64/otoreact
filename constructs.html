@@ -92,10 +92,21 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 <p>
     Attribute <code>let=<i>name</i></code> is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
 </p>
+
+<demo #content="sampleParticipants">
+</demo>
+
+Further on, <elm>FOR</elm> can have the following attributes:
 <dl>
     <dt><code>index=<i>indexName</i></code></dt>
     <dd>
         When present, <i>indexName</i> becomes a local variable bound to the item number: 0 for the first item, 1 for the second, and so on.
+    </dd>
+
+    <dt><code>previous=<i>prevName</i></code></dt>
+    <dd>
+        When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>null</code> for the first item.
+        <br>This allows one to easily check for changing properties within the iteration.
     </dd>
 
     <dt><code>key="<i>keyExpression</i>"</code></dt>
@@ -124,20 +135,33 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
         <p>
             If, however, you specify a <i>hashExpression</i>, then OtoReact will assume an item (identified by its key) has not changed when the value of <i>hashExpression</i> hasn't changed, and it won't spend time on updating its DOM subtree.
         </p>
+        <p>
+            The hash expression need not be a real <a href="{wikipedia}Hash_function">hash function</a>; it could be a possibly long string.
+            <br>If, e.g., items are read from an external source and parsed using <code>JSON.parse</code>, then one could preserve the unparsed string and use it as the hash value.
+        </p>
     </dd>
 
     <dt><code>reactive</code></dt>
     <dd>
-
+        The loop variable <i>name</i> is immutable, but events may modify its properties. If you need the DOM subtree to react on property changes, then you can add attribute <code>reactive</code> to make <i>name</i> reactive.
+        <p>
+            When <code>reactive</code> is present, then <i>name</i> gets a property <code><i>name</i>.U</code>, which yields the value of <i>name</i> and marks it as dirty, just as with <a href="#ReactiveVariables">reactive variables</a>.
+            <br><i>Name</i> does not become a full RVAR: one cannot get or set <code><i>name</i>.V</code>. One could call it an RVAR-light.
+        </p>
+        <p>
+            Note that just <i>name</i> is marked dirty, not the source (array) of the iteration. If you need elements of your application <i>outside</i> the local subtree to react on changes, then you can use the <code>updates</code> attribute describe below.
+        </p>
     </dd>
     <dt><code>updates="<i>rvarList</i>"</code></dt>
     <dd>
-        
+        If you want changes to properties of <i>name</i> to have reactions outside the local subtree, then you can use <code>updates="<i>rvarList</i>"</code>.
+        <br><i>rvarList</i> must be a comma-separated list of zero or more RVAR's.
+        <p>
+            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to ), the all RVAR's in the list will be marked dirty too.
+        </p>
+        <p>You can find an example of this in the todo-list below: whenever an item is (un)marked as done, then both lists that depend on <code>TODO</code> are updated.</p>
     </dd>
 </dl>
-
-<demo #content="sampleParticipants">
-</demo>
 
 <h2>&lt;COMPONENT&gt;</h2>
 <demo #content=sampleTODO>
@@ -172,11 +196,8 @@ Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
 <h2>&lt;INCLUDE src&gt;</h2>
-<elm>INCLUDE src="&hellip;"</elm> allows you to include another RHTML file as if it were inserted into the main file.
-<br>The file is fetched, compiled and build <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
-<p>
-    You can insert code to be shown till the including is fulfilled.
-</p>
+<elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
+<br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 
 <h2>&lt;IMPORT src&gt;</h2>
 

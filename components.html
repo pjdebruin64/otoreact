@@ -1,7 +1,9 @@
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? download? title?><content></content></a>
-    <template><a. #href="href" #download="download" #title="title"
+    <a href #target? download? title? onclick?>
+        <content></content>
+    </a>
+    <template><a. #href="href" #download="download" #title="title" #onclick=onclick
         #target="!target && /^http/i.test(href) ? '_blank' : target"
         ><content></content></a.
     ></template>
@@ -69,11 +71,13 @@
     </pageLayout>
 
     <script>
-        const numbers = [0,0,0,0];
+        let numbers = [0];
+        globalThis.initContent = function() {
+            numbers = [0];
+        }
         globalThis.getNr = function(level) {
             numbers[level]++;
-            for (let i=level+1; i<numbers.length; i++)
-                numbers[i] = 0;
+            numbers[level+1] = 0;
             return numbers.slice(0, level+1).join(".");
         }
         const contents = RVAR('contents', []);
@@ -114,17 +118,30 @@
     </style>
 
     <template>
-        <div style="width: min-content; margin: auto;">
-        <div class=pageLayout
+        <div style="width: min-content; margin: auto;"
+            class=pageLayout
             onCreate="
                 (   window.onresize=() => {
                         this.style.height = `${window.innerHeight - 16}px`;    
                     }
                 )();
             "
+            onUpdate="initContent();"
         >
             <div class=pageHead>
-                <pageHead></pageHead>
+                <div style="display: grid; grid-template-columns: 1fr auto; grid-template-rows: min-content 1fr; align-items: center;">
+                    <div>
+                        <p style="font-size: 240%; font-weight: bold; padding-left:2ex; padding-bottom: .5ex;">
+                            <pageHead></pageHead>
+                        </p>
+                    </div>
+                    <div>
+                        Made possible by:
+                        <a href="https://www.otolift.com">
+                            <img src="KoninklijkeOtolift.png" style="height:106px; object-fit:contain">
+                        </a>
+                    </div>
+                </div>
             </div>
             <div class=pageContent>
                 <content>
@@ -152,7 +169,6 @@
                     </div>
                 </for>
             </div>
-        </div>
         </div>
     </template>
 </component>
