@@ -54,8 +54,8 @@ declare class RCompiler {
     private Constructs;
     constructor(clone?: RCompiler);
     private restoreActions;
-    private Save;
-    private Restore;
+    private SaveContext;
+    private RestoreContext;
     private NewVar;
     private AddConstruct;
     Compile(elm: HTMLElement, settings: Settings): void;
@@ -75,7 +75,7 @@ declare class RCompiler {
     private bUpdating;
     private handleUpdate;
     RUpdate(): void;
-    private DoUpdate;
+    DoUpdate(): Promise<void>;
     RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;

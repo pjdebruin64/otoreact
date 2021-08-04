@@ -100,13 +100,15 @@ Further on, <elm>FOR</elm> can have the following attributes:
 <dl>
     <dt><code>index=<i>indexName</i></code></dt>
     <dd>
-        When present, <i>indexName</i> becomes a local variable bound to the item number: 0 for the first item, 1 for the second, and so on.
+        When present, <i>indexName</i> becomes a local variable bound to the zero-based index number: 0 for the first item, 1 for the second, and so on.
+        <br>When <i>indexName</i> is omitted, then 'index' is assumed.
     </dd>
 
     <dt><code>previous=<i>prevName</i></code></dt>
     <dd>
         When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>null</code> for the first item.
         <br>This allows one to easily check for changing properties within the iteration.
+        <br>When <i>prevName</i> is omitted, then 'previous' is assumed.
     </dd>
 
     <dt><code>key="<i>keyExpression</i>"</code></dt>
@@ -114,14 +116,14 @@ Further on, <elm>FOR</elm> can have the following attributes:
         When a FOR-construct has to be updated, items in the iteration may have been removed, added, reordered, or replaced.
         <br>OtoReact does not make any assumption about these items; it will by default completely rebuild the FOR DOM-tree on every update.
         <p>
-            If, however, you specify a <i>keyExpression</i>, which may refer to <i>name</i> and <i>indexName</i> and should compute a unique "key" value for each item in the iteration, then OtoReact will use this to identify old and new items.
-            <br>When an item in a new iteration has the same key value as an item in the previous iteration, then OtoReact won't rebuild its DOM-tree, but will move its previous DOM-tree to its (possibly) new position and will update it in-place.
+            You may however specify a <i>keyExpression</i>, which may refer to <i>name</i> and <i>indexName</i> and should compute a unique "key" value for each item in the iteration.
+            <br>In that case OtoReact will use this to identify old and new items. When an item in a new iteration has the same key value as an item in the previous iteration, then OtoReact won't rebuild its DOM-tree, but will move its previous DOM-tree to its (possibly) new position and will update it in-place.
             <br>This has the following effects:
         </p>
         <ul>
             <li>It is faster</li>
             <li>If any input element in the tree had received focus or inputdata, then it will keep that focus or data</li>
-            <li>If the RHTML in <i>BodyPart</i> created any RVAR's or other objects, these won't be renewed but will keep their previous value</li>
+            <li>If the RHTML in <i>BodyPart</i> created any RVAR's or other objects, then these won't be renewed but will keep their previous value</li>
         </ul>
         <p>
             When all items in the iteration are distinct, then the key may be the item itself: <code>key=<it>name</it></code>.
@@ -163,7 +165,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2>&lt;COMPONENT&gt;</h2>
+<h2>&lt;COMPONENT&gt; ...</h2>
 <demo #content=sampleTODO>
 </demo>
 
@@ -186,12 +188,12 @@ This link opens in a blank window:
 </demo>
 
 
-<h2>&lt;REACT on&gt;, reacton</h2>
+<h2>&lt;REACT on&gt;, reacton ...</h2>
 <div id=TicTacToe></div>
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
 
-<h2 id=FORoverSlots>&lt;FOR #of&gt; over component slots</h2>
+<h2 id=FORoverSlots>&lt;FOR #of&gt; over component slots ...</h2>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
@@ -199,8 +201,8 @@ Here is a component which allows one to define tables column by column.
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 
-<h2>&lt;IMPORT src&gt;</h2>
+<h2>&lt;IMPORT src&gt; ...</h2>
 
-<h2>&lt;RHTML&gt;</h2>
+<h2>&lt;RHTML&gt; ...</h2>
 
-<h2>&lt;DOCUMENT&gt;</h2>
+<h2>&lt;DOCUMENT&gt; ...</h2>

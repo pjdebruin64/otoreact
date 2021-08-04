@@ -43,10 +43,16 @@ elm::after{
 
 dt  {margin-left:2ex; margin-top: 1ex; }
 dd  {margin-left:6ex}
-p, ol, ul, li  {margin: .8ex 0}
+p, ol, ul, li  {margin: .85ex 0}
 
 a { cursor: pointer; }
 a:not([target]) {
     text-decoration: none;
     border-bottom: .25ex dashed;
+}
+
+h1:not(:first-of-type) {
+    margin-top: 2ex;
+    padding-top: 2ex;
+    border-top: double;
 }

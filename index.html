@@ -29,7 +29,6 @@
         delete globalThis.import;
         
         RCompile(document.body);
-
         document.body.hidden = false;
         msg('Document compiled');
     </script>
@@ -38,9 +37,9 @@
 
 <import src="components.html">
     <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-    <a href #target? download? title?><content></content></a>
+    <a href #target? download? title? onclick?><content></content></a>
     <!-- Component to demonstrate RHTML -->
-    <demo content #bshow=true></demo>
+    <demo content #bshow=true name? #store?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
     <pageLayout>
         <pageHead></pageHead>
@@ -57,26 +56,40 @@
         <include src="Routing.html">
     </when>
     <else>
-<pageLayout>
-    <pageHead>
-        <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
-    </pageHead>
+            <pageLayout>
+                <pageHead>
+                    <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
+                </pageHead>
 
 
-    <div style="display: grid; grid-template-columns: 1fr min-content;">
-        <div class=sample style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" id=sampleGreeting>
-            <RHTML>{sampleGreeting}</RHTML>
-        </div>
-        <div style="grid-column: 2; transform: scale(0.85); justify-self: end">
-            <RHTML>{sampleTicTacToe}</RHTML>
-        </div>
-    </div>
-        
-    <include src="introduction.html"></include>
-    <include src="htmlElements.html"></include>
-    <include src="constructs.html"></include>
+                <div style="display: grid; grid-template-columns: 1fr auto;">
+                    <div class=sample 
+                        style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" 
+                        id=sampleGreeting>
+                        <RHTML>{sampleGreeting}</RHTML>
+                    </div>
+                    <div style="grid-column: 2; transform: scale(0.85);">
+                        <RHTML>{sampleTicTacToe}</RHTML>
+                    </div>
+                </div>
+                    
+                <include src="C1_introduction.html"></include>
+                <include src="C2_HtmlElements.html"></include>
+                <include src="C3_Constructs.html"></include>
+                <include src="C4_Scripts.html"></include>
 
-</pageLayout>
+                <h1>Routing ...</h1>
+
+                <h1>Options ...</h1>
+
+                <h1>Playground</h1>
+                Here you have a playground to enter your own Reactive HTML.
+                <p>
+                    All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and will be available when you return to this page.
+                </p>
+                <demo name=Playground #store=localStorage content></demo>
+
+            </pageLayout>
             
         </else>
     </case>

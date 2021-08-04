@@ -4,7 +4,7 @@ const sampleGreeting=
     What's your name?
     <input type=text @value="yourName.V">
 </p>
-<if cond="yourName.V">
+<if cond="yourName.V > '' ">
     <p>
         Nice to meet you, {yourName.V}.
         <br>By the way, your name consists of {yourName.V.length} 
@@ -209,14 +209,14 @@ const sampleTableMaker =
 </tablemaker>`;
 
 let sampleTicTacToe = 
-`<script type=module>
+`<script nomodule defines=TicTacToe>
     function Board() {
         function Cell() {return {V: null}; }
         function Row()  {return [Cell(), Cell(), Cell()]; }
         return [Row(), Row(), Row()]; 
     }
 
-    globalThis.TicTacToe = class TicTacToe {
+    class TicTacToe {
         board =     RVAR('board');
         toMove =    RVAR('toMove', '✕');
         winner =    RVAR('winner');

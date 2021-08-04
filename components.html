@@ -11,7 +11,7 @@
     
 <!-- Component to demonstrate RHTML -->
 <component>
-    <demo content #bshow=true></demo>
+    <demo content #bshow=true name? #store?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
     <script type=module>
         const mapping = {'<': '&lt;', '&': '&amp;'};
@@ -38,7 +38,7 @@
     </style>
     
     <template>
-        <define rvar=MyRVAR value="content.match(/^\s*(.*?)\s*$/s)[1]"></define>
+        <define var=MyRVAR value="RVAR(name, content.match(/^\s*(.*?)\s*$/s)[1], store)"></define>
         <define rvar=rShow  value="bshow"></define>
         <table. class=demo>
             <tr.><th.>
@@ -70,19 +70,18 @@
         </content>
     </pageLayout>
 
-    <script>
-        let numbers = [0];
-        globalThis.initContent = function() {
+    <script nomodule defines=pageLayout>
+        class pageLayout {
             numbers = [0];
-        }
-        globalThis.getNr = function(level) {
-            numbers[level]++;
-            numbers[level+1] = 0;
-            return numbers.slice(0, level+1).join(".");
-        }
-        const contents = RVAR('contents', []);
-        globalThis.addContent = function(level, headElm) {
-            contents.U.push({level, id: headElm.id, title: headElm.textContent });
+            getNr(level) {
+                this.numbers[level]++;
+                this.numbers[level+1] = 0;
+                return this.numbers.slice(0, level+1).join(".");
+            }
+            contents = RVAR(null, []);
+            addContent(level, headElm) {
+                this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
+            }
         }
     </script>
 
@@ -90,13 +89,20 @@
         div.pageLayout  {
             display:  grid;
             grid-template-columns: 225pt 850pt;
+            grid-template-rows: min-content 1fr;
             grid-gap: 3pt;
+
+            width: min-content; margin: auto;
         }
         div.pageLayout > div{
             padding: 6pt;
             box-shadow:0 0 0 3pt lightgray;
         }
-        div.pageHead    { grid-row: 1; grid-column: 1 / span 2; }
+        div.pageHead    { 
+            grid-row: 1; grid-column: 1/3; 
+
+            display: grid; grid-template-columns: 1fr auto auto; align-items: center;
+        }
         div.pageLeft    {
             grid-row: 2; grid-column: 1;
             font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
@@ -118,56 +124,59 @@
     </style>
 
     <template>
-        <div style="width: min-content; margin: auto;"
-            class=pageLayout
+        <def var=C value="new pageLayout()"></def>
+        <div class=pageLayout
             onCreate="
                 (   window.onresize=() => {
-                        this.style.height = `${window.innerHeight - 16}px`;    
+                        const maxHeight = window.innerHeight - 16;
+                        this.style.maxHeight = `${maxHeight}px`;
                     }
                 )();
             "
-            onUpdate="initContent();"
         >
             <div class=pageHead>
-                <div style="display: grid; grid-template-columns: 1fr auto; grid-template-rows: min-content 1fr; align-items: center;">
                     <div>
                         <p style="font-size: 240%; font-weight: bold; padding-left:2ex; padding-bottom: .5ex;">
                             <pageHead></pageHead>
                         </p>
                     </div>
+                    <div style='text-align: right; align-self: start; padding-right: 1ex;'>
+                        Created by <a href="http://www.peterdebruin.net">Peter J. de Bruin</a>.
+                        <p>Made possible by:
+                    </div>
                     <div>
-                        Made possible by:
                         <a href="https://www.otolift.com">
-                            <img src="KoninklijkeOtolift.png" style="height:106px; object-fit:contain">
+                            <img src="KoninklijkeOtolift.png" style="height:106px; object-fit:contain"
+                                alt="Otolift Stairlifts" title="Otolift Stairlifts"
+                            >
                         </a>
                     </div>
-                </div>
+            </div>
+            <div class=pageLeft>
+                <center>
+                    <b><i>Table of contents</i></b>
+                </center>
+                <for let=item #of=C.contents.V reacton=C.contents>
+                    <div #class:chapter="item.level == 0">
+                        <a. href="#{item.id}">{item.text}</a.>
+                    </div>
+                </for>
             </div>
             <div class=pageContent>
                 <content>
                     <h1 id>
-                        <def var=nr value="getNr(0)"></def>
-                        <h1. #id="id||nr" onCreate="addContent(0, this)">{nr} &nbsp;<content></content></h1.>
+                        <def var=nr value="C.getNr(0)"></def>
+                        <h1. #id="id||nr" onCreate="C.addContent(0, this)">{nr} &nbsp;<content></content></h1.>
                     </h1>
                     <h2 id>
-                        <def var=nr value="getNr(1)"></def>
-                        <h2. #id="id||nr" onCreate="addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                        <def var=nr value="C.getNr(1)"></def>
+                        <h2. #id="id||nr" onCreate="C.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                     </h2>
                     <h3 id>
-                        <def var=nr value="getNr(2)"></def>
-                        <h3. #id="id||nr" onCreate="addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                        <def var=nr value="C.getNr(2)"></def>
+                        <h3. #id="id||nr" onCreate="C.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
                     </h3>
                 </content>
-            </div>
-            <div class=pageLeft>
-                <center>
-                    Table of contents
-                </center>
-                <for let=item #of=contents.V reacton=contents>
-                    <div #class:chapter="item.level == 0">
-                        <a. href="#{item.id}">{item.title}</a.>
-                    </div>
-                </for>
             </div>
         </div>
     </template>
