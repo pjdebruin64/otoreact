@@ -153,10 +153,9 @@ The question marks indicate optional arguments.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
     <pre class=sourcecode>
-&lt;script type=module>
+<{}script type=module>
     const A = RVAR('B');
-    &hellip;
-    </pre>
+    &hellip;</pre>
     , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
 </p>
 <p>
@@ -228,31 +227,34 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <ul>
             <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
                 <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
-                <pre class=sourcecode><elm>table</elm>
-    <elm>for let=x #of=&hellip;</elm>
-        <elm>tr</elm> &hellip; \{x\} &hellip; <elm>/tr</elm>
-    <elm>/for</elm>
-<elm>/table</elm></pre>
+                <pre class=sourcecode><{}table>
+    <{}for let=x #of=&hellip;>
+        <{}tr> &hellip; \{x} &hellip; <{}/tr>
+    <{}/for>
+<{}/table></pre>
                 , then the parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
-                <pre class=sourcecode><elm>for let=x #of=&hellip;</elm><elm>/for</elm>
-<elm>table</elm><elm>tr</elm> &hellip; \{x\}&hellip; <elm>/tr</elm><elm>/table</elm></pre>
+<pre class=sourcecode><{}for let=x #of=&hellip;>
+<{}/for>
+<{}table>
+    <{}tr> &hellip; \{x\}&hellip; <{}/tr>
+<{}/table></pre>
                 , and may give a misleading error about <code>x</code> being undefined.
                 <br>To get the loop right, OtoReact allows you to put a dot after any tag name, so the parser won't interfere:
-                <pre class=sourcecode><elm>table.</elm>
-    <elm>for let=x #of=&hellip;</elm>
-        <elm>tr.</elm> &hellip; \{x\} &hellip; <elm>/tr.</elm>
-    <elm>/for</elm>
-<elm>/table.</elm></pre>
+<pre class=sourcecode><{}table.>
+    <{}for let=x #of=&hellip;>
+        <{}tr.> &hellip; \{x\} &hellip; <{}/tr.>
+    <{}/for>
+<{}/table.></pre>
                 When compiling, the dot will be removed. 
             </li>
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
                 <br>Thus, if you write
-                <pre class=sourcecode><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>ul</elm> &hellip; <elm>/ul</elm><elm>/if</elm></pre>
+                <pre class=sourcecode><{}p> &hellip; <{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
                 , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
-                <pre class=sourcecode><elm>p</elm> &hellip; <elm>if &hellip;</elm><elm>/if</elm><elm>/p</elm>
-<elm>ul</elm> &hellip; <elm>/ul</elm></pre>
+<pre class=sourcecode><{}p> &hellip; <{}if &hellip;><{}/if><{}/p>
+<{}ul> &hellip; <{}/ul></pre>
                 To avoid this, make a habit of always closing all elements.
             </li>
         </ul>

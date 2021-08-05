@@ -3,7 +3,7 @@
     --OtoRed: rgb(226, 0, 0);
     --RedBorder: solid 2px var(--OtoRed);
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
-    line-height: 125%;
+    line-height: 1.25;
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {

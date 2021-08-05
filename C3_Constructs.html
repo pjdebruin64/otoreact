@@ -3,7 +3,7 @@
 N.B. All construct attributes which must be JavaScript expressions, like <code>value</code>, <code>cond</code>, and <code>of</code>, may be prefixed with a hash mark: <code>#value</code>, <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
-<h2 id=define>&lt;DEFINE var value react?&gt;, Local Variables</h2>
+<h2 id=define>&lt;DEFINE var value&gt;, Local Variables</h2>
 <pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
@@ -76,7 +76,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     </li>
 </ul>
 
-<h2>&lt;FOR let of index? key? hash?&gt;</h2>
+<h2>&lt;FOR let of index?&gt;</h2>
 <pre class="sourcecode">
 &lt;FOR let=<i>name</i> of="<i>iterableExpression</i>"&gt;
     <i>BodyPart</i>{}
@@ -193,13 +193,19 @@ This link opens in a blank window:
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
 
-<h2 id=FORoverSlots>&lt;FOR #of&gt; over component slots ...</h2>
+<h2 id=FORoverSlots>&lt;FOR #of&gt; component slots ...
+
+</h2>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
 <h2>&lt;INCLUDE src&gt;</h2>
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
+
+<p>
+    To speed things up, you may add a link to the 
+</p>
 
 <h2>&lt;IMPORT src&gt; ...</h2>
 

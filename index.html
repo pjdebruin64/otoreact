@@ -2,12 +2,14 @@
 <head>
     <meta charset="utf-8">
     <title>The OtoReact framework</title>
+    <link rel=preload href="Otoreact.js"            as=script >
+    <link rel=preload href="Components.html"        as=fetch crossorigin>
     <link rel="shortcut icon" href="otoreact.png" type="image/png"/>
     <link rel="stylesheet" href="index.css">
-    <link rel=preload href="components.html"    as=fetch crossorigin>
-    <link rel=preload href="introduction.html"  as=fetch crossorigin>
-    <link rel=preload href="htmlElements.html"  as=fetch crossorigin>
-    <link rel=preload href="constructs.html"    as=fetch crossorigin>
+    <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
+    <link rel=preload href="KoninklijkeOtolift.png" as=image>
+    <link rel=preload href="C2_HtmlElements.html"   as=fetch crossorigin>
+    <link rel=preload href="C3_Constructs.html"     as=fetch crossorigin>
 
     <script>
         let s = Date.now();
@@ -73,21 +75,11 @@
                     </div>
                 </div>
                     
-                <include src="C1_introduction.html"></include>
+                <include src="C1_Introduction.html"></include>
                 <include src="C2_HtmlElements.html"></include>
                 <include src="C3_Constructs.html"></include>
                 <include src="C4_Scripts.html"></include>
 
-                <h1>Routing ...</h1>
-
-                <h1>Options ...</h1>
-
-                <h1>Playground</h1>
-                Here you have a playground to enter your own Reactive HTML.
-                <p>
-                    All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and will be available when you return to this page.
-                </p>
-                <demo name=Playground #store=localStorage content></demo>
 
             </pageLayout>
             
