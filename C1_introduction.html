@@ -20,7 +20,7 @@
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
     <li>Reactive HTML makes it easy to build dynamic <a href="">web pages based on server data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wikipedia}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
-    <li>Reactive HTML has a powerful component system, <a. href="./Routing" onclick="return docLocation.set(this.href)">routing</a.>, pretty much everything you need.
+    <li>Reactive HTML has a powerful component system, <a. href="./Routing" #onclick="reroute">URL routing</a.>, pretty much everything you need.
 </ul>
 <p>
     The tiny example above is the result of the following piece of Reactive HTML:
@@ -80,13 +80,19 @@ Both code lines can either be placed right into you HTML file:
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wikipedia}String_interpolation">string interpolation</a> or, in JavaScript terminology, <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>.
-<br>To include a normal pair of braces, at least one of them must be escaped with a backslash.
-<demo content="1 + 1 = \{1 + 1\}
-\\{ Check this }"></demo>
+<p>
+    To include a normal pair of braces, at least one of them must be escaped with a backslash.
+</p>
+<p>
+    You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
+</p>
+<demo #content="sampleBraces"></demo>
 If you prefer, you may add a dollar sign as in JavaScript, like <code>\${1 + 1}</code>.
-<br>You can modify the snippet of source code above and see the result immediately.
-<p> (This interactive demo is itself defined as an RHTML component.)
 
+<p>
+    You can modify the snippet of source code above and see the result immediately.
+    <br> (This interactive demo is itself defined as an RHTML component.)
+</p>
 
 <h2>RHTML Constructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>

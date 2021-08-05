@@ -94,6 +94,7 @@ declare class RCompiler {
     private CompileConstructTemplate;
     private CompileConstructInstance;
     private CompileHTMLElement;
+    private CompileAttributes;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
     private CompileExpression;
@@ -120,5 +121,6 @@ declare class _RVAR<T> {
 export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
 export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
-export declare const docLocation: _RVAR<URL>;
+export declare const docLocation: _RVAR<string>;
+export declare const reroute: (arg: Event | string) => boolean;
 export {};

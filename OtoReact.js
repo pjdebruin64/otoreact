@@ -309,6 +309,7 @@ class RCompiler {
                     case 'IF':
                     case 'CASE':
                         {
+                            const bHiding = CBool(srcElm.getAttribute('hiding'));
                             const caseList = [];
                             const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression(srcElm, 'cond', true);
                             const bodyNodes = [];
@@ -339,22 +340,41 @@ class RCompiler {
                                     builder: this.CompileChildNodes(srcElm, bBlockLevel, bodyNodes),
                                     child: srcElm
                                 });
-                            builder = async function CASE(region) {
-                                let result = null;
-                                for (const alt of caseList)
-                                    try {
-                                        if (alt.condition(region.env)) {
-                                            result = alt;
-                                            break;
+                            builder = bHiding
+                                ? async function CASE(region) {
+                                    let { start, bInit, env } = PrepareRegion(srcElm, region, null, region.bInit);
+                                    let result = false;
+                                    for (const alt of caseList) {
+                                        const bHide = result || !alt.condition(region.env);
+                                        result || (result = !bHide);
+                                        let elm;
+                                        if (!bInit || start == srcElm) {
+                                            elm = start;
+                                            start = start.nextSibling;
                                         }
+                                        else
+                                            region.parent.insertBefore(elm = document.createElement(alt.child.nodeName), start);
+                                        elm.hidden = bHide;
+                                        if (!bHide || bInit)
+                                            await this.CallWithErrorHandling(alt.builder, alt.child, { parent: elm, start: elm.firstChild, bInit, env });
                                     }
-                                    catch (err) {
-                                        throw `${OuterOpenTag(alt.child)}${err}`;
-                                    }
-                                const subregion = PrepareRegion(srcElm, region, result);
-                                if (result)
-                                    await this.CallWithErrorHandling(result.builder, result.child, subregion);
-                            };
+                                }
+                                : async function CASE(region) {
+                                    let result = null;
+                                    for (const alt of caseList)
+                                        try {
+                                            if (alt.condition(region.env)) {
+                                                result = alt;
+                                                break;
+                                            }
+                                        }
+                                        catch (err) {
+                                            throw `${OuterOpenTag(alt.child)}${err}`;
+                                        }
+                                    const subregion = PrepareRegion(srcElm, region, result);
+                                    if (result)
+                                        await this.CallWithErrorHandling(result.builder, result.child, subregion);
+                                };
                             this.bTrimLeft = false;
                         }
                         break;
@@ -890,74 +910,7 @@ class RCompiler {
     CompileHTMLElement(srcElm) {
         const nodeName = srcElm.nodeName.replace(/\.+$/, '');
         const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL)$/.test(nodeName);
-        const preModifiers = [];
-        const postModifiers = [];
-        for (const attr of srcElm.attributes) {
-            const attrName = attr.name;
-            let m;
-            try {
-                if (m = /^on(create|update)$/i.exec(attrName))
-                    postModifiers.push({
-                        modType: ModifierType.PseudoEvent,
-                        name: m[0],
-                        depValue: this.CompileExpression(`function ${attrName}(){${attr.value}\n}`)
-                    });
-                else if (m = /^on(.*)$/i.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Event,
-                        name: CapitalizeProp(m[0]),
-                        depValue: this.CompileExpression(`function ${attrName}(event){${attr.value}\n}`)
-                    });
-                else if (m = /^#class:(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Class, name: m[1],
-                        depValue: this.CompileExpression(attr.value)
-                    });
-                else if (m = /^#style\.(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileExpression(attr.value)
-                    });
-                else if (m = /^style\.(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileInterpolatedString(attr.value)
-                    });
-                else if (attrName == '+style')
-                    preModifiers.push({
-                        modType: ModifierType.AddToStyle, name: null,
-                        depValue: this.CompileExpression(attr.value)
-                    });
-                else if (m = /^#(.*)/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileExpression(attr.value)
-                    });
-                else if (attrName == "+class")
-                    preModifiers.push({
-                        modType: ModifierType.AddToClassList, name: null,
-                        depValue: this.CompileExpression(attr.value)
-                    });
-                else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
-                    const propName = CapitalizeProp(m[3]);
-                    const setter = this.CompileExpression(`function (){let ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
-                    preModifiers.push(m[1] == '*'
-                        ? { modType: ModifierType.Event, name: null, depValue: setter, }
-                        : { modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
-                    preModifiers.push({
-                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
-                    });
-                }
-                else
-                    preModifiers.push({
-                        modType: ModifierType.Attr, name: attrName,
-                        depValue: this.CompileInterpolatedString(attr.value)
-                    });
-            }
-            catch (err) {
-                throw (`[${attrName}]: ${err}`);
-            }
-        }
+        const { preModifiers, postModifiers } = this.CompileAttributes(srcElm);
         if (bTrim)
             this.bTrimLeft = true;
         const childnodesBuilder = this.CompileChildNodes(srcElm, bTrim);
@@ -974,12 +927,10 @@ class RCompiler {
                     parent.replaceChild(elm, start);
                 }
                 else
-                    elm.className = "";
+                    elm.removeAttribute('class');
             }
-            else {
-                elm = document.createElement(nodeName);
-                parent.insertBefore(elm, start);
-            }
+            else
+                parent.insertBefore(elm = document.createElement(nodeName), start);
             if (lastMarker) {
                 lastMarker.nextM = elm;
                 region.lastMarker = null;
@@ -1049,6 +1000,77 @@ class RCompiler {
         };
         builder.bTrim = bTrim;
         return builder;
+    }
+    CompileAttributes(srcElm) {
+        const preModifiers = [];
+        const postModifiers = [];
+        for (const attr of srcElm.attributes) {
+            const attrName = attr.name;
+            let m;
+            try {
+                if (m = /^on(create|update)$/i.exec(attrName))
+                    postModifiers.push({
+                        modType: ModifierType.PseudoEvent,
+                        name: m[0],
+                        depValue: this.CompileExpression(`function ${attrName}(){${attr.value}\n}`)
+                    });
+                else if (m = /^on(.*)$/i.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Event,
+                        name: CapitalizeProp(m[0]),
+                        depValue: this.CompileExpression(`function ${attrName}(event){${attr.value}\n}`)
+                    });
+                else if (m = /^#class:(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Class, name: m[1],
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^#style\.(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^style\.(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
+                else if (attrName == '+style')
+                    preModifiers.push({
+                        modType: ModifierType.AddToStyle, name: null,
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^#(.*)/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (attrName == "+class")
+                    preModifiers.push({
+                        modType: ModifierType.AddToClassList, name: null,
+                        depValue: this.CompileExpression(attr.value)
+                    });
+                else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
+                    const propName = CapitalizeProp(m[3]);
+                    const setter = this.CompileExpression(`function (){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
+                    preModifiers.push(m[1] == '*'
+                        ? { modType: ModifierType.Event, name: null, depValue: setter, }
+                        : { modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
+                    preModifiers.push({
+                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
+                    });
+                }
+                else
+                    preModifiers.push({
+                        modType: ModifierType.Attr, name: attrName,
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
+            }
+            catch (err) {
+                throw (`[${attrName}]: ${err}`);
+            }
+        }
+        return { preModifiers, postModifiers };
     }
     CompileInterpolatedString(data, name) {
         const generators = [];
@@ -1144,9 +1166,8 @@ class _RVAR {
         this.store = store;
         this.storeName = storeName;
         this.Subscribers = new Set();
-        if (name) {
+        if (name)
             globalThis[name] = this;
-        }
         let s;
         if ((s = store?.getItem(`RVAR_${storeName}`)) != null)
             try {
@@ -1210,7 +1231,7 @@ function Abbreviate(s, maxLength) {
         return s.substr(0, maxLength - 3) + "...";
     return s;
 }
-function CBool(s, valOnEmpty) {
+function CBool(s, valOnEmpty = true) {
     if (typeof s == 'string')
         switch (s.toLowerCase()) {
             case "yes":
@@ -1243,12 +1264,11 @@ export function* range(from, upto, step = 1) {
         yield i;
 }
 globalThis.range = range;
-export const docLocation = RVAR('docLocation', new URL(document.location.toString()));
-window.addEventListener('popstate', (event) => {
-    docLocation.V = new URL(document.URL);
-});
-docLocation['set'] = function (url, title) {
-    history.pushState(null, title, url);
-    docLocation.V = new URL(document.URL);
+export const docLocation = RVAR('docLocation', document.location.href);
+function SetDocLocation() { docLocation.V = document.location.href; }
+window.addEventListener('popstate', SetDocLocation);
+export const reroute = globalThis.reroute = (arg) => {
+    document.location.href = typeof arg == 'string' ? arg : arg.target.href;
+    SetDocLocation();
     return false;
 };

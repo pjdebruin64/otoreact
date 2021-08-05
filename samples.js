@@ -12,6 +12,12 @@ const sampleGreeting=
     </p>
 </if>`;
 
+const sampleBraces =
+`1 + 1 = {1 + 1}
+\\{ Check this }
+<br>To show an HTML tag, <{}br> looks better in
+<br>source code than &lt;br&gt;`;
+
 const sampleGreeting2 =
 `<script type=module>
     // Create a "Reactive variable" with a global name and

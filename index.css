@@ -19,6 +19,9 @@
     border: var(--RedBorder);
     width: fit-content;
 }
+section     {
+    content-visibility: auto;
+}
 pre.sourcecode {
     margin: 2ex auto;
 }
@@ -48,7 +51,7 @@ p, ol, ul, li  {margin: .85ex 0}
 a { cursor: pointer; }
 a:not([target]) {
     text-decoration: none;
-    border-bottom: .25ex dashed;
+    border-bottom: .2ex dashed;
 }
 
 h1:not(:first-of-type) {

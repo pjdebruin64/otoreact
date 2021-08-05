@@ -424,6 +424,7 @@ class RCompiler {
 
                     case 'IF':
                     case 'CASE': {
+                        const bHiding = CBool(srcElm.getAttribute('hiding'));
                         const caseList: Array<{condition: Dependent<boolean>, builder: ElmBuilder, child: HTMLElement}> = [];
                         const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression<boolean>(srcElm, 'cond', true);
                         const bodyNodes: ChildNode[] = [];
@@ -455,7 +456,29 @@ class RCompiler {
                                 child: srcElm
                             });
 
-                        builder = async function CASE(region) {
+                        builder = bHiding
+                        ? async function CASE(region) {
+                            let {start, bInit, env} = PrepareRegion(srcElm, region, null, region.bInit);
+                            let result = false;
+                            for (const alt of caseList) {
+                                const bHide = result || !alt.condition(region.env);
+                                result ||= !bHide;
+                                let elm: HTMLElement;
+                                if (!bInit || start == srcElm) {
+                                    elm = start as HTMLElement;
+                                    start = start.nextSibling;
+                                }
+                                else
+                                    region.parent.insertBefore(
+                                        elm = document.createElement(alt.child.nodeName),
+                                        start);
+                                elm.hidden = bHide;
+                                if (!bHide || bInit)
+                                    await this.CallWithErrorHandling(alt.builder, alt.child, {parent: elm, start: elm.firstChild, bInit, env} );
+                            }
+                        
+                        }
+                        : async function CASE(region) {
                             let result: typeof caseList[0] = null;
                             for (const alt of caseList)
                                 try {
@@ -1120,85 +1143,7 @@ class RCompiler {
         const bTrim = /^(BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL)$/.test(nodeName)
 
         // We turn each given attribute into a modifier on created elements
-        const preModifiers = [] as Array<{
-            modType: ModifierType,
-            name: string,
-            depValue: Dependent<unknown>,
-            tag?: string,
-        }>;
-        const postModifiers: typeof preModifiers = [];
-
-        for (const attr of srcElm.attributes) {
-            const attrName = attr.name;
-            let m: RegExpExecArray;
-            try {
-                if (m = /^on(create|update)$/i.exec(attrName))
-                    postModifiers.push({
-                        modType: ModifierType.PseudoEvent, 
-                        name: m[0], 
-                        depValue: this.CompileExpression<Handler>(
-                            `function ${attrName}(){${attr.value}\n}`)
-                    });
-                else if (m = /^on(.*)$/i.exec(attrName))               // Events
-                    preModifiers.push({
-                        modType: ModifierType.Event, 
-                        name: CapitalizeProp(m[0]), 
-                        depValue: this.CompileExpression<Handler>(
-                            `function ${attrName}(event){${attr.value}\n}`)
-                    });
-                else if (m = /^#class:(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Class, name: m[1],
-                        depValue: this.CompileExpression<boolean>(attr.value)
-                    });
-                else if (m = /^#style\.(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileExpression<unknown>(attr.value)
-                    });
-                else if (m = /^style\.(.*)$/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileInterpolatedString(attr.value)
-                    });
-                else if (attrName == '+style')
-                    preModifiers.push({
-                        modType: ModifierType.AddToStyle, name: null,
-                        depValue: this.CompileExpression<object>(attr.value)
-                    });
-                else if (m = /^#(.*)/.exec(attrName))
-                    preModifiers.push({
-                        modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
-                        depValue: this.CompileExpression<unknown>(attr.value)
-                    });
-                else if (attrName == "+class")
-                    preModifiers.push({
-                        modType: ModifierType.AddToClassList, name: null,
-                        depValue: this.CompileExpression<object>(attr.value)
-                    });
-                else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) { // *, **, @, @@
-                    const propName = CapitalizeProp(m[3]);
-                    const setter = this.CompileExpression<Handler>(
-                        `function (){let ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
-                    preModifiers.push(
-                        m[1] == '*'
-                        ? { modType: ModifierType.Event, name: null,     depValue: setter, }
-                        : { modType: ModifierType.Prop,  name: propName, depValue: this.CompileExpression<unknown>(attr.value) }
-                    );
-                    preModifiers.push({
-                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
-                    })
-                }
-                else
-                    preModifiers.push({
-                        modType: ModifierType.Attr, name: attrName,
-                        depValue: this.CompileInterpolatedString(attr.value)
-                    });
-            }
-            catch (err) {
-                throw(`[${attrName}]: ${err}`)
-            }
-        }
+        const {preModifiers, postModifiers} = this.CompileAttributes(srcElm);
 
         if (bTrim) this.bTrimLeft = true;
         // Compile the given childnodes into a routine that builds the actual childnodes
@@ -1218,12 +1163,11 @@ class RCompiler {
                     parent.replaceChild(elm, start);
                 }
                 else
-                    elm.className = "";
+                    elm.removeAttribute('class');
             }
-            else {
-                elm = document.createElement(nodeName);
-                parent.insertBefore(elm, start);
-            }
+            else
+                parent.insertBefore(elm = document.createElement(nodeName), start);
+            
             if (lastMarker) {
                 lastMarker.nextM = elm;
                 region.lastMarker = null;
@@ -1297,6 +1241,89 @@ class RCompiler {
 
         builder.bTrim = bTrim;
         return builder;
+    }
+
+    private CompileAttributes(srcElm: HTMLElement) { 
+        const preModifiers = [] as Array<{
+            modType: ModifierType,
+            name: string,
+            depValue: Dependent<unknown>,
+            tag?: string,
+        }>;
+        const postModifiers: typeof preModifiers = [];
+
+        for (const attr of srcElm.attributes) {
+            const attrName = attr.name;
+            let m: RegExpExecArray;
+            try {
+                if (m = /^on(create|update)$/i.exec(attrName))
+                    postModifiers.push({
+                        modType: ModifierType.PseudoEvent, 
+                        name: m[0], 
+                        depValue: this.CompileExpression<Handler>(
+                            `function ${attrName}(){${attr.value}\n}`)
+                    });
+                else if (m = /^on(.*)$/i.exec(attrName))               // Events
+                    preModifiers.push({
+                        modType: ModifierType.Event, 
+                        name: CapitalizeProp(m[0]), 
+                        depValue: this.CompileExpression<Handler>(
+                            `function ${attrName}(event){${attr.value}\n}`)
+                    });
+                else if (m = /^#class:(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Class, name: m[1],
+                        depValue: this.CompileExpression<boolean>(attr.value)
+                    });
+                else if (m = /^#style\.(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression<unknown>(attr.value)
+                    });
+                else if (m = /^style\.(.*)$/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Style, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
+                else if (attrName == '+style')
+                    preModifiers.push({
+                        modType: ModifierType.AddToStyle, name: null,
+                        depValue: this.CompileExpression<object>(attr.value)
+                    });
+                else if (m = /^#(.*)/.exec(attrName))
+                    preModifiers.push({
+                        modType: ModifierType.Prop, name: CapitalizeProp(m[1]),
+                        depValue: this.CompileExpression<unknown>(attr.value)
+                    });
+                else if (attrName == "+class")
+                    preModifiers.push({
+                        modType: ModifierType.AddToClassList, name: null,
+                        depValue: this.CompileExpression<object>(attr.value)
+                    });
+                else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) { // *, **, @, @@
+                    const propName = CapitalizeProp(m[3]);
+                    const setter = this.CompileExpression<Handler>(
+                        `function (){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
+                    preModifiers.push(
+                        m[1] == '*'
+                        ? { modType: ModifierType.Event, name: null,     depValue: setter, }
+                        : { modType: ModifierType.Prop,  name: propName, depValue: this.CompileExpression<unknown>(attr.value) }
+                    );
+                    preModifiers.push({
+                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
+                    })
+                }
+                else
+                    preModifiers.push({
+                        modType: ModifierType.Attr, name: attrName,
+                        depValue: this.CompileInterpolatedString(attr.value)
+                    });
+            }
+            catch (err) {
+                throw(`[${attrName}]: ${err}`)
+            }
+        }
+        return {preModifiers, postModifiers};
     }
 
     private CompileInterpolatedString(data: string, name?: string): Dependent<string> & {isBlank?: boolean} {
@@ -1424,10 +1451,8 @@ class _RVAR<T>{
         private store?: Store,
         private storeName?: string,
     ) {
-        if (name) {
-            //if (name in globalThis) window.alert(`new RVAR('${name}'): '${name}' already exists.`);
-            globalThis[name] = this;
-        }
+        if (name) globalThis[name] = this;
+        
         let s: string;
         if ((s = store?.getItem(`RVAR_${storeName}`)) != null)
             try {
@@ -1515,7 +1540,7 @@ function Abbreviate(s: string, maxLength: number) {
     return s;
 }
 
-function CBool(s: string|boolean, valOnEmpty?: boolean): boolean {
+function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     if (typeof s == 'string')
         switch (s.toLowerCase()) {
             case "yes":
@@ -1558,12 +1583,11 @@ export function* range(from: number, upto?: number, step: number = 1) {
 }
 globalThis.range = range;
 
-export const docLocation = RVAR('docLocation', new URL(document.location.toString()) );
-window.addEventListener('popstate', (event) => {
-    docLocation.V = new URL(document.URL);
-});
-docLocation['set'] = function(url: string, title?: string) {
-    history.pushState(null, title, url);
-    docLocation.V = new URL(document.URL);
+export const docLocation = RVAR<string>('docLocation', document.location.href );
+function SetDocLocation()  { docLocation.V = document.location.href; }
+window.addEventListener('popstate', SetDocLocation );
+export const reroute = globalThis.reroute = (arg: Event | string) => {
+    document.location.href = typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href;
+    SetDocLocation();
     return false;
 }

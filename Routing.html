@@ -3,7 +3,7 @@
         <span class=OtoRed>Routing</span> through the <span class=OtoRed>OtoReact</span> framework
     </pageHead>
     
-<h2>What is routing</h2>
+<h2>What is URL Routing</h2>
     
 <p>
     Web applications often contain multiple pages for different purposes, for example an inventory list, inventory details for each item, a customer list, etc.
@@ -19,6 +19,28 @@ Utilizing separate URLs however has advantages to the user:
 </ol>
 Now, JavaScript has features to simulate different page addresses
 
+<h2>How is URL Routing achieved</h2>
+<ol>
+    <li>
+        The web server may have to be configured to serve the same web application on supported URLs
+    </li>
+    <li>
+        When the application is opened with a specific URL, it has to show the correct page
+    </li>
+    <li>
+        When the user moves to a different page, then:
+        <ol>
+            <li>The page request has to be intercepted, so that the browser does not request a new page from the server</li>
+            <li>The new URL has to be shown in the browser address bar and recorded in browser history</li>
+            <li>The applicaton state has to be modified to show the correct page</li>
+        </ol>
+    </li>
+    <li>
+        When the user hits the browser back or forward button, the browser will automatically update the shown URL, but the application must modify its state to show the corresponding page
+    </li>
+</ol>
+
+<h2>How does OtoReact facilitate URL Routing</h2>
 
 
 </pageLayout>
