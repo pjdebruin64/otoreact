@@ -6,6 +6,7 @@ const defaultSettings = {
     bStripSpaces:   true,   // To do
     bRunScripts:    false,
     bBuild:         true,
+    root:           null as string,
 }
 type FullSettings = typeof defaultSettings
 type Settings = { [Property in keyof FullSettings]+?: FullSettings[Property] }
@@ -15,7 +16,14 @@ export function RCompile(elm: HTMLElement, settings?: Settings) {
 
         const R = RHTML;
         R.Compile(elm, {...defaultSettings, ...settings});
-        R.ToBuild.push({parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), })
+        R.ToBuild.push({parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), });
+
+        if (settings.root) {
+            const m = document.location.pathname.match(`^.*${settings.root}(/|$)`);
+            if (!m)
+                throw `Root pattern ${settings.root} does not match URL pathname ${document.location.pathname}`;
+            globalThis.root = `${document.location.origin}${m[0]}`;
+        }
 
         if (R.Settings.bBuild)
             R.DoUpdate()
@@ -427,9 +435,11 @@ class RCompiler {
                         const bHiding = CBool(srcElm.getAttribute('hiding'));
                         const caseList: Array<{condition: Dependent<boolean>, builder: ElmBuilder, child: HTMLElement}> = [];
                         const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression<boolean>(srcElm, 'cond', true);
+                        const getValue = this.CompileAttributeExpression(srcElm, 'value');
                         const bodyNodes: ChildNode[] = [];
                         const bTrimLeft = this.bTrimLeft;
                         for (const child of srcElm.children as Iterable<HTMLElement>) {
+                            this.bTrimLeft = bTrimLeft;
                             switch (child.nodeName) {
                                 case 'WHEN':
                                     caseList.push({
@@ -447,7 +457,6 @@ class RCompiler {
                                     break;
                                 default: bodyNodes.push(child);
                             }
-                            this.bTrimLeft = bTrimLeft;
                         }
                         if (getCondition)
                             caseList.unshift({
@@ -458,11 +467,12 @@ class RCompiler {
 
                         builder = bHiding
                         ? async function CASE(region) {
+                            // In this CASE variant, all subtrees are kept in place, some are hidden
                             let {start, bInit, env} = PrepareRegion(srcElm, region, null, region.bInit);
                             let result = false;
                             for (const alt of caseList) {
-                                const bHide = result || !alt.condition(region.env);
-                                result ||= !bHide;
+                                const bHidden = result || !alt.condition(region.env);
+                                result ||= !bHidden;
                                 let elm: HTMLElement;
                                 if (!bInit || start == srcElm) {
                                     elm = start as HTMLElement;
@@ -472,13 +482,14 @@ class RCompiler {
                                     region.parent.insertBefore(
                                         elm = document.createElement(alt.child.nodeName),
                                         start);
-                                elm.hidden = bHide;
-                                if (!bHide || bInit)
+                                elm.hidden = bHidden;
+                                if (!bHidden || bInit)
                                     await this.CallWithErrorHandling(alt.builder, alt.child, {parent: elm, start: elm.firstChild, bInit, env} );
                             }
                         
                         }
                         : async function CASE(region) {
+                            // This is the regular CASE
                             let result: typeof caseList[0] = null;
                             for (const alt of caseList)
                                 try {
@@ -1196,13 +1207,11 @@ class RCompiler {
                                 elm.classList.add(attName);
                             break;
                         case ModifierType.Style:
-                            if (val)
-                                elm.style[attName] = val; 
-                            else
-                                delete elm.style[attName];
+                            elm.style[attName] = val || undefined;
                             break;
                         case ModifierType.AddToStyle:
-                            Object.assign(elm.style, val); break
+                            Object.assign(elm.style, val);
+                            break;
                         case ModifierType.AddToClassList:
                             if (Array.isArray(val))
                                 for (const className of val as string[])
@@ -1587,7 +1596,7 @@ export const docLocation = RVAR<string>('docLocation', document.location.href );
 function SetDocLocation()  { docLocation.V = document.location.href; }
 window.addEventListener('popstate', SetDocLocation );
 export const reroute = globalThis.reroute = (arg: Event | string) => {
-    document.location.href = typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href;
+    history.pushState(null, null, typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href );
     SetDocLocation();
     return false;
 }

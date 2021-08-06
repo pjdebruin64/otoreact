@@ -50,7 +50,9 @@ const sampleSqrt=
 <button onclick="x.V += 1">Increment</button>`;
 
 const sampleInlineStyles=
-`<define var=color value="'red'"></define>
+`<p style.backgroundColor=lightgrey> Light grey </p>
+
+<define var=color value="'red'"></define>
 <p #style.backgroundColor="color"> Colored </p>
 
 <define var=myStyle 

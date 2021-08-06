@@ -4,6 +4,7 @@ declare const defaultSettings: {
     bStripSpaces: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
+    root: string;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = {

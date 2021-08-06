@@ -14,7 +14,6 @@
     background-color: rgb(225, 255, 181); min-width:375px;
     }
 .sourcecode {
-    display: block;
     padding: 4px 8px;
     border: var(--RedBorder);
     width: fit-content;
@@ -22,20 +21,13 @@
 section     {
     content-visibility: auto;
 }
-pre.sourcecode {
-    margin: 2ex auto;
-}
-span.sourcecode, code.sourcecode {
-    display: inline-block;
-    font-family: 'Lucida Console', monospace;
-    font-size: 90%;
-}
+pre { margin: 1ex 2ex}
 pre.sourcecode { margin: 1ex 2ex;}
-code, elm, .sourcecode {
+pre, code, elm, .sourcecode {
     color: darkblue;
     background-color: rgb(245, 245, 245);
     font-family: 'Lucida Console', monospace;
-    font-size: 90%;
+    font-size: smaller;
 }
 elm::before{
     content: "<";
@@ -59,3 +51,9 @@ h1:not(:first-of-type) {
     padding-top: 2ex;
     border-top: double;
 }
+
+@page {
+    @bottom-left {
+         content: "Page";
+     }
+  }

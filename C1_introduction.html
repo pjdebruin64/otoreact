@@ -63,7 +63,7 @@
     </li>
 </ol>
 Both code lines can either be placed right into you HTML file:
-<pre class=sourcecode>
+<pre>
 <{}script type=module>
     import \{ RCompile } from './OtoReact.js';
     RCompile( document.body );
@@ -72,9 +72,10 @@ Both code lines can either be placed right into you HTML file:
 , or inside a JavaScript (or TypeScript) module you load from your HTML file.
 
 <p>You may also want to hide all or part of your application until it has loaded, e.g. by using:
-<pre class="sourcecode">
-    <{}body style="display:none" onload="document.body.style.display='';">
+<pre>
+    <{}body hidden>
 </pre>
+; <code>RCompile</code> will unhide its argument after it has been built.
 
 
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
@@ -158,7 +159,7 @@ The question marks indicate optional arguments.
     <br>The created RVAR is returned and may be stored in a local variable.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
-    <pre class=sourcecode>
+    <pre>
 <{}script type=module>
     const A = RVAR('B');
     &hellip;</pre>
@@ -233,21 +234,21 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <ul>
             <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
                 <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
-                <pre class=sourcecode><{}table>
+                <pre><{}table>
     <{}for let=x #of=&hellip;>
         <{}tr> &hellip; \{x} &hellip; <{}/tr>
     <{}/for>
 <{}/table></pre>
                 , then the parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
-<pre class=sourcecode><{}for let=x #of=&hellip;>
+<pre><{}for let=x #of=&hellip;>
 <{}/for>
 <{}table>
     <{}tr> &hellip; \{x\}&hellip; <{}/tr>
 <{}/table></pre>
                 , and may give a misleading error about <code>x</code> being undefined.
                 <br>To get the loop right, OtoReact allows you to put a dot after any tag name, so the parser won't interfere:
-<pre class=sourcecode><{}table.>
+<pre><{}table.>
     <{}for let=x #of=&hellip;>
         <{}tr.> &hellip; \{x\} &hellip; <{}/tr.>
     <{}/for>
@@ -257,9 +258,9 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
                 <br>Thus, if you write
-                <pre class=sourcecode><{}p> &hellip; <{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
+                <pre><{}p> &hellip; <{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
                 , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
-<pre class=sourcecode><{}p> &hellip; <{}if &hellip;><{}/if><{}/p>
+<pre><{}p> &hellip; <{}if &hellip;><{}/if><{}/p>
 <{}ul> &hellip; <{}/ul></pre>
                 To avoid this, make a habit of always closing all elements.
             </li>

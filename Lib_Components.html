@@ -4,7 +4,8 @@
         <content></content>
     </a>
     <template><a. #href="href" #download="download" #title="title" #onclick=onclick
-        #target="!target && /^http/i.test(href) ? '_blank' : target"
+        #target="!target && /^http/i.test(href) && !href.startsWith(root) ? '_blank' : target"
+        #style.fontWeight="href == `${document.location.origin}${document.location.pathname}` && 'bold' "
         ><content></content></a.
     ></template>
 </component>
@@ -100,12 +101,13 @@
             margin: 4px auto;
         }
         div.pageLayout > *{
-            padding: 8px 4px;
             box-shadow:0 0 0 4px lightgray;
+            padding: 8px 4px;
         }
         div.pageLayout > header    { 
             grid-row: 1;
-            display: grid; grid-template-columns: 1fr auto auto; align-items: center;
+            display: grid; grid-template-columns: 1fr auto auto; align-items: stretch;
+            padding: 8px;
         }
         div.pageLayout > nav {
             grid-row: 2;
@@ -113,11 +115,13 @@
             columns: 250px;
             line-height: 1.4;
         }
-        div.pageLayout > nav > div {
+        div.pageLayout > nav > a {
+            display: block;
+            border: none;
             padding-left: 18pt;
             text-indent: -18pt;
         }
-        div.pageLayout > nav > div.chapter {
+        div.pageLayout > nav > a.chapter {
             margin-top: 1.5ex; margin-bottom: .75ex;
             font-weight: bold;
         }
@@ -125,10 +129,12 @@
             grid-row: 3;
         }
         
+
         @media screen and (min-width: 1250px) {
             div.pageLayout  {
                 grid-template-columns: 300px 1fr;
                 grid-template-rows: min-content 1fr;
+                min-width: 980px;
                 max-width: 1430px;
             }
             div.pageLayout > *{
@@ -147,6 +153,23 @@
                 overflow-y: scroll;
             }            
         }
+
+
+        nav.topbar {
+            display: flex;
+            padding: 1px
+        }
+        nav.topbar > * {
+            padding: 6px 12px;
+            text-align: center;
+            min-width: 100px;
+            border: solid var(--OtoRed) 2px;
+            background-color: rgb(233, 233, 233);
+            margin: -1px;
+        }
+        @media not screen {
+            nav.topbar {display: none}
+        }
     </style>
 
     <template>
@@ -161,18 +184,23 @@
                 )(); // Call immediately"
         >
             <header>
-                    <div>
-                        <p style="font-size: 240%; font-weight: bold; padding-left:2ex; padding-bottom: .5ex;">
+                    <div style="display:grid; grid-template-rows: 1fr min-content; align-items: center; padding-left: 40px">
+                        <p style="font-size: 240%; font-weight: bold; padding-bottom: .5ex;">
                             <pageHead></pageHead>
                         </p>
+                        <nav class=topbar>
+                            <a href="{root}"           #onclick=reroute>Home</a>
+                            <a href=""      style.color=grey>Components</a>
+                            <a href="{root}Routing"    #onclick=reroute>Routing</a>
+                        </nav>
                     </div>
-                    <div style='text-align: right; align-self: start; padding-right: 1ex;'>
+                    <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
                         Created by <a href="http://www.peterdebruin.net">Peter J. de Bruin</a>.
                         <p>Made possible by:
                     </div>
                     <div>
                         <a href="https://www.otolift.com">
-                            <img src="KoninklijkeOtolift.png" style="height:106px; object-fit:contain"
+                            <img src="KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
                                 alt="Otolift Stairlifts" title="Otolift Stairlifts,{'\n'}The Netherlands"
                             >
                         </a>
@@ -183,9 +211,10 @@
                     <b><i>Table of contents</i></b>
                 </center>
                 <for let=item #of=C.contents.V reacton=C.contents>
-                    <div #class:chapter="item.level == 0">
-                        <a. href="#{item.id}">{item.text}</a.>
-                    </div>
+                    <a. #class:chapter="item.level == 0"
+                        href="#{item.id}">
+                        {item.text}
+                    </a.>
                 </for>
             </nav>
             <main>

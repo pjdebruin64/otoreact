@@ -4,12 +4,19 @@ const defaultSettings = {
     bStripSpaces: true,
     bRunScripts: false,
     bBuild: true,
+    root: null,
 };
 export function RCompile(elm, settings) {
     try {
         const R = RHTML;
         R.Compile(elm, { ...defaultSettings, ...settings });
         R.ToBuild.push({ parent: elm, start: elm.firstChild, bInit: true, env: NewEnv(), });
+        if (settings.root) {
+            const m = document.location.pathname.match(`^.*${settings.root}(/|$)`);
+            if (!m)
+                throw `Root pattern ${settings.root} does not match URL pathname ${document.location.pathname}`;
+            globalThis.root = `${document.location.origin}${m[0]}`;
+        }
         if (R.Settings.bBuild)
             R.DoUpdate()
                 .then(() => elm.hidden = false);
@@ -312,9 +319,11 @@ class RCompiler {
                             const bHiding = CBool(srcElm.getAttribute('hiding'));
                             const caseList = [];
                             const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression(srcElm, 'cond', true);
+                            const getValue = this.CompileAttributeExpression(srcElm, 'value');
                             const bodyNodes = [];
                             const bTrimLeft = this.bTrimLeft;
                             for (const child of srcElm.children) {
+                                this.bTrimLeft = bTrimLeft;
                                 switch (child.nodeName) {
                                     case 'WHEN':
                                         caseList.push({
@@ -332,7 +341,6 @@ class RCompiler {
                                         break;
                                     default: bodyNodes.push(child);
                                 }
-                                this.bTrimLeft = bTrimLeft;
                             }
                             if (getCondition)
                                 caseList.unshift({
@@ -345,8 +353,8 @@ class RCompiler {
                                     let { start, bInit, env } = PrepareRegion(srcElm, region, null, region.bInit);
                                     let result = false;
                                     for (const alt of caseList) {
-                                        const bHide = result || !alt.condition(region.env);
-                                        result || (result = !bHide);
+                                        const bHidden = result || !alt.condition(region.env);
+                                        result || (result = !bHidden);
                                         let elm;
                                         if (!bInit || start == srcElm) {
                                             elm = start;
@@ -354,8 +362,8 @@ class RCompiler {
                                         }
                                         else
                                             region.parent.insertBefore(elm = document.createElement(alt.child.nodeName), start);
-                                        elm.hidden = bHide;
-                                        if (!bHide || bInit)
+                                        elm.hidden = bHidden;
+                                        if (!bHidden || bInit)
                                             await this.CallWithErrorHandling(alt.builder, alt.child, { parent: elm, start: elm.firstChild, bInit, env });
                                     }
                                 }
@@ -957,10 +965,7 @@ class RCompiler {
                                 elm.classList.add(attName);
                             break;
                         case ModifierType.Style:
-                            if (val)
-                                elm.style[attName] = val;
-                            else
-                                delete elm.style[attName];
+                            elm.style[attName] = val || undefined;
                             break;
                         case ModifierType.AddToStyle:
                             Object.assign(elm.style, val);
@@ -1268,7 +1273,7 @@ export const docLocation = RVAR('docLocation', document.location.href);
 function SetDocLocation() { docLocation.V = document.location.href; }
 window.addEventListener('popstate', SetDocLocation);
 export const reroute = globalThis.reroute = (arg) => {
-    document.location.href = typeof arg == 'string' ? arg : arg.target.href;
+    history.pushState(null, null, typeof arg == 'string' ? arg : arg.target.href);
     SetDocLocation();
     return false;
 };

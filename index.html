@@ -3,7 +3,7 @@
     <meta charset="utf-8">
     <title>The OtoReact framework</title>
     <link rel=preload href="Otoreact.js"            as=script >
-    <link rel=preload href="Components.html"        as=fetch crossorigin>
+    <link rel=preload href="Lib_Components.html"        as=fetch crossorigin>
     <link rel="shortcut icon" href="OtoReact.png" type="image/png"/>
     <link rel="stylesheet" href="index.css">
     <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
@@ -20,6 +20,16 @@
         const wikipedia = "https://en.wikipedia.org/wiki/",
             MDN="https://developer.mozilla.org/en-US/docs/";
     </script>
+    
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-T23W7PMPX4');
+    </script>
+
     <script src="samples.js" defer></script>
     <script type=module>
         msg('Document parsed');
@@ -31,14 +41,14 @@
         delete globalThis.XMLHttpRequest;
         delete globalThis.import;
         
-        RCompile(document.body);
+        RCompile(document.body, {root: '\\/otoreact'});
         document.body.hidden = false;
         msg('Document compiled');
     </script>
 </head>
 <body hidden onload="msg('All loaded');">
 
-<import src="Components.html">
+<import src="Lib_Components.html">
     <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
     <a href #target? download? title? onclick?><content></content></a>
     <!-- Component to demonstrate RHTML -->
