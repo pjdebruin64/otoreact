@@ -24,11 +24,11 @@
         <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
     </li>
     <li>
-        Scripts included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, or with a <code>nomodule</code> attribute, work still different.
-        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during compilation in <a href="{MDN}">strict mode</a>.
+        Scripts included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, with a <code>nomodule</code> attribute, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
+        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during compilation in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a>.
         <br>That means that OtoReact functions are available, names are not automatically global, but module functionality like <code>import</code> is not available, not even when you add <code>type=module</code>.
         <p>
-            In this case, OtoReact will also look for an attribute <elm>SCRIPT defines="<i>nameList</i>"</elm>, specifying a comma-separated list of names defined inside the script.
+            In this case, OtoReact will also look for an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script.
             <br>OtoReact will make these names available to your RHTML code.
             <br>(Currently as global names, later on as local variables.)
         </p>
@@ -47,15 +47,16 @@
     <br><code>eval</code> is redefined to access the global environment only.
 </p>
 
-<h2>Routing</h2>
-
-<a href="./Routing" #onclick=reroute>Routing through the OtoReact framework</a>
+<h2>URL Routing</h2>
+"URL routing" is about routing different URLs to seemingly different pages <i>without requesting them from the server</i>.
+<br>
+<a href="{RootPath}routing" #onclick=reroute>This routed page</a> tells you all about it.
 
 <h2>Options ...</h2>
 
 <h2>Playground</h2>
 Here you have a playground to enter your own Reactive HTML.
 <p>
-    All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and will be available when you return to this page.
+    All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
 </p>
 <demo name=Playground #store=localStorage content></demo>

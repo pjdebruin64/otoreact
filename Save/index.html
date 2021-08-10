@@ -490,7 +490,7 @@ I imagine Reactive HTML one day being natively supported by the browser. In that
 <h3>DOM properties</h3>
 <p>
     The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
-    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <span class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</span>
+    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
 </p>
 <p>
     Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
@@ -510,21 +510,21 @@ DOM properties are not static but can change. RHTML allows output and two-way bi
 <br>Assignable expressions are global variables, array elements, and object properties, including RVAR values.
 <br>These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>
 <dl>
-    <dt><span class=sourcecode>@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dt><code class=sourcecode>@<i>propertyName</i>="<i>expression</i>"</code></dt>
     <dd>
         The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/input_event">input event</a>.
         <br>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
     </dd>
-    <dt><span class=sourcecode>@@<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dt><code class=sourcecode>@@<i>propertyName</i>="<i>expression</i>"</code></dt>
     <dd>
         The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/change_event">change event</a>.
         <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.</dd>
-    <dt><span class=sourcecode>*<i>propertyName</i>="<i>expression</i>"</span>
+    <dt><code class=sourcecode>*<i>propertyName</i>="<i>expression</i>"</code>
     </dt>
     <dd>
         The property is left unchanged, but the expression receives the value of the property at element creation and at every input event.
     </dd>
-    <dt><span class=sourcecode>**<i>propertyName</i>="<i>expression</i>"</span></dt>
+    <dt><code class=sourcecode>**<i>propertyName</i>="<i>expression</i>"</code></dt>
     <dd>
         The property is left unchanged, but the expression receives the value of the property at element creation and at every change event.
     </dd>

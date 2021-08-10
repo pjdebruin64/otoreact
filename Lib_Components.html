@@ -1,27 +1,33 @@
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? download? title? onclick?>
+    <a href #target? ...rest>
         <content></content>
     </a>
-    <template><a. #href="href" #download="download" #title="title" #onclick=onclick
-        #target="!target && /^http/i.test(href) && !href.startsWith(root) ? '_blank' : target"
-        #style.fontWeight="href == `${document.location.origin}${document.location.pathname}` && 'bold' "
+    <template><a. #href="href" ...rest
+        #target="!target && /^http/i.test(href) ? '_blank' : target"
+        #style.fontWeight="href == document.location.pathname ? 'bold' : null"
         ><content></content></a.
     ></template>
 </component>
     
 <!-- Component to demonstrate RHTML -->
 <component>
-    <demo content #bshow=true name? #store?></demo>
+    <demo content #bshow=true name? #store? #editable=true></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script type=module>
+    <script nomodule defines=ColorCode>
         const mapping = {'<': '&lt;', '&': '&amp;'};
-        globalThis.ColorCode = 
         function ColorCode(html) {
             return html.replace(
                     /[<&]/g, c => mapping[c]
                 ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
         }
+        const orgFetch = globalThis.fetch;
+        globalThis.fetch = function(url) {
+            if (url != "webColors.json") throw 'fetch is not allowed';
+            return orgFetch(url);
+        }
+        delete globalThis.XMLHttpRequest;
+        delete globalThis.import;
     </script>
 
     <style>
@@ -40,17 +46,19 @@
     </style>
     
     <template>
-        <define var=MyRVAR value="RVAR(name, content.match(/^\s*(.*?)\s*$/s)[1], store)"></define>
-        <define rvar=rShow  value="bshow"></define>
+        <define var=MyRVAR #value="RVAR(name, content.match(/^\s*(.*?)\s*$/s)[1], store)"></define>
+        <define rvar=rShow  #value="bshow"></define>
         <table. class=demo>
             <tr.><th.>
                 <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                Editable source code
-            </th.><th.>Live result</th.></tr.>
+                <if #cond=editable>Editable</if> Source Code
+            </th.><th.><if #cond=editable>Live</if> Result</th.></tr.>
             <tr.>
                 <td.>
-                    <pre #class:nodisplay="!rShow.V" reactOn=rShow
-                    contenteditable=true spellcheck=false #innerHTML="ColorCode(MyRVAR.V)" *innerText="MyRVAR.V"></pre>
+                    <pre #class:nodisplay="!rShow.V" reactOn=rShow style.margin="0px"
+                        #contenteditable="editable.toString()" spellcheck=false 
+                        #innerHTML="ColorCode(MyRVAR.V)" 
+                        *innerText="MyRVAR.V"></pre>
                 </td.>
                 <td.><div>
                     <RHTML reacton=MyRVAR>
@@ -112,8 +120,9 @@
         div.pageLayout > nav {
             grid-row: 2;
             font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-            columns: 250px;
-            line-height: 1.4;
+            columns: 15em;
+            font-size: 92.5%;
+            line-height: 1.25;
         }
         div.pageLayout > nav > a {
             display: block;
@@ -132,7 +141,7 @@
 
         @media screen and (min-width: 1250px) {
             div.pageLayout  {
-                grid-template-columns: 300px 1fr;
+                grid-template-columns: 16em 1fr;
                 grid-template-rows: min-content 1fr;
                 min-width: 980px;
                 max-width: 1430px;
@@ -167,13 +176,13 @@
             background-color: rgb(233, 233, 233);
             margin: -1px;
         }
-        @media not screen {
+        @media print {
             nav.topbar {display: none}
         }
     </style>
 
     <template>
-        <def var=C value="new pageLayout()"></def>
+        <def var=C #value="new pageLayout()"></def>
         <div class=pageLayout
             onCreate="
                 const screenOnly = window.matchMedia('screen');
@@ -185,13 +194,13 @@
         >
             <header>
                     <div style="display:grid; grid-template-rows: 1fr min-content; align-items: center; padding-left: 40px">
-                        <p style="font-size: 240%; font-weight: bold; padding-bottom: .5ex;">
+                        <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">
                             <pageHead></pageHead>
                         </p>
                         <nav class=topbar>
-                            <a href="{root}"           #onclick=reroute>Home</a>
+                            <a href="{RootPath}"           #onclick=reroute>Home</a>
                             <a href=""      style.color=grey>Components</a>
-                            <a href="{root}Routing"    #onclick=reroute>Routing</a>
+                            <a href="{RootPath}routing"    #onclick=reroute>Routing</a>
                         </nav>
                     </div>
                     <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
@@ -200,7 +209,7 @@
                     </div>
                     <div>
                         <a href="https://www.otolift.com">
-                            <img src="KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
+                            <img src="{RootPath}KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
                                 alt="Otolift Stairlifts" title="Otolift Stairlifts,{'\n'}The Netherlands"
                             >
                         </a>
@@ -208,7 +217,7 @@
             </header>
             <nav>
                 <center>
-                    <b><i>Table of contents</i></b>
+                    <b><i>Table of Contents</i></b>
                 </center>
                 <for let=item #of=C.contents.V reacton=C.contents>
                     <a. #class:chapter="item.level == 0"
@@ -220,11 +229,11 @@
             <main>
                 <content>
                     <h1 id>
-                        <def var=nr value="C.getNr(0)"></def>
+                        <def var=nr #value="C.getNr(0)"></def>
                         <h1. #id="id||'s'+nr" onCreate="C.addContent(0, this)">{nr} &nbsp;<content></content></h1.>
                     </h1>
                     <h2 id>
-                        <def var=nr value="C.getNr(1)"></def>
+                        <def var=nr #value="C.getNr(1)"></def>
                         <h2. #id="id||'s'+nr" onCreate="C.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                     </h2>
                 </content>

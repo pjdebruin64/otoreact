@@ -4,7 +4,7 @@ declare const defaultSettings: {
     bStripSpaces: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
-    root: string;
+    rootPattern: string;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = {
@@ -90,15 +90,15 @@ declare class RCompiler {
     private ParseSignature;
     private CompileComponent;
     private AnalyseComponent;
-    private CreateComponentVars;
-    private CompileSlotInstance;
     private CompileConstructTemplate;
     private CompileConstructInstance;
     private CompileHTMLElement;
     private CompileAttributes;
     private CompileInterpolatedString;
     private CompileAttributeExpression;
+    private CompileAttribute;
     private CompileExpression;
+    private CompileName;
 }
 interface Store {
     getItem(key: string): string | null;

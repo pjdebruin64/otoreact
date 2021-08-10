@@ -12,11 +12,62 @@ const sampleGreeting=
     </p>
 </if>`;
 
+const sampleServerData =
+`<script nomodule defines="ColorTable,toHex" >
+  // Here we store the data. Columns are:
+  // name:string, red:number, green:number, blue:number.
+  const ColorTable = RVAR('', []);
+
+  /* Fetch the data! */
+  fetch("webColors.json").then(async response => {
+      if (response.ok)
+          ColorTable.V = JSON.parse(await response.text());
+  });
+
+  /* Utility for 2-digit hex code */
+  function toHex(n){ 
+    return n.toString(16).toUpperCase().padStart(2,'0');
+  }
+</script>
+
+<style> /* Styling */
+  table.colorTable td {
+    padding: 0px 4px;
+    text-align: center;
+    max-width: 8em; overflow:hidden;    
+  }
+</style>
+
+<div style="height:50ex; overflow-y:scroll;">
+  <!-- Now we build our table! 
+    The dots are needed because HTML does not allow <FOR> as a
+    child of <TABLE>. OtoReact removes them. -->
+  <table. class=colorTable>
+    <caption.>Web Colors</caption.>
+    <tr.>
+      <th.>Name</th.>
+      <th.>R</th.><th.>G</th.><th.>B</th.>
+      <th.>Hex</th.>
+    </tr.>
+    <FOR let=C of="ColorTable.V" reacton=ColorTable>
+      <tr. 
+           style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+           #style.color="C.green<148 ? 'white' : 'black'">
+        <td.>{C.name}</td.>
+        <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
+        <td.>
+          #{toHex(C.red) + toHex(C.green) + toHex(C.blue)}
+        </td.>
+      </tr.>
+    </FOR>
+  </table.>
+</div>`;
+
 const sampleBraces =
 `1 + 1 = {1 + 1}
 \\{ Check this }
-<br>To show an HTML tag, <{}br> looks better in
-<br>source code than &lt;br&gt;`;
+<br>Tag <{}br> looks better in
+source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
 `<script type=module>
@@ -42,7 +93,7 @@ const sampleGreeting2 =
 </if>`;
 
 const sampleSqrt=
-`<define rvar=x value=2></define>
+`<define rvar=x #value=2></define>
 <p  title="sqrt({x.V}) = {Math.sqrt(x.V)}"
 >
     What is sqrt({x.V})? Check the tooltip.
@@ -52,17 +103,17 @@ const sampleSqrt=
 const sampleInlineStyles=
 `<p style.backgroundColor=lightgrey> Light grey </p>
 
-<define var=color value="'red'"></define>
+<define var=color value="red"></define>
 <p #style.backgroundColor="color"> Colored </p>
 
 <define var=myStyle 
-  value="{color: 'blue',fontStyle: 'italic'}"
+  #value="{color: 'blue',fontStyle: 'italic'}"
 ></define>
 <p +style="myStyle">My style</p>`;
 
 const sampleParticipants=
 `<!-- Here we use a local RVAR -->
-<define rvar=Participants value="['Joe', 'Mary', 'Eileen']"></define>
+<define rvar=Participants #value="['Joe', 'Mary', 'Eileen']"></define>
 
 <p><b>Participants:</b></p>
 <ul>
@@ -84,13 +135,13 @@ const sampleParticipants=
 </p>`;
 
 const sampleTODO=
-`<script type=module>
+`<script nomodule defines=AddItem>
     // Define the data model of our todo list
     let TODO = RVAR('TODO',
         [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
     );
     // Adding an item
-    globalThis.AddItem = function(inputElement) {
+    function AddItem(inputElement) {
         if (inputElement.value) {
             TODO.U.push( [inputElement.value, false] );
             inputElement.value = '';
@@ -166,11 +217,25 @@ const sampleRecursion=
 </component>   
 
 <define rvar=list 
-value="'[1, [2,3,4], [[41,42],5], \\'Otolift\\' ]'"
-store=sessionStorage></define>
+    value="[1, [2,3,4], [[41,42],5], 'Otolift']"
+    store=sessionStorage
+></define>
 <p>JavaScript list: <input type=text @value="list.V" size=40></p>
 <showList #arg="eval(list.V)"></showList>
 <p>You can modify the list definition above and see the result.</p>`;
+
+const sampleRedefineA =
+`<component>
+<a href #target? ...rest><content></content></a>
+<template><a. #href="href"
+    #target="!target && /^http/i.test(href) ? '_blank' : target"
+    ...rest
+    ><content></content></a.
+></template>
+</component>
+
+This link opens in a blank window:
+<a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
 
 const sampleTableMaker =
 `<component>
@@ -198,15 +263,15 @@ const sampleTableMaker =
 </component>
 
 <!-- Some data -->
-<script>
-    globalThis.data = [
+<script nomodule defines=tableData>
+    const tableData = [
         {name:'Piet', age:18}, 
         {name:'Tine', age:19}
     ];
 </script>
 
 <!-- Now the actual table definition: -->
-<tablemaker #datasource='globalThis.data'>
+<tablemaker #datasource='tableData'>
     <!-- First column -->
     <HDEF>Naam</HDEF>
     <DDEF item>{item.name}</DDEF>
@@ -276,7 +341,7 @@ let sampleTicTacToe =
         <b>Tic-Tac-Toe</b>
     </div>
 
-    <define var=T value="new TicTacToe()"></define>
+    <define var=T #value="new TicTacToe()"></define>
     <table. class=tic-tac-toe reacton=T.board
             style="width: 110pt; margin:1ex">
         <for let=row #of="T.board.V">

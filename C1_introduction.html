@@ -18,7 +18,7 @@
     <li>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, or <i>anything</i>.
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
-    <li>Reactive HTML makes it easy to build dynamic <a href="">web pages based on server data</a>, even if no reactivity is needed.
+    <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wikipedia}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
     <li>Reactive HTML has a powerful component system, <a. href="./Routing" #onclick="reroute">URL routing</a.>, pretty much everything you need.
 </ul>
@@ -26,6 +26,9 @@
     The tiny example above is the result of the following piece of Reactive HTML:
 </p>
 <pre class=sourcecode #innerText=sampleGreeting></pre>
+
+<p id=colorTable>Here an example of building a dynamic table based on data:</p>
+<demo #content="sampleServerData" #bShow=false #editable=false></demo>                                
 
 <p>
     There exist quite a number of alternative libraries and frameworks to make it easier to build reactive web applications. I distinguish two main categories:
@@ -38,7 +41,7 @@
     </li>
     <li>
         Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains the data model and data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
-        <br>You don't need write code to manipulate the DOM at all anymore; this is done by the framework.
+        <br>You don't need to write code to manipulate the DOM at all anymore; this is done by the framework.
         <br>The source code files have to be compiled on you development machine. You need to install the compiler, and quite some modules for each application (which for Angular may take more than 1GB per application).
     </li>
 </ol>

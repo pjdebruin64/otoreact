@@ -7,39 +7,45 @@
     
 <p>
     Web applications often contain multiple pages for different purposes, for example an inventory list, inventory details for each item, a customer list, etc.
-    <br>A traditional <i>server-side</i> web application utilizes <i>different</i> URLs (page addresses in the navigation bar) to navigate between different pages. 
-    <br>A single <i>client-side</i> web application can blazingly fast provide all these pages by changing its internal state without using different URLs.
-    <br>Actually, as the application is fetched as a single document from the server, it natively has just a <i>single</i> URL.
+    
+<p>
+    A traditional <i>server-side</i> web application utilizes <i>different URLs</i> (page addresses in the navigation bar) to navigate between different pages. 
+<p>
+    A single <i>client-side</i> web application can blazingly fast provide all these pages by changing its internal state without using different URLs.
+    <br>Actually, as the application is fetched as a single document from the server, it natively <i>has</i> just a <i>single URL</i>.
 </p>
-Using separate URLs however has advantages to the user:
+However, utilizing separate URLs has advantages to the user:
 <ol>
     <li>Pages can be individually linked, saved as bookmarks, shared by email or social media, etc.
     <li>The application can be refreshed while staying at the same page
-    <li>The browsers back and forward buttons can be used to navigate between pages
+    <li>The browsers back and forward buttons can be used to navigate back and forth
 </ol>
-Now, JavaScript has features to simulate different page addresses
+Now, <i>URL routing</i> means routing different URLs to seemingly different pages, while in the background remaining in one and the same (single page) application.
+<p>
+    This page itself is presented to you using URL routing. You can quickly move back and forth without anything being fetched from the server, not even from cache.
+</p>
 
 <h2>How is URL Routing achieved</h2>
 <ol>
     <li>
-        The web server may have to be configured to serve the same web application on all supported URLs
+        The web server may have to be configured to serve the same web application on different URLs
     </li>
     <li>
-        When the application is opened with a specific URL, it has to show the correct page
+        When the application is opened with a specific URL, it has to "route" the URL to the correct page definition
     </li>
     <li>
-        When the user moves to a different page, then:
+        When the user clicks on a link to a different internal page, then:
         <ol>
             <li>The page request has to be intercepted, so that the browser does not request a new page from the server</li>
+            <li>The application state has to be modified to show the correct page</li>
             <li>The new URL has to be shown in the browser address bar and recorded in browser history</li>
-            <li>The applicaton state has to be modified to show the correct page</li>
         </ol>
     </li>
     <li>
         When the user hits the browser back or forward button, the browser will automatically update the shown URL, but the application must modify its state to show the corresponding page
     </li>
     <li>
-        Relative URLs within the application become troublesome and are best avoided, as they depend on the current page URL.
+        Relative links on the page may have be avoided, as they depend on the current URL
     </li>
 </ol>
 

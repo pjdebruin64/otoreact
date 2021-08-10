@@ -4,6 +4,12 @@
     --RedBorder: solid 2px var(--OtoRed);
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
+    font-size: 12pt;
+}
+@media not screen and (hover: hover) {
+    body {
+        font-size: 18pt;
+    }
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {
@@ -21,20 +27,15 @@
 section     {
     content-visibility: auto;
 }
-pre { margin: 1ex 2ex}
-pre.sourcecode { margin: 1ex 2ex;}
-pre, code, elm, .sourcecode {
+pre { margin: 1ex 2ex; font-size: 10pt;}
+pre, code, elm {
     color: darkblue;
     background-color: rgb(245, 245, 245);
     font-family: 'Lucida Console', monospace;
-    font-size: smaller;
 }
-elm::before{
-    content: "<";
-}
-elm::after{
-    content: ">";
-}
+code, elm   { font-size: 11pt; }
+elm::before { content: "<"; }
+elm::after  { content: ">"; }
 
 dt  {margin-left:2ex; margin-top: 1ex; }
 dd  {margin-left:6ex}
@@ -51,9 +52,3 @@ h1:not(:first-of-type) {
     padding-top: 2ex;
     border-top: double;
 }
-
-@page {
-    @bottom-left {
-         content: "Page";
-     }
-  }

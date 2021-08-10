@@ -1,14 +1,16 @@
 <h1>RHTML Construct Details</h1>
 
-N.B. All construct attributes which must be JavaScript expressions, like <code>value</code>, <code>cond</code>, and <code>of</code>, may be prefixed with a hash mark: <code>#value</code>, <code>#cond</code>, <code>#of</code>.
+N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
-<h2 id=define>&lt;DEFINE var value&gt;, Local Variables</h2>
+<h2 id=define>&lt;DEFINE var #value&gt;, Local Variables</h2>
 <pre class=sourcecode>
-<elm>DEFINE var=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm>
+<elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
 <p>
     introduces a local <u>immutable</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>Alternatively, one can give an interpolated string: <code>value="<i>string</i>"</code>.
+    So for an expression, the '<code>#</code>' is required.
     <br>The variable is visible in all local expressions from the <elm>/DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
     <br>It cannot be assigned to, but when its value is an RVAR or some other object, then one can of course modify its properties.
 </p>
@@ -16,10 +18,10 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
     <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
 </p>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> value="<i>expression</i>"</elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
-    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> value="RVAR(null, <i>expression</i>)"</elm><elm>/DEFINE</elm></code>.
+    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>)"</elm><elm>/DEFINE</elm></code>.
 </p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
@@ -28,13 +30,13 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
     Local variable names (including loop variables and component parameters) obey strict <a href="{wikipedia}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
 <demo content=
-"<def var=a value=&quot;10&quot;></def>
-<def var=f value=&quot;(x) => a+x&quot;></def>
+"<def var=a #value=&quot;10&quot;></def>
+<def var=f #value=&quot;(x) => a+x&quot;></def>
 
 <p> \{a}, \{f(1)} </p>
 
 <p>
-    <def var=a value=20></def>
+    <def var=a #value=20></def>
     \{a}, \{f(2)}
 </p>
 
@@ -42,10 +44,10 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 ></demo>
 
 <h2>&lt;IF cond&gt; &lt;ELSE&gt;</h2>
-<pre class=sourcecode><elm>IF cond="<i>expr</i>"</elm> 
-    <i>ThenPart</i> 
-    &lt;ELSE&gt; <i>ElsePart</i> &lt;/ELSE&gt;
-&lt;/IF&gt;
+<pre class=sourcecode><{}IF cond="<i>expr</i>">
+    <i>ThenPart</i>&nbsp; 
+    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
+<{}/IF>
 </pre> is a conditional trunk of RHTML.
 <ul>
     <li>
@@ -59,9 +61,9 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>v
 <h2>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h2>
 <pre class=sourcecode>
 &lt;CASE&gt;
-    <elm>WHEN cond="<i>expr</i>"</elm> <i>WhenPart</i> &lt;/WHEN&gt;
+    &lt;WHEN cond="<i>expr</i>"&gt; <i>WhenPart</i> &lt;/WHEN&gt;
     &hellip;
-    &lt;ELSE?&gt; <i>ElsePart</i> &lt;/ELSE&gt;
+    &lt;ELSE<i>?</i>&gt; <i>ElsePart</i> &lt;/ELSE&gt;
 &lt;/CASE&gt;
 </pre>
 <ul>
@@ -101,14 +103,14 @@ Further on, <elm>FOR</elm> can have the following attributes:
     <dt><code>index=<i>indexName</i></code></dt>
     <dd>
         When present, <i>indexName</i> becomes a local variable bound to the zero-based index number: 0 for the first item, 1 for the second, and so on.
-        <br>When <i>indexName</i> is omitted, then 'index' is assumed.
+        <br>When <code>index</code> is present but <i>indexName</i> omitted, then <code>index='index'</code> is assumed.
     </dd>
 
     <dt><code>previous=<i>prevName</i></code></dt>
     <dd>
         When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>null</code> for the first item.
         <br>This allows one to easily check for changing properties within the iteration.
-        <br>When <i>prevName</i> is omitted, then 'previous' is assumed.
+        <br>When <i>prevName</i> is omitted, then <code>'previous'</code> is assumed.
     </dd>
 
     <dt><code>key="<i>keyExpression</i>"</code></dt>
@@ -123,10 +125,12 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <ul>
             <li>It is faster</li>
             <li>If any input element in the tree had received focus or inputdata, then it will keep that focus or data</li>
+            <li>Any <code>oncreate</code> handlers won be executed again</li>
             <li>If the RHTML in <i>BodyPart</i> created any RVAR's or other objects, then these won't be renewed but will keep their previous value</li>
         </ul>
         <p>
-            When all items in the iteration are distinct, then the key may be the item itself: <code>key=<it>name</it></code>.
+            When items in the iteration are always distinct, then the key may be the item itself: <code>key=<i>name</i></code>.
+            <br>When items in the iteration always remain in place, then the key may be the index number: <code>key=<i>indexName</i></code>
         </p>
     </dd>
 
@@ -175,16 +179,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 
 <p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
-<demo content="<component>
-    <a href #target? download? title?><content></content></a>
-    <template><a. #href=&quot;href&quot; #download=&quot;download&quot; #title=&quot;title&quot;
-        #target=&quot;!target && /^http/i.test(href) ? '_blank' : target&quot;
-        ><content></content></a.
-    ></template>
-</component>
-
-This link opens in a blank window:
-<a href=&quot;https://www.otolift.com/&quot;>Otolift Stairlifts</a>">
+<demo #content=sampleRedefineA>
 </demo>
 
 
@@ -204,8 +199,12 @@ Here is a component which allows one to define tables column by column.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 
 <p>
-    To speed things up, you may add a link to the 
+    To speed things up, you can insert a <code>preload</code> link in the document header:
 </p>
+<pre>    
+    <{}link rel=preload href="<i>URL</i>" as=fetch crossorigin>
+</pre>
+("<code>crossorigin</code>" seems incorrect, but Google Chrome requires it.)
 
 <h2>&lt;IMPORT src&gt; ...</h2>
 
