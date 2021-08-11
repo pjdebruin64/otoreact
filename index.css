@@ -6,7 +6,7 @@
     line-height: 1.25;
     font-size: 12pt;
 }
-@media not screen and (hover: hover) {
+@media not all and (hover: hover) {
     body {
         font-size: 18pt;
     }
@@ -33,7 +33,7 @@ pre, code, elm {
     background-color: rgb(245, 245, 245);
     font-family: 'Lucida Console', monospace;
 }
-code, elm   { font-size: 11pt; }
+code, elm   { font-size: 91.6%; }
 elm::before { content: "<"; }
 elm::after  { content: ">"; }
 

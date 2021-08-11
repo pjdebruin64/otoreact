@@ -31,6 +31,7 @@
         RCompile(document.body, {rootPattern: '/otoreact/|http://localhost:5000/'});
         //document.body.hidden = false;
         msg('Document compiled');
+        
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
@@ -44,53 +45,53 @@
 </head>
 <body hidden onload="msg('All loaded');">
 
-<import src="Lib_Components.html">
-    <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-    <a href #target? ...rest><content></content></a>
-    
-    <!-- Component to demonstrate RHTML -->
-    <demo content #bshow=true name? #store? #editable?=true></demo>
-    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+    <import src="Lib_Components.html">
+        <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
+        <a href #target? ...rest><content></content></a>
+        
+        <!-- Component to demonstrate RHTML -->
+        <demo content #bshow=true name? #store? #editable?=true></demo>
+        <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
-    <!-- Component that builds a page with header and table of contents-->
-    <pageLayout>
-        <pageHead></pageHead>
-        <content>
-            <h1 id?><content></content></h1>
-            <h2 id?><content></content></h2>
-        </content>
-    </pageLayout>
-</import>
-
-<case reacton=docLocation #value="docLocation.subpath" hiding>
-    <when regMatch="^$">
+        <!-- Component that builds a page with header and table of contents-->
         <pageLayout>
-            <pageHead>
-                <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
-            </pageHead>
-
-            <div style="display: grid; grid-template-columns: 1fr auto;">
-                <div class=sample 
-                    style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" 
-                    id=sampleGreeting>
-                    <RHTML>{sampleGreeting}</RHTML>
-                </div>
-                <div style="grid-column: 2; transform: scale(0.85);">
-                    <RHTML>{sampleTicTacToe}</RHTML>
-                </div>
-            </div>
-            
-            <section style.minHeight='5325px'><include src="C1_Introduction.html"></include></section>
-            <section style.minHeight='2594px'><include src="C2_HtmlElements.html"></include></section>
-            <section style.minHeight='5344px'><include src="C3_Constructs.html"></include></section>
-            <section style.minHeight='1165px'><include src="C4_Scripts.html"></include></section>
-
+            <pageHead></pageHead>
+            <content>
+                <h1 id?><content></content></h1>
+                <h2 id?><content></content></h2>
+            </content>
         </pageLayout>
-    </when>
-    <when regMatch="routing/?">
-        <include src="Routing.html">
-    </when>
-    <else>Page not found</else>
-</case>
+    </import>
+
+    <case thisreactson=docLocation #value="docLocation.subpath" hiding>
+        <when regMatch="^$">
+            <pageLayout>
+                <pageHead>
+                    <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
+                </pageHead>
+
+                <div style="display: grid; grid-template-columns: 1fr auto;">
+                    <div class=sample 
+                        style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" 
+                        id=sampleGreeting>
+                        <RHTML>{sampleGreeting}</RHTML>
+                    </div>
+                    <div style="grid-column: 2; transform: scale(0.85);">
+                        <RHTML>{sampleTicTacToe}</RHTML>
+                    </div>
+                </div>
+                
+                <section style.minHeight='5325px'><include src="C1_Introduction.html"></include></section>
+                <section style.minHeight='2594px'><include src="C2_HtmlElements.html"></include></section>
+                <section style.minHeight='5344px'><include src="C3_Constructs.html"></include></section>
+                <section style.minHeight='1165px'><include src="C4_Scripts.html"></include></section>
+
+            </pageLayout>
+        </when>
+        <when regMatch="routing/?">
+            <include src="Routing.html">
+        </when>
+        <else>Page not found</else>
+    </case>
 
 </body>

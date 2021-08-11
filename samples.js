@@ -282,7 +282,7 @@ const sampleTableMaker =
 </tablemaker>`;
 
 let sampleTicTacToe = 
-`<script nomodule defines=TicTacToe>
+`<script nomodule type=module defines=TicTacToe>
     function Board() {
         function Cell() {return {V: null}; }
         function Row()  {return [Cell(), Cell(), Cell()]; }

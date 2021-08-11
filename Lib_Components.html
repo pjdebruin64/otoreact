@@ -80,7 +80,7 @@
         </content>
     </pageLayout>
 
-    <script nomodule defines=pageLayout>
+    <script nomodule defines=pageLayout,maxHeight>
         class pageLayout {
             numbers = [0,0,0];
             getNr(level) {
@@ -97,6 +97,13 @@
                 this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
             }
         }
+        const maxHeight = RVAR();
+        const screenOnly = window.matchMedia('screen');
+        (   window.onresize= screenOnly.onchange=
+            () => {
+                maxHeight.V = screenOnly.matches ? `${window.innerHeight - 8}px` : undefined;
+            }
+        )(); // Call immediately"
     </script>
 
     <style>
@@ -160,7 +167,10 @@
             div.pageLayout > main { 
                 grid-row: 2; grid-column: 2; 
                 overflow-y: scroll;
-            }            
+            }
+            body {
+                overflow-y: hidden;
+            }       
         }
 
 
@@ -183,15 +193,7 @@
 
     <template>
         <def var=C #value="new pageLayout()"></def>
-        <div class=pageLayout
-            onCreate="
-                const screenOnly = window.matchMedia('screen');
-                (   window.onresize= screenOnly.onchange=
-                    () => {
-                        this.style.maxHeight = screenOnly.matches ? `${window.innerHeight - 8}px` : '';
-                    }
-                )(); // Call immediately"
-        >
+        <div class=pageLayout #style.maxHeight="maxHeight.V" thisreactson=maxHeight>
             <header>
                     <div style="display:grid; grid-template-rows: 1fr min-content; align-items: center; padding-left: 40px">
                         <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">

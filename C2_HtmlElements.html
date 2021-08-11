@@ -96,18 +96,18 @@ Notes: The name <code>event</code> is not available in handlers for these pseudo
 <dl>
     <dt><code>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
     <dd>
-        Class name <i>name</i> will be added to the element if and only if the expression evaluates to true or another <a href="{MDN}Glossary/Truthy">truthy</a> value.
+        Class name <i>name</i> will be added to the element if and only if the expression evaluates to true (or another <a href="{MDN}Glossary/Truthy">truthy</a> value).
     </dd>
     <dt><code>+class="<i>objectExpression</i>"</code></dt>
     <dd>
         The expression should evaluate to an object.
-        <br>For every property <i>name</i> in the object, class name <i>name</i> will be added to the element if and only if the property value is truthy.
+        <br>For every property <i>name</i> in the object, class name <i>name</i> will be added to the element if and only if the property value is true.
     </dd>
 </dl>
-Like other DOM properties, class names are recomputed at every update of the element.
+Just as other DOM properties, class names are recomputed at every update of the element.
 
 <h2>Inline Styles</h2>
-HTML allows you to set the style of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> attribute</a>.
+HTML allows you set the style of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> attribute</a>.
 <br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
 <br>One can, however, set its properties. RHTML recognizes the following attributes:
 <dl>

@@ -13,7 +13,7 @@ declare type Settings = {
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
 declare type Environment = Array<unknown> & {
     constructDefs: Map<string, {
-        instanceBuilders: ElmBuilder[];
+        instanceBuilders: ParametrizedBuilder[];
         constructEnv: Environment;
     }>;
 };
@@ -33,16 +33,18 @@ declare type Region = {
     bInit: boolean;
     env: Environment;
     lastMarker?: Marker;
+    bNoChildBuilding?: boolean;
 };
-declare type ElmBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {
+declare type DOMBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {
     bTrim?: boolean;
 };
+declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[]) => Promise<void>;
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Subscriber = {
     parent: Element;
     marker: ChildNode;
     env: Environment;
-    builder: ElmBuilder;
+    builder: DOMBuilder;
 };
 interface Key {
 }
@@ -53,6 +55,7 @@ declare class RCompiler {
     private Context;
     private ContextMap;
     private Constructs;
+    AddedHeaderElements: Array<HTMLElement>;
     constructor(clone?: RCompiler);
     private restoreActions;
     private SaveContext;
@@ -71,8 +74,7 @@ declare class RCompiler {
     private bTrimRight;
     private bCompiled;
     private bHasReacts;
-    DirtyRegions: Set<Subscriber>;
-    bSomethingDirty: boolean;
+    DirtyRegions: Map<Marker, Subscriber>;
     private bUpdating;
     private handleUpdate;
     RUpdate(): void;
@@ -82,11 +84,12 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompileChildNodes;
+    private preMods;
     private CompileElement;
     private CallWithErrorHandling;
     private CompileScript;
     private CompileStyle;
-    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): ElmBuilder;
+    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
     private ParseSignature;
     private CompileComponent;
     private AnalyseComponent;
@@ -95,6 +98,8 @@ declare class RCompiler {
     private CompileHTMLElement;
     private CompileAttributes;
     private CompileInterpolatedString;
+    private CompilePattern;
+    private quoteReg;
     private CompileAttributeExpression;
     private CompileAttribute;
     private CompileExpression;

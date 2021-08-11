@@ -229,10 +229,9 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
 
 <h2>Limitations inflicted by the parser</h2>
 Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
-<dl>
-    <dt>Re-arranged elements</dt>
-    <dd>
-        The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently</i> rearrange them if they are not.
+<ul>
+    <li><b>Re-arranged elements</b>
+        <br>The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently</i> rearrange them if they are not.
         <br>Notably:
         <ul>
             <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
@@ -268,16 +267,26 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
                 To avoid this, make a habit of always closing all elements.
             </li>
         </ul>
-    </dd>
-    <dt>Attribute names are considered lowercase</dt>
-    <dd>
+    </li>
+
+    <li><b>Attribute names are considered lowercase</b>
+    <br>
         As attribute names in HTML are case-insensitive, the parser makes them all silently lowercase.
         <br>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.
         <br>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), which will only work for class names in lowercase.
-    </dd>
-    <dt>Missing error messages</dt>
-    <dd>
+    </li>
+    <li><b>Missing error messages</b>
+    <br>
         There are more cases where the browser doesn't inform you of errors, which may result in strange behaviour.
-    </dd>
-</dl>
-I imagine Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.
+    </li>
+</ul>
+When you get weird errors, you may want to check how the browser has parsed your document:
+<ol>
+    <li>Outcomment or remove your compiler invocation: <code>// RCompile(&hellip;)</code></li>
+    <li>Reload your application</li>
+    <li>Inspect the parsed DOM-tree using your browsers development tools. Either:
+        <ul>Right click in your document and select 'Inspect'</ul>
+        <ul>Press F12 or Ctrl-Shift-I and select tab 'Elements' (Chrome) or 'Inspector' (Firefox)</ul>
+    </li>
+</ol>
+<p>I imagine Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.</p>
