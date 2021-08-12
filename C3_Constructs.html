@@ -27,7 +27,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
 </p>
 <p>
-    Local variable names (including loop variables and component parameters) obey strict <a href="{wikipedia}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
+    Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
 <demo content=
 "<def var=a #value=&quot;10&quot;></def>
@@ -142,7 +142,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
             If, however, you specify a <i>hashExpression</i>, then OtoReact will assume an item (identified by its key) has not changed when the value of <i>hashExpression</i> hasn't changed, and it won't spend time on updating its DOM subtree.
         </p>
         <p>
-            The hash expression need not be a real <a href="{wikipedia}Hash_function">hash function</a>; it could be a possibly long string.
+            The hash expression need not be a real <a href="{wiki}Hash_function">hash function</a>; it could be a possibly long string.
             <br>If, e.g., items are read from an external source and parsed using <code>JSON.parse</code>, then one could preserve the unparsed string and use it as the hash value.
         </p>
     </dd>

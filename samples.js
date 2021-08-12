@@ -4,11 +4,10 @@ const sampleGreeting=
     What's your name?
     <input type=text @value="yourName.V">
 </p>
-<if cond="yourName.V > '' ">
+<if cond="yourName.V">
     <p>
         Nice to meet you, {yourName.V}.
-        <br>By the way, your name consists of {yourName.V.length} 
-        characters.
+        <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
 </if>`;
 
@@ -66,30 +65,29 @@ const sampleServerData =
 const sampleBraces =
 `1 + 1 = {1 + 1}
 \\{ Check this }
-<br>Tag <{}br> looks better in
-source code than &lt;br&gt;`;
+<br>Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
 `<script type=module>
-    // Create a "Reactive variable" with a global name and
-    // an initial value
-    RVAR('yourName', '', sessionStorage);
-    /* Now 'yourName' has been added to the global environment,
-    and 'yourName.V' refers to the value of the variable,
-    so that assignments to this value can be tracked. */
+  // Create a "Reactive variable" with a global name and
+  // an initial value
+  RVAR('yourName', '', sessionStorage);
+  /* Now 'yourName' has been added to the global environment,
+     and 'yourName.V' refers to the value of the variable,
+     so that assignments to this value can be tracked. */
 </script>
 
 <p>What's your name?
-    <input type=text @value="yourName.V">
-    <!-- The "@" introduces a two-way binding for the input element.
-    Anytime an input event happens, 'yourName.V' will be updated,
-    and the DOM as well  -->
+  <input type=text @value="yourName.V">
+  <!-- The "@" introduces a two-way binding for the input element.
+  Anytime an input event happens, 'yourName.V' will be updated,
+  and the DOM as well  -->
 </p>
 <if cond="yourName.V" reacton=yourName>
-    <p> Nice to meet you, {yourName.V}.
-        <br>By the way, your name consists of {yourName.V.length} 
+  <p> Nice to meet you, {yourName.V}.
+    <br>By the way, your name consists of {yourName.V.length} 
         characters.
-    </p>
+  </p>
 </if>`;
 
 const sampleSqrt=
@@ -129,9 +127,9 @@ const sampleParticipants=
             Participants.U.push(this.value); this.value=''; 
         }
     ">
-<!-- "this" in all RHTML event handlers refers to the target element. -->
-<!-- Getting "Participants.U" means "Participants" will be marked as
-     changed, even though it is not assigned to. -->
+<!-- "this" in all RHTML event handlers refers to the target element.
+  Getting "Participants.U" means "Participants" will be marked as
+  changed, even though it is not assigned to. -->
 </p>`;
 
 const sampleTODO=

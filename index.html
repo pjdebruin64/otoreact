@@ -18,7 +18,7 @@
             console.log(`${Date.now() - s} ${m}`);
         }
         const 
-            wikipedia = "https://en.wikipedia.org/wiki/",
+            wiki = "https://en.wikipedia.org/wiki/",
             MDN="https://developer.mozilla.org/en-US/docs/";
     </script>
     <script src="samples.js" defer></script>
@@ -70,13 +70,13 @@
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
                 </pageHead>
 
-                <div style="display: grid; grid-template-columns: 1fr auto;">
+                <div style="display: grid; grid-template-columns: 1fr auto;align-items: center;">
                     <div class=sample 
-                        style="width: 300pt; min-height: 108px; grid-column: 1; justify-self: center;" 
+                        style="justify-self: center; min-width: 260px; min-height: 10ex;" 
                         id=sampleGreeting>
                         <RHTML>{sampleGreeting}</RHTML>
                     </div>
-                    <div style="grid-column: 2; transform: scale(0.85);">
+                    <div style="transform: scale(0.80); height: 80%;">
                         <RHTML>{sampleTicTacToe}</RHTML>
                     </div>
                 </div>
@@ -85,6 +85,8 @@
                 <section style.minHeight='2594px'><include src="C2_HtmlElements.html"></include></section>
                 <section style.minHeight='5344px'><include src="C3_Constructs.html"></include></section>
                 <section style.minHeight='1165px'><include src="C4_Scripts.html"></include></section>
+                <!--
+                -->
 
             </pageLayout>
         </when>

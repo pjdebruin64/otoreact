@@ -31,18 +31,36 @@
     </script>
 
     <style>
-        table.demo   { margin: 2ex auto; }
+        table.demo   { 
+            margin: 2ex auto; 
+            max-width:100%;
+        }
         table.demo > tr > th, table.demo > tr > td {
             border: var(--RedBorder);
             vertical-align: top;
             min-width:300px;
         }
-        table.demo > tr > th, table.demo > tr > td > * { padding: 8px; }
-        table.demo > tr > *:nth-child(1) {background-color: rgb(245, 245, 245);}
-        table.demo > tr > *:nth-child(2) {background-color: rgb(225, 255, 181);}
-        table.demo > tr > td:nth-child(1) > pre { color: darkblue; }
-        table.demo span.green { color: green; }
-        pre.nodisplay {display: none}
+        table.demo > tr > th, table.demo > tr > td { padding: 8px; }
+
+        table.demo > tr > *:nth-child(1) {
+            background-color: rgb(245, 245, 245);
+        }
+        table.demo > tr > td:nth-child(1) > pre { 
+            color: darkblue;
+            white-space: pre-wrap;
+            font-size: 10pt;
+        }
+        table.demo span.green { color: green; } /* This is for comments */
+        pre.nodisplay {display: none }
+
+        table.demo td.demo {
+            background-color: rgb(225, 255, 181);
+        }
+        @media not all and (hover: hover) {
+            td.demo {
+                font-size: 14pt;
+            }
+        }
     </style>
     
     <template>
@@ -60,11 +78,11 @@
                         #innerHTML="ColorCode(MyRVAR.V)" 
                         *innerText="MyRVAR.V"></pre>
                 </td.>
-                <td.><div>
+                <td. class=demo>
                     <RHTML reacton=MyRVAR>
                         {MyRVAR.V}
                     </RHTML>
-                </div></td.>
+                </td.>
             </tr.>
         </table.>
     </template>
@@ -121,7 +139,12 @@
         }
         div.pageLayout > header    { 
             grid-row: 1;
-            display: grid; grid-template-columns: 1fr auto auto; align-items: stretch;
+            display: grid; 
+            grid-template-columns: 1fr auto auto; 
+            grid-template-areas:
+            "title credits logo"
+            "nav   nav     logo";
+            align-items: stretch;
             padding: 8px;
         }
         div.pageLayout > nav {
@@ -145,7 +168,6 @@
             grid-row: 3;
         }
         
-
         @media screen and (min-width: 1250px) {
             div.pageLayout  {
                 grid-template-columns: 16em 1fr;
@@ -173,10 +195,9 @@
             }       
         }
 
-
         nav.topbar {
             display: flex;
-            padding: 1px
+            padding: 1px 41px
         }
         nav.topbar > * {
             padding: 6px 12px;
@@ -195,27 +216,27 @@
         <def var=C #value="new pageLayout()"></def>
         <div class=pageLayout #style.maxHeight="maxHeight.V" thisreactson=maxHeight>
             <header>
-                    <div style="display:grid; grid-template-rows: 1fr min-content; align-items: center; padding-left: 40px">
+                    <div style="padding-left: 40px">
                         <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">
                             <pageHead></pageHead>
                         </p>
-                        <nav class=topbar>
-                            <a href="{RootPath}"           #onclick=reroute>Home</a>
-                            <a href=""      style.color=grey>Components</a>
-                            <a href="{RootPath}routing"    #onclick=reroute>Routing</a>
-                        </nav>
                     </div>
                     <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
                         Created by <a href="http://www.peterdebruin.net">Peter J. de Bruin</a>.
                         <p>Made possible by:
                     </div>
-                    <div>
+                    <div style="grid-area: logo;">
                         <a href="https://www.otolift.com">
                             <img src="{RootPath}KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
                                 alt="Otolift Stairlifts" title="Otolift Stairlifts,{'\n'}The Netherlands"
                             >
                         </a>
                     </div>
+                    <nav class=topbar style="grid-area: nav;">
+                        <a href="{RootPath}"           #onclick=reroute>Home</a>
+                        <a href=""      style.color=grey>Components</a>
+                        <a href="{RootPath}routing"    #onclick=reroute>Routing</a>
+                    </nav>
             </header>
             <nav>
                 <center>

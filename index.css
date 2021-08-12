@@ -17,8 +17,8 @@
     margin: 2ex auto; 
     border: var(--RedBorder);
     padding: 1ex 2ex;
-    background-color: rgb(225, 255, 181); min-width:375px;
-    }
+    background-color: rgb(225, 255, 181); 
+}
 .sourcecode {
     padding: 4px 8px;
     border: var(--RedBorder);
@@ -27,28 +27,33 @@
 section     {
     content-visibility: auto;
 }
-pre { margin: 1ex 2ex; font-size: 10pt;}
+pre { 
+    margin: 1ex 2vw; 
+    white-space: pre-wrap;
+    max-width: calc(100% - 2ex);
+}
 pre, code, elm {
     color: darkblue;
     background-color: rgb(245, 245, 245);
     font-family: 'Lucida Console', monospace;
+    font-size: 92.5%;
 }
-code, elm   { font-size: 91.6%; }
 elm::before { content: "<"; }
 elm::after  { content: ">"; }
 
-dt  {margin-left:2ex; margin-top: 1ex; }
-dd  {margin-left:6ex}
-p, ol, ul, li  {margin: .85ex 0}
+dt  {margin-left:1em; margin-top: .5em; }
+dd  {margin-left:3em}
+p, ol, ul, li  {margin: .4em 0}
+h4  {margin: .6em 0 .2em 0}
 
 a { cursor: pointer; }
 a:not([target]) {
     text-decoration: none;
-    border-bottom: .2ex dashed;
+    border-bottom: .1em dashed;
 }
 
 h1:not(:first-of-type) {
-    margin-top: 2ex;
-    padding-top: 2ex;
+    margin-top: 1em;
+    padding-top: 1em;
     border-top: double;
 }

@@ -15,11 +15,14 @@ export function RCompile(elm, settings) {
             const m = url.match(`^.*(${rootPattern})`);
             if (!m)
                 throw `Root pattern '${rootPattern}' does not match URL '${url}'`;
-            globalThis.RootPath = RootPath = (new URL(m[0])).pathname;
+            RootPath = (new URL(m[0])).pathname;
         }
+        else
+            RootPath = `${document.location.origin}${document.location.pathname}`;
+        globalThis.RootPath = RootPath;
         SetDocLocation();
         const R = RHTML;
-        R.Compile(elm, settings);
+        R.Compile(elm, settings, true);
         R.ToBuild.push({ parent: elm.parentElement, start: elm, bInit: true, env: NewEnv(), });
         if (R.Settings.bBuild)
             R.DoUpdate().then(() => elm.hidden = false);
@@ -135,7 +138,7 @@ class RCompiler {
         this.bTrimRight = false;
         this.bCompiled = false;
         this.bHasReacts = false;
-        this.DirtyRegions = new Map();
+        this.DirtySubs = new Map();
         this.bUpdating = false;
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
@@ -178,24 +181,33 @@ class RCompiler {
         this.Constructs.set(CName, C);
         this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
     }
-    Compile(elm, settings) {
+    Compile(elm, settings, bIncludeSelf) {
         this.Settings = { ...defaultSettings, ...settings, };
         const t0 = Date.now();
-        this.Builder = (elm.parentElement
-            ? this.CompileElement(elm.parentElement, elm)[0]
-            : this.CompileChildNodes(elm));
+        if (bIncludeSelf)
+            this.Builder = this.CompileElement(elm.parentElement, elm)[0];
+        else
+            this.Builder = this.CompileChildNodes(elm);
         this.bCompiled = true;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
     }
     async Build(reg) {
-        const savedRCompiler = RHTML;
+        const savedRCompiler = RHTML, start = reg.start;
         RHTML = this;
         await this.Builder(reg);
-        this.AllRegions.push({
-            parent: reg.parent, marker: reg.marker, builder: this.Builder, env: NewEnv()
-        });
+        if (reg.marker)
+            this.AllRegions.push({
+                parent: reg.parent, marker: reg.marker, builder: this.Builder, env: NewEnv()
+            });
+        else
+            this.AllRegions.push({
+                parent: reg.parent, start, builder: this.Builder, env: NewEnv()
+            });
         RHTML = savedRCompiler;
+    }
+    AddDirty(sub) {
+        this.DirtySubs.set((sub.marker || sub.start), sub);
     }
     RUpdate() {
         if (!this.handleUpdate)
@@ -221,14 +233,16 @@ class RCompiler {
             }
             if (!this.bHasReacts)
                 for (const s of this.AllRegions)
-                    this.DirtyRegions.set(s.marker, s);
-            if (this.DirtyRegions.size) {
+                    this.AddDirty(s);
+            if (this.DirtySubs.size) {
                 RHTML = this;
                 const t0 = Date.now();
                 this.builtNodeCount = 0;
-                for (const { parent, marker, builder, env } of this.DirtyRegions.values()) {
+                for (const { parent, marker, start, builder, env } of this.DirtySubs.values()) {
                     try {
-                        await builder.call(this, { parent, start: marker ? marker.nextSibling : parent.firstChild, env, });
+                        await builder.call(this, { parent,
+                            start: start || marker?.nextSibling || parent.firstChild,
+                            env, });
                     }
                     catch (err) {
                         const msg = `ERROR: ${err}`;
@@ -239,7 +253,7 @@ class RCompiler {
             }
         }
         finally {
-            this.DirtyRegions.clear();
+            this.DirtySubs.clear();
             RHTML = savedRCompiler;
             this.bUpdating = false;
         }
@@ -255,7 +269,7 @@ class RCompiler {
             const R = this;
             Object.defineProperty(t, 'U', { get: function () {
                     for (const sub of t._Subscribers)
-                        R.DirtyRegions.set(sub.marker, sub);
+                        R.AddDirty(sub);
                     if (t._UpdatesTo.length)
                         for (const rvar of t._UpdatesTo)
                             rvar.SetDirty();
@@ -296,7 +310,7 @@ class RCompiler {
                         this.bTrimLeft = / $/.test(str);
                         const getText = this.CompileInterpolatedString(str);
                         async function Text(region) {
-                            const { start, lastMarker, bInit } = region, content = getText(region.env);
+                            const { start, lastM, bInit } = region, content = getText(region.env);
                             let text;
                             if (bInit && start != srcNode)
                                 text = region.parent.insertBefore(document.createTextNode(content), start);
@@ -304,9 +318,9 @@ class RCompiler {
                                 (text = start).data = content;
                                 region.start = start.nextSibling;
                             }
-                            if (lastMarker) {
-                                lastMarker.nextM = text;
-                                region.lastMarker = null;
+                            if (lastM) {
+                                lastM.nextM = text;
+                                region.lastM = null;
                             }
                         }
                         builders.push([Text, srcNode, getText.isBlank]);
@@ -402,6 +416,8 @@ class RCompiler {
                                             }
                                             else
                                                 regex = null;
+                                            if (regex && !getValue)
+                                                throw `A match is requested but no 'value' is specified.`;
                                             caseList.push({
                                                 condition: cond,
                                                 lvars,
@@ -485,7 +501,7 @@ class RCompiler {
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                C.Compile(parsedContent.body, this.Settings);
+                                C.Compile(parsedContent.body, this.Settings, false);
                                 this.bHasReacts || (this.bHasReacts = C.bHasReacts);
                             })();
                             builder =
@@ -564,7 +580,7 @@ class RCompiler {
                                         srcElm.replaceWith(...srcElm.childNodes);
                                     }
                                     const subscriber = {
-                                        ...subregion,
+                                        parent: subregion.parent, marker: subregion.marker,
                                         builder: bodyBuilder,
                                         env: CloneEnv(subregion.env),
                                     };
@@ -594,7 +610,7 @@ class RCompiler {
                                     if (hdrElements)
                                         for (const elm of hdrElements)
                                             document.head.removeChild(elm);
-                                    R.Compile(tempElm, { bRunScripts: true });
+                                    R.Compile(tempElm, { bRunScripts: true }, false);
                                     subregion.marker['AddedHeaderElements'] = R.AddedHeaderElements;
                                     await R.Build(subregion);
                                 }
@@ -670,27 +686,24 @@ class RCompiler {
     }
     CompileScript(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
-        const _ = GetAttribute(srcElm, 'type');
+        const type = GetAttribute(srcElm, 'type');
+        const src = GetAttribute(srcElm, 'src');
         if (GetAttribute(srcElm, 'nomodule') != null || this.Settings.bRunScripts) {
             let script = srcElm.text;
             const defines = GetAttribute(srcElm, 'defines');
             if (defines) {
                 for (let name of defines.split(',')) {
                     name = CheckValidIdentifier(name);
-                    script += `globalThis.${name} = ${name};\n`;
+                    script += `;globalThis.${name} = ${name}\n`;
                 }
             }
-            if (false)
-                globalEval(`'use strict';${script}\n`);
-            else {
-                let elm = document.createElement('script');
-                if (srcElm.src)
-                    elm.src = srcElm.src;
-                else
-                    elm.text = `'use strict';{${script}\n}`;
-                document.head.appendChild(elm);
-                this.AddedHeaderElements.push(elm);
-            }
+            let elm = document.createElement('script');
+            if (src)
+                elm.src = src;
+            else
+                elm.text = `'use strict';{${script}\n}`;
+            document.head.appendChild(elm);
+            this.AddedHeaderElements.push(elm);
         }
         return null;
     }
@@ -702,17 +715,17 @@ class RCompiler {
     }
     CompileForeach(srcParent, srcElm, bBlockLevel) {
         const varName = GetAttribute(srcElm, 'let');
-        let indexName = srcElm.getAttribute('index');
+        let indexName = GetAttribute(srcElm, 'index');
         if (indexName == '')
             indexName = 'index';
         const saved = this.SaveContext();
         try {
             if (varName != null) {
                 const getRange = this.CompileAttributeExpression(srcElm, 'of', true);
-                let prevName = srcElm.getAttribute('previous');
+                let prevName = GetAttribute(srcElm, 'previous');
                 if (prevName == '')
                     prevName = 'previous';
-                const bReactive = CBool(srcElm.getAttribute('updateable') ?? srcElm.getAttribute('reactive'), true);
+                const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'), true);
                 const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
                 const initVar = this.NewVar(varName);
                 const initIndex = this.NewVar(indexName);
@@ -781,11 +794,11 @@ class RCompiler {
                                 marker.textContent = `${varName}(${index})`;
                                 subregion.bInit = false;
                                 subregion.start = marker;
-                                const lastMarker = subregion.lastMarker;
+                                const lastM = subregion.lastM;
                                 childRegion = PrepareRegion(null, subregion, null, false);
-                                if (lastMarker)
-                                    lastMarker.nextM = marker;
-                                subregion.lastMarker = marker;
+                                if (lastM)
+                                    lastM.nextM = marker;
+                                subregion.lastM = marker;
                             }
                             else {
                                 subregion.bInit = true;
@@ -927,21 +940,22 @@ class RCompiler {
     }
     CompileConstructTemplate(construct, contentNode, srcElm, bNewNames) {
         const saved = this.SaveContext();
-        const params = [];
+        const names = [];
         for (const param of construct.Parameters)
-            params.push(this.NewVar(bNewNames && GetAttribute(srcElm, param.name, true) || param.name));
+            names.push(bNewNames && GetAttribute(srcElm, param.name, true) || param.name);
         const restParam = construct.RestParam;
         if (restParam)
-            params.push(this.NewVar(bNewNames && GetAttribute(srcElm, `...${restParam.name}`, true) || restParam.name));
+            names.push(bNewNames && GetAttribute(srcElm, `...${restParam.name}`, true) || restParam.name);
         for (const S of construct.Slots.values())
             this.AddConstruct(S);
         try {
+            const lvars = names.map(name => this.NewVar(name));
             const builder = this.CompileChildNodes(contentNode);
             return async function (region, args) {
                 const saved = SaveEnv();
                 try {
                     let i = 0;
-                    for (const lvar of params)
+                    for (const lvar of lvars)
                         lvar(region.env)(args[i++]);
                     await builder.call(this, region);
                 }
@@ -1045,7 +1059,7 @@ class RCompiler {
         if (bTrim)
             this.bTrimLeft = true;
         const builder = async function ELEMENT(region) {
-            const { parent, start, bInit, env, lastMarker } = region;
+            const { parent, start, bInit, env, lastM } = region;
             let elm;
             if (!bInit || start == srcElm) {
                 region.start = start.nextSibling;
@@ -1059,9 +1073,9 @@ class RCompiler {
             }
             else
                 parent.insertBefore(elm = document.createElement(nodeName), start);
-            if (lastMarker) {
-                lastMarker.nextM = elm;
-                region.lastMarker = null;
+            if (lastM) {
+                lastM.nextM = elm;
+                region.lastM = null;
             }
             for (const { modType, name, depValue } of preModifiers) {
                 try {
@@ -1285,13 +1299,13 @@ class RCompiler {
         return env => env[i];
     }
 }
-function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text) {
-    let { parent, start, bInit, lastMarker } = region;
+function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text = '') {
+    let { parent, start, bInit, lastM } = region;
     let marker;
     if (bInit) {
-        marker = region.lastMarker = parent.insertBefore(document.createComment(text ? `${srcElm?.tagName} ${text}` : srcElm.tagName), start);
-        if (lastMarker)
-            lastMarker.nextM = marker;
+        marker = region.lastM = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
+        if (lastM)
+            lastM.nextM = marker;
         if (start && start == srcElm)
             region.start = start.nextSibling;
     }
@@ -1344,7 +1358,7 @@ class _RVAR {
     SetDirty() {
         for (const sub of this.Subscribers)
             if (sub.parent.isConnected)
-                this.rRuntime.DirtyRegions.set(sub.marker, sub);
+                this.rRuntime.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);
         this.rRuntime.RUpdate();
@@ -1368,7 +1382,7 @@ function CheckValidIdentifier(name) {
     return name;
 }
 const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-    + '|clip|column|content|element|feature|fill|first|font|get|grid|image|inner|is|last|left|margin|max|min|node|offset|outer'
+    + '|clip|(col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
     + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {

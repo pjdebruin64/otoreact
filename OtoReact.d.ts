@@ -32,7 +32,7 @@ declare type Region = {
     start: Marker;
     bInit: boolean;
     env: Environment;
-    lastMarker?: Marker;
+    lastM?: Marker;
     bNoChildBuilding?: boolean;
 };
 declare type DOMBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {
@@ -42,10 +42,15 @@ declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Subscriber = {
     parent: Element;
-    marker: ChildNode;
+    marker?: ChildNode;
+    start?: ChildNode;
     env: Environment;
     builder: DOMBuilder;
-};
+} & ({
+    marker: ChildNode;
+} | {
+    start: ChildNode;
+});
 interface Key {
 }
 interface Hash {
@@ -62,7 +67,7 @@ declare class RCompiler {
     private RestoreContext;
     private NewVar;
     private AddConstruct;
-    Compile(elm: HTMLElement, settings: Settings): void;
+    Compile(elm: HTMLElement, settings: Settings, bIncludeSelf: boolean): void;
     Build(reg: Region & {
         marker?: ChildNode;
     }): Promise<void>;
@@ -74,7 +79,8 @@ declare class RCompiler {
     private bTrimRight;
     private bCompiled;
     private bHasReacts;
-    DirtyRegions: Map<Marker, Subscriber>;
+    private DirtySubs;
+    AddDirty(sub: Subscriber): void;
     private bUpdating;
     private handleUpdate;
     RUpdate(): void;
