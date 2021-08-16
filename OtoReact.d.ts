@@ -12,10 +12,11 @@ declare type Settings = {
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
 declare type Environment = Array<unknown> & {
-    constructDefs: Map<string, {
-        instanceBuilders: ParametrizedBuilder[];
-        constructEnv: Environment;
-    }>;
+    constructDefs: Map<string, ConstructDef>;
+};
+declare type ConstructDef = {
+    instanceBuilders: ParametrizedBuilder[];
+    constructEnv: Environment;
 };
 declare type Marker = ChildNode & {
     nextM?: Marker;
@@ -38,7 +39,7 @@ declare type Region = {
 declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
     bTrim?: boolean;
 };
-declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[]) => Promise<void>;
+declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Subscriber = {
     parent: Element;

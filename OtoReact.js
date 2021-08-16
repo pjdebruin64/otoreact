@@ -147,7 +147,7 @@ class RCompiler {
         this.Context = clone ? clone.Context.slice() : [];
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
-        this.Settings = clone ? { ...clone.Settings } : undefined;
+        this.Settings = clone ? { ...clone.Settings } : { ...defaultSettings };
         this.AddedHeaderElements = clone ? clone.AddedHeaderElements : [];
     }
     SaveContext() {
@@ -169,15 +169,14 @@ class RCompiler {
             this.restoreActions.push(() => this.ContextMap.delete(this.Context.pop()));
         }
         return function InitVar(env) {
-            const prev = env[i];
-            envActions.push(() => { env[i] = prev; });
-            return function SetVar(value) {
-                env[i] = value;
-            };
+            const prev = env[i], j = i;
+            envActions.push(() => { env[j] = prev; });
+            return (value) => { env[j] = value; };
         }.bind(this);
     }
     AddConstruct(C) {
-        const CName = C.TagName, savedConstr = this.Constructs.get(C.TagName);
+        const CName = C.TagName;
+        const savedConstr = this.Constructs.get(CName);
         this.Constructs.set(CName, C);
         this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
     }
@@ -282,59 +281,64 @@ class RCompiler {
         }
         return t;
     }
-    CompileChildNodes(srcParent, bBlockLevel, childNodes = Array.from(srcParent.childNodes)) {
+    CompileChildNodes(srcParent, bBlockLevel, childNodes = Array.from(srcParent.childNodes), bNorestore) {
         const builders = [];
         const saved = this.SaveContext();
         this.sourceNodeCount += childNodes.length;
-        for (const srcNode of childNodes) {
-            switch (srcNode.nodeType) {
-                case Node.ELEMENT_NODE:
-                    const builderElm = this.CompileElement(srcParent, srcNode, bBlockLevel);
-                    if (builderElm) {
-                        builders.push(builderElm);
-                        if (builderElm[0].bTrim) {
-                            let i = builders.length - 2;
-                            while (i >= 0 && builders[i][2]) {
-                                srcParent.removeChild(builders[i][1]);
-                                builders.splice(i, 1);
-                                i--;
+        try {
+            for (const srcNode of childNodes) {
+                switch (srcNode.nodeType) {
+                    case Node.ELEMENT_NODE:
+                        const builderElm = this.CompileElement(srcParent, srcNode, bBlockLevel);
+                        if (builderElm) {
+                            builders.push(builderElm);
+                            if (builderElm[0].bTrim) {
+                                let i = builders.length - 2;
+                                while (i >= 0 && builders[i][2]) {
+                                    srcParent.removeChild(builders[i][1]);
+                                    builders.splice(i, 1);
+                                    i--;
+                                }
                             }
                         }
-                    }
-                    break;
-                case Node.TEXT_NODE:
-                    const str = srcNode.data
-                        .replace(/^[ \t\r\n]+/g, this.bTrimLeft ? '' : ' ')
-                        .replace(/\[ \t\r\n]+$/, ' ');
-                    if (str != '') {
-                        this.bTrimLeft = / $/.test(str);
-                        const getText = this.CompileInterpolatedString(str);
-                        async function Text(region) {
-                            const { start, lastM, bInit } = region, content = getText(region.env);
-                            let text;
-                            if (bInit && start != srcNode)
-                                text = region.parent.insertBefore(document.createTextNode(content), start);
-                            else {
-                                (text = start).data = content;
-                                region.start = start.nextSibling;
+                        break;
+                    case Node.TEXT_NODE:
+                        const str = srcNode.data
+                            .replace(/^[ \t\r\n]+/g, this.bTrimLeft ? '' : ' ')
+                            .replace(/\[ \t\r\n]+$/, ' ');
+                        if (str != '') {
+                            this.bTrimLeft = / $/.test(str);
+                            const getText = this.CompileInterpolatedString(str);
+                            async function Text(region) {
+                                const { start, lastM, bInit } = region, content = getText(region.env);
+                                let text;
+                                if (bInit && start != srcNode)
+                                    text = region.parent.insertBefore(document.createTextNode(content), start);
+                                else {
+                                    (text = start).data = content;
+                                    region.start = start.nextSibling;
+                                }
+                                if (lastM) {
+                                    lastM.nextM = text;
+                                    region.lastM = null;
+                                }
                             }
-                            if (lastM) {
-                                lastM.nextM = text;
-                                region.lastM = null;
-                            }
+                            builders.push([Text, srcNode, getText.isBlank]);
                         }
-                        builders.push([Text, srcNode, getText.isBlank]);
-                    }
-                    else
+                        else
+                            srcParent.removeChild(srcNode);
+                        break;
+                    default:
                         srcParent.removeChild(srcNode);
-                    break;
-                default:
-                    srcParent.removeChild(srcNode);
-                    continue;
+                        continue;
+                }
             }
+            ;
         }
-        ;
-        this.RestoreContext(saved);
+        finally {
+            if (!bNorestore)
+                this.RestoreContext(saved);
+        }
         return async function ChildNodes(region) {
             const savedEnv = SaveEnv();
             try {
@@ -343,7 +347,8 @@ class RCompiler {
                 this.builtNodeCount += builders.length;
             }
             finally {
-                RestoreEnv(savedEnv);
+                if (!bNorestore)
+                    RestoreEnv(savedEnv);
             }
         };
     }
@@ -518,51 +523,48 @@ class RCompiler {
                     case 'IMPORT':
                         {
                             const src = GetAttribute(srcElm, 'src', true);
-                            const mapComponents = new Map();
+                            const listImports = new Array();
+                            const dummyEnv = NewEnv();
                             for (const child of srcElm.children) {
                                 const signature = this.ParseSignature(child);
-                                async function holdOn(region, args) {
+                                const holdOn = async function holdOn(region, args, mapSlotBuilders, slotEnv) {
                                     await task;
-                                    for (const builder of builders)
-                                        await builder.call(this, region, args);
-                                }
-                                const builders = [holdOn];
-                                mapComponents.set(child.tagName, [signature, builders, new RCompiler(this)]);
+                                    region.env = placeholder.constructEnv;
+                                    for (const builder of placeholder.instanceBuilders)
+                                        await builder.call(this, region, args, mapSlotBuilders, slotEnv);
+                                };
+                                const placeholder = { instanceBuilders: [holdOn], constructEnv: dummyEnv };
+                                listImports.push([signature, placeholder]);
                                 this.AddConstruct(signature);
                             }
+                            const compiler = new RCompiler();
+                            compiler.Settings.bRunScripts = true;
                             const task = (async () => {
                                 const response = await globalFetch(src);
                                 const textContent = await response.text();
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                for (const libElm of parsedContent.body.children)
-                                    if (libElm.tagName == 'COMPONENT') {
-                                        const triple = mapComponents.get(libElm.firstElementChild.tagName);
-                                        if (triple) {
-                                            const [clientSig, instanceBuilders, compiler] = triple;
-                                            compiler.Settings.bRunScripts = true;
-                                            const { signature, elmTemplate, builders } = compiler.AnalyseComponent(libElm);
-                                            if (!clientSig.Equals(signature))
-                                                throw `Imported signature <${clientSig.TagName}> is unequal to library signature <${signature.TagName}>`;
-                                            const instanceBuilder = compiler.CompileConstructTemplate(clientSig, elmTemplate.content, elmTemplate, false);
-                                            this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
-                                            instanceBuilders.length = 0;
-                                            instanceBuilders.push(...builders.map((b) => b[0]), instanceBuilder);
-                                            triple[2] = undefined;
-                                        }
-                                    }
-                                for (const [tagName, triple] of mapComponents.entries())
-                                    if (triple[2])
-                                        throw `Component ${tagName} is missing in '${src}'`;
+                                const builder = compiler.CompileChildNodes(parsedContent.body, true, undefined, true);
+                                this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
+                                const env = NewEnv();
+                                await builder.call(this, { parent: parsedContent.body, start: null, bInit: true, env });
+                                for (const [clientSig, placeholder] of listImports) {
+                                    const tagName = clientSig.TagName;
+                                    const signature = compiler.Constructs.get(tagName);
+                                    if (!signature)
+                                        throw `<${tagName}> is missing in '${src}'`;
+                                    if (!clientSig.Equals(signature))
+                                        throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
+                                    const constructdef = env.constructDefs.get(tagName);
+                                    placeholder.instanceBuilders = constructdef.instanceBuilders;
+                                    placeholder.constructEnv = constructdef.constructEnv;
+                                }
                             })();
                             srcParent.removeChild(srcElm);
                             builder = async function IMPORT({ env }) {
-                                const constructEnv = CloneEnv(env);
-                                for (const [{ TagName }, instanceBuilders] of mapComponents.values()) {
+                                for (const [{ TagName }, constructDef] of listImports.values()) {
                                     const prevDef = env.constructDefs.get(TagName);
-                                    const constructDef = { instanceBuilders, constructEnv };
                                     env.constructDefs.set(TagName, constructDef);
-                                    constructEnv.constructDefs.set(TagName, constructDef);
                                     envActions.push(() => { env.constructDefs.set(TagName, prevDef); });
                                 }
                             };
@@ -966,9 +968,15 @@ class RCompiler {
         try {
             const lvars = names.map(name => this.NewVar(name));
             const builder = this.CompileChildNodes(contentNode);
-            return async function (region, args) {
+            return async function (region, args, mapSlotBuilders, slotEnv) {
                 const saved = SaveEnv();
+                const env = region.env;
                 try {
+                    for (const [slotName, instanceBuilders] of mapSlotBuilders) {
+                        const savedDef = env.constructDefs.get(slotName);
+                        envActions.push(() => { env.constructDefs.set(slotName, savedDef); });
+                        env.constructDefs.set(slotName, { instanceBuilders, constructEnv: slotEnv });
+                    }
                     let i = 0;
                     for (const lvar of lvars)
                         lvar(region.env)(args[i++]);
@@ -1047,17 +1055,10 @@ class RCompiler {
                         rest.push({ modType, name, value: depValue(localEnv) });
                     args.push(rest);
                 }
-                if (signature.Slots.size) {
-                    const slotEnv = CloneEnv(localEnv);
-                    for (const slotName of signature.Slots.keys()) {
-                        const savedDef = constructEnv.constructDefs.get(slotName);
-                        envActions.push(() => { constructEnv.constructDefs.set(slotName, savedDef); });
-                        constructEnv.constructDefs.set(slotName, { instanceBuilders: slotBuilders.get(slotName), constructEnv: slotEnv });
-                    }
-                }
+                const slotEnv = signature.Slots.size ? CloneEnv(localEnv) : null;
                 subregion.env = constructEnv;
                 for (const parBuilder of instanceBuilders)
-                    await parBuilder.call(this, subregion, args);
+                    await parBuilder.call(this, subregion, args, slotBuilders, slotEnv);
             }
             finally {
                 RestoreEnv(savedEnv);

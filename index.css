@@ -34,7 +34,6 @@ section     {
 pre { 
     margin: 1ex 2vw; 
     white-space: pre-wrap;
-    max-width: calc(100% - 2ex);
 }
 pre, code, elm {
     color: darkblue;
