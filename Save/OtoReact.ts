@@ -1137,7 +1137,7 @@ class RCompiler {
         if (bTrim) this.bTrimLeft = true;
 
         // Now the runtime action
-        const builder = function ELEMENT(region: Region) {
+        const builder = function ELEMENT(this: RCompiler, region: Region) {
             const {parent, start, bInit, env, lastMarker} = region;
             // Create the element
             let elm: HTMLElement;

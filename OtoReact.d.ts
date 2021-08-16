@@ -35,7 +35,7 @@ declare type Region = {
     lastM?: Marker;
     bNoChildBuilding?: boolean;
 };
-declare type DOMBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {
+declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
     bTrim?: boolean;
 };
 declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[]) => Promise<void>;

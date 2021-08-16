@@ -81,7 +81,7 @@ type Region     = {
     lastM?: Marker,
     bNoChildBuilding?: boolean,
 };
-type DOMBuilder = ((this: RCompiler, reg: Region) => Promise<void>) & {bTrim?: boolean};
+type DOMBuilder = ((reg: Region) => Promise<void>) & {bTrim?: boolean};
 type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[]) => Promise<void>;
 
 type ParentNode = HTMLElement|DocumentFragment;
@@ -240,7 +240,7 @@ class RCompiler {
                 () => this.ContextMap.delete( this.Context.pop() )
             );
         }
-        return function InitVar(this: RCompiler, env: Environment) {
+        return function InitVar(env: Environment) {
             const prev = env[i];
             envActions.push( () => {env[i] = prev;} );
             
@@ -471,7 +471,7 @@ class RCompiler {
 
         this.RestoreContext(saved);
 
-        return async function ChildNodes(region) {
+        return async function ChildNodes(this: RCompiler, region) {
                 const savedEnv = SaveEnv();
                 try {
                     for (const [builder, node] of builders)
@@ -592,7 +592,7 @@ labelNoCheck:
                             });
 
                         builder = 
-                            async function CASE(region) {
+                            async function CASE(this: RCompiler, region) {
                                 const value = getValue && getValue(region.env);
                                 let choosenAlt: typeof caseList[0] = null;
                                 let matchResult: RegExpExecArray;
@@ -746,7 +746,7 @@ labelNoCheck:
                         // We transformeren de template in een routine die gewenste content genereert
                         const bodyBuilder = this.CompileChildNodes(srcElm, bBlockLevel);
                         
-                        builder = async function REACT(region) {
+                        builder = async function REACT(this: RCompiler, region) {
                             let subregion = PrepareRegion(srcElm, region);
 
                             if (subregion.bInit) {
@@ -776,7 +776,7 @@ labelNoCheck:
                         const bodyBuilder = this.CompileChildNodes(srcElm, bBlockLevel);
                         srcParent.removeChild(srcElm);
 
-                        builder = async function RHTML(region) {
+                        builder = async function RHTML(this: RCompiler, region) {
                             const tempElm = document.createElement('RHTML');
                             await bodyBuilder.call(this, {parent: tempElm, start: null, env: region.env, bInit: true});
                             const result = tempElm.innerText
@@ -825,7 +825,7 @@ labelNoCheck:
 
         if (reactingRvars) {
             const bodyBuilder = builder;
-            builder = async function REACT(region) {
+            builder = async function REACT(this: RCompiler, region) {
                 let {parent, marker} = PrepareRegion(srcElm, region, null, null, 'reacton');
 
                 await bodyBuilder.call(this, region);
@@ -833,7 +833,7 @@ labelNoCheck:
                 if (region.bInit) {
                     const subscriber: Subscriber = {
                         parent, marker,
-                        builder: async function reacton(reg: Region) {
+                        builder: async function reacton(this: RCompiler, reg: Region) {
                             if (bNoChildUpdates && !reg.bInit) reg.bNoChildBuilding = true;
                             await this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
                             this.builtNodeCount ++;
@@ -1153,7 +1153,7 @@ labelNoCheck:
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return ( 
-            async function COMPONENT(region: Region) {
+            async function COMPONENT(this: RCompiler, region: Region) {
                 for (const [bldr, srcNode] of builders)
                     await this.CallWithErrorHandling(bldr, srcNode, region);
 

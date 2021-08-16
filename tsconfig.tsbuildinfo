@@ -222,18 +222,19 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "55ea34ef2ef03ade97d047f05a3937dffae0191789a3f66775b420cf424bda36",
-        "signature": "83b2bdd96eca9dd7e6c006243be9316eef1aa4c2e4dd4a439caf4d238121fda3",
+        "version": "0a1d90afda515e97b11c6bb877585b081bfc1edc1f1b35a86aad1d49f26ae568",
+        "signature": "d204489efb0d5d221691a5938bfbbdcc90fc45b7ade71c4a5f70928cb42709aa",
         "affectsGlobalScope": false
       },
       "./save/otoreact.ts": {
-        "version": "b16d5ce651dea5e327a5c349f1bc764ec461aaa5e5950f9753a99ae308a6b8c5",
+        "version": "c1fd9b9ca539c2ca55b6608888933a1c97307639cfcae4e5c0096aa35870a226",
         "signature": "ec4a15fb4460a74afd21d5be276cee3dd1d015dfb8b7fc59676615aa303a6f27",
         "affectsGlobalScope": false
       }
     },
     "options": {
       "noEmitOnError": true,
+      "noImplicitThis": true,
       "removeComments": true,
       "module": 99,
       "target": 7,
