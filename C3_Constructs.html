@@ -43,40 +43,37 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p> \{a} </p>"
 ></demo>
 
-<h2>&lt;IF cond&gt; &lt;ELSE&gt;</h2>
-<pre class=sourcecode><{}IF cond="<i>expr</i>">
-    <i>ThenPart</i>&nbsp; 
-    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
-<{}/IF>
-</pre> is a conditional trunk of RHTML.
-<ul>
-    <li>
-        <code><i>ThenPart</i></code> may be any piece of RHTML, which is included in the document IF the value of <code><i>expr</i></code> is true (or <a href="{MDN}Glossary/Truthy">truthy</a>).
-    </li>
-    <li>
-        ELSE, when there is an <elm>ELSE</elm> part (the question mark indicates it is optional), then <code><i>ElsePart</i></code> is included. 
-    </li>
-</ul>
-
 <h2>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h2>
 <pre class=sourcecode>
-&lt;CASE&gt;
+&lt;CASE hiding?&gt;
     &lt;WHEN cond="<i>expr</i>"&gt; <i>WhenPart</i> &lt;/WHEN&gt;
     &hellip;
     &lt;ELSE<i>?</i>&gt; <i>ElsePart</i> &lt;/ELSE&gt;
 &lt;/CASE&gt;
-</pre>
+</pre> is a conditional piece of RHTML.
 <ul>
     <li>
         There may be multiple <elm>WHEN</elm> parts.
     </li>
     <li>
-        The first <i>WhenPart</i> for which the value of <i>expr</i> is truthy, is included in the document.
+        The first <i>WhenPart</i> for which the value of <i>expr</i> is true (or <a href="{MDN}Glossary/Truthy">truthy</a>), is included in the document.
     </li>
     <li>
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
+    <li>
+        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the invalid ones will be hidden.
+        <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#thisreactson"><code>thisreactson</code></a>).
+    </li>
 </ul>
+
+<h2>&lt;IF cond&gt; &lt;ELSE&gt;</h2>
+<pre class=sourcecode><{}IF cond="<i>expr</i>">
+    <i>ThenPart</i>&nbsp; 
+    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
+<{}/IF>
+</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm>, except that there is just one conditional part. All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+
 
 <h2>&lt;FOR let of index?&gt;</h2>
 <pre class="sourcecode">
@@ -111,6 +108,11 @@ Further on, <elm>FOR</elm> can have the following attributes:
         When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>null</code> for the first item.
         <br>This allows one to easily check for changing properties within the iteration.
         <br>When <i>prevName</i> is omitted, then <code>'previous'</code> is assumed.
+    </dd>
+    
+    <dt><code>next=<i>nextName</i></code></dt>
+    <dd>
+        In the same way, <i>nextName</i> becomes bound to the <i>next</i> item in the iteration.
     </dd>
 
     <dt><code>key="<i>keyExpression</i>"</code></dt>
@@ -235,7 +237,15 @@ Further on, <elm>FOR</elm> can have the following attributes:
 </demo>
 
 
-<h2>&lt;REACT on&gt;, reacton ...</h2>
+<h2>&lt;REACT on&gt;, reacton, thisreactson</h2>
+One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should react on changes to any of the RVAR's.
+<p>
+    Construct <code class=sourcecode><elm>REACT on="<i>RVARlist</i>"</elm> &hellip; <elm>/REACT</elm></code> does the same, except that one can insert <i>multiple</i> nodes rather than a single source element
+</p>
+<p id=thisreactson>
+    RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.
+</p>
+
 <div id=TicTacToe></div>
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
@@ -262,4 +272,13 @@ Here is a component which allows one to define tables column by column.
 
 <h2>&lt;RHTML&gt; ...</h2>
 
-<h2>&lt;DOCUMENT&gt; ...</h2>
+<h2>&lt;DOCUMENT&gt;</h2>
+<elm>DOCUMENT name=&hellip;</elm> (to be implemented) will allow you to define:
+<ul>
+    <li>
+        A document that can be shown in a separate browser while remaining part of the same RHTML application instance, i.e. sharing the same RVARs etc.
+    </li>
+    <li>
+        A form that can be printed without opening a separate window
+    </li>
+</ul>

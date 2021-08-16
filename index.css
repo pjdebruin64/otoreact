@@ -21,8 +21,12 @@
 }
 .sourcecode {
     padding: 4px 8px;
+    margin: 2px;
     border: var(--RedBorder);
     width: fit-content;
+}
+code.sourcecode {
+    display: inline-block;
 }
 section     {
     content-visibility: auto;

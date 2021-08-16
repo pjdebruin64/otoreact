@@ -12,7 +12,7 @@
     <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <i>framework</i> makes it much easier to create a reactive web application.
 </p>
 <p>
-    <b>OtoReact</i></b> is a small and fast framework to easily attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
+    <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
 </p>
 <ul>
     <li>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
@@ -95,6 +95,9 @@ That's all!
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>.
+<p>
+    The expressions are evaluated, converted to string, and inserted <i>as text</i>, there is no risk of <a href="{wiki}Code_injection">code injection</a>.
+</p>
 <p>
     To include a normal pair of braces, at least one of them must be escaped with a backslash.
 </p>

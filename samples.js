@@ -33,7 +33,7 @@ const sampleServerData =
   table.colorTable td {
     padding: 0px 4px;
     text-align: center;
-    max-width: 8em; overflow:hidden;    
+    max-width: 8em; overflow:hidden;
   }
 </style>
 
@@ -328,7 +328,7 @@ let sampleTicTacToe =
 
 <style>
     .tic-tac-toe td {
-        height:32pt; width: 32pt; 
+        height:45px; width: 45px; padding: 0px;
         border: 2px solid; 
         text-align: center; vertical-align: middle;
     }

@@ -536,7 +536,7 @@ labelNoCheck:
                             lvars: LVar[], 
                             regex: RegExp, 
                             builder: DOMBuilder, 
-                            child: HTMLElement,
+                            childElm: HTMLElement,
                         }> = [];
                         const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression<boolean>(srcElm, 'cond', true);
                         const getValue = this.CompileAttributeExpression<string>(srcElm, 'value');
@@ -549,8 +549,8 @@ labelNoCheck:
                                 this.bTrimLeft = bTrimLeft;
                                 switch (child.nodeName) {
                                     case 'WHEN':
-                                        const cond = this.CompileAttributeExpression<boolean>(childElm, 'cond');
-
+                                        const saved = this.SaveContext();
+                                        const condition = this.CompileAttributeExpression<boolean>(childElm, 'cond');
                                         let pattern: string;
                                         let regex: RegExp, lvars: LVar[] = [];
                                         if (pattern = GetAttribute(childElm, 'match')) {
@@ -558,20 +558,17 @@ labelNoCheck:
                                             regex = CP.regex; lvars = CP.lvars;
                                         }
                                         else if (pattern = GetAttribute(childElm, 'regmatch')) {
-                                            regex = new RegExp(pattern, 'i');                                             
+                                            regex = new RegExp(pattern, 'i');                                           
                                         }
                                         else 
                                             regex = null;
                                         if (regex && !getValue)
                                             throw `A match is requested but no 'value' is specified.`;
-                                        caseList.push({
-                                            condition: cond
-                                            , lvars
-                                            , regex
-                                            , builder: this.CompileChildNodes(childElm, bBlockLevel)
-                                            , child: childElm
-                                        });
+
+                                        const builder = this.CompileChildNodes(childElm, bBlockLevel);
+                                        caseList.push({condition, lvars, regex, builder, childElm});
                                         CheckNoAttributesLeft(childElm);
+                                        this.RestoreContext(saved);
                                         continue;
                                     case 'ELSE':
                                         caseList.push({
@@ -579,7 +576,7 @@ labelNoCheck:
                                             , lvars: []
                                             , regex: null
                                             , builder: this.CompileChildNodes(childElm, bBlockLevel)
-                                            , child: childElm
+                                            , childElm
                                         });
                                         CheckNoAttributesLeft(childElm);
                                         continue;
@@ -591,13 +588,13 @@ labelNoCheck:
                             caseList.unshift({
                                 condition: getCondition, lvars: [], regex: null,
                                 builder: this.CompileChildNodes(srcElm, bBlockLevel, bodyNodes),
-                                child: srcElm
+                                childElm: srcElm
                             });
 
                         builder = 
                             async function CASE(region) {
                                 const value = getValue && getValue(region.env);
-                                let result: typeof caseList[0] = null;
+                                let choosenAlt: typeof caseList[0] = null;
                                 let matchResult: RegExpExecArray;
                                 for (const alt of caseList)
                                     try {
@@ -605,14 +602,14 @@ labelNoCheck:
                                             (!alt.condition || alt.condition(region.env)) 
                                             && (!alt.regex || (matchResult = alt.regex.exec(value)))
                                             )
-                                        { result = alt; break; }
-                                    } catch (err) { throw `${OuterOpenTag(alt.child)}${err}`; }
+                                        { choosenAlt = alt; break; }
+                                    } catch (err) { throw `${OuterOpenTag(alt.childElm)}${err}`; }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                     let {start, bInit, env} = PrepareRegion(srcElm, region, null, region.bInit);
                                         
                                     for (const alt of caseList) {
-                                        const bHidden = alt != result;
+                                        const bHidden = alt != choosenAlt;
                                         let elm: HTMLElement;
                                         if (!bInit || start == srcElm) {
                                             elm = start as HTMLElement;
@@ -620,19 +617,24 @@ labelNoCheck:
                                         }
                                         else
                                             region.parent.insertBefore(
-                                                elm = document.createElement(alt.child.nodeName),
+                                                elm = document.createElement(alt.childElm.nodeName),
                                                 start);
                                         elm.hidden = bHidden;
                                         if ((!bHidden || bInit) && !region.bNoChildBuilding)
-                                            await this.CallWithErrorHandling(alt.builder, alt.child, {parent: elm, start: elm.firstChild, bInit, env} );
+                                            await this.CallWithErrorHandling(alt.builder, alt.childElm, {parent: elm, start: elm.firstChild, bInit, env} );
                                     }
                                 }
                                 else {
                                     // This is the regular CASE                                
-                                    const subregion = PrepareRegion(srcElm, region, result);
-                                    if (result)
-                                        await this.CallWithErrorHandling(result.builder, result.child, subregion );
-                                        //await result.call(this, subregion);
+                                    const subregion = PrepareRegion(srcElm, region, choosenAlt);
+                                    if (choosenAlt) {
+                                        const saved = SaveEnv();
+                                        let i=1;
+                                        for (const lvar of choosenAlt.lvars)
+                                            lvar(region.env)(matchResult[i++]);
+                                        await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion );
+                                        RestoreEnv(saved);
+                                    }
                                 }
                         };
                         this.bTrimLeft = false;
@@ -923,6 +925,8 @@ labelNoCheck:
                 const getRange = this.CompileAttributeExpression<Iterable<Item>>(srcElm, 'of', true);
                 let prevName = GetAttribute(srcElm, 'previous');
                 if (prevName == '') prevName = 'previous';
+                let nextName = GetAttribute(srcElm, 'next');
+                if (nextName == '') nextName = 'next';
 
                 const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'), true);
                 const getUpdatesTo = this.CompileAttributeExpression<_RVAR<unknown>>(srcElm, 'updates');
@@ -932,6 +936,7 @@ labelNoCheck:
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
                 const initIndex = this.NewVar(indexName);
                 const initPrevious = this.NewVar(prevName);
+                const initNext = this.NewVar(nextName);
 
                 const getKey = this.CompileAttributeExpression<Key>(srcElm, 'key');
                 const getHash = this.CompileAttributeExpression<Hash>(srcElm, 'hash');
@@ -955,6 +960,7 @@ labelNoCheck:
                         // Map of the newly obtained data
                         const newMap: Map<Key, {item:Item, hash:Hash}> = new Map();
                         const setVar = initVar(env);
+
                         const iterator = getRange(env);
                         if (!iterator || typeof iterator[Symbol.iterator] != 'function')
                             throw `[of]: Value (${iterator}) is not iterable`;
@@ -962,6 +968,8 @@ labelNoCheck:
                             setVar(item);
                             const hash = getHash && getHash(env);
                             const key = getKey ? getKey(env) : hash;
+                            if (key != null && newMap.has(key))
+                                throw `Key '${key}' is not unique`;
                             newMap.set(key ?? {}, {item, hash});
                         }
 
@@ -982,8 +990,11 @@ labelNoCheck:
 
                         const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
+                        const setNext = initNext(env);
 
                         let index = 0, prevItem: Item = null;
+                        const nextIterator = nextName ? newMap.values() : null;
+                        if (nextIterator) nextIterator.next();
                         // Voor elke waarde in de range
                         for (const [key, {item, hash}] of newMap) {
                             // Environment instellen
@@ -995,6 +1006,8 @@ labelNoCheck:
                             setVar(rvar);
                             setIndex(index);
                             setPrevious(prevItem);
+                            if (nextIterator)
+                                setNext(nextIterator.next().value?.item)
 
                             let marker: Marker;
                             let subscriber = keyMap.get(key);
@@ -1335,7 +1348,7 @@ labelNoCheck:
         if (bTrim) this.bTrimLeft = true;
 
         // Now the runtime action
-        const builder = async function ELEMENT(region: Region) {
+        const builder = async function ELEMENT(this: RCompiler, region: Region) {
             const {parent, start, bInit, env, lastM} = region;
             // Create the element
             let elm: HTMLElement;
@@ -1512,33 +1525,34 @@ labelNoCheck:
         return dep;
     }
 
+    // Compile a 'regular pattern' into a RegExp and a list of bound LVars
     private CompilePattern(patt:string) {
         let reg = '', lvars: LVar[] = [];
         
+        // These are the subpatterns that are need converting; all remaining characters are literals and will be quoted when needed
         const regIS =
             /(?<![\\$])\$?\{(.*?)(?<!\\)\}|\?|\*|$/gs;
 
         while (regIS.lastIndex < patt.length) {
             const lastIndex = regIS.lastIndex
             const m = regIS.exec(patt);
-            const fixed = lastIndex < m.index ? patt.substring(lastIndex, m.index) : null;
+            const literals = patt.substring(lastIndex, m.index);
 
-            if (fixed)
-                reg += this.quoteReg(fixed);
+            if (literals)
+                reg += this.quoteReg(literals);
             if (m[1]) {
                 if (m[1] == '?')
                     reg += '.';
                 else if (m[1] == '*')
                     reg += '.*';
                 else {
-                    const name = CheckValidIdentifier(m[1]);
                     reg += `(.*?)`;
-                    lvars.push(this.NewVar(name));
+                    lvars.push(this.NewVar(m[1]));
                 }
             }
         }
 
-        return {regex: new RegExp(reg, 'i'), lvars};
+        return {regex: new RegExp(`^${reg}$`, 'i'), lvars}; 
     }
     private quoteReg(fixed: string) {
         return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);

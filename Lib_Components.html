@@ -149,10 +149,12 @@
         }
         div.pageLayout > nav {
             grid-row: 2;
-            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
             columns: 15em;
-            font-size: 92.5%;
             line-height: 1.25;
+        }
+        div.pageLayout > nav, .nav {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            font-size: 92.5%;
         }
         div.pageLayout > nav > a {
             display: block;
@@ -192,7 +194,10 @@
             }
             body {
                 overflow-y: hidden;
-            }       
+            }
+            .narrow-only {
+                display: none;
+            }
         }
 
         nav.topbar {
@@ -238,8 +243,8 @@
                         <a href="{RootPath}routing"    #onclick=reroute>Routing</a>
                     </nav>
             </header>
-            <nav>
-                <center>
+            <nav id=TOC>
+                <center style="background-color: orange;">
                     <b><i>Table of Contents</i></b>
                 </center>
                 <for let=item #of=C.contents.V reacton=C.contents>
@@ -250,7 +255,13 @@
                 </for>
             </nav>
             <main>
+                <button class="nav narrow-only"
+                    style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;" >
+                    <a href="#TOC">↑ Contents ↑</a>
+                </button>
+                <!-- Here the content of the page definition will be inserted -->
                 <content>
+                    <!-- Inside the content, the following construsts are available: -->
                     <h1 id>
                         <def var=nr #value="C.getNr(0)"></def>
                         <h1. #id="id||'s'+nr" onCreate="C.addContent(0, this)">{nr} &nbsp;<content></content></h1.>

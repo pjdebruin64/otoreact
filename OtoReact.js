@@ -403,7 +403,8 @@ class RCompiler {
                                     this.bTrimLeft = bTrimLeft;
                                     switch (child.nodeName) {
                                         case 'WHEN':
-                                            const cond = this.CompileAttributeExpression(childElm, 'cond');
+                                            const saved = this.SaveContext();
+                                            const condition = this.CompileAttributeExpression(childElm, 'cond');
                                             let pattern;
                                             let regex, lvars = [];
                                             if (pattern = GetAttribute(childElm, 'match')) {
@@ -418,14 +419,10 @@ class RCompiler {
                                                 regex = null;
                                             if (regex && !getValue)
                                                 throw `A match is requested but no 'value' is specified.`;
-                                            caseList.push({
-                                                condition: cond,
-                                                lvars,
-                                                regex,
-                                                builder: this.CompileChildNodes(childElm, bBlockLevel),
-                                                child: childElm
-                                            });
+                                            const builder = this.CompileChildNodes(childElm, bBlockLevel);
+                                            caseList.push({ condition, lvars, regex, builder, childElm });
                                             CheckNoAttributesLeft(childElm);
+                                            this.RestoreContext(saved);
                                             continue;
                                         case 'ELSE':
                                             caseList.push({
@@ -433,7 +430,7 @@ class RCompiler {
                                                 lvars: [],
                                                 regex: null,
                                                 builder: this.CompileChildNodes(childElm, bBlockLevel),
-                                                child: childElm
+                                                childElm
                                             });
                                             CheckNoAttributesLeft(childElm);
                                             continue;
@@ -445,44 +442,50 @@ class RCompiler {
                                 caseList.unshift({
                                     condition: getCondition, lvars: [], regex: null,
                                     builder: this.CompileChildNodes(srcElm, bBlockLevel, bodyNodes),
-                                    child: srcElm
+                                    childElm: srcElm
                                 });
                             builder =
                                 async function CASE(region) {
                                     const value = getValue && getValue(region.env);
-                                    let result = null;
+                                    let choosenAlt = null;
                                     let matchResult;
                                     for (const alt of caseList)
                                         try {
                                             if ((!alt.condition || alt.condition(region.env))
                                                 && (!alt.regex || (matchResult = alt.regex.exec(value)))) {
-                                                result = alt;
+                                                choosenAlt = alt;
                                                 break;
                                             }
                                         }
                                         catch (err) {
-                                            throw `${OuterOpenTag(alt.child)}${err}`;
+                                            throw `${OuterOpenTag(alt.childElm)}${err}`;
                                         }
                                     if (bHiding) {
                                         let { start, bInit, env } = PrepareRegion(srcElm, region, null, region.bInit);
                                         for (const alt of caseList) {
-                                            const bHidden = alt != result;
+                                            const bHidden = alt != choosenAlt;
                                             let elm;
                                             if (!bInit || start == srcElm) {
                                                 elm = start;
                                                 start = start.nextSibling;
                                             }
                                             else
-                                                region.parent.insertBefore(elm = document.createElement(alt.child.nodeName), start);
+                                                region.parent.insertBefore(elm = document.createElement(alt.childElm.nodeName), start);
                                             elm.hidden = bHidden;
                                             if ((!bHidden || bInit) && !region.bNoChildBuilding)
-                                                await this.CallWithErrorHandling(alt.builder, alt.child, { parent: elm, start: elm.firstChild, bInit, env });
+                                                await this.CallWithErrorHandling(alt.builder, alt.childElm, { parent: elm, start: elm.firstChild, bInit, env });
                                         }
                                     }
                                     else {
-                                        const subregion = PrepareRegion(srcElm, region, result);
-                                        if (result)
-                                            await this.CallWithErrorHandling(result.builder, result.child, subregion);
+                                        const subregion = PrepareRegion(srcElm, region, choosenAlt);
+                                        if (choosenAlt) {
+                                            const saved = SaveEnv();
+                                            let i = 1;
+                                            for (const lvar of choosenAlt.lvars)
+                                                lvar(region.env)(matchResult[i++]);
+                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion);
+                                            RestoreEnv(saved);
+                                        }
                                     }
                                 };
                             this.bTrimLeft = false;
@@ -725,11 +728,15 @@ class RCompiler {
                 let prevName = GetAttribute(srcElm, 'previous');
                 if (prevName == '')
                     prevName = 'previous';
+                let nextName = GetAttribute(srcElm, 'next');
+                if (nextName == '')
+                    nextName = 'next';
                 const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'), true);
                 const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
                 const initVar = this.NewVar(varName);
                 const initIndex = this.NewVar(indexName);
                 const initPrevious = this.NewVar(prevName);
+                const initNext = this.NewVar(nextName);
                 const getKey = this.CompileAttributeExpression(srcElm, 'key');
                 const getHash = this.CompileAttributeExpression(srcElm, 'hash');
                 if (srcElm.childNodes.length == 0)
@@ -751,6 +758,8 @@ class RCompiler {
                             setVar(item);
                             const hash = getHash && getHash(env);
                             const key = getKey ? getKey(env) : hash;
+                            if (key != null && newMap.has(key))
+                                throw `Key '${key}' is not unique`;
                             newMap.set(key ?? {}, { item, hash });
                         }
                         function RemoveStaleItemsHere() {
@@ -769,7 +778,11 @@ class RCompiler {
                         RemoveStaleItemsHere();
                         const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
+                        const setNext = initNext(env);
                         let index = 0, prevItem = null;
+                        const nextIterator = nextName ? newMap.values() : null;
+                        if (nextIterator)
+                            nextIterator.next();
                         for (const [key, { item, hash }] of newMap) {
                             let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
                                 : bReactive ? this.RVAR_Light(item)
@@ -777,6 +790,8 @@ class RCompiler {
                             setVar(rvar);
                             setIndex(index);
                             setPrevious(prevItem);
+                            if (nextIterator)
+                                setNext(nextIterator.next().value?.item);
                             let marker;
                             let subscriber = keyMap.get(key);
                             let childRegion;
@@ -1223,22 +1238,21 @@ class RCompiler {
         while (regIS.lastIndex < patt.length) {
             const lastIndex = regIS.lastIndex;
             const m = regIS.exec(patt);
-            const fixed = lastIndex < m.index ? patt.substring(lastIndex, m.index) : null;
-            if (fixed)
-                reg += this.quoteReg(fixed);
+            const literals = patt.substring(lastIndex, m.index);
+            if (literals)
+                reg += this.quoteReg(literals);
             if (m[1]) {
                 if (m[1] == '?')
                     reg += '.';
                 else if (m[1] == '*')
                     reg += '.*';
                 else {
-                    const name = CheckValidIdentifier(m[1]);
                     reg += `(.*?)`;
-                    lvars.push(this.NewVar(name));
+                    lvars.push(this.NewVar(m[1]));
                 }
             }
         }
-        return { regex: new RegExp(reg, 'i'), lvars };
+        return { regex: new RegExp(`^${reg}$`, 'i'), lvars };
     }
     quoteReg(fixed) {
         return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
