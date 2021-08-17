@@ -48,7 +48,6 @@ type Context = Array<string>;
 type Environment = 
     Array<unknown> 
     & { constructDefs: Map<string, ConstructDef> };
-type ConstructDef = {instanceBuilders: ParametrizedBuilder[], constructEnv: Environment};
 type SavedContext = number;
 function NewEnv(): Environment { 
     const env = [] as Environment;
@@ -81,6 +80,8 @@ type Region     = {
     bNoChildBuilding?: boolean,
 };
 type DOMBuilder = ((reg: Region) => Promise<void>) & {bTrim?: boolean};
+
+type ConstructDef = {instanceBuilders: ParametrizedBuilder[], constructEnv: Environment};
 type ParametrizedBuilder = 
     (this: RCompiler, reg: Region, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment)
     => Promise<void>;
@@ -246,9 +247,9 @@ class RCompiler {
         }
         return function InitVar(env: Environment) {
             const prev = env[i], j=i;
-            envActions.push( () => {env[j] = prev;} );
+            envActions.push( () => {env[j] = prev } );
             
-            return (value: unknown) => {env[j] = value;};
+            return (value: unknown) => {env[j] = value };
         }.bind(this) as LVar            
     }
 
@@ -269,12 +270,14 @@ class RCompiler {
     ) {
         this.Settings = {...defaultSettings, ...settings, };
         const t0 = Date.now();
+        const savedR = RHTML; RHTML = this;
         if (bIncludeSelf)
             this.Builder = this.CompileElement(elm.parentElement, elm)[0];
         else
             this.Builder = this.CompileChildNodes(elm);
 
         this.bCompiled = true;
+        RHTML = savedR;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
     }
@@ -399,7 +402,7 @@ class RCompiler {
                     }
                 }
             );
-            t.Subscribe = function(sub: Subscriber) { t._Subscribers.push(sub); } ;
+            t.Subscribe = function(sub: Subscriber) { t._Subscribers.push(sub) } ;
         }
         return t;
     }
@@ -520,9 +523,11 @@ labelNoCheck:
                         const getStore = rvarName && this.CompileAttributeExpression<Store>(srcElm, 'store');
                         const newVar = this.NewVar(varName);
                         const bReact = GetAttribute(srcElm, 'react') != null;
+                        const subBuilder = this.CompileChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, region) {
-                                const {marker} = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const subRegion = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const {marker} = subRegion;
                                 if (region.bInit || bReact){
                                     const value = getValue && getValue(region.env);
                                     marker.rValue = rvarName 
@@ -530,6 +535,7 @@ labelNoCheck:
                                         : value;
                                 }
                                 newVar(region.env)(marker.rValue);
+                                await subBuilder.call(this, subRegion);
                             };
                     } break;
 
@@ -537,9 +543,8 @@ labelNoCheck:
                     case 'CASE': {
                         const bHiding = CBool(GetAttribute(srcElm, 'hiding'));
                         const caseList: Array<{
-                            condition: Dependent<boolean>, 
-                            lvars: LVar[], 
-                            regex: RegExp, 
+                            condition: Dependent<boolean>,
+                            patt: {lvars: LVar[], regex: RegExp},
                             builder: DOMBuilder, 
                             childElm: HTMLElement,
                         }> = [];
@@ -555,31 +560,30 @@ labelNoCheck:
                                 switch (child.nodeName) {
                                     case 'WHEN':
                                         const saved = this.SaveContext();
-                                        const condition = this.CompileAttributeExpression<boolean>(childElm, 'cond');
-                                        let pattern: string;
-                                        let regex: RegExp, lvars: LVar[] = [];
-                                        if (pattern = GetAttribute(childElm, 'match')) {
-                                            const CP = this.CompilePattern(pattern);
-                                            regex = CP.regex; lvars = CP.lvars;
-                                        }
-                                        else if (pattern = GetAttribute(childElm, 'regmatch')) {
-                                            regex = new RegExp(pattern, 'i');                                           
-                                        }
-                                        else 
-                                            regex = null;
-                                        if (regex && !getValue)
-                                            throw `A match is requested but no 'value' is specified.`;
+                                        try {
+                                            const condition = this.CompileAttributeExpression<boolean>(childElm, 'cond');
+                                            let pattern: string;
+                                            let patt:  {lvars: LVar[], regex: RegExp};
+                                            if (pattern = GetAttribute(childElm, 'match'))
+                                                patt = this.CompilePattern(pattern);
+                                            else if (pattern = GetAttribute(childElm, 'regmatch')) {
+                                                patt = {regex: new RegExp(pattern, 'i'), lvars: []};
+                                            }
+                                            else 
+                                                patt = null;
+                                            if (patt && !getValue)
+                                                throw `A match is requested but no 'value' is specified.`;
 
-                                        const builder = this.CompileChildNodes(childElm, bBlockLevel);
-                                        caseList.push({condition, lvars, regex, builder, childElm});
-                                        CheckNoAttributesLeft(childElm);
-                                        this.RestoreContext(saved);
+                                            const builder = this.CompileChildNodes(childElm, bBlockLevel);
+                                            caseList.push({condition, patt, builder, childElm});
+                                            CheckNoAttributesLeft(childElm);
+                                        } catch (err) { throw `${OuterOpenTag(childElm)}${err}`  }
+                                        finally { this.RestoreContext(saved) }
                                         continue;
                                     case 'ELSE':
                                         caseList.push({
                                             condition: (_env) => true
-                                            , lvars: []
-                                            , regex: null
+                                            , patt: null
                                             , builder: this.CompileChildNodes(childElm, bBlockLevel)
                                             , childElm
                                         });
@@ -591,7 +595,7 @@ labelNoCheck:
                         }
                         if (getCondition)
                             caseList.unshift({
-                                condition: getCondition, lvars: [], regex: null,
+                                condition: getCondition, patt: null,
                                 builder: this.CompileChildNodes(srcElm, bBlockLevel, bodyNodes),
                                 childElm: srcElm
                             });
@@ -605,10 +609,10 @@ labelNoCheck:
                                     try {
                                         if (
                                             (!alt.condition || alt.condition(region.env)) 
-                                            && (!alt.regex || (matchResult = alt.regex.exec(value)))
+                                            && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             )
-                                        { choosenAlt = alt; break; }
-                                    } catch (err) { throw `${OuterOpenTag(alt.childElm)}${err}`; }
+                                        { choosenAlt = alt; break }
+                                    } catch (err) { throw `${OuterOpenTag(alt.childElm)}${err}` }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                     let {start, bInit, env} = PrepareRegion(srcElm, region, null, region.bInit);
@@ -634,11 +638,13 @@ labelNoCheck:
                                     const subregion = PrepareRegion(srcElm, region, choosenAlt);
                                     if (choosenAlt) {
                                         const saved = SaveEnv();
-                                        let i=1;
-                                        for (const lvar of choosenAlt.lvars)
-                                            lvar(region.env)(matchResult[i++]);
-                                        await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion );
-                                        RestoreEnv(saved);
+                                        try {
+                                            let i=1;
+                                            if (choosenAlt.patt) 
+                                                for (const lvar of choosenAlt.patt.lvars)
+                                                    lvar(region.env)(matchResult[i++]);
+                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion );
+                                        } finally { RestoreEnv(saved) }
                                     }
                                 }
                         };
@@ -731,7 +737,7 @@ labelNoCheck:
                                     if (!clientSig.Equals(signature))
                                         throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
                                     
-                                    const constructdef = module.get(tagName);
+                                    const constructdef = module.ConstructDefs.get(tagName);
                                     placeholder.instanceBuilders = constructdef.instanceBuilders;
                                     placeholder.constructEnv = constructdef.constructEnv;
                                 }
@@ -744,7 +750,7 @@ labelNoCheck:
                                 const prevDef = env.constructDefs.get(TagName);
                                 env.constructDefs.set(TagName, constructDef);
                                 envActions.push(
-                                    () => { env.constructDefs.set(TagName,  prevDef); }
+                                    () => { env.constructDefs.set(TagName,  prevDef) }
                                 );
                             }
                         }
@@ -812,7 +818,7 @@ labelNoCheck:
 
                                 await R.Build(subregion);
                             }
-                        };                                
+                        };
                     } break;
 
                     case 'SCRIPT': 
@@ -1089,7 +1095,7 @@ labelNoCheck:
                             RemoveStaleItemsHere();
                         }
                     }
-                    finally { RestoreEnv(savedEnv); }
+                    finally { RestoreEnv(savedEnv) }
                 };
             }
             else { 
@@ -1124,7 +1130,7 @@ labelNoCheck:
                 }
             }
         }
-        finally { this.RestoreContext(saved); }
+        finally { this.RestoreContext(saved) }
     }
 
     private ParseSignature(elmSignature: Element):  Signature {
@@ -1173,12 +1179,12 @@ labelNoCheck:
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
                 const construct = {instanceBuilders, constructEnv: undefined as Environment};
-                const env = region.env;
+                const {env} = region;
                 const prevDef = env.constructDefs.get(tagName);
                 env.constructDefs.set(tagName, construct);
                 construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
                 envActions.push(
-                    () => { env.constructDefs.set(tagName,  prevDef); }
+                    () => { env.constructDefs.set(tagName,  prevDef) }
                 );
             } );
     }
@@ -1234,7 +1240,7 @@ labelNoCheck:
                     for (const [slotName, instanceBuilders] of mapSlotBuilders) {
                         const savedDef = env.constructDefs.get(slotName);
                         envActions.push(
-                            () => { env.constructDefs.set(slotName, savedDef); }
+                            () => { env.constructDefs.set(slotName, savedDef) }
                         );
                         env.constructDefs.set(slotName, {instanceBuilders, constructEnv: slotEnv});
                     }
@@ -1243,11 +1249,11 @@ labelNoCheck:
                         lvar(region.env)(args[i++]);
                     await builder.call(this, region); 
                 }
-                finally { RestoreEnv(saved); }}
+                finally { RestoreEnv(saved) }}
 
         }
-        catch (err) {throw `${OuterOpenTag(srcElm)} ${err}`;}
-        finally { this.RestoreContext(saved); }
+        catch (err) {throw `${OuterOpenTag(srcElm)} ${err}` }
+        finally { this.RestoreContext(saved) }
     }
 
 
@@ -1387,7 +1393,7 @@ labelNoCheck:
                     // See what to do with it
                     ApplyModifier(elm, modType, name, value)
                 }
-                catch (err) { throw `[${name}]: ${err}`; }
+                catch (err) { throw `[${name}]: ${err}` }
             }
             
             if (!region.bNoChildBuilding)
@@ -1407,7 +1413,7 @@ labelNoCheck:
                             break;
                     }
                 }
-                catch (err) { throw `[${attName}]: ${err}`; }
+                catch (err) { throw `[${attName}]: ${err}` }
             }
 
             if (nodeName=='SCRIPT')
@@ -1471,16 +1477,14 @@ labelNoCheck:
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) { // *, **, @, @@
                     const propName = CapitalizeProp(m[3]);
+                    CheckAssignmentTarget(attr.value);
                     const setter = this.CompileExpression<Handler>(
-                        `function (){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
-                    preModifiers.push(
-                        m[1] == '*'
-                        ? { modType: ModifierType.Event, name: null,     depValue: setter, }
-                        : { modType: ModifierType.Prop,  name: propName, depValue: this.CompileExpression<unknown>(attr.value) }
-                    );
-                    preModifiers.push({
-                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
-                    })
+                        `function(){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
+                    if (m[1] == '@')
+                        preModifiers.push({ modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression<unknown>(attr.value) });
+                    else
+                        postModifiers.push({ modType: ModifierType.PseudoEvent, name: 'oncreate', depValue: setter });
+                    preModifiers.push({modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter})
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attrName)) {
                     if (attr.value) throw `Rest parameter cannot have a value`;
@@ -1529,7 +1533,7 @@ labelNoCheck:
                         ( typeof gen == 'string' ? gen : gen(env) ?? '');
                 return result;
             }
-            catch (err) { throw `[${name}]: ${err}`; }
+            catch (err) { throw `[${name}]: ${err}` }
         }
         dep.isBlank = isBlank;
         return dep;
@@ -1549,7 +1553,7 @@ labelNoCheck:
             const literals = patt.substring(lastIndex, m.index);
 
             if (literals)
-                reg += this.quoteReg(literals);
+                reg += quoteReg(literals);
             if (m[1]) {
                 if (m[1] == '?')
                     reg += '.';
@@ -1563,9 +1567,6 @@ labelNoCheck:
         }
 
         return {regex: new RegExp(`^${reg}$`, 'i'), lvars}; 
-    }
-    private quoteReg(fixed: string) {
-        return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
     }
 
     private CompileAttributeExpression<T>(elm: HTMLElement, attName: string, bRequired?: boolean) {
@@ -1623,7 +1624,7 @@ labelNoCheck:
                 }   // Runtime error
             }
         }
-        catch (err) { throw `${errorInfo}${err}`; }             // Compiletime error
+        catch (err) { throw `${errorInfo}${err}` }             // Compiletime error
     }
     private CompileName(name: string): Dependent<unknown> {
         const i = this.ContextMap.get(name);
@@ -1673,6 +1674,17 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     return {parent, marker, start, bInit, env: region.env};
 }
 
+function quoteReg(fixed: string) {
+    return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
+}
+
+function CheckAssignmentTarget(target: string) {
+    try {
+        globalEval(`()=>{${target}=null}`);
+    }
+    catch(err) { throw `Invalid left-hand side '${target}'`}
+}
+
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -1708,7 +1720,7 @@ class _RVAR<T>{
     }
 
     // Use var.V to get or set its value
-    get V() { return this._Value; }
+    get V() { return this._Value }
     // When setting, it will be marked dirty.
     set V(t: T) {
         if (t !== this._Value) {
@@ -1721,8 +1733,8 @@ class _RVAR<T>{
     // Use var.U to get its value for the purpose of updating some part of it.
     // It will be marked dirty.
     // Set var.U to have the DOM update immediately.
-    get U() { this.SetDirty();  return this._Value; }
-    set U(t: T) { this.V = t; }
+    get U() { this.SetDirty();  return this._Value }
+    set U(t: T) { this.V = t }
 
     SetDirty() {
         for (const sub of this.Subscribers)
@@ -1806,7 +1818,7 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     return s;
 }
 
-//function thrower(err: string = 'Internal error'): never { throw err; }
+//function thrower(err: string = 'Internal error'): never { throw err }
 
 export let RHTML = new RCompiler();
 
@@ -1832,9 +1844,9 @@ export function* range(from: number, upto?: number, step: number = 1) {
 }
 globalThis.range = range;
 
-export const docLocation = RVAR<string>('docLocation');
+export const docLocation = RVAR<Location>('docLocation', document.location);
 function SetDocLocation()  { 
-    docLocation.V = document.location.href;
+    docLocation.SetDirty();
     if (RootPath)
         docLocation['subpath'] = document.location.pathname.substr(RootPath.length);
 }

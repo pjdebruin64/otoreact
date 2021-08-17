@@ -46,15 +46,15 @@ function CloneEnv(env) {
 ;
 ;
 class Signature {
-    constructor(TagName) {
-        this.TagName = TagName;
+    constructor(tagName) {
+        this.tagName = tagName;
         this.Parameters = [];
         this.RestParam = null;
         this.Slots = new Map();
     }
     Equals(sig) {
         let result = sig
-            && this.TagName == sig.TagName
+            && this.tagName == sig.tagName
             && this.Parameters.length == sig.Parameters.length
             && this.Slots.size == sig.Slots.size;
         for (let i = 0; i < this.Parameters.length; i++)
@@ -119,6 +119,7 @@ function ApplyModifier(elm, modType, name, val) {
             break;
     }
 }
+const Modules = new Map();
 const envActions = [];
 function SaveEnv() {
     return envActions.length;
@@ -175,7 +176,7 @@ class RCompiler {
         }.bind(this);
     }
     AddConstruct(C) {
-        const CName = C.TagName;
+        const CName = C.tagName;
         const savedConstr = this.Constructs.get(CName);
         this.Constructs.set(CName, C);
         this.restoreActions.push(() => this.Constructs.set(CName, savedConstr));
@@ -183,11 +184,14 @@ class RCompiler {
     Compile(elm, settings, bIncludeSelf) {
         this.Settings = { ...defaultSettings, ...settings, };
         const t0 = Date.now();
+        const savedR = RHTML;
+        RHTML = this;
         if (bIncludeSelf)
             this.Builder = this.CompileElement(elm.parentElement, elm)[0];
         else
             this.Builder = this.CompileChildNodes(elm);
         this.bCompiled = true;
+        RHTML = savedR;
         const t1 = Date.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${t1 - t0} ms`);
     }
@@ -380,8 +384,10 @@ class RCompiler {
                             const getStore = rvarName && this.CompileAttributeExpression(srcElm, 'store');
                             const newVar = this.NewVar(varName);
                             const bReact = GetAttribute(srcElm, 'react') != null;
+                            const subBuilder = this.CompileChildNodes(srcElm);
                             builder = async function DEFINE(region) {
-                                const { marker } = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const subRegion = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const { marker } = subRegion;
                                 if (region.bInit || bReact) {
                                     const value = getValue && getValue(region.env);
                                     marker.rValue = rvarName
@@ -389,6 +395,7 @@ class RCompiler {
                                         : value;
                                 }
                                 newVar(region.env)(marker.rValue);
+                                await subBuilder.call(this, subRegion);
                             };
                         }
                         break;
@@ -409,31 +416,34 @@ class RCompiler {
                                     switch (child.nodeName) {
                                         case 'WHEN':
                                             const saved = this.SaveContext();
-                                            const condition = this.CompileAttributeExpression(childElm, 'cond');
-                                            let pattern;
-                                            let regex, lvars = [];
-                                            if (pattern = GetAttribute(childElm, 'match')) {
-                                                const CP = this.CompilePattern(pattern);
-                                                regex = CP.regex;
-                                                lvars = CP.lvars;
+                                            try {
+                                                const condition = this.CompileAttributeExpression(childElm, 'cond');
+                                                let pattern;
+                                                let patt;
+                                                if (pattern = GetAttribute(childElm, 'match'))
+                                                    patt = this.CompilePattern(pattern);
+                                                else if (pattern = GetAttribute(childElm, 'regmatch')) {
+                                                    patt = { regex: new RegExp(pattern, 'i'), lvars: [] };
+                                                }
+                                                else
+                                                    patt = null;
+                                                if (patt && !getValue)
+                                                    throw `A match is requested but no 'value' is specified.`;
+                                                const builder = this.CompileChildNodes(childElm, bBlockLevel);
+                                                caseList.push({ condition, patt, builder, childElm });
+                                                CheckNoAttributesLeft(childElm);
                                             }
-                                            else if (pattern = GetAttribute(childElm, 'regmatch')) {
-                                                regex = new RegExp(pattern, 'i');
+                                            catch (err) {
+                                                throw `${OuterOpenTag(childElm)}${err}`;
                                             }
-                                            else
-                                                regex = null;
-                                            if (regex && !getValue)
-                                                throw `A match is requested but no 'value' is specified.`;
-                                            const builder = this.CompileChildNodes(childElm, bBlockLevel);
-                                            caseList.push({ condition, lvars, regex, builder, childElm });
-                                            CheckNoAttributesLeft(childElm);
-                                            this.RestoreContext(saved);
+                                            finally {
+                                                this.RestoreContext(saved);
+                                            }
                                             continue;
                                         case 'ELSE':
                                             caseList.push({
                                                 condition: (_env) => true,
-                                                lvars: [],
-                                                regex: null,
+                                                patt: null,
                                                 builder: this.CompileChildNodes(childElm, bBlockLevel),
                                                 childElm
                                             });
@@ -445,7 +455,7 @@ class RCompiler {
                             }
                             if (getCondition)
                                 caseList.unshift({
-                                    condition: getCondition, lvars: [], regex: null,
+                                    condition: getCondition, patt: null,
                                     builder: this.CompileChildNodes(srcElm, bBlockLevel, bodyNodes),
                                     childElm: srcElm
                                 });
@@ -457,7 +467,7 @@ class RCompiler {
                                     for (const alt of caseList)
                                         try {
                                             if ((!alt.condition || alt.condition(region.env))
-                                                && (!alt.regex || (matchResult = alt.regex.exec(value)))) {
+                                                && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))) {
                                                 choosenAlt = alt;
                                                 break;
                                             }
@@ -485,11 +495,16 @@ class RCompiler {
                                         const subregion = PrepareRegion(srcElm, region, choosenAlt);
                                         if (choosenAlt) {
                                             const saved = SaveEnv();
-                                            let i = 1;
-                                            for (const lvar of choosenAlt.lvars)
-                                                lvar(region.env)(matchResult[i++]);
-                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion);
-                                            RestoreEnv(saved);
+                                            try {
+                                                let i = 1;
+                                                if (choosenAlt.patt)
+                                                    for (const lvar of choosenAlt.patt.lvars)
+                                                        lvar(region.env)(matchResult[i++]);
+                                                await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion);
+                                            }
+                                            finally {
+                                                RestoreEnv(saved);
+                                            }
                                         }
                                     }
                                 };
@@ -540,29 +555,37 @@ class RCompiler {
                             const compiler = new RCompiler();
                             compiler.Settings.bRunScripts = true;
                             const task = (async () => {
-                                const response = await globalFetch(src);
-                                const textContent = await response.text();
-                                const parser = new DOMParser();
-                                const parsedContent = parser.parseFromString(textContent, 'text/html');
-                                const builder = compiler.CompileChildNodes(parsedContent.body, true, undefined, true);
-                                this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
-                                const env = NewEnv();
-                                await builder.call(this, { parent: parsedContent.body, start: null, bInit: true, env });
+                                let promiseModule = Modules.get(src);
+                                if (!promiseModule) {
+                                    promiseModule = globalFetch(src)
+                                        .then(async (response) => {
+                                        const textContent = await response.text();
+                                        const parser = new DOMParser();
+                                        const parsedContent = parser.parseFromString(textContent, 'text/html');
+                                        const builder = compiler.CompileChildNodes(parsedContent.body, true, undefined, true);
+                                        this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
+                                        const env = NewEnv();
+                                        await builder.call(this, { parent: parsedContent.body, start: null, bInit: true, env });
+                                        return { Signatures: compiler.Constructs, ConstructDefs: env.constructDefs };
+                                    });
+                                    Modules.set(src, promiseModule);
+                                }
+                                const module = await promiseModule;
                                 for (const [clientSig, placeholder] of listImports) {
-                                    const tagName = clientSig.TagName;
-                                    const signature = compiler.Constructs.get(tagName);
+                                    const { tagName } = clientSig;
+                                    const signature = module.Signatures.get(tagName);
                                     if (!signature)
                                         throw `<${tagName}> is missing in '${src}'`;
                                     if (!clientSig.Equals(signature))
                                         throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
-                                    const constructdef = env.constructDefs.get(tagName);
+                                    const constructdef = module.ConstructDefs.get(tagName);
                                     placeholder.instanceBuilders = constructdef.instanceBuilders;
                                     placeholder.constructEnv = constructdef.constructEnv;
                                 }
                             })();
                             srcParent.removeChild(srcElm);
                             builder = async function IMPORT({ env }) {
-                                for (const [{ TagName }, constructDef] of listImports.values()) {
+                                for (const [{ tagName: TagName }, constructDef] of listImports.values()) {
                                     const prevDef = env.constructDefs.get(TagName);
                                     env.constructDefs.set(TagName, constructDef);
                                     envActions.push(() => { env.constructDefs.set(TagName, prevDef); });
@@ -909,7 +932,7 @@ class RCompiler {
     CompileComponent(srcParent, srcElm) {
         srcParent.removeChild(srcElm);
         const { signature, elmTemplate, builders } = this.AnalyseComponent(srcElm);
-        const tagName = signature.TagName;
+        const tagName = signature.tagName;
         this.AddConstruct(signature);
         const instanceBuilders = [
             this.CompileConstructTemplate(signature, elmTemplate.content, elmTemplate, false)
@@ -918,7 +941,7 @@ class RCompiler {
             for (const [bldr, srcNode] of builders)
                 await this.CallWithErrorHandling(bldr, srcNode, region);
             const construct = { instanceBuilders, constructEnv: undefined };
-            const env = region.env;
+            const { env } = region;
             const prevDef = env.constructDefs.get(tagName);
             env.constructDefs.set(tagName, construct);
             construct.constructEnv = CloneEnv(env);
@@ -996,7 +1019,7 @@ class RCompiler {
     }
     CompileConstructInstance(srcParent, srcElm, signature) {
         srcParent.removeChild(srcElm);
-        const tagName = signature.TagName;
+        const tagName = signature.tagName;
         const { preModifiers } = this.CompileAttributes(srcElm);
         const getArgs = [];
         for (const { name, pDefault } of signature.Parameters) {
@@ -1175,13 +1198,13 @@ class RCompiler {
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
                     const propName = CapitalizeProp(m[3]);
-                    const setter = this.CompileExpression(`function (){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
-                    preModifiers.push(m[1] == '*'
-                        ? { modType: ModifierType.Event, name: null, depValue: setter, }
-                        : { modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
-                    preModifiers.push({
-                        modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter,
-                    });
+                    CheckAssignmentTarget(attr.value);
+                    const setter = this.CompileExpression(`function(){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
+                    if (m[1] == '@')
+                        preModifiers.push({ modType: ModifierType.Prop, name: propName, depValue: this.CompileExpression(attr.value) });
+                    else
+                        postModifiers.push({ modType: ModifierType.PseudoEvent, name: 'oncreate', depValue: setter });
+                    preModifiers.push({ modType: ModifierType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attrName)) {
                     if (attr.value)
@@ -1241,7 +1264,7 @@ class RCompiler {
             const m = regIS.exec(patt);
             const literals = patt.substring(lastIndex, m.index);
             if (literals)
-                reg += this.quoteReg(literals);
+                reg += quoteReg(literals);
             if (m[1]) {
                 if (m[1] == '?')
                     reg += '.';
@@ -1254,9 +1277,6 @@ class RCompiler {
             }
         }
         return { regex: new RegExp(`^${reg}$`, 'i'), lvars };
-    }
-    quoteReg(fixed) {
-        return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
     }
     CompileAttributeExpression(elm, attName, bRequired) {
         return this.CompileExpression(GetAttribute(elm, attName, bRequired, true));
@@ -1338,6 +1358,17 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
         }
     }
     return { parent, marker, start, bInit, env: region.env };
+}
+function quoteReg(fixed) {
+    return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
+}
+function CheckAssignmentTarget(target) {
+    try {
+        globalEval(`()=>{${target}=null}`);
+    }
+    catch (err) {
+        throw `Invalid left-hand side '${target}'`;
+    }
 }
 class _RVAR {
     constructor(rRuntime, name, initialValue, store, storeName) {
@@ -1455,9 +1486,9 @@ export function* range(from, upto, step = 1) {
         yield i;
 }
 globalThis.range = range;
-export const docLocation = RVAR('docLocation');
+export const docLocation = RVAR('docLocation', document.location);
 function SetDocLocation() {
-    docLocation.V = document.location.href;
+    docLocation.SetDirty();
     if (RootPath)
         docLocation['subpath'] = document.location.pathname.substr(RootPath.length);
 }

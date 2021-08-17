@@ -11,44 +11,50 @@ const sampleGreeting=
     </p>
 </if>`;
 
-const sampleServerData =
+const ColorTableDefs =
 `<script nomodule defines="ColorTable,toHex" >
-  // Here we store the data. Columns are:
-  // name:string, red:number, green:number, blue:number.
-  const ColorTable = RVAR('', []);
+// Here we store the data. Columns are:
+// name:string, red:number, green:number, blue:number.
+const ColorTable = RVAR('', []);
 
-  /* Fetch the data! */
-  fetch("webColors.json").then(async response => {
-      if (response.ok)
-          ColorTable.V = JSON.parse(await response.text());
-  });
+/* Fetch the data! */
+fetch("webColors.json").then(async response => {
+    if (response.ok)
+        ColorTable.V = JSON.parse(await response.text());
+});
 
-  /* Utility for 2-digit hex code */
-  function toHex(n){ 
-    return n.toString(16).toUpperCase().padStart(2,'0');
-  }
+/* Utility for 2-digit hex code */
+function toHex(n){ 
+  return n.toString(16).toUpperCase().padStart(2,'0');
+}
 </script>
 
 <style> /* Styling */
-  table.colorTable td {
-    padding: 0px 4px;
-    text-align: center;
-    max-width: 8em; overflow:hidden;
-  }
-</style>
+table.colorTable td {
+  padding: 0px 4px;
+  text-align: center;
+  max-width: 8em; overflow:hidden;
+}
+</style>`;
 
-<div style="height:50ex; overflow-y:scroll;">
+const sampleServerData =
+`${ColorTableDefs}
+
+<div style="height:55ex; overflow-y:scroll;">
   <!-- Now we build our table! 
     The dots are needed because HTML does not allow <FOR> as a
-    child of <TABLE>. OtoReact removes them. -->
+    child of <TABLE>. OtoReact removes these dots. -->
   <table. class=colorTable>
+    <!-- Table caption -->
     <caption.>Web Colors</caption.>
+    <!-- Column headers -->
     <tr.>
       <th.>Name</th.>
       <th.>R</th.><th.>G</th.><th.>B</th.>
       <th.>Hex</th.>
     </tr.>
-    <FOR let=C of="ColorTable.V" reacton=ColorTable>
+    <!-- Detail records -->
+    <FOR let=C of="ColorTable.V">
       <tr. 
            style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
            #style.color="C.green<148 ? 'white' : 'black'">
@@ -63,8 +69,7 @@ const sampleServerData =
 </div>`;
 
 const sampleBraces =
-`1 + 1 = {1 + 1}
-\\{ Check this }
+`1 + 1 = {1 + 1}  \\{ Check this }
 <br>Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
@@ -237,13 +242,13 @@ This link opens in a blank window:
 
 const sampleTableMaker =
 `<component>
-    <TABLEMAKER datasource>
+    <TABLEMAKER datasource ...rest>
         <HDEF></HDEF>
         <DDEF item></DDEF>
     </TABLEMAKER>
 
     <template>
-        <table.>
+        <table. ...rest>
             <tr.>
                 <for of=HDEF>
                     <th.><HDEF></HDEF></th.>
@@ -279,7 +284,22 @@ const sampleTableMaker =
     <DDEF item=record>{record.age}</DDEF>
 </tablemaker>`;
 
-let sampleTicTacToe = 
+const sampleTMColor=
+`${ColorTableDefs}
+
+<div style="height:55ex; overflow-y:scroll;">
+  <!-- Now we build our table! -->
+  <TABLEMAKER #datasource="ColorTable.V" class=colorTable>
+    <hdef>Name</hdef><ddef item=C>{C.name}</ddef>
+    <hdef>R</hdef><ddef item=C>{C.red}</ddef>
+    <hdef>G</hdef><ddef item=C>{C.green}</ddef>
+    <hdef>B</hdef><ddef item=C>{C.blue}</ddef>
+    <hdef>Hex</hdef><ddef item=C>#{toHex(C.red) + toHex(C.green) + toHex(C.blue)}</ddef>
+  </TABLEMAKER>
+</div>
+`;
+
+const sampleTicTacToe = 
 `<script nomodule type=module defines=TicTacToe>
     function Board() {
         function Cell() {return {V: null}; }
@@ -368,3 +388,14 @@ let sampleTicTacToe =
         <button onclick="T.ClearAll()">Clear</button>
     </div>
 </div>`;
+
+const sampleRHTML =
+`<define rvar=sourceCode 
+        value="1 + 1 = \\{1+1}"
+        store=sessionStorage
+></define>
+<textarea @value="sourceCode.V" rows=3 cols=30></textarea>
+<br>
+<RHTML>
+    {sourceCode.V}
+</RHTML>`;

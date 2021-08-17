@@ -14,10 +14,6 @@ export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompil
 declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
-declare type ConstructDef = {
-    instanceBuilders: ParametrizedBuilder[];
-    constructEnv: Environment;
-};
 declare type Marker = ChildNode & {
     nextM?: Marker;
     rResult?: unknown;
@@ -38,6 +34,10 @@ declare type Region = {
 };
 declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
     bTrim?: boolean;
+};
+declare type ConstructDef = {
+    instanceBuilders: ParametrizedBuilder[];
+    constructEnv: Environment;
 };
 declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
 declare type ParentNode = HTMLElement | DocumentFragment;
@@ -106,7 +106,6 @@ declare class RCompiler {
     private CompileAttributes;
     private CompileInterpolatedString;
     private CompilePattern;
-    private quoteReg;
     private CompileAttributeExpression;
     private CompileAttribute;
     private CompileExpression;
@@ -134,6 +133,6 @@ declare class _RVAR<T> {
 export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
 export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
-export declare const docLocation: _RVAR<string>;
+export declare const docLocation: _RVAR<Location>;
 export declare const reroute: (arg: Event | string) => boolean;
 export {};

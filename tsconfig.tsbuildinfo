@@ -222,8 +222,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "abd27a85986c6620ca82782aeba9b0105fc0cb08b523ae4c4a80ae90428d6292",
-        "signature": "f2f0d5e3824bb471898e46331add2e6e61ad24006aa7d940fe42bae2c896400b",
+        "version": "84fbc6479d1a0b0a3052980b932d60e9320bb84501b69a1e8e58b232dc8ede74",
+        "signature": "decbab3104726d00de54663f008f185178bbae97331d9d1c6e7dc393ede27888",
         "affectsGlobalScope": false
       },
       "./save/otoreact.ts": {
@@ -296,26 +296,8 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
-      [
-        "./otoreact.ts",
-        [
-          {
-            "file": "./otoreact.ts",
-            "start": 33085,
-            "length": 3,
-            "code": 2339,
-            "category": 1,
-            "messageText": "Property 'get' does not exist on type 'Module'."
-          }
-        ]
-      ],
+      "./otoreact.ts",
       "./save/otoreact.ts"
-    ],
-    "affectedFilesPendingEmit": [
-      [
-        "./otoreact.ts",
-        1
-      ]
     ]
   },
   "version": "4.1.3"

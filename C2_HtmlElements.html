@@ -48,10 +48,9 @@
     <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
 </p>
 
-<h2>Output and Two-way Binding</h2>
-DOM properties are not static but can change. RHTML allows output and two-way binding for properties to expressions that can assigned to, in multiple variants.
-<br>Assignable expressions are global variables, array elements, and object properties, including RVAR values.
-<br>These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
+<h2>Two-way Binding</h2>
+DOM properties are not static but can change. RHTML allows four variants of two-way binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions).
+<br>Valid assignment targets are expressions that can be assigned to: global variables, array elements, and object properties, including RVAR values.
 <dl>
     <dt><code>@<i>propertyName</i>="<i>expression</i>"</code></dt>
     <dd>
@@ -72,6 +71,14 @@ DOM properties are not static but can change. RHTML allows output and two-way bi
         The property is left unchanged, but the expression receives the value of the property at element creation and at every change event.
     </dd>
 </dl>
+<p>
+    These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
+</p>
+<p>Or you can use them to capture the innerHTML or outerHTML of an element:
+</p>
+<demo content='<def rvar=a></def>
+<p *outerHTML="a.V">Hi</p>
+\{a.V}'></demo>
 
 <h2>RHTML Pseudo-events</h2>
 RHTML adds two event-like attributes to HTML elements:

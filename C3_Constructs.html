@@ -3,7 +3,7 @@
 N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
-<h2 id=define>&lt;DEFINE var #value&gt;, Local Variables</h2>
+<h2 id=define><{}DEFINE var #value>, Local Variables</h2>
 <pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
@@ -43,13 +43,13 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p> \{a} </p>"
 ></demo>
 
-<h2>&lt;CASE&gt; &lt;WHEN cond&gt; &lt;ELSE&gt;</h2>
+<h2><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
-&lt;CASE hiding?&gt;
-    &lt;WHEN cond="<i>expr</i>"&gt; <i>WhenPart</i> &lt;/WHEN&gt;
+<{}CASE hiding?>
+    <{}WHEN cond="<i>expr</i>"> <i>WhenPart</i> <{}/WHEN>
     &hellip;
-    &lt;ELSE<i>?</i>&gt; <i>ElsePart</i> &lt;/ELSE&gt;
-&lt;/CASE&gt;
+    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
+<{}/CASE>
 </pre> is a conditional piece of RHTML.
 <ul>
     <li>
@@ -67,19 +67,19 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     </li>
 </ul>
 
-<h2>&lt;IF cond&gt; &lt;ELSE&gt;</h2>
+<h2><{}IF cond> <ELSE></h2>
 <pre class=sourcecode><{}IF cond="<i>expr</i>">
     <i>ThenPart</i>&nbsp; 
     <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
 <{}/IF>
-</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm>, except that there is just one conditional part. All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>. All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
 
 
-<h2>&lt;FOR let of index?&gt;</h2>
+<h2><{}FOR let of index?></h2>
 <pre class="sourcecode">
-&lt;FOR let=<i>name</i> of="<i>iterableExpression</i>"&gt;
+<{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
     <i>BodyPart</i>{}
-&lt;/FOR&gt;
+<{}/FOR>
 </pre>
 <p>
     The normal FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
@@ -165,13 +165,13 @@ Further on, <elm>FOR</elm> can have the following attributes:
         If you want changes to properties of <i>name</i> to have reactions outside the local subtree, then you can use <code>updates="<i>rvarList</i>"</code>.
         <br><i>rvarList</i> must be a comma-separated list of zero or more RVAR's.
         <p>
-            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to ), the all RVAR's in the list will be marked dirty too.
+            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to <code><i>name</i>. U</code>), then all RVAR's in the list will be marked dirty too.
         </p>
         <p>You can find an example of this in the todo-list below: whenever an item is (un)marked as done, then both lists that depend on <code>TODO</code> are updated.</p>
     </dd>
 </dl>
 
-<h2 id=Scripts>&lt;SCRIPT&gt;</h2>
+<h2 id=Scripts><{}SCRIPT></h2>
 <p>
     Scripts can be included almost anywhere in your application, either embedded or through an external <code>src</code> reference.
 </p>
@@ -223,7 +223,20 @@ Further on, <elm>FOR</elm> can have the following attributes:
     <br><code>eval</code> is redefined to access the global environment only.
 </p>
 
-<h2>&lt;COMPONENT&gt; ...</h2>
+<h2><{}REACT on>, reacton, thisreactson</h2>
+One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should <i>react on</i> changes to any of the listed RVAR's.
+<p>
+    Construct <code class=sourcecode><elm>REACT on="<i>RVARlist</i>"</elm> &hellip; <elm>/REACT</elm></code> does the same, except that one can insert <i>multiple</i> nodes rather than a single source element
+</p>
+<p id=thisreactson>
+    RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.
+</p>
+
+<div id=TicTacToe></div>
+<demo #bShow=false #content=sampleTicTacToe></demo>
+
+
+<h2><{}COMPONENT> ...</h2>
 <demo #content=sampleTODO>
 </demo>
 
@@ -236,27 +249,13 @@ Further on, <elm>FOR</elm> can have the following attributes:
 <demo #content=sampleRedefineA>
 </demo>
 
-
-<h2>&lt;REACT on&gt;, reacton, thisreactson</h2>
-One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should react on changes to any of the RVAR's.
-<p>
-    Construct <code class=sourcecode><elm>REACT on="<i>RVARlist</i>"</elm> &hellip; <elm>/REACT</elm></code> does the same, except that one can insert <i>multiple</i> nodes rather than a single source element
-</p>
-<p id=thisreactson>
-    RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.
-</p>
-
-<div id=TicTacToe></div>
-<demo #bShow=false #content=sampleTicTacToe></demo>
-
-
-<h2 id=FORoverSlots>&lt;FOR #of&gt; component slots ...
-
-</h2>
+<h2 id=FORoverSlots><{}FOR of> over component slots ...</h2>
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
-<h2>&lt;INCLUDE src&gt;</h2>
+<h2><{}IMPORT src> ...</h2>
+
+<h2><{}INCLUDE src></h2>
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 
@@ -268,17 +267,28 @@ Here is a component which allows one to define tables column by column.
 </pre>
 ("<code>crossorigin</code>" seems incorrect, but Google Chrome requires it.)
 
-<h2>&lt;IMPORT src&gt; ...</h2>
+<h2 id=RHTML><{}RHTML></h2>
+<code><elm>RHTML isolated?</elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
+<p>After each build or update, when the resulting <u>text content</u> of the element has changed, then this text content is compiled as RHTML, built, and shown.</p>
+<p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
+<p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
+<demo #content=sampleRHTML></demo>
 
-<h2>&lt;RHTML&gt; ...</h2>
+<h3>Caution</h3>
+Using <elm>RHTML</elm> means you should be cautious of client-side (DOM-based) cross-side scripting (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
+<br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
-<h2>&lt;DOCUMENT&gt;</h2>
-<elm>DOCUMENT name=&hellip;</elm> (to be implemented) will allow you to define:
+
+<h2><{}DOCUMENT></h2>
+<elm>DOCUMENT name=&hellip;</elm> (to be implemented) allows you to define a separate document or form:
 <ul>
     <li>
-        A document that can be shown in a separate browser while remaining part of the same RHTML application instance, i.e. sharing the same RVARs etc.
+        That can be shown in a separate browser window,
     </li>
     <li>
-        A form that can be printed without opening a separate window
+        Or printed without opening a separate window,
+    </li>
+    <li>
+        While remaining part of the same RHTML application instance, i.e. sharing the same RVARs etc.
     </li>
 </ul>

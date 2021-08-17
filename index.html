@@ -63,30 +63,17 @@
         </pageLayout>
     </import>
 
-    <case thisreactson=docLocation #value="docLocation.subpath">
-        <when match="">
+    <case thisreactson=docLocation #value="docLocation.subpath" hiding>
+        <when regmatch="^$">
             <pageLayout>
                 <pageHead>
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
                 </pageHead>
 
-                <div style="display: grid; grid-template-columns: 2fr 1fr; align-items: center;">
-                    <div class=sample 
-                        style="justify-self: center; min-width: 325px; min-height: 6.5em;" 
-                        id=sampleGreeting>
-                        <RHTML>{sampleGreeting}</RHTML>
-                    </div>
-                    <div style="transform: scale(0.8); height: 152.8px; width: 275px">
-                        <RHTML>{sampleTicTacToe}</RHTML>
-                    </div>
-                </div>
-                
                 <section
-                    style.minHeight='5325px'><include src="C1_Introduction.html"></include></section>
-                <section 
-                    style.minHeight='2594px'><include src="C2_HtmlElements.html"></include></section>
-                <section 
-                    style.minHeight='5344px'><include src="C3_Constructs.html"></include></section>
+                    style.minHeight='6234px'><include src="C1_Introduction.html"></include></section>
+                <section style.minHeight='2670px'><include src="C2_HtmlElements.html"></include></section>
+                <section style.minHeight='6939px'><include src="C3_Constructs.html"></include></section>
                 <section style.minHeight='1165px'><include src="C4_Scripts.html"></include></section>
 
             </pageLayout>
