@@ -10,7 +10,7 @@ declare type FullSettings = typeof defaultSettings;
 declare type Settings = {
     [Property in keyof FullSettings]+?: FullSettings[Property];
 };
-export declare function RCompile(elm: HTMLElement, settings?: Settings): RCompiler;
+export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
@@ -24,7 +24,7 @@ declare type Marker = ChildNode & {
     errorNode?: Text;
 };
 declare type Region = {
-    parent: Element;
+    parent: Node;
     marker?: Marker;
     start: Marker;
     bInit: boolean;
@@ -42,7 +42,7 @@ declare type ConstructDef = {
 declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Subscriber = {
-    parent: Element;
+    parent: Node;
     marker?: ChildNode;
     start?: ChildNode;
     env: Environment;
@@ -90,26 +90,25 @@ declare class RCompiler {
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
-    private CompileChildNodes;
+    private CompChildNodes;
     private preMods;
-    private CompileElement;
+    private CompElement;
     private CallWithErrorHandling;
-    private CompileScript;
-    private CompileStyle;
-    CompileForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
+    private CompScript;
+    private CompStyle;
+    CompForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
     private ParseSignature;
-    private CompileComponent;
-    private AnalyseComponent;
-    private CompileConstructTemplate;
-    private CompileConstructInstance;
-    private CompileHTMLElement;
-    private CompileAttributes;
-    private CompileInterpolatedString;
-    private CompilePattern;
-    private CompileAttrExpression;
-    private CompileAttribute;
-    private CompileExpression;
-    private CompileName;
+    private CompComponent;
+    private CompConstructTemplate;
+    private CompConstructInstance;
+    private CompHTMLElement;
+    private CompAttributes;
+    private CompInterpolatedString;
+    private CompPattern;
+    private CompAttrExpression;
+    private CompAttribute;
+    private CompExpression;
+    private CompName;
 }
 interface Store {
     getItem(key: string): string | null;
