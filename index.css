@@ -6,10 +6,14 @@
     line-height: 1.25;
     font-size: 12pt;
 }
-@media not all and (hover: hover) {
-    body {
-        font-size: 18pt;
-    }
+@media screen and (hover: none) {
+    body { font-size: 18pt; }
+}
+@media print {
+    body { font-size: 10pt; }
+}
+@media screen {
+    section { content-visibility: auto; }
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {
@@ -27,9 +31,6 @@
 }
 code.sourcecode {
     display: inline-block;
-}
-section     {
-    content-visibility: auto;
 }
 pre { 
     margin: 1ex 2vw; 
@@ -57,8 +58,8 @@ a:not([target]) {
     border-bottom: .1em dashed;
 }
 
-h1:not(:first-of-type) {
+section:not(:first-of-type) > h1 {
     margin-top: 1em;
     padding-top: 1em;
-    border-top: double;
+    border-top: double 4px;
 }

@@ -2,11 +2,11 @@
 
 <div style="display: grid; grid-template-columns: 2fr 1fr; align-items: center; margin-top:-1em">
     <div class=sample 
-        style="justify-self: center; min-width: 325px; min-height: 6.5em;" 
+        style="justify-self: center; min-width: 325px; min-height: 110px;" 
         id=sampleGreeting>
         <RHTML>{sampleGreeting}</RHTML>
     </div>
-    <div style="transform: translateY(-2.75em) scale(0.8); height: 6.5em; width: 275px">
+    <div style="transform: translateY(-2.75em) scale(0.8); height: 110px; width: 275px">
         <RHTML>{sampleTicTacToe}</RHTML>
     </div>
 </div>
@@ -108,7 +108,7 @@ That's all!
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>.
 <p>
-    The expressions are evaluated, converted to string, and inserted <i>as text</i>, there is no risk of <a href="{wiki}Code_injection">code injection</a> &dash; except when you use <a href="#RHTML"><elm>RHTML</elm></a>, which performs code injection by design.
+    The expressions are evaluated, converted to string, and inserted <i>as text</i>, there is no risk of <a href="{wiki}Code_injection">code injection</a> &mdash; except when you use <a href="#RHTML"><elm>RHTML</elm></a>, which performs code injection <i>by design</i>.
 </p>
 <p>
     To include a normal pair of braces, at least one of them must be escaped with a backslash.
@@ -128,26 +128,26 @@ If you prefer, you may add a dollar sign as in JavaScript, like <code>\${1 + 1}<
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
-        <elm>DEFINE</elm> introduces a local variable or reactive variable
+        <a href=#Define><elm>DEFINE</elm></a> introduces a local variable or reactive variable
     </li>
     <li>
-        <elm>IF</elm> specifies a conditional block of RHTML
+        <a href=#If><elm>IF</elm></a> specifies a conditional block of RHTML
     </li>
     <li>
-        <elm>CASE</elm> specifies a series of alternative conditional blocks of RHTML
+        <a href=#Case><elm>CASE</elm></a> specifies a series of alternative conditional blocks of RHTML
     </li>
     <li>
-        <elm>FOR</elm> specifies a repeating block of RHTML, with a number of additional features
+        <a href=#For><elm>FOR</elm></a> specifies a repeating block of RHTML, with a number of additional features
     </li>
     <li>
-        <elm>COMPONENT</elm> introduces user-defined constructs.
+        <a href=#Component><elm>COMPONENT</elm></a> defines a user-defined construct.
         <br>Components may be recursive and may have <i>slots</i>, which are themselves full-fledged constructs.
     </li>
     <li>
-        <elm>INCLUDE</elm> asynchronously includes a separate RHTML file into your application
+        <a href=Import><elm>IMPORT</elm></a> asynchronously imports components defined in a separate file (a <i>module</i>) into your application
     </li>
     <li>
-        <elm>IMPORT</elm> asynchronously imports components defined in a separate file into your application
+        <a href=#Include><elm>INCLUDE</elm></a> asynchronously includes a separate RHTML file into your application
     </li>
     <li>
         <elm>RHTML</elm> dynamically compiles a string as RHTML.
@@ -184,7 +184,7 @@ The question marks indicate optional arguments.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
 </p>
 <p>
-    RVAR's are created either by calling <code>RVAR(name?, value?, store?)</code> from JavaScript, or by using the <elm>define rvar</elm> construct, see <a href=#define>below</a>.
+    RVAR's are created either by calling <code>RVAR(name?, value?, store?)</code> from JavaScript, or by using the <a href=#Define></a><elm>define rvar</elm></a> construct.
     <br>The created RVAR is returned and may be stored in a local variable.
     <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
     <br>So if you write:
@@ -209,7 +209,7 @@ The question marks indicate optional arguments.
 </p>
 
 <h3 id=Persistence>Persistence</h3>
-When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be stored and retrieved in that store.
+When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
 <p><code>store</code> can be:</p>
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>

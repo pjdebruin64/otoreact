@@ -11,17 +11,18 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     introduces a local <u>immutable</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>Alternatively, one can give an interpolated string: <code>value="<i>string</i>"</code>.
     So for an expression, the '<code>#</code>' is required.
-    <br>The variable is visible in all local expressions from the <elm>/DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
+    <br>The variable is visible in all local expressions from the <elm>DEFINE</elm> till the end of the enclosing element, except when obscured by nested definitions.
     <br>It cannot be assigned to, but when its value is an RVAR or some other object, then one can of course modify its properties.
 </p>
 <p>
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
     <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
 </p>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>" store=<i>storage</i></elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>)"</elm><elm>/DEFINE</elm></code>.
+    <br>When <code>store></code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
 </p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
@@ -43,7 +44,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p> \{a} </p>"
 ></demo>
 
-<h2><{}CASE> <{}WHEN cond> <{}ELSE></h2>
+<h2 id=Case><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
 <{}CASE hiding?>
     <{}WHEN cond="<i>expr</i>"> <i>WhenPart</i> <{}/WHEN>
@@ -62,20 +63,64 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
     <li>
-        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the invalid ones will be hidden.
+        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be hidden.
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#thisreactson"><code>thisreactson</code></a>).
     </li>
 </ul>
+<h3><{}CASE> with pattern matching</h3>
+Furthermore, <elm>CASE</elm> can select an alternative based on pattern matching against a given string value.
+<p>Substrings of the value can be captured into local variables.
+<p>There are three variants of patterns:
+</p>
+<pre class="sourcecode">
+<{}CASE #value="<i>expr</i>">
+    <{}WHEN match="<i>pattern</i>"> &hellip; <{}/WHEN>
+    <{}WHEN urlmatch="<i>pattern</i>"> &hellip; <{}/WHEN>
+    <{}WHEN regmatch="<i>regExp</i>" captures?="<i>nameList</i>"> &hellip; <{}/WHEN>
+    &hellip;
+<{}/CASE>
+</pre>
+All three variants are case-insensitive, and all can be combined with a simple condition <code>cond</code>.
+<dl>
+    <dt><code>match="<i>pattern</i>"</code></dt>
+    <dd>
+        The value is matched against the given simple pattern, which may contain the following wildcards:
+        <ul>
+            <li><code>?</code> matches with any single character</li>
+            <li><code>*</code> matches with any string of characters</li>
+            <li><code>[<i>charString</i>]</code> matches with any character in <i>charString</i>, where <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">all usual rules</a> apply</li>
+            <li><code>\{ <i>varName</i> \}</code> matches non-greedy with any string of characters, and the matched string will be captured in a local variable <i>varName</i></li>
+            <li><code>\</code> followed by any character matches just that character</li>
+        </ul>
+        The whole value has to match, not just a substring.
+    </dd>
+    <dt><code>urlmatch="<i>pattern</i>"</code></dt>
+    <dd>
+        This form is meant to be matched against (parts of) an URL, and is useful for routing.
+        <br>The recognized patterns are the same simple patterns as above, but any substring captured in a local variable will be <a href="{wiki}Percent-encoding">URL-decoded</a>.
+    </dd>
 
-<h2><{}IF cond> <ELSE></h2>
+    <dt><code>regmatch="<i>regExp</i>" captures?="<i>nameList</i>"</code></dt>
+    <dd>
+        <i>regExp</i> can be any JavaScript <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">regular expression pattern</a> ().
+        <p>The match succeeds when any substring of the string value matches against the <i>regExp</i>.</p>
+        <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</a> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
+    </dd>
+</dl>
+Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
+
+<h2 id=If><{}IF cond> <ELSE></h2>
 <pre class=sourcecode><{}IF cond="<i>expr</i>">
     <i>ThenPart</i>&nbsp; 
     <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
 <{}/IF>
-</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>. All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>.
+<p>
+    All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+</p>
 
 
-<h2><{}FOR let of index?></h2>
+<h2 id=For><{}FOR let of index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
     <i>BodyPart</i>{}
@@ -236,7 +281,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
 
-<h2><{}COMPONENT> ...</h2>
+<h2 id=Component><{}COMPONENT> ...</h2>
 <demo #content=sampleTODO>
 </demo>
 
@@ -253,9 +298,9 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
-<h2><{}IMPORT src> ...</h2>
+<h2 id=Import><{}IMPORT src> ...</h2>
 
-<h2><{}INCLUDE src></h2>
+<h2 id=Include><{}INCLUDE src></h2>
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
 
@@ -275,11 +320,11 @@ Here is a component which allows one to define tables column by column.
 <demo #content=sampleRHTML></demo>
 
 <h3>Caution</h3>
-Using <elm>RHTML</elm> means you should be cautious of client-side (DOM-based) cross-side scripting (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
+When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
 
-<h2><{}DOCUMENT></h2>
+<h2 id=Document><{}DOCUMENT></h2>
 <elm>DOCUMENT name=&hellip;</elm> (to be implemented) allows you to define a separate document or form:
 <ul>
     <li>

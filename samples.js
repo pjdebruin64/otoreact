@@ -40,7 +40,7 @@ table.colorTable td {
 const sampleServerData =
 `${ColorTableDefs}
 
-<div style="height:55ex; overflow-y:scroll;">
+<div style="height:50ex; overflow-y:scroll;">
   <!-- Now we build our table! 
     The dots are needed because HTML does not allow <FOR> as a
     child of <TABLE>. OtoReact removes these dots. -->
@@ -88,7 +88,7 @@ const sampleGreeting2 =
   Anytime an input event happens, 'yourName.V' will be updated,
   and the DOM as well  -->
 </p>
-<if cond="yourName.V" reacton=yourName>
+<if cond="yourName.V">
   <p> Nice to meet you, {yourName.V}.
     <br>By the way, your name consists of {yourName.V.length} 
         characters.

@@ -520,7 +520,7 @@ labelNoCheck:
                         const rvarName = GetAttribute(srcElm, 'rvar');
                         const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
                         const getValue = this.CompileAttribute(srcElm, 'value');
-                        const getStore = rvarName && this.CompileAttributeExpression<Store>(srcElm, 'store');
+                        const getStore = rvarName && this.CompileAttrExpression<Store>(srcElm, 'store');
                         const newVar = this.NewVar(varName);
                         const bReact = GetAttribute(srcElm, 'react') != null;
                         const subBuilder = this.CompileChildNodes(srcElm);
@@ -543,13 +543,13 @@ labelNoCheck:
                     case 'CASE': {
                         const bHiding = CBool(GetAttribute(srcElm, 'hiding'));
                         const caseList: Array<{
-                            condition: Dependent<boolean>,
-                            patt: {lvars: LVar[], regex: RegExp},
+                            condition: Dependent<unknown>,
+                            patt: {lvars: LVar[], regex: RegExp, url?: boolean},
                             builder: DOMBuilder, 
                             childElm: HTMLElement,
                         }> = [];
-                        const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression<boolean>(srcElm, 'cond', true);
-                        const getValue = this.CompileAttributeExpression<string>(srcElm, 'value');
+                        const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttrExpression<boolean>(srcElm, 'cond', true);
+                        const getValue = this.CompileAttrExpression<string>(srcElm, 'value');
                         CheckNoAttributesLeft(srcElm);
                         const bodyNodes: ChildNode[] = [];
                         const bTrimLeft = this.bTrimLeft;
@@ -557,39 +557,40 @@ labelNoCheck:
                             if (child.nodeType == Node.ELEMENT_NODE) {
                                 const childElm = child as HTMLElement
                                 this.bTrimLeft = bTrimLeft;
-                                switch (child.nodeName) {
-                                    case 'WHEN':
-                                        const saved = this.SaveContext();
-                                        try {
-                                            const condition = this.CompileAttributeExpression<boolean>(childElm, 'cond');
+                                const saved = this.SaveContext();
+                                try {
+                                    let condition: Dependent<unknown>;
+                                    let patt:  {lvars: LVar[], regex: RegExp, url?: boolean};
+                                    switch (child.nodeName) {
+                                        case 'WHEN':                                
+                                            condition = this.CompileAttrExpression<unknown>(childElm, 'cond');
                                             let pattern: string;
-                                            let patt:  {lvars: LVar[], regex: RegExp};
-                                            if (pattern = GetAttribute(childElm, 'match'))
+                                            if ((pattern = GetAttribute(childElm, 'match')) != null)
                                                 patt = this.CompilePattern(pattern);
-                                            else if (pattern = GetAttribute(childElm, 'regmatch')) {
-                                                patt = {regex: new RegExp(pattern, 'i'), lvars: []};
+                                            else if ((pattern = GetAttribute(childElm, 'urlmatch')) != null)
+                                                (patt = this.CompilePattern(pattern)).url = true;
+                                            else if ((pattern = GetAttribute(childElm, 'regmatch')) != null) {
+                                                const lvars = GetAttribute(childElm, 'captures')?.split(',') || []
+                                                patt = {regex: new RegExp(pattern, 'i'), lvars: lvars.map(this.NewVar.bind(this))};
                                             }
                                             else 
                                                 patt = null;
+
+                                            if (bHiding && patt?.lvars?.length)
+                                                throw `Pattern capturing cannot be combined with hiding`;
                                             if (patt && !getValue)
                                                 throw `A match is requested but no 'value' is specified.`;
 
+                                        // Fall through!
+                                        case 'ELSE':
                                             const builder = this.CompileChildNodes(childElm, bBlockLevel);
                                             caseList.push({condition, patt, builder, childElm});
                                             CheckNoAttributesLeft(childElm);
-                                        } catch (err) { throw `${OuterOpenTag(childElm)}${err}`  }
-                                        finally { this.RestoreContext(saved) }
-                                        continue;
-                                    case 'ELSE':
-                                        caseList.push({
-                                            condition: (_env) => true
-                                            , patt: null
-                                            , builder: this.CompileChildNodes(childElm, bBlockLevel)
-                                            , childElm
-                                        });
-                                        CheckNoAttributesLeft(childElm);
-                                        continue;
-                                }
+                                            continue;
+                                    }
+                                } 
+                                catch (err) { throw `${OuterOpenTag(childElm)}${err}`  }
+                                finally { this.RestoreContext(saved) }
                             }
                             bodyNodes.push(child);
                         }
@@ -639,10 +640,14 @@ labelNoCheck:
                                     if (choosenAlt) {
                                         const saved = SaveEnv();
                                         try {
-                                            let i=1;
-                                            if (choosenAlt.patt) 
+                                            if (choosenAlt.patt) {
+                                                let i=1;
                                                 for (const lvar of choosenAlt.patt.lvars)
-                                                    lvar(region.env)(matchResult[i++]);
+                                                    lvar(region.env)(
+                                                        (choosenAlt.patt.url ? decodeURIComponent : (r: string) => r)
+                                                        (matchResult[i++])
+                                                    );
+                                            }
                                             await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion );
                                         } finally { RestoreEnv(saved) }
                                     }
@@ -908,14 +913,13 @@ labelNoCheck:
             let script = srcElm.text;
             
             const defines = GetAttribute(srcElm, 'defines');
-            if (defines) {
+            if (defines)
                 for (let name of defines.split(',')) {
                     name = CheckValidIdentifier(name);
                     script += `;globalThis.${name} = ${name}\n`
                 }
-            }
             
-            let elm = document.createElement('script') as HTMLScriptElement;
+            const elm = document.createElement('script') as HTMLScriptElement;
             //elm.type = srcElm.type;
             if (src)
                 elm.src = src;
@@ -941,14 +945,14 @@ labelNoCheck:
         const saved = this.SaveContext();
         try {
             if (varName != null) { /* A regular iteration */
-                const getRange = this.CompileAttributeExpression<Iterable<Item>>(srcElm, 'of', true);
+                const getRange = this.CompileAttrExpression<Iterable<Item>>(srcElm, 'of', true);
                 let prevName = GetAttribute(srcElm, 'previous');
                 if (prevName == '') prevName = 'previous';
                 let nextName = GetAttribute(srcElm, 'next');
                 if (nextName == '') nextName = 'next';
 
-                const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'), true);
-                const getUpdatesTo = this.CompileAttributeExpression<_RVAR<unknown>>(srcElm, 'updates');
+                const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'));
+                const getUpdatesTo = this.CompileAttrExpression<_RVAR<unknown>>(srcElm, 'updates');
             
                 // Voeg de loop-variabele toe aan de context
                 const initVar = this.NewVar(varName);
@@ -957,12 +961,10 @@ labelNoCheck:
                 const initPrevious = this.NewVar(prevName);
                 const initNext = this.NewVar(nextName);
 
-                const getKey = this.CompileAttributeExpression<Key>(srcElm, 'key');
-                const getHash = this.CompileAttributeExpression<Hash>(srcElm, 'hash');
+                const getKey = this.CompileAttrExpression<Key>(srcElm, 'key');
+                const getHash = this.CompileAttrExpression<Hash>(srcElm, 'hash');
 
                 // Compileer alle childNodes
-                if (srcElm.childNodes.length ==0)
-                    throw "FOREACH has an empty body.\nIf you placed <FOREACH> within a <table>, then the parser has rearranged these elements.\nUse <table.>, <tr.> etc instead.";
                 const bodyBuilder = this.CompileChildNodes(srcElm);
                 
                 srcParent.removeChild(srcElm);
@@ -1540,12 +1542,13 @@ labelNoCheck:
     }
 
     // Compile a 'regular pattern' into a RegExp and a list of bound LVars
-    private CompilePattern(patt:string) {
+    private CompilePattern(patt:string): {lvars: LVar[], regex: RegExp, url?: boolean}
+    {
         let reg = '', lvars: LVar[] = [];
         
         // These are the subpatterns that are need converting; all remaining characters are literals and will be quoted when needed
         const regIS =
-            /(?<![\\$])\$?\{(.*?)(?<!\\)\}|\?|\*|$/gs;
+            /(?<![\\$])\$?\{(.*?)(?<!\\)\}|\?|\*|(\\.)|\[\^?(?:\\.|[^\\\]])*\]|$/gs;
 
         while (regIS.lastIndex < patt.length) {
             const lastIndex = regIS.lastIndex
@@ -1554,34 +1557,36 @@ labelNoCheck:
 
             if (literals)
                 reg += quoteReg(literals);
-            if (m[1]) {
-                if (m[1] == '?')
-                    reg += '.';
-                else if (m[1] == '*')
-                    reg += '.*';
-                else {
-                    reg += `(.*?)`;
-                    lvars.push(this.NewVar(m[1]));
-                }
+            if (m[1]) {     // A capturing group
+                reg += `(.*?)`;
+                lvars.push(this.NewVar(m[1]));
             }
+            else if (m[0] == '?')
+                reg += '.';
+            else if (m[0] == '*')
+                reg += '.*';
+            else if (m[2])  // An escaped character
+                reg += m[2]
+            else            // A character class
+                reg += m[0];
         }
 
-        return {regex: new RegExp(`^${reg}$`, 'i'), lvars}; 
+        return {lvars, regex: new RegExp(`^${reg}$`, 'i')}; 
     }
 
-    private CompileAttributeExpression<T>(elm: HTMLElement, attName: string, bRequired?: boolean) {
+    private CompileAttrExpression<T>(elm: HTMLElement, attName: string, bRequired?: boolean) {
         return this.CompileExpression<T>(GetAttribute(elm, attName, bRequired, true));
     }
     private CompileAttribute(elm: HTMLElement, attName: string, bRequired?: boolean): Dependent<unknown> {
         const value = GetAttribute(elm, attName);
         if (value != null)
             return this.CompileInterpolatedString(value);
-        return this.CompileAttributeExpression(elm, `#${attName}`, bRequired);
+        return this.CompileAttrExpression(elm, `#${attName}`, bRequired);
     }
 
     private CompileExpression<T>(
         expr: string,           // Expression to transform into a function
-        delims: string = "\"\"" // Delimiters to put around the expression when encountering a compiletime or runtime error
+        delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
         , bScript: boolean = false
         , bReturnErrors = false   // true: yield errormessage als result. <T> has to be <string>.
         , name?: string
@@ -1675,7 +1680,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
 }
 
 function quoteReg(fixed: string) {
-    return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
+    return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 
 function CheckAssignmentTarget(target: string) {
@@ -1762,7 +1767,7 @@ function CheckValidIdentifier(name: string) {
     name = name.trim();
     if (!regIdentifier.test(name) )
         throw `Invalid identifier '${name}'`;
-    if (/^(break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
+    if (/^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
         throw `Reserved keyword '${name}'`;
 
     return name;
@@ -1771,8 +1776,8 @@ function CheckValidIdentifier(name: string) {
 // Capitalization of property names
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
-const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-+ '|clip|(col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
+const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
++ '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
 + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName: string) {
@@ -1844,11 +1849,11 @@ export function* range(from: number, upto?: number, step: number = 1) {
 }
 globalThis.range = range;
 
-export const docLocation = RVAR<Location>('docLocation', document.location);
+export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', document.location);
 function SetDocLocation()  { 
     docLocation.SetDirty();
     if (RootPath)
-        docLocation['subpath'] = document.location.pathname.substr(RootPath.length);
+        docLocation.subpath = document.location.pathname.substr(RootPath.length);
 }
 window.addEventListener('popstate', SetDocLocation );
 export const reroute = globalThis.reroute = (arg: Event | string) => {

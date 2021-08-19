@@ -56,7 +56,7 @@
         table.demo td.demo {
             background-color: rgb(225, 255, 181);
         }
-        @media not all and (hover: hover) {
+        @media screen and (hover: none) {
             td.demo {
                 font-size: 14pt;
             }
@@ -64,7 +64,7 @@
     </style>
     
     <template>
-        <define var=MyRVAR #value="RVAR(name, content.match(/^\s*(.*?)\s*$/s)[1], store)"></define>
+        <define var=MyRVAR #value="RVAR(name, content.trim(), store)"></define>
         <define rvar=rShow  #value="bshow"></define>
         <table. class=demo>
             <tr.><th.>
@@ -195,9 +195,7 @@
             body {
                 overflow-y: hidden;
             }
-            .narrow-only {
-                display: none;
-            }
+            .narrow-only { display: none; }
         }
 
         nav.topbar {
@@ -213,7 +211,7 @@
             margin: -1px;
         }
         @media print {
-            nav.topbar {display: none}
+            nav.topbar, .narrow-only {display: none}
         }
     </style>
 

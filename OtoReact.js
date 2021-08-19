@@ -381,7 +381,7 @@ class RCompiler {
                             const rvarName = GetAttribute(srcElm, 'rvar');
                             const varName = rvarName || GetAttribute(srcElm, 'name') || GetAttribute(srcElm, 'var', true);
                             const getValue = this.CompileAttribute(srcElm, 'value');
-                            const getStore = rvarName && this.CompileAttributeExpression(srcElm, 'store');
+                            const getStore = rvarName && this.CompileAttrExpression(srcElm, 'store');
                             const newVar = this.NewVar(varName);
                             const bReact = GetAttribute(srcElm, 'react') != null;
                             const subBuilder = this.CompileChildNodes(srcElm);
@@ -404,8 +404,8 @@ class RCompiler {
                         {
                             const bHiding = CBool(GetAttribute(srcElm, 'hiding'));
                             const caseList = [];
-                            const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttributeExpression(srcElm, 'cond', true);
-                            const getValue = this.CompileAttributeExpression(srcElm, 'value');
+                            const getCondition = (srcElm.nodeName == 'IF') && this.CompileAttrExpression(srcElm, 'cond', true);
+                            const getValue = this.CompileAttrExpression(srcElm, 'value');
                             CheckNoAttributesLeft(srcElm);
                             const bodyNodes = [];
                             const bTrimLeft = this.bTrimLeft;
@@ -413,42 +413,40 @@ class RCompiler {
                                 if (child.nodeType == Node.ELEMENT_NODE) {
                                     const childElm = child;
                                     this.bTrimLeft = bTrimLeft;
-                                    switch (child.nodeName) {
-                                        case 'WHEN':
-                                            const saved = this.SaveContext();
-                                            try {
-                                                const condition = this.CompileAttributeExpression(childElm, 'cond');
+                                    const saved = this.SaveContext();
+                                    try {
+                                        let condition;
+                                        let patt;
+                                        switch (child.nodeName) {
+                                            case 'WHEN':
+                                                condition = this.CompileAttrExpression(childElm, 'cond');
                                                 let pattern;
-                                                let patt;
-                                                if (pattern = GetAttribute(childElm, 'match'))
+                                                if ((pattern = GetAttribute(childElm, 'match')) != null)
                                                     patt = this.CompilePattern(pattern);
-                                                else if (pattern = GetAttribute(childElm, 'regmatch')) {
-                                                    patt = { regex: new RegExp(pattern, 'i'), lvars: [] };
+                                                else if ((pattern = GetAttribute(childElm, 'urlmatch')) != null)
+                                                    (patt = this.CompilePattern(pattern)).url = true;
+                                                else if ((pattern = GetAttribute(childElm, 'regmatch')) != null) {
+                                                    const lvars = GetAttribute(childElm, 'captures')?.split(',') || [];
+                                                    patt = { regex: new RegExp(pattern, 'i'), lvars: lvars.map(this.NewVar.bind(this)) };
                                                 }
                                                 else
                                                     patt = null;
+                                                if (bHiding && patt?.lvars?.length)
+                                                    throw `Pattern capturing cannot be combined with hiding`;
                                                 if (patt && !getValue)
                                                     throw `A match is requested but no 'value' is specified.`;
+                                            case 'ELSE':
                                                 const builder = this.CompileChildNodes(childElm, bBlockLevel);
                                                 caseList.push({ condition, patt, builder, childElm });
                                                 CheckNoAttributesLeft(childElm);
-                                            }
-                                            catch (err) {
-                                                throw `${OuterOpenTag(childElm)}${err}`;
-                                            }
-                                            finally {
-                                                this.RestoreContext(saved);
-                                            }
-                                            continue;
-                                        case 'ELSE':
-                                            caseList.push({
-                                                condition: (_env) => true,
-                                                patt: null,
-                                                builder: this.CompileChildNodes(childElm, bBlockLevel),
-                                                childElm
-                                            });
-                                            CheckNoAttributesLeft(childElm);
-                                            continue;
+                                                continue;
+                                        }
+                                    }
+                                    catch (err) {
+                                        throw `${OuterOpenTag(childElm)}${err}`;
+                                    }
+                                    finally {
+                                        this.RestoreContext(saved);
                                     }
                                 }
                                 bodyNodes.push(child);
@@ -496,10 +494,11 @@ class RCompiler {
                                         if (choosenAlt) {
                                             const saved = SaveEnv();
                                             try {
-                                                let i = 1;
-                                                if (choosenAlt.patt)
+                                                if (choosenAlt.patt) {
+                                                    let i = 1;
                                                     for (const lvar of choosenAlt.patt.lvars)
-                                                        lvar(region.env)(matchResult[i++]);
+                                                        lvar(region.env)((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[i++]));
+                                                }
                                                 await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion);
                                             }
                                             finally {
@@ -719,13 +718,12 @@ class RCompiler {
         if (GetAttribute(srcElm, 'nomodule') != null || this.Settings.bRunScripts) {
             let script = srcElm.text;
             const defines = GetAttribute(srcElm, 'defines');
-            if (defines) {
+            if (defines)
                 for (let name of defines.split(',')) {
                     name = CheckValidIdentifier(name);
                     script += `;globalThis.${name} = ${name}\n`;
                 }
-            }
-            let elm = document.createElement('script');
+            const elm = document.createElement('script');
             if (src)
                 elm.src = src;
             else
@@ -749,23 +747,21 @@ class RCompiler {
         const saved = this.SaveContext();
         try {
             if (varName != null) {
-                const getRange = this.CompileAttributeExpression(srcElm, 'of', true);
+                const getRange = this.CompileAttrExpression(srcElm, 'of', true);
                 let prevName = GetAttribute(srcElm, 'previous');
                 if (prevName == '')
                     prevName = 'previous';
                 let nextName = GetAttribute(srcElm, 'next');
                 if (nextName == '')
                     nextName = 'next';
-                const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'), true);
-                const getUpdatesTo = this.CompileAttributeExpression(srcElm, 'updates');
+                const bReactive = CBool(GetAttribute(srcElm, 'updateable') ?? GetAttribute(srcElm, 'reactive'));
+                const getUpdatesTo = this.CompileAttrExpression(srcElm, 'updates');
                 const initVar = this.NewVar(varName);
                 const initIndex = this.NewVar(indexName);
                 const initPrevious = this.NewVar(prevName);
                 const initNext = this.NewVar(nextName);
-                const getKey = this.CompileAttributeExpression(srcElm, 'key');
-                const getHash = this.CompileAttributeExpression(srcElm, 'hash');
-                if (srcElm.childNodes.length == 0)
-                    throw "FOREACH has an empty body.\nIf you placed <FOREACH> within a <table>, then the parser has rearranged these elements.\nUse <table.>, <tr.> etc instead.";
+                const getKey = this.CompileAttrExpression(srcElm, 'key');
+                const getHash = this.CompileAttrExpression(srcElm, 'hash');
                 const bodyBuilder = this.CompileChildNodes(srcElm);
                 srcParent.removeChild(srcElm);
                 return async function FOREACH(region) {
@@ -1258,7 +1254,7 @@ class RCompiler {
     }
     CompilePattern(patt) {
         let reg = '', lvars = [];
-        const regIS = /(?<![\\$])\$?\{(.*?)(?<!\\)\}|\?|\*|$/gs;
+        const regIS = /(?<![\\$])\$?\{(.*?)(?<!\\)\}|\?|\*|(\\.)|\[\^?(?:\\.|[^\\\]])*\]|$/gs;
         while (regIS.lastIndex < patt.length) {
             const lastIndex = regIS.lastIndex;
             const m = regIS.exec(patt);
@@ -1266,28 +1262,30 @@ class RCompiler {
             if (literals)
                 reg += quoteReg(literals);
             if (m[1]) {
-                if (m[1] == '?')
-                    reg += '.';
-                else if (m[1] == '*')
-                    reg += '.*';
-                else {
-                    reg += `(.*?)`;
-                    lvars.push(this.NewVar(m[1]));
-                }
+                reg += `(.*?)`;
+                lvars.push(this.NewVar(m[1]));
             }
+            else if (m[0] == '?')
+                reg += '.';
+            else if (m[0] == '*')
+                reg += '.*';
+            else if (m[2])
+                reg += m[2];
+            else
+                reg += m[0];
         }
-        return { regex: new RegExp(`^${reg}$`, 'i'), lvars };
+        return { lvars, regex: new RegExp(`^${reg}$`, 'i') };
     }
-    CompileAttributeExpression(elm, attName, bRequired) {
+    CompileAttrExpression(elm, attName, bRequired) {
         return this.CompileExpression(GetAttribute(elm, attName, bRequired, true));
     }
     CompileAttribute(elm, attName, bRequired) {
         const value = GetAttribute(elm, attName);
         if (value != null)
             return this.CompileInterpolatedString(value);
-        return this.CompileAttributeExpression(elm, `#${attName}`, bRequired);
+        return this.CompileAttrExpression(elm, `#${attName}`, bRequired);
     }
-    CompileExpression(expr, delims = "\"\"", bScript = false, bReturnErrors = false, name) {
+    CompileExpression(expr, delims = '""', bScript = false, bReturnErrors = false, name) {
         if (expr == null)
             return null;
         const mapNames = new Map();
@@ -1360,7 +1358,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
     return { parent, marker, start, bInit, env: region.env };
 }
 function quoteReg(fixed) {
-    return fixed.replace(/[.()?*+^$]/g, s => `\\${s}`);
+    return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 function CheckAssignmentTarget(target) {
     try {
@@ -1423,12 +1421,12 @@ function CheckValidIdentifier(name) {
     name = name.trim();
     if (!regIdentifier.test(name))
         throw `Invalid identifier '${name}'`;
-    if (/^(break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
+    if (/^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
         throw `Reserved keyword '${name}'`;
     return name;
 }
-const words = '(align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-    + '|clip|(col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
+const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
+    + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
     + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {
@@ -1490,7 +1488,7 @@ export const docLocation = RVAR('docLocation', document.location);
 function SetDocLocation() {
     docLocation.SetDirty();
     if (RootPath)
-        docLocation['subpath'] = document.location.pathname.substr(RootPath.length);
+        docLocation.subpath = document.location.pathname.substr(RootPath.length);
 }
 window.addEventListener('popstate', SetDocLocation);
 export const reroute = globalThis.reroute = (arg) => {
