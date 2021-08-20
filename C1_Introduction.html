@@ -1,12 +1,12 @@
 <h1>Introduction</h1>
 
-<div style="display: grid; grid-template-columns: 2fr 1fr; align-items: center; margin-top:-1em">
+<div style="display: grid; grid-template-columns: 1fr auto ; align-items: center; margin-top:-1em">
     <div class=sample 
-        style="justify-self: center; min-width: 325px; min-height: 110px;" 
+        style="min-width: 325px; min-height: 110px;" 
         id=sampleGreeting>
         <RHTML>{sampleGreeting}</RHTML>
     </div>
-    <div style="transform: translateY(-2.75em) scale(0.8); height: 110px; width: 275px">
+    <div style="height: fit-content; width: fit-content; justify-self: right;">
         <RHTML>{sampleTicTacToe}</RHTML>
     </div>
 </div>
@@ -79,7 +79,7 @@ OtoReact does not provide server-side functionality. You need other tooling for 
 <ol>
     <li>
         Download <a href="./OtoReact.js" download>OtoReact.js</a> and place it somewhere on your server.
-        <br>It's just 35 kilobyte.
+        <br>It's just 40 kilobyte.
     </li>
     <li>
         Import the OtoReact compiler into your application:
@@ -111,13 +111,13 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     The expressions are evaluated, converted to string, and inserted <i>as text</i>, there is no risk of <a href="{wiki}Code_injection">code injection</a> &mdash; except when you use <a href="#RHTML"><elm>RHTML</elm></a>, which performs code injection <i>by design</i>.
 </p>
 <p>
-    To include a normal pair of braces, at least one of them must be escaped with a backslash.
+    To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
 </p>
 <p>
     You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
 </p>
 <demo #content="sampleBraces"></demo>
-If you prefer, you may add a dollar sign as in JavaScript, like <code>\${1 + 1}</code>.
+If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = \${1 + 1}</code>.
 
 <p>
     You can modify the snippet of source code above and see the result immediately.
@@ -177,6 +177,8 @@ The OtoReact module makes the following functions available for import. They are
 The question marks indicate optional arguments.
 <br>Note: JavaScript function and variable names are case dependent.
 
+
+<h2 id=Variables>Local and global variables</h2>
 
 <h2 id=ReactiveVariables>RVAR: Reactive VARiable's</h2>
 <p>

@@ -222,8 +222,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "b4641ab5d2a6efe235788b8893dbd9855bd557f1c3f0834d3dbfd65ed63ac5b3",
-        "signature": "85ee0898a751065c1a9cc77bb8fe842679f86558392c3e0122c612a59e6957ec",
+        "version": "3f7a32ae8ea2d2250574798d6b4f0eba04d82a50fe3181e627ee4d75e7f88a0b",
+        "signature": "ffcafc9cefc076a71900371a5531149fad2a3500b2dcad71fcac9ac7a425ca1e",
         "affectsGlobalScope": false
       },
       "./save/otoreact.ts": {
