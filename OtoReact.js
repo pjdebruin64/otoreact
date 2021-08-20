@@ -149,6 +149,7 @@ class RCompiler {
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
         this.Settings = clone ? { ...clone.Settings } : { ...defaultSettings };
         this.AddedHeaderElements = clone ? clone.AddedHeaderElements : [];
+        this.StyleRoot = clone ? clone.StyleRoot : document.head;
     }
     SaveContext() {
         return this.restoreActions.length;
@@ -506,7 +507,7 @@ class RCompiler {
                         break;
                     case 'FOR':
                     case 'FOREACH':
-                        builder = this.CompForeach(srcParent, srcElm, bBlockLevel);
+                        builder = this.CompFor(srcParent, srcElm, bBlockLevel);
                         break;
                     case 'INCLUDE':
                         {
@@ -618,23 +619,51 @@ class RCompiler {
                         {
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                             srcParent.removeChild(srcElm);
+                            const bIsolate = CBool(GetAttrib(srcElm, 'isolate'));
+                            let preModifiers;
+                            if (bIsolate)
+                                preModifiers = this.CompAttributes(srcElm).preModifiers;
                             builder = async function RHTML(region) {
                                 const tempElm = document.createElement('RHTML');
                                 await bodyBuilder.call(this, { parent: tempElm, start: null, env: region.env, bInit: true });
                                 const result = tempElm.innerText;
-                                const subregion = PrepareRegion(srcElm, region, result);
-                                if (subregion.bInit) {
-                                    tempElm.innerHTML = result;
-                                    const R = new RCompiler();
-                                    subregion.env = NewEnv();
-                                    const hdrElements = subregion.marker['AddedHeaderElements'];
-                                    if (hdrElements) {
-                                        for (const elm of hdrElements)
-                                            document.head.removeChild(elm);
-                                        subregion.marker['AddedHeaderElements'] = null;
+                                let subregion, marker, shadowRoot;
+                                let R;
+                                let { bInit } = region;
+                                if (bIsolate) {
+                                    const elm = PrepareElement(srcElm, region, 'rhtml-rhtml');
+                                    shadowRoot = bInit
+                                        ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
+                                    if (bInit || (bInit = result != elm['rResult'])) {
+                                        shadowRoot.innerHTML = '';
+                                        elm['rResult'] = result;
+                                        subregion = { parent: shadowRoot, start: null, bInit, env: null };
+                                        tempElm.innerHTML = result;
+                                        R = new RCompiler();
+                                        R.StyleRoot = shadowRoot;
+                                        R.Compile(tempElm, { bRunScripts: true }, false);
+                                        subregion = PrepareRegion(srcElm, subregion);
                                     }
-                                    R.Compile(tempElm, { bRunScripts: true }, false);
-                                    subregion.marker['AddedHeaderElements'] = R.AddedHeaderElements;
+                                }
+                                else {
+                                    subregion = PrepareRegion(srcElm, region, result);
+                                    if (bInit = subregion.bInit) {
+                                        tempElm.innerHTML = result;
+                                        R = new RCompiler();
+                                        R.StyleRoot = this.StyleRoot;
+                                        const { marker } = subregion;
+                                        const hdrElements = marker['AddedHdrElms'];
+                                        if (hdrElements) {
+                                            for (const elm of hdrElements)
+                                                elm.remove();
+                                            marker['AddedHdrElms'] = null;
+                                        }
+                                        R.Compile(tempElm, { bRunScripts: true }, false);
+                                        marker['AddedHdrElms'] = R.AddedHeaderElements;
+                                    }
+                                }
+                                if (bInit) {
+                                    subregion.env = NewEnv();
                                     await R.Build(subregion);
                                 }
                             };
@@ -644,7 +673,9 @@ class RCompiler {
                         builder = this.CompScript(srcParent, srcElm);
                         break;
                     case 'STYLE':
-                        builder = this.CompStyle(srcParent, srcElm);
+                        srcParent.removeChild(srcElm);
+                        this.StyleRoot.appendChild(srcElm);
+                        this.AddedHeaderElements.push(srcElm);
                         break;
                     case 'COMPONENT':
                         builder = this.CompComponent(srcParent, srcElm);
@@ -730,13 +761,7 @@ class RCompiler {
         }
         return null;
     }
-    CompStyle(srcParent, srcElm) {
-        srcParent.removeChild(srcElm);
-        document.head.appendChild(srcElm);
-        this.AddedHeaderElements.push(srcElm);
-        return null;
-    }
-    CompForeach(srcParent, srcElm, bBlockLevel) {
+    CompFor(srcParent, srcElm, bBlockLevel) {
         const varName = GetAttrib(srcElm, 'let');
         let indexName = GetAttrib(srcElm, 'index');
         if (indexName == '')
@@ -772,7 +797,7 @@ class RCompiler {
                         const iterator = getRange(env);
                         if (!iterator || typeof iterator[Symbol.iterator] != 'function')
                             throw `[of]: Value (${iterator}) is not iterable`;
-                        for (const item of iterator) {
+                        for await (const item of iterator) {
                             setVar(item);
                             const hash = getHash && getHash(env);
                             const key = getKey ? getKey(env) : hash;
@@ -939,7 +964,7 @@ class RCompiler {
                     if (bIsolate)
                         styles.push(srcChild);
                     else {
-                        document.head.appendChild(srcElm);
+                        this.StyleRoot.appendChild(srcElm);
                         this.AddedHeaderElements.push(srcElm);
                     }
                     break;
@@ -989,7 +1014,7 @@ class RCompiler {
         try {
             const lvars = names.map(name => this.NewVar(name));
             const builder = this.CompChildNodes(contentNode);
-            const customName = `otoreact-${signature.tagName}`;
+            const customName = `rhtml-${signature.tagName}`;
             return async function TEMPLATE(region, args, mapSlotBuilders, slotEnv) {
                 const saved = SaveEnv();
                 const { env, bInit } = region;
@@ -1004,7 +1029,8 @@ class RCompiler {
                         lvar(region.env)(args[i++]);
                     if (bIsolate) {
                         const elm = PrepareElement(srcElm, region, customName);
-                        const shadow = bInit ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
+                        const shadow = bInit
+                            ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
                         region = { parent: shadow, start: null, bInit, env };
                         if (bInit)
                             for (const style of styles)
@@ -1199,13 +1225,17 @@ class RCompiler {
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attrName)) {
                     const propName = CapitalizeProp(m[3]);
-                    CheckAssignmentTarget(attr.value);
-                    const setter = this.CompExpression(`function(){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
-                    if (m[1] == '@')
-                        preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompExpression(attr.value) });
-                    else
-                        postModifiers.push({ modType: ModifType.PseudoEvent, name: 'oncreate', depValue: setter });
-                    preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
+                    try {
+                        const setter = this.CompExpression(`function(){const ORx=this.${propName};if(${attr.value}!==ORx)${attr.value}=ORx}`);
+                        if (m[1] == '@')
+                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompExpression(attr.value) });
+                        else
+                            postModifiers.push({ modType: ModifType.PseudoEvent, name: 'oncreate', depValue: setter });
+                        preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
+                    }
+                    catch (err) {
+                        throw `Invalid left-hand side '${attr.value}'`;
+                    }
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attrName)) {
                     if (attr.value)
@@ -1377,14 +1407,6 @@ function PrepareElement(srcElm, region, nodeName = srcElm.nodeName) {
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
-function CheckAssignmentTarget(target) {
-    try {
-        globalEval(`()=>{${target}=null}`);
-    }
-    catch (err) {
-        throw `Invalid left-hand side '${target}'`;
-    }
-}
 class _RVAR {
     constructor(rRuntime, name, initialValue, store, storeName) {
         this.rRuntime = rRuntime;
@@ -1425,6 +1447,28 @@ class _RVAR {
         this.rRuntime.RUpdate();
     }
 }
+class HTMLElem extends HTMLElement {
+    constructor(R) {
+        super();
+        this.R = R;
+        const atts = new Map();
+        for (const att of this.attributes)
+            atts.set(att.name, att.value);
+        this.Atts = atts;
+    }
+}
+function GetAttrib(elm, name, bRequired, bHashAllowed) {
+    let value = elm.getAttribute(name);
+    if (value == null && bHashAllowed) {
+        name = `#${name}`;
+        value = elm.getAttribute(name);
+    }
+    if (value != null)
+        elm.attributes.removeNamedItem(name);
+    else if (bRequired)
+        throw `Missing attribute [${name}]`;
+    return value;
+}
 function CheckNoAttributesLeft(elm) {
     let atts = [];
     for (const { nodeName } of elm.attributes)
@@ -1448,18 +1492,6 @@ const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bound
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
-}
-function GetAttrib(elm, name, bRequired, bHashAllowed) {
-    let value = elm.getAttribute(name);
-    if (value == null && bHashAllowed) {
-        name = `#${name}`;
-        value = elm.getAttribute(name);
-    }
-    if (value != null)
-        elm.attributes.removeNamedItem(name);
-    else if (bRequired)
-        throw `Missing attribute [${name}]`;
-    return value;
 }
 function OuterOpenTag(elm, maxLength) {
     return Abbreviate(/<.*?(?=>)/.exec(elm.outerHTML)[0], maxLength - 1) + '>';

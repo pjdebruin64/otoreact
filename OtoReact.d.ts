@@ -61,7 +61,8 @@ declare class RCompiler {
     private Context;
     private ContextMap;
     private Constructs;
-    AddedHeaderElements: Array<HTMLElement>;
+    private StyleRoot;
+    private AddedHeaderElements;
     constructor(clone?: RCompiler);
     private restoreActions;
     private SaveContext;
@@ -95,8 +96,7 @@ declare class RCompiler {
     private CompElement;
     private CallWithErrorHandling;
     private CompScript;
-    private CompStyle;
-    CompForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
     private ParseSignature;
     private CompComponent;
     private CompConstructTemplate;
