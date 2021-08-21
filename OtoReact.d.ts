@@ -61,7 +61,9 @@ declare class RCompiler {
     private Context;
     private ContextMap;
     private Constructs;
-    AddedHeaderElements: Array<HTMLElement>;
+    private StyleRoot;
+    private StyleBefore;
+    private AddedHeaderElements;
     constructor(clone?: RCompiler);
     private restoreActions;
     private SaveContext;
@@ -85,6 +87,7 @@ declare class RCompiler {
     private bUpdating;
     private handleUpdate;
     RUpdate(): void;
+    private buildStart;
     DoUpdate(): Promise<void>;
     RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
@@ -95,18 +98,19 @@ declare class RCompiler {
     private CompElement;
     private CallWithErrorHandling;
     private CompScript;
-    private CompStyle;
-    CompForeach(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel: boolean): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder;
     private ParseSignature;
     private CompComponent;
     private CompConstructTemplate;
     private CompConstructInstance;
     private CompHTMLElement;
     private CompAttributes;
+    private CompStyle;
+    private CompStyleTemplate;
     private CompInterpolatedString;
     private CompPattern;
-    private CompAttrExpression;
     private CompAttribute;
+    private CompAttrExpression;
     private CompExpression;
     private CompName;
 }
@@ -128,6 +132,11 @@ declare class _RVAR<T> {
     get U(): T;
     set U(t: T);
     SetDirty(): void;
+}
+declare class Atts extends Map<string, string> {
+    constructor(elm: HTMLElement);
+    get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
+    CheckNoAttributesLeft(): void;
 }
 export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;

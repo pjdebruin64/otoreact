@@ -73,7 +73,7 @@ const sampleBraces =
 <br>Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
-`<script type=module>
+`<script nomodule>
   // Create a "Reactive variable" with a global name and
   // an initial value
   RVAR('yourName', '', sessionStorage);
@@ -300,7 +300,7 @@ const sampleTMColor=
 `;
 
 const sampleTicTacToe = 
-`<script nomodule type=module defines=TicTacToe>
+`<script nomodule defines=TicTacToe>
     function Board() {
         function Cell() {return {V: null}; }
         function Row()  {return [Cell(), Cell(), Cell()]; }
@@ -348,7 +348,7 @@ const sampleTicTacToe =
 
 <style>
     .tic-tac-toe td {
-        height:45px; width: 45px; padding: 0px;
+        height:2em; width: 2em; padding: 0px;
         border: 2px solid; 
         text-align: center; vertical-align: middle;
     }
@@ -361,7 +361,7 @@ const sampleTicTacToe =
 
     <define var=T #value="new TicTacToe()"></define>
     <table. class=tic-tac-toe reacton=T.board
-            style="width: 110pt; margin:1ex">
+            style="width: fit-content; margin:1ex">
         <for let=row #of="T.board.V">
             <tr.>
                 <for let=cell #of=row updates=T.board>
@@ -399,3 +399,20 @@ const sampleRHTML =
 <RHTML>
     {sourceCode.V}
 </RHTML>`;
+
+const sampleStyleTemplate =
+`<def rvar=Hue #value=0></def>
+
+<style. reacton=Hue>
+  h2 \\{ color: hsl( {Hue.V}, 100%, 50%) \\}
+</style.>
+
+<h2>Section 1</h2>
+Content
+<h2>Section 2<h2>
+
+<button onclick="
+    Hue.V = Math.random()*360
+">
+  Random color
+</button>`;

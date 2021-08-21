@@ -18,11 +18,11 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
     <br>When you add an attribute <code>react</code> (without value), then the expression is re-evaluated at every update.
 </p>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>" store=<i>storage</i></elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>" store?=<i>storage</i></elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
-    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>)"</elm><elm>/DEFINE</elm></code>.
-    <br>When <code>store></code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
+    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>)"</elm><elm>/DEFINE</elm></code>.
+    <br>When <code>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
 </p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
@@ -86,10 +86,10 @@ All three variants are case-insensitive, and all can be combined with a simple c
     <dd>
         The value is matched against the given simple pattern, which may contain the following wildcards:
         <ul>
-            <li><code>?</code> matches with any single character</li>
-            <li><code>*</code> matches with any string of characters</li>
-            <li><code>[<i>charString</i>]</code> matches with any character in <i>charString</i>, where <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">all usual rules</a> apply</li>
-            <li><code>\{ <i>varName</i> \}</code> matches non-greedy with any string of characters, and the matched string will be captured in a local variable <i>varName</i></li>
+            <li><code>?</code> matches any single character</li>
+            <li><code>*</code> matches any string of characters</li>
+            <li><code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">all usual rules</a> apply</li>
+            <li><code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and the matched string will be captured in <a href=Variables>local variable</a> <i>varName</i></li>
             <li><code>\</code> followed by any character matches just that character</li>
         </ul>
         The whole value has to match, not just a substring.
@@ -216,7 +216,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=Scripts><{}SCRIPT></h2>
+<h2 id=Scripts><{}SCRIPT defines?></h2>
 <p>
     Scripts can be included almost anywhere in your application, either embedded or through an external <code>src</code> reference.
 </p>
@@ -244,18 +244,24 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 
     <dt>
-        <elm>SCRIPT nomodule src?</elm> anywhere
+        <elm>SCRIPT nomodule src? defines?</elm> anywhere
         <br><elm>SCRIPT src?</elm> in included files or inside <{}RHTML>
     </dt>
     <dd>
-        Scripts included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, with a <code>nomodule</code> attribute, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
-        <br>These are not encountered and executed by the browser at all. Instead, they are executed in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> by OtoReact during compilation.
-        <br>That means that OtoReact functions are available, names are not automatically global, but module functionality like <code>import</code> is not available, not even when you add <code>type=module</code>.
-        <p>
-            In this case, OtoReact will also look for an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script.
-            <br>OtoReact will make these names available to your RHTML code.
-            <br>(Currently as global names, later on as local variables.)
-        </p>
+        Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
+        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during compilation:
+        <ul>
+            <li>OtoReact functions are available</li>
+            <li>OtoReact modifies the script so that defined names are not automatically global</li>
+            <li>OtoReact executes the script once in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a>
+            <li>
+                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the scope surrounding the <elm>SCRIPT</elm> element.
+            </li>
+            <li>
+                JavaScript module functionality like <code>import</code> is not available (yet), not even when you add <code>type=module</code>.
+                But you can (of course) import modules by using the async <a href="https://javascript.info/modules-dynamic-imports"></a>dynamic import expression <code>import()</code></a>.
+            </li>
+        </ul>
     </dd>
     <dd>
         If you don't want the distinction between scripts in the main file and scripts in included files, <b>you can always use <elm>SCRIPT nomodule</elm></b>.
@@ -268,7 +274,25 @@ Further on, <elm>FOR</elm> can have the following attributes:
     <br><code>eval</code> is redefined to access the global environment only.
 </p>
 
-<h2><{}REACT on>, reacton, thisreactson</h2>
+
+<h2 id=StyleTemplate><{}STYLE. media?></h2>
+As the HTML parser does not allow string interpolation inside <elm>SCRIPT</elm>, OtoReact has an equivalent <elm>STYLE.</elm> construct that allows string interpolation.
+<p>
+    Braces inside <elm>STYLE.</elm> that are part of the style sheet and do not delimit an embedded string must be escaped: <code>\\{ \\}</code>.
+</p>
+<p>
+    <elm>STYLE.</elm> style sheet templates have global effect just like <elm>STYLE</elm>, so you cannot have multiple possibly conflicting instances of the same style sheet template. Therefore you may not put <elm>STYLE.</elm> within a <elm>FOR</elm> loop etc. 
+</p>
+<p>
+    <elm>STYLE.</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
+    <br>So you may want to avoid unnecessary updates, by proper use of <code>reacton</code>.
+</p>
+<p>
+    Here is a sample style sheet template that gives all <elm>h2</elm> elements an identical random hue:
+</p>
+<demo #content=sampleStyleTemplate></demo>
+
+<h2 id=ReactOn><{}REACT on>, reacton, thisreactson</h2>
 One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should <i>react on</i> changes to any of the listed RVAR's.
 <p>
     Construct <code class=sourcecode><elm>REACT on="<i>RVARlist</i>"</elm> &hellip; <elm>/REACT</elm></code> does the same, except that one can insert <i>multiple</i> nodes rather than a single source element
@@ -298,7 +322,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
-<h2 id=Import><{}IMPORT src> ...</h2>
+<h2 id=Import><{}IMPORT src>, modules</h2>
 
 <h2 id=Include><{}INCLUDE src></h2>
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
