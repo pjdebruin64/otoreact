@@ -21,7 +21,7 @@ declare type Marker = ChildNode & {
     hash?: Hash;
     key?: Key;
     keyMap?: Map<Key, Subscriber>;
-    errorNode?: Text;
+    errorNode?: ChildNode;
 };
 declare type Region = {
     parent: Node;
@@ -106,10 +106,9 @@ declare class RCompiler {
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
-    private CompStyleTemplate;
     private CompInterpolatedString;
     private CompPattern;
-    private CompAttribute;
+    private CompParameter;
     private CompAttrExpression;
     private CompExpression;
     private CompName;

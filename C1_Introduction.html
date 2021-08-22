@@ -21,7 +21,7 @@
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
-    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <i>framework</i> makes it much easier to create a reactive web application.
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks"><i>framework</i></a> makes it much easier to create a reactive web application.
 </p>
 <p>
     <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
@@ -250,8 +250,8 @@ Style sheets can be included anywhere using the <elm>STYLE</elm> element as in H
     <br>There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.
 </p>
 <p>
-    Style sheets inserted with <elm>STYLE</elm> cannot contain interpolated strings, because the HTML parser doesn't allow that.
-    <br>However, OtoReact has a <a href=#StyleTemplate><elm>STYLE.</elm></a> construct to build a style sheet with string interpolation.
+    Style sheets inserted with <elm>STYLE</elm> <u>cannot contain interpolated strings</u>, because the HTML parser does not allow that.
+    <br>However, OtoReact allows to use <a href=#StyleTemplate><elm>STYLE.</elm></a> to build style sheets with string interpolation.
 </p>
 
 

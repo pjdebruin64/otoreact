@@ -416,3 +416,68 @@ Content
 ">
   Random color
 </button>`;
+
+const sampleComponent1 =
+`<!-- Component definition -->
+<component>
+  <!-- Component signature with parameter-->
+  <repeat #count>
+    <!-- Slot signature -->
+    <rbody></rbody>
+  </repeat>
+
+  <!-- Component template -->
+  <template>
+    <for let=i #of="range(count)">
+      <!-- Slot instance -->
+      <rbody></rbody>
+    </for>
+  </template>
+</component>
+
+
+<!-- Component instance -->
+<repeat #count=3>
+  <!-- Slot template -->
+  <rbody>
+    <p>Here is a <u>paragraph</u></p>
+  </rbody>
+</repeat>`,
+
+sampleComponent2 =
+`<component>
+  <repeat #count>
+    <!-- Slot signature -->
+    <content></content>
+  </repeat>
+
+  <template>
+    <for let=i #of="range(count)">
+      <!-- Slot instance -->
+      <content></content>
+    </for>
+  </template>
+</component>
+
+<!-- Component instance -->
+<repeat #count=3>
+  <p>Here is a <u>paragraph</u></p>
+</repeat>`,
+
+sampleComponent3 =
+`<component>
+  <repeat #count>
+    <content x></content>
+  </repeat>
+
+  <template>
+    <for let=i #of="range(count)">
+      <content #x=i></content>
+    </for>
+  </template>
+</component>
+
+<!-- Component instance  -->
+<repeat #count=3 x >
+  <p>This is paragraph {x}.</p>
+</repeat>`;
