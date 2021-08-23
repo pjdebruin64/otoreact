@@ -52,15 +52,18 @@ class Signature {
         this.RestParam = null;
         this.Slots = new Map();
     }
-    Equals(sig) {
+    IsCompatible(sig) {
         let result = sig
             && this.tagName == sig.tagName
             && this.Parameters.length <= sig.Parameters.length;
-        for (let i = 0; i < this.Parameters.length; i++)
-            result && (result = this.Parameters[i].name == sig.Parameters[i].name);
+        const iter = sig.Parameters.values();
+        for (const thisParam of this.Parameters) {
+            const sigParam = iter.next().value;
+            result && (result = thisParam.name == sigParam.name && (!thisParam.pDefault || !!sigParam.pDefault));
+        }
         result && (result = !this.RestParam || this.RestParam.name == sig.RestParam?.name);
         for (let [slotname, slotSig] of this.Slots)
-            result && (result = slotSig.Equals(sig.Slots.get(slotname)));
+            result && (result = slotSig.IsCompatible(sig.Slots.get(slotname)));
         return result;
     }
 }
@@ -376,7 +379,7 @@ class RCompiler {
         for (const attName of this.preMods) {
             const val = atts.get(attName);
             if (val)
-                mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompExpression(expr)) });
+                mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompJavaScript(expr)) });
         }
         labelNoCheck: try {
             const construct = this.Constructs.get(srcElm.tagName);
@@ -393,7 +396,7 @@ class RCompiler {
                             const getValue = this.CompParameter(atts, 'value');
                             const getStore = rvarName && this.CompAttrExpression(atts, 'store');
                             const newVar = this.NewVar(varName);
-                            const bReact = atts.get('react') != null;
+                            const bReact = atts.get('reacting') != null;
                             const subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEFINE(region) {
                                 const subRegion = PrepareRegion(srcElm, region, undefined, undefined, varName);
@@ -416,7 +419,7 @@ class RCompiler {
                             const caseList = [];
                             const getCondition = (srcElm.nodeName == 'IF') && this.CompAttrExpression(atts, 'cond', true);
                             const getValue = this.CompAttrExpression(atts, 'value');
-                            atts.CheckNoAttributesLeft();
+                            atts.CheckNoAttsLeft();
                             const bodyNodes = [];
                             const bTrimLeft = this.bTrimLeft;
                             for (const child of srcElm.childNodes) {
@@ -449,7 +452,7 @@ class RCompiler {
                                             case 'ELSE':
                                                 const builder = this.CompChildNodes(childElm, bBlockLevel);
                                                 caseList.push({ condition, patt, builder, childElm });
-                                                atts.CheckNoAttributesLeft();
+                                                atts.CheckNoAttsLeft();
                                                 continue;
                                         }
                                     }
@@ -590,7 +593,7 @@ class RCompiler {
                                     const signature = module.Signatures.get(tagName);
                                     if (!signature)
                                         throw `<${tagName}> is missing in '${src}'`;
-                                    if (!clientSig.Equals(signature))
+                                    if (!clientSig.IsCompatible(signature))
                                         throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
                                     const constructdef = module.ConstructDefs.get(tagName);
                                     placeholder.instanceBuilders = constructdef.instanceBuilders;
@@ -612,7 +615,7 @@ class RCompiler {
                         {
                             this.bHasReacts = true;
                             const reacts = atts.get('on', true, true);
-                            const getDependencies = reacts ? reacts.split(',').map(expr => this.CompExpression(expr)) : [];
+                            const getDependencies = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                             builder = async function REACT(region) {
                                 let subregion = PrepareRegion(srcElm, region);
@@ -683,7 +686,7 @@ class RCompiler {
                         builder = this.CompHTMLElement(srcElm, atts);
                         break labelNoCheck;
                 }
-                atts.CheckNoAttributesLeft();
+                atts.CheckNoAttsLeft();
             }
         }
         catch (err) {
@@ -821,7 +824,7 @@ class RCompiler {
                             while (start && start != region.start && !newMap.has(key = start.key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                const nextMarker = start.nextM;
+                                const nextMarker = start.nextM || region.start;
                                 while (start != nextMarker) {
                                     const next = start.nextSibling;
                                     parent.removeChild(start);
@@ -949,7 +952,7 @@ class RCompiler {
             else
                 signature.Parameters.push({ name: m[2],
                     pDefault: attr.value != ''
-                        ? (m[1] == '#' ? this.CompExpression(attr.value) : this.CompInterpolatedString(attr.value))
+                        ? (m[1] == '#' ? this.CompJavaScript(attr.value) : this.CompInterpolatedString(attr.value))
                         : m[3] ? (_) => undefined
                             : null
                 });
@@ -1026,7 +1029,7 @@ class RCompiler {
         for (const S of signature.Slots.values())
             this.AddConstruct(S);
         if (bCheckAtts)
-            atts.CheckNoAttributesLeft();
+            atts.CheckNoAttsLeft();
         try {
             const lvars = names.map(name => this.NewVar(name));
             const builder = this.CompChildNodes(contentNode);
@@ -1089,7 +1092,7 @@ class RCompiler {
         if (contentSlot)
             slotBuilders.get('CONTENT').push(this.CompConstructTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
         const preModifiers = signature.RestParam ? this.CompAttributes(atts).preModifiers : null;
-        atts.CheckNoAttributesLeft();
+        atts.CheckNoAttsLeft();
         this.bTrimLeft = false;
         return async function INSTANCE(region) {
             const subregion = PrepareRegion(srcElm, region);
@@ -1165,23 +1168,23 @@ class RCompiler {
                     postModifiers.push({
                         modType: ModifType.PseudoEvent,
                         name: m[0],
-                        depValue: this.CompExpression(`function ${attName}(){${attValue}\n}`)
+                        depValue: this.CompJavaScript(`function ${attName}(){${attValue}\n}`)
                     });
                 if (m = /^on(.*)$/i.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Event,
                         name: CapitalizeProp(m[0]),
-                        depValue: this.CompExpression(`function ${attName}(event){${attValue}\n}`)
+                        depValue: this.CompJavaScript(`function ${attName}(event){${attValue}\n}`)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Class, name: m[1],
-                        depValue: this.CompExpression(attValue)
+                        depValue: this.CompJavaScript(attValue)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompExpression(attValue)
+                        depValue: this.CompJavaScript(attValue)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     preModifiers.push({
@@ -1191,24 +1194,24 @@ class RCompiler {
                 else if (attName == '+style')
                     preModifiers.push({
                         modType: ModifType.AddToStyle, name: null,
-                        depValue: this.CompExpression(attValue)
+                        depValue: this.CompJavaScript(attValue)
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Prop, name: CapitalizeProp(m[1]),
-                        depValue: this.CompExpression(attValue)
+                        depValue: this.CompJavaScript(attValue)
                     });
                 else if (attName == "+class")
                     preModifiers.push({
                         modType: ModifType.AddToClassList, name: null,
-                        depValue: this.CompExpression(attValue)
+                        depValue: this.CompJavaScript(attValue)
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) {
                     const propName = CapitalizeProp(m[3]);
                     try {
-                        const setter = this.CompExpression(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`);
+                        const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`);
                         if (m[1] == '@')
-                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompExpression(attValue) });
+                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue) });
                         else
                             postModifiers.push({ modType: ModifType.PseudoEvent, name: 'oncreate', depValue: setter });
                         preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
@@ -1254,7 +1257,7 @@ class RCompiler {
             if (fixed)
                 generators.push(fixed.replace(/\\([${}\\])/g, '$1'));
             if (m[1]) {
-                generators.push(this.CompExpression(m[1], '{}', null, true));
+                generators.push(this.CompJavaScript(m[1], '{}', null, true));
                 isTrivial = false;
             }
             if (m[1] || /[^ \t\r\n]/.test(fixed))
@@ -1302,31 +1305,29 @@ class RCompiler {
     CompParameter(atts, attName, bRequired) {
         const value = atts.get(attName);
         return (value == null ? this.CompAttrExpression(atts, attName, bRequired)
-            : /^on/.test(attName) ? this.CompExpression(`function ${attName}(event){${value}\n}`)
+            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`)
                 : this.CompInterpolatedString(value));
     }
     CompAttrExpression(atts, attName, bRequired) {
-        return this.CompExpression(atts.get(attName, bRequired, true));
+        return this.CompJavaScript(atts.get(attName, bRequired, true));
     }
-    CompExpression(expr, delims = '""', bScript = false, bReturnErrors = false, name) {
+    CompJavaScript(expr, delims = '""', bStatement = false, bReturnErrors = false, descript) {
         if (expr == null)
             return null;
-        const mapNames = new Map();
+        const setNames = new Set();
         let regNames = /(?<![A-Za-z0-9_$.'"`])[A-Za-z_$][A-Za-z0-9_$]*/g;
-        let m;
-        while (m = regNames.exec(expr)) {
-            const name = m[0];
-            if (this.ContextMap.has(name))
-                mapNames.set(name, undefined);
-        }
+        let m, name;
+        while (m = regNames.exec(expr))
+            if (this.ContextMap.has(name = m[0]))
+                setNames.add(name);
         let patt = '';
         for (const name of this.Context) {
-            patt += `${patt ? ',' : ''}${mapNames.has(name) ? '' : '_'}${name}`;
+            patt += `${patt ? ',' : ''}${setNames.has(name) ? '' : '_'}${name}`;
         }
-        let depExpr = bScript
-            ? `([${patt}]) => {'use strict';${expr}\n}`
-            : `([${patt}]) => (${expr}\n)`;
-        const errorInfo = `${name ? `[${name}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
+        let depExpr = bStatement
+            ? `'use strict';([${patt}]) => {${expr}\n}`
+            : `'use strict';([${patt}]) => (${expr}\n)`;
+        const errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
         try {
             const routine = globalEval(depExpr);
             return (env) => {
@@ -1443,18 +1444,18 @@ class Atts extends Map {
                 super.set(att.name, att.value);
     }
     get(name, bRequired, bHashAllowed) {
-        let value = super.get(name);
+        let n = name, value = super.get(n);
         if (value == null && bHashAllowed) {
-            name = `#${name}`;
-            value = super.get(name);
+            n = `#${name}`;
+            value = super.get(n);
         }
         if (value != null)
-            super.delete(name);
+            super.delete(n);
         else if (bRequired)
             throw `Missing attribute [${name}]`;
         return value;
     }
-    CheckNoAttributesLeft() {
+    CheckNoAttsLeft() {
         if (super.size)
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }

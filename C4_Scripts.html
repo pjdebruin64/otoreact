@@ -39,15 +39,18 @@ OtoReact does not (yet) have extra formatting functionality for numbers and date
 
 <h2>Options ...</h2>
 
-<h2>Playground</h2>
+<h2>Playground(s)</h2>
 Here you have a playground to enter your own Reactive HTML.
 <p>
     All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
 </p>
-<!--
-<def rvar=Playgrounds #value="[RVAR('Playground0','',localStorage)]"></def>
-<for let=rvar of="Playgrounds.V">
-    <demo #rvar="rvar"></demo>
-</for>
-<button onclick="Playgrounds.V.push(RVAR(`Playground${Playgrounds.V.length}`))">Add playground</button>-->
-<demo name=Playground #store=localStorage content></demo>
+
+<def rvar=playCount #value=1 store=localStorage></def>
+<react on=playCount>
+    <def rvar=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" reacting></def>
+    <for let=rvar of="Playgrounds.V" index key=index>
+        <demo #rvar="rvar"></demo>
+    </for>
+    <button>Test</button>
+</react>
+<button onclick="playCount.U ++">Add another playground</button>

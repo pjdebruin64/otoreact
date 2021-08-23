@@ -110,7 +110,7 @@ declare class RCompiler {
     private CompPattern;
     private CompParameter;
     private CompAttrExpression;
-    private CompExpression;
+    private CompJavaScript;
     private CompName;
 }
 interface Store {
@@ -135,7 +135,7 @@ declare class _RVAR<T> {
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
     get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
-    CheckNoAttributesLeft(): void;
+    CheckNoAttsLeft(): void;
 }
 export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;

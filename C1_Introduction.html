@@ -359,4 +359,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
     <li>
         When your application doesn't react on events, you may have forgotten some <code>reacton</code> attribute.
     </li>
+    <li>
+        Errors while building the DOM are by default inserted into the DOM output, but may sometimes be invisible or get overlooked. Look in the development console to be sure you haven't missed any error messages, or enable option <code>bAbortOnError</code>.
+    </li>
 </ul>
