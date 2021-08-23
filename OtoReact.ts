@@ -1104,14 +1104,14 @@ labelNoCheck:
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
-                                    FillNextM(subregion, marker);
+                                    //FillNextM(subregion, marker);
                                 }
                                 
                                 (marker as Comment).textContent = `${varName}(${index})`;
 
                                 subregion.bInit = false;
                                 subregion.start = marker;
-                                // FillNextM(subregion, marker);
+                                FillNextM(subregion, marker);
                                 childRegion = PrepareRegion(null, subregion, null, false);
                                 subregion.lastM = marker;
                             }

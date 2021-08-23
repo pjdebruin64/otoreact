@@ -862,11 +862,11 @@ class RCompiler {
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
-                                    FillNextM(subregion, marker);
                                 }
                                 marker.textContent = `${varName}(${index})`;
                                 subregion.bInit = false;
                                 subregion.start = marker;
+                                FillNextM(subregion, marker);
                                 childRegion = PrepareRegion(null, subregion, null, false);
                                 subregion.lastM = marker;
                             }
