@@ -73,7 +73,7 @@ const sampleBraces =
 <br>Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
-`<script type=module>
+`<script nomodule>
   // Create a "Reactive variable" with a global name and
   // an initial value
   RVAR('yourName', '', sessionStorage);
@@ -300,7 +300,7 @@ const sampleTMColor=
 `;
 
 const sampleTicTacToe = 
-`<script nomodule type=module defines=TicTacToe>
+`<script nomodule defines=TicTacToe>
     function Board() {
         function Cell() {return {V: null}; }
         function Row()  {return [Cell(), Cell(), Cell()]; }
@@ -399,3 +399,85 @@ const sampleRHTML =
 <RHTML>
     {sourceCode.V}
 </RHTML>`;
+
+const sampleStyleTemplate =
+`<def rvar=Hue #value=0></def>
+
+<style. reacton=Hue>
+  h2 \\{ color: hsl( {Hue.V}, 100%, 50%) \\}
+</style.>
+
+<h2>Section 1</h2>
+Content
+<h2>Section 2<h2>
+
+<button onclick="
+    Hue.V = Math.random()*360
+">
+  Random color
+</button>`;
+
+const sampleComponent1 =
+`<!-- Component definition -->
+<component>
+  <!-- Component signature with parameter-->
+  <repeat #count>
+    <!-- Slot signature -->
+    <rbody></rbody>
+  </repeat>
+
+  <!-- Component template -->
+  <template>
+    <for let=i #of="range(count)">
+      <!-- Slot instance -->
+      <rbody></rbody>
+    </for>
+  </template>
+</component>
+
+
+<!-- Component instance -->
+<repeat #count=3>
+  <!-- Slot template -->
+  <rbody>
+    <p>Here is a <u>paragraph</u></p>
+  </rbody>
+</repeat>`,
+
+sampleComponent2 =
+`<component>
+  <repeat #count>
+    <!-- Slot signature -->
+    <content></content>
+  </repeat>
+
+  <template>
+    <for let=i #of="range(count)">
+      <!-- Slot instance -->
+      <content></content>
+    </for>
+  </template>
+</component>
+
+<!-- Component instance -->
+<repeat #count=3>
+  <p>Here is a <u>paragraph</u></p>
+</repeat>`,
+
+sampleComponent3 =
+`<component>
+  <repeat #count>
+    <content x></content>
+  </repeat>
+
+  <template>
+    <for let=i #of="range(count)">
+      <content #x=i></content>
+    </for>
+  </template>
+</component>
+
+<!-- Component instance  -->
+<repeat #count=3 x >
+  <p>This is paragraph {x}.</p>
+</repeat>`;

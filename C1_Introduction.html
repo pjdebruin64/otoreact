@@ -21,7 +21,7 @@
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
-    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <i>framework</i> makes it much easier to create a reactive web application.
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks"><i>framework</i></a> makes it much easier to create a reactive web application.
 </p>
 <p>
     <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
@@ -150,11 +150,11 @@ If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = \$
         <a href=#Include><elm>INCLUDE</elm></a> asynchronously includes a separate RHTML file into your application
     </li>
     <li>
-        <elm>RHTML</elm> dynamically compiles a string as RHTML.
+        <a href=#RHTML><elm>RHTML</elm></a> dynamically compiles a string as RHTML.
         <br>This is used in the demo component you see on this page.
     </li>
     <li>
-        <elm>REACT on</elm> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
+        <a href=#ReactOn><elm>REACT on</elm></a> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
         <br>The RHTML attribute <code>reacton</code> does the same thing.
     </li>
 </ul>
@@ -226,9 +226,17 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
 
 
 <h2>Scripts in RHTML</h2>
-<p>Scripts can be included anywhere using the <elm>SCRIPT</elm> element just as in HTML. They will be executed once.
-<p>Scripts are always global.
-    <br>There is no provision for local scripts yet, but you can define a global class and create a local class instance using <elm>DEFINE</elm>, of course. There is a sample of this in the <a href="#TicTacToe">Tic-Tac-Toe demo</a> below.
+<p>
+    Scripts can be included anywhere using the <elm>SCRIPT</elm> element just as in HTML.
+    <br>They will be executed once, but the moment of execution depends on the script type, see <a href="#Scripts">Scripts</a>.
+</p>
+<p>
+    Scripts in OtoReact can export variables, so that these variables are locally visible in RHTML code.
+</p>
+<p>
+    A variabe declared in a script is instantiated only once, as always in JavaScript. 
+    <br>If you need multiple instances, then you put them inside a class, and use <elm>DEFINE</elm> to create local instances of the class.
+    <br>There is an example of this in the <a href="#TicTacToe">Tic-Tac-Toe demo</a> below.
 </p>
 <p>
     See <a href="#Scripts">Scripts</a> for details about <elm>SCRIPT</elm> in RHTML.
@@ -237,7 +245,14 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
 
 <h2>Style Sheets</h2>
 Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
-<p>Styles sheets are always global. There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.</p>
+<p>
+    Styles sheets have global effect, except inside an 'isolated' <a href=#Component>component</a> or inside <elm>RHTML</elm> text.
+    <br>There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.
+</p>
+<p>
+    Style sheets inserted with <elm>STYLE</elm> <u>cannot contain interpolated strings</u>, because the HTML parser does not allow that.
+    <br>However, OtoReact allows to use <a href=#StyleTemplate><elm>STYLE.</elm></a> to build style sheets with string interpolation.
+</p>
 
 
 <h2>How It Works</h2>

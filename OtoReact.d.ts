@@ -21,7 +21,7 @@ declare type Marker = ChildNode & {
     hash?: Hash;
     key?: Key;
     keyMap?: Map<Key, Subscriber>;
-    errorNode?: Text;
+    errorNode?: ChildNode;
 };
 declare type Region = {
     parent: Node;
@@ -62,6 +62,7 @@ declare class RCompiler {
     private ContextMap;
     private Constructs;
     private StyleRoot;
+    private StyleBefore;
     private AddedHeaderElements;
     constructor(clone?: RCompiler);
     private restoreActions;
@@ -86,6 +87,7 @@ declare class RCompiler {
     private bUpdating;
     private handleUpdate;
     RUpdate(): void;
+    private buildStart;
     DoUpdate(): Promise<void>;
     RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
@@ -103,9 +105,10 @@ declare class RCompiler {
     private CompConstructInstance;
     private CompHTMLElement;
     private CompAttributes;
+    private CompStyle;
     private CompInterpolatedString;
     private CompPattern;
-    private CompAttribute;
+    private CompParameter;
     private CompAttrExpression;
     private CompExpression;
     private CompName;
