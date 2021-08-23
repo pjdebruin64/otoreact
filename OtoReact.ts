@@ -63,7 +63,7 @@ function CloneEnv(env: Environment): Environment {
 type Dependent<T> = (env: Environment) => T;
 
 type Marker = ChildNode & {
-    nextM?: Marker, 
+    nextM?: ChildNode, 
     rResult?: unknown, 
     rValue?: unknown,
     hash?: Hash, key?: Key, keyMap?: Map<Key, Subscriber>,
@@ -76,6 +76,7 @@ type Region     = {
     bInit: boolean, 
     env: Environment,
     lastM?: Marker,
+    lastSub?: Region,
     bNoChildBuilding?: boolean,
 };
 type DOMBuilder = ((reg: Region) => Promise<void>) & {bTrim?: boolean};
@@ -104,9 +105,10 @@ interface Hash {};
 
 type Parameter = {name: string, pDefault: Dependent<unknown>};
 class Signature {
-    constructor(
-        public tagName: string,
-    ){ }
+    constructor(public srcElm: Element){ 
+        this.tagName = srcElm.tagName;
+    }
+    public tagName: string;
     public Parameters: Array<Parameter> = [];
     public RestParam: Parameter = null;
     public Slots = new Map<string, Signature>();
@@ -478,11 +480,8 @@ class RCompiler {
                                     (text = (start as Text)).data = content;
                                     region.start = start.nextSibling;
                                 }
-                                if (lastM) {
-                                    lastM.nextM = text;
-                                    region.lastM = null;
-                                }
-                                
+                                if (bInit)
+                                    FillNextM(region, text)
                             }
 
                             builders.push( [ Text, srcNode, getText.isBlank] );
@@ -500,7 +499,8 @@ class RCompiler {
         finally {
             if (!bNorestore) this.RestoreContext(saved);
         }
-        return async function ChildNodes(this: RCompiler, region) {
+        return builders.length == 0 ? async ()=>{} :
+             async function ChildNodes(this: RCompiler, region) {
                 const savedEnv = SaveEnv();
                 try {
                     for (const [builder, node] of builders)
@@ -758,7 +758,7 @@ labelNoCheck:
                                     if (!signature)
                                         throw `<${tagName}> is missing in '${src}'`;
                                     if (!clientSig.IsCompatible(signature))
-                                        throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
+                                        throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
                                     
                                     const constructdef = module.ConstructDefs.get(tagName);
                                     placeholder.instanceBuilders = constructdef.instanceBuilders;
@@ -1050,7 +1050,7 @@ labelNoCheck:
                             if (key != null && newMap.has(key))
                                 throw `Key '${key}' is not unique`;
                             newMap.set(key ?? {}, {item, hash});
-                        }
+                        } 
 
                         function RemoveStaleItemsHere() {
                             let key: Key;
@@ -1073,6 +1073,7 @@ labelNoCheck:
 
                         let index = 0, prevItem: Item = null;
                         const nextIterator = nextName ? newMap.values() : null;
+                        let childRegion: ReturnType<typeof PrepareRegion>;
                         if (nextIterator) nextIterator.next();
                         // Voor elke waarde in de range
                         for (const [key, {item, hash}] of newMap) {
@@ -1090,7 +1091,6 @@ labelNoCheck:
 
                             let marker: Marker;
                             let subscriber = keyMap.get(key);
-                            let childRegion: ReturnType<typeof PrepareRegion>;
                             if (subscriber && subscriber.marker.isConnected) {
                                 // Item already occurs in the series
                                 marker = subscriber.marker;
@@ -1104,16 +1104,15 @@ labelNoCheck:
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
+                                    FillNextM(subregion, marker);
                                 }
                                 
                                 (marker as Comment).textContent = `${varName}(${index})`;
 
                                 subregion.bInit = false;
                                 subregion.start = marker;
-                                const lastM = subregion.lastM;
+                                // FillNextM(subregion, marker);
                                 childRegion = PrepareRegion(null, subregion, null, false);
-                                if (lastM)
-                                    lastM.nextM = marker;
                                 subregion.lastM = marker;
                             }
                             else {
@@ -1154,6 +1153,8 @@ labelNoCheck:
                             start = subregion.start;
                             RemoveStaleItemsHere();
                         }
+                        if (childRegion)
+                            region.lastSub = childRegion;
                     }
                     finally { RestoreEnv(savedEnv) }
                 };
@@ -1194,7 +1195,7 @@ labelNoCheck:
     }
 
     private ParseSignature(elmSignature: Element):  Signature {
-        const signature = new Signature(elmSignature.tagName);
+        const signature = new Signature(elmSignature);
         for (const attr of elmSignature.attributes) {
             if (signature.RestParam) 
                 throw `Rest parameter must be the last`;
@@ -1751,12 +1752,12 @@ labelNoCheck:
 function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, text: string = '')
     : Region & {marker: Comment}
 {
-    let {parent, start, bInit, lastM} = region;
+    let {parent, start, bInit} = region;
     let marker: Marker & Comment;
     if (bInit) {
-        marker = region.lastM = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
-        if (lastM)
-            lastM.nextM = marker;
+        marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
+        FillNextM(region, marker);
+        region.lastM = marker;
         
         if (start && start == srcElm)
             region.start = start.nextSibling;
@@ -1776,7 +1777,16 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
         }
         bInit = true;
     }
-    return {parent, marker, start, bInit, env: region.env};
+    return region.lastSub = {parent, marker, start, bInit, env: region.env};
+}
+function FillNextM(reg: Region, node: ChildNode) {
+    do {
+        const {lastM} = reg;
+        if (!lastM) break;
+        lastM.nextM = node;
+        reg.lastM = null;
+        reg = reg.lastSub;
+    } while (reg);
 }
 
 function PrepareElement(srcElm: HTMLElement, region: Region, nodeName = srcElm.nodeName): HTMLElement {
@@ -1785,11 +1795,9 @@ function PrepareElement(srcElm: HTMLElement, region: Region, nodeName = srcElm.n
         ? (region.start = start.nextSibling, start as HTMLElement)
         : region.parent.insertBefore<HTMLElement>(
             document.createElement(nodeName),
-            start);     
-    if (lastM) {
-        lastM.nextM = elm;
-        region.lastM = null;
-    }
+            start);
+    if (region.bInit)
+        FillNextM(region, elm);
     return elm;
 }
 

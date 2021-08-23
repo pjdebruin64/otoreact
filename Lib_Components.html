@@ -12,7 +12,7 @@
     
 <!-- Component to demonstrate RHTML -->
 <component>
-    <demo content? #bshow=true name? #store? #editable=true rvar?></demo>
+    <demo content? #bshow=true #editable=true rvar?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
     <script nomodule defines=ColorCode>
         const mapping = {'<': '&lt;', '&': '&amp;'};
@@ -39,7 +39,6 @@
             border: var(--RedBorder);
             vertical-align: top;
             min-width:300px;
-            min-height: 60px;
         }
         table.demo > tr > th, table.demo > tr > td { padding: 8px; }
 
@@ -50,6 +49,7 @@
             color: darkblue;
             white-space: pre-wrap;
             font-size: 10pt;
+            min-height: 4em;
         }
         table.demo span.green { color: green; } /* This is for comments */
         pre.nodisplay {display: none }
@@ -65,7 +65,7 @@
     </style>
     
     <template>
-        <define var=MyRVAR #value="rvar || RVAR(name, content.trim(), store)"></define>
+        <define var=MyRVAR #value="rvar || RVAR('', content.trim())"></define>
         <define rvar=rShow  #value="bshow"></define>
         <table. class=demo>
             <tr.><th.>

@@ -15,7 +15,7 @@ declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
 declare type Marker = ChildNode & {
-    nextM?: Marker;
+    nextM?: ChildNode;
     rResult?: unknown;
     rValue?: unknown;
     hash?: Hash;
@@ -30,6 +30,7 @@ declare type Region = {
     bInit: boolean;
     env: Environment;
     lastM?: Marker;
+    lastSub?: Region;
     bNoChildBuilding?: boolean;
 };
 declare type DOMBuilder = ((reg: Region) => Promise<void>) & {

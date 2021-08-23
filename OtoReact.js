@@ -46,11 +46,12 @@ function CloneEnv(env) {
 ;
 ;
 class Signature {
-    constructor(tagName) {
-        this.tagName = tagName;
+    constructor(srcElm) {
+        this.srcElm = srcElm;
         this.Parameters = [];
         this.RestParam = null;
         this.Slots = new Map();
+        this.tagName = srcElm.tagName;
     }
     IsCompatible(sig) {
         let result = sig
@@ -338,10 +339,8 @@ class RCompiler {
                                     (text = start).data = content;
                                     region.start = start.nextSibling;
                                 }
-                                if (lastM) {
-                                    lastM.nextM = text;
-                                    region.lastM = null;
-                                }
+                                if (bInit)
+                                    FillNextM(region, text);
                             }
                             builders.push([Text, srcNode, getText.isBlank]);
                         }
@@ -359,18 +358,19 @@ class RCompiler {
             if (!bNorestore)
                 this.RestoreContext(saved);
         }
-        return async function ChildNodes(region) {
-            const savedEnv = SaveEnv();
-            try {
-                for (const [builder, node] of builders)
-                    await this.CallWithErrorHandling(builder, node, region);
-                this.builtNodeCount += builders.length;
-            }
-            finally {
-                if (!bNorestore)
-                    RestoreEnv(savedEnv);
-            }
-        };
+        return builders.length == 0 ? async () => { } :
+            async function ChildNodes(region) {
+                const savedEnv = SaveEnv();
+                try {
+                    for (const [builder, node] of builders)
+                        await this.CallWithErrorHandling(builder, node, region);
+                    this.builtNodeCount += builders.length;
+                }
+                finally {
+                    if (!bNorestore)
+                        RestoreEnv(savedEnv);
+                }
+            };
     }
     CompElement(srcParent, srcElm, bBlockLevel) {
         const atts = new Atts(srcElm);
@@ -594,7 +594,7 @@ class RCompiler {
                                     if (!signature)
                                         throw `<${tagName}> is missing in '${src}'`;
                                     if (!clientSig.IsCompatible(signature))
-                                        throw `Imported signature <${tagName}> is unequal to module signature <${tagName}>`;
+                                        throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
                                     const constructdef = module.ConstructDefs.get(tagName);
                                     placeholder.instanceBuilders = constructdef.instanceBuilders;
                                     placeholder.constructEnv = constructdef.constructEnv;
@@ -838,6 +838,7 @@ class RCompiler {
                         const setNext = initNext(env);
                         let index = 0, prevItem = null;
                         const nextIterator = nextName ? newMap.values() : null;
+                        let childRegion;
                         if (nextIterator)
                             nextIterator.next();
                         for (const [key, { item, hash }] of newMap) {
@@ -851,7 +852,6 @@ class RCompiler {
                                 setNext(nextIterator.next().value?.item);
                             let marker;
                             let subscriber = keyMap.get(key);
-                            let childRegion;
                             if (subscriber && subscriber.marker.isConnected) {
                                 marker = subscriber.marker;
                                 const nextMarker = marker.nextM;
@@ -862,14 +862,12 @@ class RCompiler {
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
+                                    FillNextM(subregion, marker);
                                 }
                                 marker.textContent = `${varName}(${index})`;
                                 subregion.bInit = false;
                                 subregion.start = marker;
-                                const lastM = subregion.lastM;
                                 childRegion = PrepareRegion(null, subregion, null, false);
-                                if (lastM)
-                                    lastM.nextM = marker;
                                 subregion.lastM = marker;
                             }
                             else {
@@ -902,6 +900,8 @@ class RCompiler {
                             start = subregion.start;
                             RemoveStaleItemsHere();
                         }
+                        if (childRegion)
+                            region.lastSub = childRegion;
                     }
                     finally {
                         RestoreEnv(savedEnv);
@@ -942,7 +942,7 @@ class RCompiler {
         }
     }
     ParseSignature(elmSignature) {
-        const signature = new Signature(elmSignature.tagName);
+        const signature = new Signature(elmSignature);
         for (const attr of elmSignature.attributes) {
             if (signature.RestParam)
                 throw `Rest parameter must be the last`;
@@ -1357,12 +1357,12 @@ class RCompiler {
     }
 }
 function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text = '') {
-    let { parent, start, bInit, lastM } = region;
+    let { parent, start, bInit } = region;
     let marker;
     if (bInit) {
-        marker = region.lastM = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
-        if (lastM)
-            lastM.nextM = marker;
+        marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
+        FillNextM(region, marker);
+        region.lastM = marker;
         if (start && start == srcElm)
             region.start = start.nextSibling;
     }
@@ -1380,17 +1380,25 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
         }
         bInit = true;
     }
-    return { parent, marker, start, bInit, env: region.env };
+    return region.lastSub = { parent, marker, start, bInit, env: region.env };
+}
+function FillNextM(reg, node) {
+    do {
+        const { lastM } = reg;
+        if (!lastM)
+            break;
+        lastM.nextM = node;
+        reg.lastM = null;
+        reg = reg.lastSub;
+    } while (reg);
 }
 function PrepareElement(srcElm, region, nodeName = srcElm.nodeName) {
     const { start, lastM } = region;
     const elm = !region.bInit || start == srcElm
         ? (region.start = start.nextSibling, start)
         : region.parent.insertBefore(document.createElement(nodeName), start);
-    if (lastM) {
-        lastM.nextM = elm;
-        region.lastM = null;
-    }
+    if (region.bInit)
+        FillNextM(region, elm);
     return elm;
 }
 function quoteReg(fixed) {
