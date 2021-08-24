@@ -296,7 +296,7 @@ class RCompiler {
     public Compile(
         elm: HTMLElement, 
         settings: Settings,
-        bIncludeSelf: boolean,
+        bIncludeSelf: boolean,  // Compile the element itself, or just its childnodes
     ) {
         this.Settings = {...defaultSettings, ...settings, };
         const t0 = performance.now();
@@ -380,7 +380,7 @@ class RCompiler {
                     try { 
                         await builder.call(this, 
                             { parent, 
-                            start: start || marker?.nextSibling || parent.firstChild, 
+                            start: start || marker && marker.nextSibling || parent.firstChild, 
                             env, }); 
                     }
                     catch (err) {
@@ -448,8 +448,7 @@ class RCompiler {
         const saved = this.SaveContext();
         this.sourceNodeCount += childNodes.length;
         try {
-            for (const srcNode of childNodes)
-            {
+            for (const srcNode of childNodes) {
                 switch (srcNode.nodeType) {
                     
                     case Node.ELEMENT_NODE:
@@ -599,7 +598,7 @@ labelNoCheck:
                                             else 
                                                 patt = null;
 
-                                            if (bHiding && patt?.lvars?.length)
+                                            if (bHiding && patt?.lvars.length)
                                                 throw `Pattern capturing cannot be combined with hiding`;
                                             if (patt && !getValue)
                                                 throw `Match requested but no 'value' specified.`;
@@ -700,12 +699,10 @@ labelNoCheck:
                         builder = 
                             // Runtime routine
                             async function INCLUDE(this: RCompiler, region) {
-                                const subregion = PrepareRegion(srcElm, region);
-
                                 const t0 = performance.now();
                                 await task;
                                 this.buildStart += performance.now() - t0;
-                                C.builtNodeCount = 0;
+                                const subregion = PrepareRegion(srcElm, region, null, true);
                                 await C.Builder(subregion);
                                 this.builtNodeCount += C.builtNodeCount;
                             };
@@ -938,7 +935,7 @@ labelNoCheck:
 
     private async CallWithErrorHandling(this: RCompiler, builder: DOMBuilder, srcNode: ChildNode, region: Region){
         let start = region.start;
-        if (start?.errorNode) {
+        if (start && start.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
         }
@@ -967,36 +964,32 @@ labelNoCheck:
         const src = atts.get('src');
 
         if ( atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            let script = srcElm.text+'\n';
-            if (type=='module')
-                throw `'type=module' is not supported (yet)`;
-            
-            const defines = atts.get('defines');
-            if (src && defines) throw `'src' and'defines' cannot be combined (yet)`
-            const lvars: LVar[] = [];
-            if (defines) {
-                for (let name of defines.split(',')) {
-                    //name = CheckValidIdentifier(name);
-                    //script += `;globalThis.${name} = ${name}\n`;
-                    lvars.push(this.NewVar(name));
-                }
-                const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
-
-                return async function SCRIPT({env}: Region) {
-                    let i=0;
-                    for (const lvar of lvars)
-                        lvar(env)(exports[i++]);
-                }
-            }            
-            //elm.type = srcElm.type;
-            if (src) {
-                const elm = document.createElement('script') as HTMLScriptElement;
-                elm.src = src;
-                document.head.appendChild(elm);
-                this.AddedHeaderElements.push(elm);
+            if (src || type) {
+                srcElm.noModule = false;
+                document.head.appendChild(srcElm);
+                this.AddedHeaderElements.push(srcElm);
             }
-            else
-                globalEval(`'use strict';{${script}}`);
+            else {
+                let script = srcElm.text+'\n';
+                const defines = atts.get('defines');
+                if (src && defines) throw `'src' and'defines' cannot be combined (yet)`
+                const lvars: LVar[] = [];
+                if (defines) {
+                    for (let name of defines.split(','))
+                        lvars.push(this.NewVar(name));
+                    
+                    // Execute the script now
+                    const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
+
+                    return async function SCRIPT({env}: Region) {
+                        let i=0;
+                        for (const lvar of lvars)
+                            lvar(env)(exports[i++]);
+                    }
+                }   
+                else
+                    globalEval(`'use strict';{${script}}`);
+            }        
         }
         return null;
     }
@@ -1623,24 +1616,27 @@ labelNoCheck:
             if (fixed)
                 generators.push( fixed.replace(/\\([${}\\])/g, '$1') );  // Replace '\{' etc by '{'
             if (m[1]) {
-                generators.push( this.CompJavaScript<string>(m[1], '{}', null, true) );
+                generators.push( this.CompJavaScript<string>(m[1], '{}', null) );
                 isTrivial = false;
             }
             if (m[1] || /[^ \t\r\n]/.test(fixed))
                 isBlank = false;
         }
-
-        const dep: Dependent<string> & {isBlank?: boolean} = 
-            (env: Environment) => {
-                try {
-                    let result = "";
-                    for (const gen of generators)
-                        result += 
-                            ( typeof gen == 'string' ? gen : gen(env) ?? '');
-                    return result;
-                }
-                catch (err) { throw `[${name}]: ${err}` }
-            };
+        
+        let dep: Dependent<string> & {isBlank?: boolean};
+        if (isTrivial) {
+            const result = (generators as Array<string>).join('');
+            dep = () => result;
+        } else
+            dep = (env: Environment) => {
+                    try {
+                        let result = "";
+                        for (const gen of generators)
+                            result += ( typeof gen == 'string' ? gen : gen(env) ?? '');
+                        return result;
+                    }
+                    catch (err) { throw name ? `[${name}]: ${err}` : err }
+                };
         dep.isBlank = isBlank;
         return dep;
     }
@@ -1694,7 +1690,6 @@ labelNoCheck:
         expr: string,           // Expression to transform into a function
         delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
         , bStatement: boolean = false   // Is it a statement or an expression
-        , bReturnErrors = false         // true: yield errormessage als result. <T> has to be <string>.
         , descript?: string             // To be inserted in an errormessage
     ): Dependent<T> {
         if (expr == null) return null;
@@ -1708,18 +1703,8 @@ labelNoCheck:
         try {
             const routine = globalEval(depExpr) as (env:Environment) => T;
             return (env: Environment) => {
-                try {
-                    return routine(env);
-                } 
-                catch (err) { 
-                    const message = `${errorInfo}${err}`;
-                    if (bReturnErrors && !this.Settings.bAbortOnError) {
-                        console.log(message);
-                        return (this.Settings.bShowErrors ? message : "") as unknown as T;
-                    }
-                    else
-                        throw message;
-                }   // Runtime error
+                try { return routine(env); } 
+                catch (err) { throw `${errorInfo}${err}`; }
             }
         }
         catch (err) { throw `${errorInfo}${err}` }             // Compiletime error
@@ -1748,7 +1733,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     let {parent, start, bInit} = region;
     let marker: Marker;
     if (bInit) {
-        (marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start) as Marker).nextM = null;
+        (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start) as Marker).nextM = null;
         FillNextM(region, marker);
         region.lastM = marker;
         
@@ -1813,7 +1798,7 @@ class _RVAR<T>{
         if (name) globalThis[name] = this;
         
         let s: string;
-        if ((s = store?.getItem(`RVAR_${storeName}`)) != null)
+        if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
@@ -1839,7 +1824,8 @@ class _RVAR<T>{
         if (t !== this._Value) {
             this._Value = t;
             this.SetDirty();
-            this.store?.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
+            if (this.store)
+                this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
         }
     }
 

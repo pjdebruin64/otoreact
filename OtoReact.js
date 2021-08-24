@@ -266,7 +266,7 @@ class RCompiler {
                 for (const { parent, marker, start, builder, env } of this.DirtySubs.values()) {
                     try {
                         await builder.call(this, { parent,
-                            start: start || marker?.nextSibling || parent.firstChild,
+                            start: start || marker && marker.nextSibling || parent.firstChild,
                             env, });
                     }
                     catch (err) {
@@ -450,7 +450,7 @@ class RCompiler {
                                                 }
                                                 else
                                                     patt = null;
-                                                if (bHiding && patt?.lvars?.length)
+                                                if (bHiding && patt?.lvars.length)
                                                     throw `Pattern capturing cannot be combined with hiding`;
                                                 if (patt && !getValue)
                                                     throw `Match requested but no 'value' specified.`;
@@ -545,11 +545,10 @@ class RCompiler {
                             })();
                             builder =
                                 async function INCLUDE(region) {
-                                    const subregion = PrepareRegion(srcElm, region);
                                     const t0 = performance.now();
                                     await task;
                                     this.buildStart += performance.now() - t0;
-                                    C.builtNodeCount = 0;
+                                    const subregion = PrepareRegion(srcElm, region, null, true);
                                     await C.Builder(subregion);
                                     this.builtNodeCount += C.builtNodeCount;
                                 };
@@ -727,7 +726,7 @@ class RCompiler {
     }
     async CallWithErrorHandling(builder, srcNode, region) {
         let start = region.start;
-        if (start?.errorNode) {
+        if (start && start.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
         }
@@ -751,32 +750,30 @@ class RCompiler {
         const type = atts.get('type');
         const src = atts.get('src');
         if (atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            let script = srcElm.text + '\n';
-            if (type == 'module')
-                throw `'type=module' is not supported (yet)`;
-            const defines = atts.get('defines');
-            if (src && defines)
-                throw `'src' and'defines' cannot be combined (yet)`;
-            const lvars = [];
-            if (defines) {
-                for (let name of defines.split(',')) {
-                    lvars.push(this.NewVar(name));
+            if (src || type) {
+                srcElm.noModule = false;
+                document.head.appendChild(srcElm);
+                this.AddedHeaderElements.push(srcElm);
+            }
+            else {
+                let script = srcElm.text + '\n';
+                const defines = atts.get('defines');
+                if (src && defines)
+                    throw `'src' and'defines' cannot be combined (yet)`;
+                const lvars = [];
+                if (defines) {
+                    for (let name of defines.split(','))
+                        lvars.push(this.NewVar(name));
+                    const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
+                    return async function SCRIPT({ env }) {
+                        let i = 0;
+                        for (const lvar of lvars)
+                            lvar(env)(exports[i++]);
+                    };
                 }
-                const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
-                return async function SCRIPT({ env }) {
-                    let i = 0;
-                    for (const lvar of lvars)
-                        lvar(env)(exports[i++]);
-                };
+                else
+                    globalEval(`'use strict';{${script}}`);
             }
-            if (src) {
-                const elm = document.createElement('script');
-                elm.src = src;
-                document.head.appendChild(elm);
-                this.AddedHeaderElements.push(elm);
-            }
-            else
-                globalEval(`'use strict';{${script}}`);
         }
         return null;
     }
@@ -1262,24 +1259,29 @@ class RCompiler {
             if (fixed)
                 generators.push(fixed.replace(/\\([${}\\])/g, '$1'));
             if (m[1]) {
-                generators.push(this.CompJavaScript(m[1], '{}', null, true));
+                generators.push(this.CompJavaScript(m[1], '{}', null));
                 isTrivial = false;
             }
             if (m[1] || /[^ \t\r\n]/.test(fixed))
                 isBlank = false;
         }
-        const dep = (env) => {
-            try {
-                let result = "";
-                for (const gen of generators)
-                    result +=
-                        (typeof gen == 'string' ? gen : gen(env) ?? '');
-                return result;
-            }
-            catch (err) {
-                throw `[${name}]: ${err}`;
-            }
-        };
+        let dep;
+        if (isTrivial) {
+            const result = generators.join('');
+            dep = () => result;
+        }
+        else
+            dep = (env) => {
+                try {
+                    let result = "";
+                    for (const gen of generators)
+                        result += (typeof gen == 'string' ? gen : gen(env) ?? '');
+                    return result;
+                }
+                catch (err) {
+                    throw name ? `[${name}]: ${err}` : err;
+                }
+            };
         dep.isBlank = isBlank;
         return dep;
     }
@@ -1316,7 +1318,7 @@ class RCompiler {
     CompAttrExpression(atts, attName, bRequired) {
         return this.CompJavaScript(atts.get(attName, bRequired, true));
     }
-    CompJavaScript(expr, delims = '""', bStatement = false, bReturnErrors = false, descript) {
+    CompJavaScript(expr, delims = '""', bStatement = false, descript) {
         if (expr == null)
             return null;
         let depExpr = bStatement
@@ -1330,13 +1332,7 @@ class RCompiler {
                     return routine(env);
                 }
                 catch (err) {
-                    const message = `${errorInfo}${err}`;
-                    if (bReturnErrors && !this.Settings.bAbortOnError) {
-                        console.log(message);
-                        return (this.Settings.bShowErrors ? message : "");
-                    }
-                    else
-                        throw message;
+                    throw `${errorInfo}${err}`;
                 }
             };
         }
@@ -1355,7 +1351,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
     let { parent, start, bInit } = region;
     let marker;
     if (bInit) {
-        (marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start)).nextM = null;
+        (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start)).nextM = null;
         FillNextM(region, marker);
         region.lastM = marker;
         if (start && start == srcElm)
@@ -1409,7 +1405,7 @@ class _RVAR {
         if (name)
             globalThis[name] = this;
         let s;
-        if ((s = store?.getItem(`RVAR_${storeName}`)) != null)
+        if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
@@ -1425,7 +1421,8 @@ class _RVAR {
         if (t !== this._Value) {
             this._Value = t;
             this.SetDirty();
-            this.store?.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
+            if (this.store)
+                this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
         }
     }
     get U() { this.SetDirty(); return this._Value; }
