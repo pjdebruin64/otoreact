@@ -162,7 +162,7 @@ type RestParameter = Array<{modType: ModifType, name: string, value: unknown}>;
 function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: unknown) {    
     switch (modType) {
         case ModifType.Attr:
-            elm.setAttribute(name, val as string ?? ''); 
+            elm.setAttribute(name, val as string || ''); 
             break;
         case ModifType.Prop:
             if (val != null)
@@ -171,17 +171,17 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 delete elm[name];
             break;
         case ModifType.Event:
-            elm[name] = val; break;
+            if (val) elm[name] = val; break;
         case ModifType.Class:
             if (val)
                 elm.classList.add(name);
             break;
         case ModifType.Style:
             if (val !== undefined)
-                elm.style[name] = val ?? '';
+                elm.style[name] = val || '';
             break;
         case ModifType.AddToStyle:
-            Object.assign(elm.style, val); break
+            if (val) Object.assign(elm.style, val); break
         case ModifType.AddToClassList:
             if (Array.isArray(val))
                 for (const className of val as string[])
@@ -1039,16 +1039,18 @@ labelNoCheck:
                         const setVar = initVar(env);
 
                         const iterator = getRange(env);
-                        if (!iterator || typeof iterator[Symbol.iterator] != 'function')
-                            throw `[of]: Value (${iterator}) is not iterable`;
-                        for await (const item of iterator) {
-                            setVar(item);
-                            const hash = getHash && getHash(env);
-                            const key = getKey ? getKey(env) : hash;
-                            if (key != null && newMap.has(key))
-                                throw `Key '${key}' is not unique`;
-                            newMap.set(key ?? {}, {item, hash});
-                        } 
+                        if (iterator !== undefined) {
+                            if (!iterator || !(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
+                                throw `[of]: Value (${iterator}) is not iterable`;
+                            for await (const item of iterator) {
+                                setVar(item);
+                                const hash = getHash && getHash(env);
+                                const key = getKey ? getKey(env) : hash;
+                                if (key != null && newMap.has(key))
+                                    throw `Key '${key}' is not unique`;
+                                newMap.set(key ?? {}, {item, hash});
+                            }
+                        }
 
                         function RemoveStaleItemsHere() {
                             let key: Key;
@@ -1433,11 +1435,7 @@ labelNoCheck:
             const {start, bInit, env} = region;
             let elm = PrepareElement(srcElm, region, nodeName);
 
-            if (elm == srcElm && elm.nodeName != nodeName) {
-                (elm = document.createElement(nodeName)).append(...start.childNodes);
-                region.parent.replaceChild(elm, start);
-            }
-            else if (elm == start)
+            if (elm == start)
                 elm.removeAttribute('class');
 
             ApplyPreModifiers(elm, preModifiers, env);
@@ -1769,11 +1767,16 @@ function FillNextM(reg: Region, node: ChildNode) {
 
 function PrepareElement(srcElm: HTMLElement, region: Region, nodeName = srcElm.nodeName): HTMLElement {
     const {start, lastM} = region;
-    const elm = !region.bInit || start == srcElm
+    let elm = !region.bInit || start == srcElm
         ? (region.start = start.nextSibling, start as HTMLElement)
         : region.parent.insertBefore<HTMLElement>(
             document.createElement(nodeName),
             start);
+
+    if (elm == srcElm && elm.nodeName != nodeName) {
+        (elm = document.createElement(nodeName)).append(...start.childNodes);
+        region.parent.replaceChild(elm, start);
+    }
     if (region.bInit)
         FillNextM(region, elm);
     return elm;

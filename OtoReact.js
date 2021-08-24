@@ -91,7 +91,7 @@ var ModifType;
 function ApplyModifier(elm, modType, name, val) {
     switch (modType) {
         case ModifType.Attr:
-            elm.setAttribute(name, val ?? '');
+            elm.setAttribute(name, val || '');
             break;
         case ModifType.Prop:
             if (val != null)
@@ -100,7 +100,8 @@ function ApplyModifier(elm, modType, name, val) {
                 delete elm[name];
             break;
         case ModifType.Event:
-            elm[name] = val;
+            if (val)
+                elm[name] = val;
             break;
         case ModifType.Class:
             if (val)
@@ -108,10 +109,11 @@ function ApplyModifier(elm, modType, name, val) {
             break;
         case ModifType.Style:
             if (val !== undefined)
-                elm.style[name] = val ?? '';
+                elm.style[name] = val || '';
             break;
         case ModifType.AddToStyle:
-            Object.assign(elm.style, val);
+            if (val)
+                Object.assign(elm.style, val);
             break;
         case ModifType.AddToClassList:
             if (Array.isArray(val))
@@ -811,15 +813,17 @@ class RCompiler {
                         const newMap = new Map();
                         const setVar = initVar(env);
                         const iterator = getRange(env);
-                        if (!iterator || typeof iterator[Symbol.iterator] != 'function')
-                            throw `[of]: Value (${iterator}) is not iterable`;
-                        for await (const item of iterator) {
-                            setVar(item);
-                            const hash = getHash && getHash(env);
-                            const key = getKey ? getKey(env) : hash;
-                            if (key != null && newMap.has(key))
-                                throw `Key '${key}' is not unique`;
-                            newMap.set(key ?? {}, { item, hash });
+                        if (iterator !== undefined) {
+                            if (!iterator || !(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
+                                throw `[of]: Value (${iterator}) is not iterable`;
+                            for await (const item of iterator) {
+                                setVar(item);
+                                const hash = getHash && getHash(env);
+                                const key = getKey ? getKey(env) : hash;
+                                if (key != null && newMap.has(key))
+                                    throw `Key '${key}' is not unique`;
+                                newMap.set(key ?? {}, { item, hash });
+                            }
                         }
                         function RemoveStaleItemsHere() {
                             let key;
@@ -1133,11 +1137,7 @@ class RCompiler {
         const builder = async function ELEMENT(region) {
             const { start, bInit, env } = region;
             let elm = PrepareElement(srcElm, region, nodeName);
-            if (elm == srcElm && elm.nodeName != nodeName) {
-                (elm = document.createElement(nodeName)).append(...start.childNodes);
-                region.parent.replaceChild(elm, start);
-            }
-            else if (elm == start)
+            if (elm == start)
                 elm.removeAttribute('class');
             ApplyPreModifiers(elm, preModifiers, env);
             if (!region.bNoChildBuilding)
@@ -1385,9 +1385,13 @@ function FillNextM(reg, node) {
 }
 function PrepareElement(srcElm, region, nodeName = srcElm.nodeName) {
     const { start, lastM } = region;
-    const elm = !region.bInit || start == srcElm
+    let elm = !region.bInit || start == srcElm
         ? (region.start = start.nextSibling, start)
         : region.parent.insertBefore(document.createElement(nodeName), start);
+    if (elm == srcElm && elm.nodeName != nodeName) {
+        (elm = document.createElement(nodeName)).append(...start.childNodes);
+        region.parent.replaceChild(elm, start);
+    }
     if (region.bInit)
         FillNextM(region, elm);
     return elm;
