@@ -1693,19 +1693,31 @@ labelNoCheck:
         , descript?: string             // To be inserted in an errormessage
     ): Dependent<T> {
         if (expr == null) return null;
+
+        let patt: string;
+        if (false) {
         // See which names might occur in the expression
         
         const setNames = new Set<string>();
         let regNames = /(?<![A-Za-z0-9_$.'"`])[A-Za-z_$][A-Za-z0-9_$]*/g;
+        
         let m: RegExpExecArray, name: string;
         while (m = regNames.exec(expr))
             if (this.ContextMap.has(name = m[0]))
                 setNames.add(name);
         
-        let patt = '';
+        patt = '';
         for (const name of this.Context) {
             patt += `${patt ? ',' : ''}${setNames.has(name) ? '' : '_'}${name}`
         }
+        } //else
+        //patt = this.Context.join(',');
+
+            
+        patt = '';
+        for (const name of this.ContextMap.keys())
+            patt += patt ?  `,${name}` : name;
+
         let depExpr = 
             bStatement 
             ?  `'use strict';([${patt}]) => {${expr}\n}`    // Braces
@@ -1856,7 +1868,7 @@ class _RVAR<T>{
     get U() { this.SetDirty();  return this._Value }
     set U(t: T) { this.V = t }
 
-    SetDirty() {
+    public SetDirty() {
         for (const sub of this.Subscribers)
             if (sub.parent.isConnected)
                 this.rRuntime.AddDirty(sub);
@@ -1889,7 +1901,7 @@ class Atts extends Map<string,string> {
 
     public CheckNoAttsLeft() {  
         if (super.size)
-            throw `Unknown attribute${super.size>1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
+            throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
 
