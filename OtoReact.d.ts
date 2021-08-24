@@ -26,7 +26,9 @@ declare type Marker = ChildNode & {
 declare type Region = {
     parent: Node;
     marker?: Marker;
-    start: Marker;
+    start: ChildNode & {
+        errorNode?: ChildNode;
+    };
     bInit: boolean;
     env: Environment;
     lastM?: Marker;
@@ -59,7 +61,7 @@ interface Hash {
 }
 declare class RCompiler {
     instanceNum: number;
-    private Context;
+    private context;
     private ContextMap;
     private Constructs;
     private StyleRoot;

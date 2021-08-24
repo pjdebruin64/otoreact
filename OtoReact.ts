@@ -72,7 +72,7 @@ type Marker = ChildNode & {
 type Region     = {
     parent: Node, 
     marker?: Marker, 
-    start:  Marker, 
+    start:  ChildNode & {errorNode?: ChildNode}, 
     bInit: boolean, 
     env: Environment,
     lastM?: Marker,
@@ -225,7 +225,8 @@ function RestoreEnv(savedEnv: SavedEnv) {
 let iNum=0;
 class RCompiler {
     instanceNum = iNum++;
-    private Context: Context;
+    //private Context: Context;
+    private context: string;
     private ContextMap: Map<string, number>;
 
     private Constructs: Map<string, Signature>;
@@ -235,7 +236,7 @@ class RCompiler {
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(clone?: RCompiler) { 
-        this.Context    = clone ? clone.Context.slice() : [];
+        this.context    = clone ? clone.context : "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
         this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
@@ -264,10 +265,14 @@ class RCompiler {
         let i = this.ContextMap.get(name);
         const bNewName = i == null;
         if (bNewName){
-            i = this.Context.push(name) - 1;
+            const savedContext = this.context;
+            i = this.ContextMap.size;
             this.ContextMap.set(name, i);
+            this.context += `${name},`
             this.restoreActions.push(
-                () => this.ContextMap.delete( this.Context.pop() )
+                () => { this.ContextMap.delete( name );
+                    this.context = savedContext;
+                }
             );
         }
         return function InitVar(env: Environment) {
@@ -1054,10 +1059,10 @@ labelNoCheck:
 
                         function RemoveStaleItemsHere() {
                             let key: Key;
-                            while (start && start != region.start && !newMap.has(key = start.key)) {
+                            while (start && start != region.start && !newMap.has(key = (start as Marker).key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                const nextMarker = start.nextM || region.start;
+                                const nextMarker = (start as Marker).nextM || region.start;
                                 while (start != nextMarker) {
                                     const next = start.nextSibling;
                                     parent.removeChild(start);
@@ -1694,34 +1699,10 @@ labelNoCheck:
     ): Dependent<T> {
         if (expr == null) return null;
 
-        let patt: string;
-        if (false) {
-        // See which names might occur in the expression
-        
-        const setNames = new Set<string>();
-        let regNames = /(?<![A-Za-z0-9_$.'"`])[A-Za-z_$][A-Za-z0-9_$]*/g;
-        
-        let m: RegExpExecArray, name: string;
-        while (m = regNames.exec(expr))
-            if (this.ContextMap.has(name = m[0]))
-                setNames.add(name);
-        
-        patt = '';
-        for (const name of this.Context) {
-            patt += `${patt ? ',' : ''}${setNames.has(name) ? '' : '_'}${name}`
-        }
-        } //else
-        //patt = this.Context.join(',');
-
-            
-        patt = '';
-        for (const name of this.ContextMap.keys())
-            patt += patt ?  `,${name}` : name;
-
         let depExpr = 
             bStatement 
-            ?  `'use strict';([${patt}]) => {${expr}\n}`    // Braces
-            :  `'use strict';([${patt}]) => (${expr}\n)`;   // Parentheses
+            ?  `'use strict';([${this.context}]) => {${expr}\n}`    // Braces
+            :  `'use strict';([${this.context}]) => (${expr}\n)`;   // Parentheses
         const errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr,60)}${delims[1]}: `;
 
         try {
@@ -1765,9 +1746,9 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
     : Region & {marker: Comment}
 {
     let {parent, start, bInit} = region;
-    let marker: Marker & Comment;
+    let marker: Marker;
     if (bInit) {
-        marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
+        (marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start) as Marker).nextM = null;
         FillNextM(region, marker);
         region.lastM = marker;
         
@@ -1775,7 +1756,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
             region.start = start.nextSibling;
     }
     else {
-        marker = start as Comment;
+        marker = start;
         region.start = marker.nextM;
         start = marker.nextSibling;
     }
@@ -1789,7 +1770,7 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
         }
         bInit = true;
     }
-    return region.lastSub = {parent, marker, start, bInit, env: region.env};
+    return region.lastSub = {parent, marker: marker as Comment, start, bInit, env: region.env};
 }
 function FillNextM(reg: Region, node: ChildNode) {
     do {

@@ -165,7 +165,7 @@ class RCompiler {
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.preMods = ['reacton', 'reactson', 'thisreactson'];
-        this.Context = clone ? clone.Context.slice() : [];
+        this.context = clone ? clone.context : "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
         this.Settings = clone ? { ...clone.Settings } : { ...defaultSettings };
@@ -187,9 +187,14 @@ class RCompiler {
         let i = this.ContextMap.get(name);
         const bNewName = i == null;
         if (bNewName) {
-            i = this.Context.push(name) - 1;
+            const savedContext = this.context;
+            i = this.ContextMap.size;
             this.ContextMap.set(name, i);
-            this.restoreActions.push(() => this.ContextMap.delete(this.Context.pop()));
+            this.context += `${name},`;
+            this.restoreActions.push(() => {
+                this.ContextMap.delete(name);
+                this.context = savedContext;
+            });
         }
         return function InitVar(env) {
             const prev = env[i], j = i;
@@ -1314,25 +1319,9 @@ class RCompiler {
     CompJavaScript(expr, delims = '""', bStatement = false, bReturnErrors = false, descript) {
         if (expr == null)
             return null;
-        let patt;
-        if (false) {
-            const setNames = new Set();
-            let regNames = /(?<![A-Za-z0-9_$.'"`])[A-Za-z_$][A-Za-z0-9_$]*/g;
-            let m, name;
-            while (m = regNames.exec(expr))
-                if (this.ContextMap.has(name = m[0]))
-                    setNames.add(name);
-            patt = '';
-            for (const name of this.Context) {
-                patt += `${patt ? ',' : ''}${setNames.has(name) ? '' : '_'}${name}`;
-            }
-        }
-        patt = '';
-        for (const name of this.ContextMap.keys())
-            patt += patt ? `,${name}` : name;
         let depExpr = bStatement
-            ? `'use strict';([${patt}]) => {${expr}\n}`
-            : `'use strict';([${patt}]) => (${expr}\n)`;
+            ? `'use strict';([${this.context}]) => {${expr}\n}`
+            : `'use strict';([${this.context}]) => (${expr}\n)`;
         const errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
         try {
             const routine = globalEval(depExpr);
@@ -1366,7 +1355,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
     let { parent, start, bInit } = region;
     let marker;
     if (bInit) {
-        marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start);
+        (marker = parent.insertBefore(document.createComment(`${srcElm?.tagName ?? ''} ${text}`), start)).nextM = null;
         FillNextM(region, marker);
         region.lastM = marker;
         if (start && start == srcElm)
@@ -1386,7 +1375,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
         }
         bInit = true;
     }
-    return region.lastSub = { parent, marker, start, bInit, env: region.env };
+    return region.lastSub = { parent, marker: marker, start, bInit, env: region.env };
 }
 function FillNextM(reg, node) {
     do {
