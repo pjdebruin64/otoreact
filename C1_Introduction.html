@@ -289,14 +289,15 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <br>The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently</i> rearrange them if they are not.
         <br>Notably:
         <ul>
-            <li>Table-related elements table, tr, thead, tbody, tfoot may only contain appropriate children.
+            <li>Table-related elements TABLE, THEAD, TBODY, TFOOT, TR may only contain appropriate children.
+                <br>The same holds for elements INPUT and SELECT, and perhaps others.
                 <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
                 <pre><{}table>
     <{}for let=x #of=&hellip;>
         <{}tr> &hellip; \{x} &hellip; <{}/tr>
     <{}/for>
 <{}/table></pre>
-                , then the parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
+                , then the (Chromium) parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
 <pre><{}for let=x #of=&hellip;>
 <{}/for>
@@ -310,7 +311,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <{}tr.> &hellip; \{x\} &hellip; <{}/tr.>
     <{}/for>
 <{}/table.></pre>
-                When compiling, the dots will be removed. 
+                When compiling, the dots will be removed.
             </li>
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.

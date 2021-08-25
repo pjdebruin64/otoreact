@@ -53,7 +53,7 @@
         <a href #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo content? #bshow=true #editable?=true rvar?></demo>
+        <demo #content?="''" #bshow=true #editable?=true rvar?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
         <!-- Component that builds a page with header and table of contents-->
@@ -62,6 +62,7 @@
             <content>
                 <h1 id?><content></content></h1>
                 <h2 id?><content></content></h2>
+                <h3 id?><content></content></h3>
             </content>
         </pageLayout>
     </import>

@@ -85,6 +85,7 @@ declare class RCompiler {
     private bTrimRight;
     private bCompiled;
     private bHasReacts;
+    DirtyVars: Set<_RVAR<unknown>>;
     private DirtySubs;
     AddDirty(sub: Subscriber): void;
     private bUpdating;
@@ -134,6 +135,7 @@ declare class _RVAR<T> {
     get U(): T;
     set U(t: T);
     SetDirty(): void;
+    Save(): void;
 }
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);

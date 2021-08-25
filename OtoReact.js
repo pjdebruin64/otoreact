@@ -161,6 +161,7 @@ class RCompiler {
         this.bTrimRight = false;
         this.bCompiled = false;
         this.bHasReacts = false;
+        this.DirtyVars = new Set();
         this.DirtySubs = new Map();
         this.bUpdating = false;
         this.handleUpdate = null;
@@ -261,6 +262,9 @@ class RCompiler {
             if (!this.bHasReacts)
                 for (const s of this.AllRegions)
                     this.AddDirty(s);
+            for (const rvar of this.DirtyVars)
+                rvar.Save();
+            this.DirtyVars.clear();
             if (this.DirtySubs.size) {
                 RHTML = this;
                 this.buildStart = performance.now();
@@ -331,9 +335,11 @@ class RCompiler {
                         }
                         break;
                     case Node.TEXT_NODE:
-                        const str = srcNode.data
-                            .replace(/^[ \t\r\n]+/g, this.bTrimLeft ? '' : ' ')
-                            .replace(/\[ \t\r\n]+$/, ' ');
+                        let str = srcNode.data;
+                        if (this.bTrimLeft && /^\s*$/.test(str))
+                            str = "";
+                        else
+                            str = str.replace(/^\s+|\s+$/, ' ');
                         if (str != '') {
                             this.bTrimLeft = / $/.test(str);
                             const getText = this.CompInterpolatedString(str);
@@ -666,7 +672,14 @@ class RCompiler {
                                     const R = new RCompiler();
                                     R.StyleRoot = shadowRoot;
                                     try {
+                                        const hdrElms = elm['AddedHdrElms'];
+                                        if (hdrElms) {
+                                            for (const elm of hdrElms)
+                                                elm.remove();
+                                            elm['AddedHdrElms'] = null;
+                                        }
                                         R.Compile(tempElm, { bRunScripts: true }, false);
+                                        elm['AddedHdrElms'] = R.AddedHeaderElements;
                                         const subregion = PrepareRegion(srcElm, { parent: shadowRoot, start: null, bInit: true, env: NewEnv() });
                                         R.StyleBefore = subregion.marker;
                                         await R.Build(subregion);
@@ -701,7 +714,7 @@ class RCompiler {
         for (const { attName, rvars } of mapReacts) {
             const bNoChildUpdates = (attName == 'thisreactson'), bodyBuilder = builder;
             builder = async function REACT(region) {
-                let subregion = PrepareRegion(srcElm, region, null, null, attName);
+                const subregion = PrepareRegion(srcElm, region, null, null, attName);
                 await bodyBuilder.call(this, subregion);
                 if (region.bInit) {
                     const subscriber = {
@@ -727,8 +740,8 @@ class RCompiler {
         return null;
     }
     async CallWithErrorHandling(builder, srcNode, region) {
-        let start = region.start;
-        if (start && start.errorNode) {
+        let start;
+        if ((start = region.start) && start.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
         }
@@ -749,12 +762,12 @@ class RCompiler {
     }
     CompScript(srcParent, srcElm, atts) {
         srcParent.removeChild(srcElm);
-        const type = atts.get('type');
+        const bModule = atts.get('type') == 'module';
         const src = atts.get('src');
         if (atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            if (src || type) {
+            if (src) {
                 srcElm.noModule = false;
-                document.head.appendChild(srcElm);
+                document.body.appendChild(srcElm);
                 this.AddedHeaderElements.push(srcElm);
             }
             else {
@@ -766,12 +779,25 @@ class RCompiler {
                 if (defines) {
                     for (let name of defines.split(','))
                         lvars.push(this.NewVar(name));
-                    const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
-                    return async function SCRIPT({ env }) {
+                    let exports;
+                    async function SCRIPT({ env }) {
                         let i = 0;
                         for (const lvar of lvars)
                             lvar(env)(exports[i++]);
-                    };
+                    }
+                    if (bModule) {
+                        const objectURL = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+                        const task = import(objectURL);
+                        return async function SCRIPT(reg) {
+                            if (!exports)
+                                exports = await task;
+                            await SCRIPT(reg);
+                        };
+                    }
+                    else {
+                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
+                        return SCRIPT;
+                    }
                 }
                 else
                     globalEval(`'use strict';{${script}}`);
@@ -1249,21 +1275,19 @@ class RCompiler {
         return null;
     }
     CompInterpolatedString(data, name) {
-        const generators = [];
-        const regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
+        const generators = [], regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
         let isBlank = true, isTrivial = true;
         while (regIS.lastIndex < data.length) {
-            const lastIndex = regIS.lastIndex;
-            const m = regIS.exec(data);
-            const fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
+            const lastIndex = regIS.lastIndex, m = regIS.exec(data), fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
             if (fixed)
                 generators.push(fixed.replace(/\\([${}\\])/g, '$1'));
-            if (m[1]) {
-                generators.push(this.CompJavaScript(m[1], '{}', null));
-                isTrivial = false;
-            }
-            if (m[1] || /[^ \t\r\n]/.test(fixed))
+            if (m[1] || /[^ \t\r\n]/.test(fixed)) {
                 isBlank = false;
+                if (m[1]) {
+                    generators.push(this.CompJavaScript(m[1], '{}', null));
+                    isTrivial = false;
+                }
+            }
         }
         let dep;
         if (isTrivial) {
@@ -1375,10 +1399,9 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
 }
 function FillNextM(reg, node) {
     do {
-        const { lastM } = reg;
-        if (!lastM)
+        if (!reg.lastM)
             break;
-        lastM.nextM = node;
+        reg.lastM.nextM = node;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
@@ -1425,19 +1448,22 @@ class _RVAR {
         if (t !== this._Value) {
             this._Value = t;
             this.SetDirty();
-            if (this.store)
-                this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
         }
     }
     get U() { this.SetDirty(); return this._Value; }
     set U(t) { this.V = t; }
     SetDirty() {
+        if (this.store)
+            this.rRuntime.DirtyVars.add(this);
         for (const sub of this.Subscribers)
             if (sub.parent.isConnected)
                 this.rRuntime.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);
         this.rRuntime.RUpdate();
+    }
+    Save() {
+        this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));
     }
 }
 class Atts extends Map {

@@ -49,7 +49,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <{}CASE hiding?>
     <{}WHEN cond="<i>expr</i>"> <i>WhenPart</i> <{}/WHEN>
     &hellip;
-    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
+    [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/CASE>
 </pre> is a conditional piece of RHTML.
 <ul>
@@ -78,6 +78,7 @@ Furthermore, <elm>CASE</elm> can select an alternative based on pattern matching
     <{}WHEN urlmatch="<i>pattern</i>"> &hellip; <{}/WHEN>
     <{}WHEN regmatch="<i>regExp</i>" captures?="<i>nameList</i>"> &hellip; <{}/WHEN>
     &hellip;
+    [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/CASE>
 </pre>
 All three variants are case-insensitive, and all can be combined with a simple condition <code>cond</code>.
@@ -110,9 +111,9 @@ All three variants are case-insensitive, and all can be combined with a simple c
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
 <h2 id=If><{}IF cond> <ELSE></h2>
-<pre class=sourcecode><{}IF cond="<i>expr</i>">
-    <i>ThenPart</i>&nbsp; 
-    <{}ELSE<i>?</i>> <i>ElsePart</i> <{}/ELSE>
+<pre class=sourcecode><{}IF cond="<i>expr</i>">{}
+    {}<i>ThenPart</i>{}
+    [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/IF>
 </pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>.
 <p>
@@ -123,7 +124,7 @@ Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tr
 <h2 id=For><{}FOR let of index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
-    <i>BodyPart</i>{}
+    {}<i>BodyPart</i>{}
 <{}/FOR>
 </pre>
 <p>
@@ -232,7 +233,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         Scripts in the main document file with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
         <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
         <br>So they cannot execute OtoReact functions like <code>RVAR</code>, until OtoReact has been loaded.
-        <br>On the other hand, names defined in a classic script are automatically put in the global environment and are available in RHTML code.
+        <br>Names defined in a classic script are automatically put in the global environment and are available in RHTML code.
     </dd>
 
     <dt><elm>SCRIPT type=module src?</elm> in main file</dt>
@@ -240,26 +241,33 @@ Further on, <elm>FOR</elm> can have the following attributes:
         Scripts in the main document file with <code>type=module</code> are treated as a JavaScript <u>module</u>.
         <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
         <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
-        <br>On the other hand, names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+        <br>Names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
     </dd>
 
     <dt>
-        <elm>SCRIPT nomodule src? defines?</elm> anywhere
+        <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere
         <br><elm>SCRIPT src?</elm> in included files or inside <{}RHTML>
     </dt>
     <dd>
         Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
-        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during compilation:
+        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during or after compilation:
         <ul>
             <li>OtoReact functions are available</li>
-            <li>OtoReact modifies the script so that defined names are not automatically global</li>
-            <li>OtoReact executes the script once in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a>
             <li>
-                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the scope surrounding the <elm>SCRIPT</elm> element.
+                The script may be classic or module.
+                <br>For classic scripts:
+                <ul>
+                    <li>OtoReact modifies the script so that defined names are not automatically global</li>
+                    <li>OtoReact executes the script once in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> during compilation</li>
+                </ul>
+                For module scripts:
+                <ul>
+                    <li>Names are never automatically global</li>
+                    <li>Otoreact executes the script asynchronously while compiling, and awaits the results when building</li>
+                </ul>
             </li>
             <li>
-                JavaScript module functionality like <code>import</code> is not available (yet), not even when you add <code>type=module</code>.
-                But you can (of course) import modules by using the async <a href="https://javascript.info/modules-dynamic-imports"></a>dynamic import expression <code>import()</code></a>.
+                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the scope surrounding the <elm>SCRIPT</elm> element.
             </li>
         </ul>
     </dd>
@@ -292,60 +300,45 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 (Note: This documentation is unfinished.)
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
-<br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component template:
+<br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
 <pre class=sourcecode>
-<{}COMPONENT encapsulate?>
-  <i>Signature</i>{}
+<{}COMPONENT encapsulate?>{}
+  {}<i>Signature</i>{}
 
   <{}SCRIPT &hellip;> &hellip; <{}/SCRIPT>&hellip;
   <{}STYLE &hellip;> &hellip; <{}/STYLE>&hellip;
 
-  <{}TEMPLATE>
-    <i>Template</i>{}
-  <{}/TEMPLATE>
-  
+  <{}TEMPLATE> <i>Template</i> <{}/TEMPLATE>  
 <{}/COMPONENT>
 </pre>
-
-The signature describes how invocations of the component, called 'component instances', look like.
-<br>The template describes what content should be generated for each component instance.
-
-<demo #content=sampleComponent1></demo>
-<demo #content=sampleComponent2></demo>
-<demo #content=sampleComponent3></demo>
-
-<ul>
-    <li>
-        Without the <code>encapsulate</code> attribute, instances of the component are <i>replaced</i> by the output of the component template.
-        <p>Any styling rules of the surrounding document apply to the component output as well, and vice versa.
-        <br>To make styling rules apply only to the component content, use CSS class names.
-    </li>
-    <li>
-        <i>With</i> the <code>encapsulate</code> attribute, <elm>COMPONENT</elm> defines a new <i>custom element</i>.
-        <br>The output of the component template defines the appearance of the element, but is encapsulated inside, using the so-called <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>.
-        <p>
-            Any styling rules of the surrounding document do not apply to the encapsulated content, and vice versa. The component can have its own style sheet(s), independent of the main document.
-            <br>Styling rules and inline styles specifically targeted at the custom element, however, are inherited by the encapsulated content.
-        </p>
-        <p>
-            The custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
-            if the component name does not already contain a hyphen, then 'rhtml-' is prepended.
-        </p>
-    </li>
-</ul>
-
-
 <p>
-    The first element inside <elm>COMPONENT</elm> is its '<i>signature</i>':
+    The <i>signature</i> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify parameters and slots.</p>
+<p>
+    The <i>template</i> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</p>
+<p>
+    <i>Instances</i> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</p>
+<p>
+    A component may be <i>encapsulated</i> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</p>
+
+<h3>Signatures</h3>
+<p>
+    The first element inside <elm>COMPONENT</elm> is its signature. E.g.:
+    <pre>
+{}  <{}!-- Component signature with parameter-->
+  <{}repeat #count>
+    <{}!-- Slot signature -->
+    <{}rbody><{}/rbody>
+  <{}/repeat>
+</pre>
     <ul>
         <li>
-            The tag name of the signature element is the name of the component.
+            The tag name of the signature element ('repeat') is the name of the component.
             <br>The component is instantiated by writing an element with same tag name.
         </li>
         <li>
             Attributes <code><i>name</i></code> or <code><i>#name</i></code> of the signature element define the parameters of the component.
-            <br>Instances of the component must have the same attributes, and these become local variables inside the component template.
-            <br>There are special cases:
+            <br>Instances of the component must have the same attributes, and these correspond to local variables inside the component template.
+            <p>There are special cases:</p>
             <ul>
                 <li>
                     When the instance attribute starts with '#', it is interpreted as an expression, otherwise as an interpolated string. It doesn't matter whether the signature attribute starts with '#' or not.
@@ -354,11 +347,15 @@ The signature describes how invocations of the component, called 'component inst
                     When <i>name</i> starts with 'on', the instance attribute is interpreted as a JavaScript event handler.
                 </li>
                 <li>
-                    Attributes with a question mark <code><i>name?</i></code> or with a value <code><i>name</i>=<i>string</i></code> or <code><i>#name</i>=<i>expression</i></code> are optional.
-                    <br>When an instance doesn't have them, then the specified string or expression is used instead.
+                    Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> are <i>optional</i> parameters.
+                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead.
+                    <p>
+                        An empty <i>string</i> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
+                        <br>To specify the empty string as default value, use an empty string expression: <code>#<i>name</i>="''"</code>.
+                    </p>
                 </li>
                 <li>
-                    An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>.
+                    An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
                     <br>All instance attributes that do not match a normal parameter are collected into this rest parameter, which can (only) be passed on to an HTML element.
                 </li>
             </ul>
@@ -373,10 +370,48 @@ The signature describes how invocations of the component, called 'component inst
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENT</elm>. When a component contains a slot <elm>CONTENT</elm>, then all content of a component instance that does not match any other slot, becomes the template for any <elm>CONTENT</elm> instance within the component template.
+            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a slot <elm>CONTENT</elm>, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
         </li>
     </ul>
 </p>
+
+<h3>Templates</h3>
+<pre>
+{}  <{}!-- Component template -->
+  <{}template>
+    <{}for let=i #of="range(count)">
+      <{}!-- Slot instance -->
+      <{}rbody><{}/rbody>
+    <{}/for>
+  <{}/template>
+</pre>
+
+<h3>Instances</h3>
+
+
+<demo #bShow=false #content=sampleComponent1></demo>
+
+<h3>Encapsulate</h3>
+The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
+<ul>
+    <li>
+        <i>Without</i> <code>encapsulate</code>, instances of the component are <i>replaced</i> by the output of the component template.
+        <p>Any styling rules of the surrounding document apply to the component output as well, and vice versa.
+        <br>To make styling rules apply only to the component content, use CSS class names.
+    </li>
+    <li>
+        <i>With</i> <code>encapsulate</code>, <elm>COMPONENT</elm> defines a new <i>custom element</i>.
+        <br>The output of the component template defines the appearance of the element, but is encapsulated inside, using the so-called <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>.
+        <p>
+            Any styling rules of the surrounding document do not apply to the encapsulated content, and vice versa. The component can have its own style sheet(s), independent of the main document.
+            <br>Styling rules and inline styles specifically targeted at the custom element, however, are inherited by the encapsulated content.
+        </p>
+        <p>
+            The custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
+            If the component name does not already contain a hyphen, then 'rhtml-' is prepended.
+        </p>
+    </li>
+</ul>
 
 <demo #content=sampleTODO>
 </demo>
@@ -415,7 +450,7 @@ Here is a component which allows one to define tables column by column.
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 <demo #content=sampleRHTML></demo>
 
-<h3>Caution</h3>
+<h4>Caution</h4>
 When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 

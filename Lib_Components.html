@@ -12,7 +12,7 @@
     
 <!-- Component to demonstrate RHTML -->
 <component>
-    <demo content? #bshow=true #editable=true rvar?></demo>
+    <demo #content?="''" #bshow=true #editable=true rvar?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
     <script nomodule defines=ColorCode>
         const mapping = {'<': '&lt;', '&': '&amp;'};
@@ -96,11 +96,12 @@
         <content>
             <h1 id?><content></content></h1>
             <h2 id?><content></content></h2>
+            <h3 id?><content></content></h3>
         </content>
     </pageLayout>
 
-    <script nomodule defines=pageLayout,maxHeight>
-        class pageLayout {
+    <script nomodule defines=TOC,maxHeight>
+        class TOC {
             numbers = [0,0,0];
             getNr(level) {
                 this.numbers[level]++;
@@ -155,7 +156,7 @@
         }
         div.pageLayout > nav, .nav {
             font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-            font-size: 92.5%;
+            font-size: 87.5%;
         }
         div.pageLayout > nav > a {
             display: block;
@@ -217,7 +218,7 @@
     </style>
 
     <template>
-        <def var=C #value="new pageLayout()"></def>
+        <def var=toc #value="new TOC()"></def>
         <div class=pageLayout #style.maxHeight="maxHeight.V" thisreactson=maxHeight>
             <header>
                     <div style="padding-left: 40px">
@@ -248,7 +249,7 @@
                 <center style="background-color: orange;">
                     <b><i>Table of Contents</i></b>
                 </center>
-                <for let=item #of=C.contents.V reacton=C.contents>
+                <for let=item #of=toc.contents.V reacton=toc.contents>
                     <a. #class:chapter="item.level == 0"
                         href="#{item.id}">
                         {item.text}
@@ -264,13 +265,17 @@
                 <content>
                     <!-- Inside the content, the following construsts are available: -->
                     <h1 id>
-                        <def var=nr #value="C.getNr(0)"></def>
-                        <h1. #id="id||'s'+nr" onCreate="C.addContent(0, this)">{nr} &nbsp;<content></content></h1.>
+                        <def var=nr #value="toc.getNr(0)"></def>
+                        <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr} &nbsp;<content></content></h1.>
                     </h1>
                     <h2 id>
-                        <def var=nr #value="C.getNr(1)"></def>
-                        <h2. #id="id||'s'+nr" onCreate="C.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                        <def var=nr #value="toc.getNr(1)"></def>
+                        <h2. #id="id||'s'+nr" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                     </h2>
+                    <h3 id>
+                        <def var=nr #value="toc.getNr(2)"></def>
+                        <h3. #id="id||'s'+nr" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                    </h3>
                 </content>
             </main>
         </div>

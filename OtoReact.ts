@@ -334,6 +334,7 @@ class RCompiler {
     private bCompiled = false;
     private bHasReacts = false;
 
+    public DirtyVars = new Set<_RVAR<unknown>>();
     private DirtySubs = new Map<ChildNode, Subscriber>();
     public AddDirty(sub: Subscriber) {
         this.DirtySubs.set((sub.marker || sub.start), sub)
@@ -371,6 +372,10 @@ class RCompiler {
             if (!this.bHasReacts)
                 for (const s of this.AllRegions)
                     this.AddDirty(s);
+
+            for (const rvar of this.DirtyVars)
+                rvar.Save();
+            this.DirtyVars.clear();
             
             if (this.DirtySubs.size) {
                 RHTML = this;
@@ -468,9 +473,11 @@ class RCompiler {
                         break;
 
                     case Node.TEXT_NODE:
-                        const str = (srcNode as Text).data
-                            .replace(/^[ \t\r\n]+/g, this.bTrimLeft ? '' : ' ')
-                            .replace(/\[ \t\r\n]+$/, ' ');
+                        let str = (srcNode as Text).data;
+                        if (this.bTrimLeft && /^\s*$/.test(str))
+                            str = "";
+                        else
+                            str = str.replace(/^\s+|\s+$/, ' ');
 
                         if (str != '') {
                             this.bTrimLeft = / $/.test(str);
@@ -844,7 +851,13 @@ labelNoCheck:
                                     R.StyleRoot = shadowRoot;
 
                                     try {
+                                        const hdrElms = elm['AddedHdrElms'] as Array<HTMLElement>;
+                                        if (hdrElms) {
+                                            for (const elm of hdrElms) elm.remove();
+                                            elm['AddedHdrElms'] = null;
+                                        }
                                         R.Compile(tempElm, {bRunScripts: true }, false);
+                                        elm['AddedHdrElms'] = R.AddedHeaderElements;
                                         
                                         const subregion = PrepareRegion(srcElm, {parent: shadowRoot, start: null, bInit: true, env: NewEnv()});
                                         R.StyleBefore = subregion.marker;
@@ -855,29 +868,6 @@ labelNoCheck:
                                         shadowRoot.appendChild(createErrorNode(`Compile error: ${err}`))
                                     }
                                 }
-                            /*
-                            }
-                            else {
-                                subregion = PrepareRegion(srcElm, region, result);
-                                if (bInit = subregion.bInit) {
-                                    tempElm.innerHTML = result;
-                                    R = new RCompiler();
-                                    R.StyleRoot = this.StyleRoot
-                                    const {marker} = subregion;
-                                    const hdrElements = marker['AddedHdrElms'] as Array<HTMLElement>;
-                                    if (hdrElements) {
-                                        for (const elm of hdrElements) elm.remove();
-                                        marker['AddedHdrElms'] = null;
-                                    }
-                                    R.Compile(tempElm, {bRunScripts: true }, false);
-                                    marker['AddedHdrElms'] = R.AddedHeaderElements;
-                                }
-                            }
-                            if (bInit) {
-                                subregion.env = NewEnv();
-                                await R.Build(subregion);
-                            }
-                            */
                         };
                     } break;
 
@@ -905,7 +895,7 @@ labelNoCheck:
         for (const {attName, rvars} of mapReacts) {   
             const bNoChildUpdates = (attName == 'thisreactson'), bodyBuilder = builder;
             builder = async function REACT(this: RCompiler, region) {
-                let subregion = PrepareRegion(srcElm, region, null, null, attName);
+                const subregion = PrepareRegion(srcElm, region, null, null, attName);
                 await bodyBuilder.call(this, subregion);
 
                 if (region.bInit) {
@@ -934,8 +924,8 @@ labelNoCheck:
     }
 
     private async CallWithErrorHandling(this: RCompiler, builder: DOMBuilder, srcNode: ChildNode, region: Region){
-        let start = region.start;
-        if (start && start.errorNode) {
+        let start: typeof region.start;
+        if ((start = region.start) && start.errorNode) {
             region.parent.removeChild(start.errorNode);
             start.errorNode = undefined;
         }
@@ -960,13 +950,13 @@ labelNoCheck:
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         srcParent.removeChild(srcElm);
-        const type = atts.get('type')
+        const bModule = atts.get('type') == 'module';
         const src = atts.get('src');
 
         if ( atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            if (src || type) {
+            if (src) {
                 srcElm.noModule = false;
-                document.head.appendChild(srcElm);
+                document.body.appendChild(srcElm);
                 this.AddedHeaderElements.push(srcElm);
             }
             else {
@@ -978,14 +968,26 @@ labelNoCheck:
                     for (let name of defines.split(','))
                         lvars.push(this.NewVar(name));
                     
-                    // Execute the script now
-                    const exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
-
-                    return async function SCRIPT({env}: Region) {
+                    let exports: Array<unknown>;
+                    async function SCRIPT({env}: Region) {
                         let i=0;
                         for (const lvar of lvars)
                             lvar(env)(exports[i++]);
                     }
+                    // Execute the script now
+                    if (bModule) {
+                        // Thanks https://stackoverflow.com/a/67359410/2061591
+                        const objectURL = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+                        const task = import(objectURL);
+                        return async function SCRIPT(reg: Region) {
+                            if (!exports) exports = await task;
+                            await SCRIPT(reg);
+                        }
+                    }
+                    else {
+                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
+                        return SCRIPT;
+                    }    
                 }   
                 else
                     globalEval(`'use strict';{${script}}`);
@@ -1601,24 +1603,23 @@ labelNoCheck:
     }
 //*/
     private CompInterpolatedString(data: string, name?: string): Dependent<string> & {isBlank?: boolean} {
-        const generators: Array< string | Dependent<unknown> > = [];
-        const regIS =
-            /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
+        const generators: Array< string | Dependent<unknown> > = [],
+            regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
         let isBlank = true, isTrivial = true;
 
         while (regIS.lastIndex < data.length) {
-            const lastIndex = regIS.lastIndex
-            const m = regIS.exec(data);
-            const fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
+            const lastIndex = regIS.lastIndex, m = regIS.exec(data),
+                fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
 
             if (fixed)
                 generators.push( fixed.replace(/\\([${}\\])/g, '$1') );  // Replace '\{' etc by '{'
-            if (m[1]) {
-                generators.push( this.CompJavaScript<string>(m[1], '{}', null) );
-                isTrivial = false;
-            }
-            if (m[1] || /[^ \t\r\n]/.test(fixed))
+            if (m[1] || /[^ \t\r\n]/.test(fixed)) {
                 isBlank = false;
+                if (m[1]) {
+                    generators.push( this.CompJavaScript<string>(m[1], '{}', null) );
+                    isTrivial = false;
+                }
+            }
         }
         
         let dep: Dependent<string> & {isBlank?: boolean};
@@ -1757,9 +1758,8 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
 }
 function FillNextM(reg: Region, node: ChildNode) {
     do {
-        const {lastM} = reg;
-        if (!lastM) break;
-        lastM.nextM = node;
+        if (!reg.lastM) break;
+        reg.lastM.nextM = node;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
@@ -1827,8 +1827,6 @@ class _RVAR<T>{
         if (t !== this._Value) {
             this._Value = t;
             this.SetDirty();
-            if (this.store)
-                this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(t));
         }
     }
 
@@ -1839,12 +1837,18 @@ class _RVAR<T>{
     set U(t: T) { this.V = t }
 
     public SetDirty() {
+        if (this.store)
+            this.rRuntime.DirtyVars.add(this);
         for (const sub of this.Subscribers)
             if (sub.parent.isConnected)
                 this.rRuntime.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);
         this.rRuntime.RUpdate();
+    }
+
+    public Save() {
+        this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));
     }
 }
 
