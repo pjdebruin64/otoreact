@@ -42,11 +42,16 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
 
 
 // Een context is een rij identifiers die in een te transformeren DOM-tree kunnen voorkomen, maar waarvan de waarde nog niet bekend is
-type Context = Array<string>;
+type Context = Map<string, number>;
 // Een environment is een rij concrete waarden voor de identifiers IN EEN GEGEVEN CONTEXT
 type Environment = 
     Array<unknown> 
     & { constructDefs: Map<string, ConstructDef> };
+
+// Een afhankelijke waarde in een gegeven context is een waarde die afhangt van een environment.
+// Dit wordt de betekenis, denotatie, van een expressie van type T.
+type Dependent<T> = ((env: Environment) => T) & {bUsesThis?: boolean};
+
 type SavedContext = number;
 function NewEnv(): Environment { 
     const env = [] as Environment;
@@ -58,12 +63,11 @@ function CloneEnv(env: Environment): Environment {
     clone.constructDefs = new Map(env.constructDefs.entries());
     return clone;
 }
-// Een afhankelijke waarde in een gegeven context is een waarde die afhangt van een environment.
-// Dit wordt de betekenis, denotatie, van een expressie van type T.
-type Dependent<T> = (env: Environment) => T;
 
 type Marker = ChildNode & {
+    lastNode?: ChildNode,
     nextM?: ChildNode, 
+    prevM?: Marker, // Alleen voor FOR-iteraties
     rResult?: unknown, 
     rValue?: unknown,
     hash?: Hash, key?: Key, keyMap?: Map<Key, Subscriber>,
@@ -77,6 +81,7 @@ type Region     = {
     env: Environment,
     lastM?: Marker,
     lastSub?: Region,
+    lastNode?: ChildNode,
     bNoChildBuilding?: boolean,
 };
 type DOMBuilder = ((reg: Region) => Promise<void>) & {bTrim?: boolean};
@@ -87,7 +92,6 @@ type ParametrizedBuilder =
     => Promise<void>;
 
 type ParentNode = HTMLElement|DocumentFragment;
-//type FragmentCompiler = (srcParent: ParentNode, srcElm: HTMLElement) => ElmBuilder
 
 type Subscriber = {
     parent: Node,
@@ -140,16 +144,16 @@ type RVAR_Light<T> = T & {
     Subscribe?: (sub:Subscriber) => void
 };
 
-const globalEval = eval, globalFetch = fetch;
-async function tryFetch(url: string): Promise<Response> {
-    const response = await globalFetch(url);
+const globalEval = eval;
+async function FetchText(url: string): Promise<string> {
+    const response = await fetch(url);
     if (!response.ok)
         throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-    return response;
+    return await response.text();
 }
 
 enum ModifType {Attr, Prop, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
-    PseudoEvent,
+    oncreate, onupdate
 };
 type Modifier = {
     modType: ModifType,
@@ -159,7 +163,7 @@ type Modifier = {
 }
 type RestParameter = Array<{modType: ModifType, name: string, value: unknown}>;
 
-function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: unknown) {    
+function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: unknown, bInit: boolean) {    
     switch (modType) {
         case ModifType.Attr:
             elm.setAttribute(name, val as string || ''); 
@@ -193,17 +197,24 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
             break;
         case ModifType.RestArgument:
             for (const {modType, name, value} of val as RestParameter)
-                ApplyModifier(elm, modType, name, value);
+                ApplyModifier(elm, modType, name, value, bInit);
+            break;
+        case ModifType.oncreate:
+            if (bInit)
+                (val as ()=>void).call(elm); 
+            break;
+        case ModifType.onupdate:
+            (val as ()=>void).call(elm); 
             break;
     }
 }
-function ApplyPreModifiers(elm: HTMLElement, preModifiers: Modifier[], env: Environment) {
+function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], {env, bInit}: Region) {
     // Apply all modifiers: adding attributes, classes, styles, events
-    for (const {modType, name, depValue} of preModifiers) {
+    for (const {modType, name, depValue} of modifiers) {
         try {
-            const value = depValue(env);    // Evaluate the dependent value in the current environment
+            const value = depValue.bUsesThis ? depValue.call(elm, env) : depValue(env);    // Evaluate the dependent value in the current environment
             // See what to do with it
-            ApplyModifier(elm, modType, name, value)
+            ApplyModifier(elm, modType, name, value, bInit)
         }
         catch (err) { throw `[${name}]: ${err}` }
     }
@@ -221,13 +232,11 @@ function RestoreEnv(savedEnv: SavedEnv) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
-
 let iNum=0;
 class RCompiler {
     instanceNum = iNum++;
-    //private Context: Context;
-    private context: string;
-    private ContextMap: Map<string, number>;
+    private ContextMap: Context;
+    private context: string; 
 
     private Constructs: Map<string, Signature>;
     private StyleRoot: Node;
@@ -538,7 +547,7 @@ labelNoCheck:
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.Constructs.get(srcElm.tagName);
             if (construct)
-                builder = this.CompConstructInstance(srcParent, srcElm, atts, construct);
+                builder = this.CompInstance(srcParent, srcElm, atts, construct);
             else {
                 switch (srcElm.tagName) {
                     case 'DEF':
@@ -564,6 +573,7 @@ labelNoCheck:
                                 }
                                 newVar(region.env)(marker.rValue);
                                 await subBuilder.call(this, subRegion);
+                                marker.lastNode = subRegion.lastNode;
                             };
                     } break;
 
@@ -693,7 +703,7 @@ labelNoCheck:
                         let C: RCompiler = new RCompiler(this);
                         
                         const task = (async () => {
-                            const textContent = await (await tryFetch(src)).text();
+                            const textContent = await FetchText(src);
                             // Parse the contents of the file
                             const parser = new DOMParser();
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
@@ -744,9 +754,8 @@ labelNoCheck:
                             (async () => {
                                 let promiseModule = Modules.get(src);
                                 if (!promiseModule) {
-                                    promiseModule = tryFetch(src)
-                                    .then(async response => {
-                                        const textContent = await response.text();
+                                    promiseModule = FetchText(src)
+                                    .then(async textContent => {
                                         // Parse the contents of the file
                                         const parser = new DOMParser();
                                         const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
@@ -837,37 +846,36 @@ labelNoCheck:
                             const result = tempElm.innerText
 
                             let {bInit} = region;
-                            //if (bEncapsulate) {
-                                const elm = PrepareElement(srcElm, region, 'rhtml-rhtml');
-                                ApplyPreModifiers(elm, preModifiers, region.env);
+                            
+                            const elm = PrepareElement(srcElm, region, 'rhtml-rhtml');
+                            ApplyModifiers(elm, preModifiers, region);
 
-                                const shadowRoot = bInit 
-                                    ? elm.attachShadow({mode: 'open'}) : elm.shadowRoot;
-                                if (bInit || result != elm['rResult']) {
-                                    elm['rResult'] = result;
-                                    shadowRoot.innerHTML = '';
-                                    tempElm.innerHTML = result;
-                                    const R = new RCompiler();
-                                    R.StyleRoot = shadowRoot;
+                            const shadowRoot = bInit ? elm.attachShadow({mode: 'open'}) : elm.shadowRoot;
+                            if (bInit || result != elm['rResult']) {
+                                elm['rResult'] = result;
+                                shadowRoot.innerHTML = '';
+                                tempElm.innerHTML = result;
+                                const R = new RCompiler();
+                                R.StyleRoot = shadowRoot;
 
-                                    try {
-                                        const hdrElms = elm['AddedHdrElms'] as Array<HTMLElement>;
-                                        if (hdrElms) {
-                                            for (const elm of hdrElms) elm.remove();
-                                            elm['AddedHdrElms'] = null;
-                                        }
-                                        R.Compile(tempElm, {bRunScripts: true }, false);
-                                        elm['AddedHdrElms'] = R.AddedHeaderElements;
-                                        
-                                        const subregion = PrepareRegion(srcElm, {parent: shadowRoot, start: null, bInit: true, env: NewEnv()});
-                                        R.StyleBefore = subregion.marker;
-                                        await R.Build(subregion);
-                                        this.builtNodeCount += R.builtNodeCount;
+                                try {
+                                    const hdrElms = elm['AddedHdrElms'] as Array<HTMLElement>;
+                                    if (hdrElms) {
+                                        for (const elm of hdrElms) elm.remove();
+                                        elm['AddedHdrElms'] = null;
                                     }
-                                    catch(err) {
-                                        shadowRoot.appendChild(createErrorNode(`Compile error: ${err}`))
-                                    }
+                                    R.Compile(tempElm, {bRunScripts: true }, false);
+                                    elm['AddedHdrElms'] = R.AddedHeaderElements;
+                                    
+                                    const subregion = PrepareRegion(srcElm, {parent: shadowRoot, start: null, bInit: true, env: NewEnv()});
+                                    R.StyleBefore = subregion.marker;
+                                    await R.Build(subregion);
+                                    this.builtNodeCount += R.builtNodeCount;
                                 }
+                                catch(err) {
+                                    shadowRoot.appendChild(createErrorNode(`Compile error: ${err}`))
+                                }
+                            }
                         };
                     } break;
 
@@ -1067,47 +1075,44 @@ labelNoCheck:
                                 }
                             }
                         }
-                        RemoveStaleItemsHere();
 
                         const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
                         const setNext = initNext(env);
 
-                        let index = 0, prevItem: Item = null;
+                        let index = 0, prevItem: Item = null, nextItem: Item
+                            , prevM: Marker = null;
                         const nextIterator = nextName ? newMap.values() : null;
                         let childRegion: ReturnType<typeof PrepareRegion>;
+
                         if (nextIterator) nextIterator.next();
+                        RemoveStaleItemsHere();
+
                         // Voor elke waarde in de range
                         for (const [key, {item, hash}] of newMap) {
-                            // Environment instellen
-                            let rvar: Item =
-                                ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
-                                : bReactive ? this.RVAR_Light(item as object)
-                                : item
-                                );
-                            setVar(rvar);
-                            setIndex(index);
-                            setPrevious(prevItem);
                             if (nextIterator)
-                                setNext(nextIterator.next().value?.item)
+                                nextItem = nextIterator.next().value?.item;
 
-                            let marker: Marker;
-                            let subscriber = keyMap.get(key);
-                            if (subscriber && subscriber.marker.isConnected) {
+                            let subscriber = keyMap.get(key), marker: Marker;
+                            if (subscriber && (marker = subscriber.marker).isConnected) {
                                 // Item already occurs in the series
-                                marker = subscriber.marker;
                                 const nextMarker = marker.nextM;
                                 
                                 if (marker != start) {
                                     // Item has to be moved
+                                    marker.prevM.nextM = marker.nextM;
+                                    if (marker.nextM)
+                                        (marker.nextM as Marker).prevM = marker.prevM;
                                     let node = marker
                                     while(node != nextMarker) {
                                         const next = node.nextSibling;
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
-                                    //FillNextM(subregion, marker);
+                                    marker.nextM = start;
                                 }
+                                else //marker.nextM klopt niet
+                                    debugger;
                                 
                                 (marker as Comment).textContent = `${varName}(${index})`;
 
@@ -1135,6 +1140,7 @@ labelNoCheck:
                                 marker = childRegion.marker
                                 marker.key = key;
                             }
+                            marker.prevM = prevM; prevM = marker;
 
                             if (hash != null
                                 && ( hash == marker.hash as Hash
@@ -1143,11 +1149,24 @@ labelNoCheck:
                             ) { 
                                 // Nothing
                             }
-                            else    // Body berekenen
-                                await bodyBuilder.call(this, childRegion);
+                            else {
+                                // Environment instellen
+                                let rvar: Item =
+                                    ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
+                                    : bReactive ? this.RVAR_Light(item as object)
+                                    : item
+                                    );
+                                setVar(rvar);
+                                setIndex(index);
+                                setPrevious(prevItem);
+                                if (nextIterator)
+                                    setNext(nextItem)
 
-                            if (bReactive)
-                                (rvar as _RVAR<Item>).Subscribe(subscriber);
+                                // Body berekenen
+                                await bodyBuilder.call(this, childRegion);
+                                if (bReactive)
+                                    (rvar as _RVAR<Item>).Subscribe(subscriber);
+                            }
 
                             prevItem = item;
                             index++;
@@ -1264,7 +1283,7 @@ labelNoCheck:
         const {tagName} = signature;
         // Deze builder bouwt de component-instances op
         const instanceBuilders = [
-            this.CompConstructTemplate(signature, elmTemplate.content, elmTemplate, 
+            this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
                 false, bEncapsulate, styles)
         ];
 
@@ -1287,21 +1306,21 @@ labelNoCheck:
             } );
     }
 
-    private CompConstructTemplate(signature: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
-        bNewNames: boolean, bEncapsulate?: boolean, styles?: Node[], atts?: Atts
+    private CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
+        bNewNames: boolean, bEncaps?: boolean, styles?: Node[], atts?: Atts
     ): ParametrizedBuilder
     {
         const names: string[] = [], saved = this.SaveContext();
         let bCheckAtts: boolean;
         if (bCheckAtts = !atts)
             atts = new Atts(srcElm);
-        for (const param of signature.Parameters)
+        for (const param of signat.Parameters)
             names.push( atts.get(param.name, bNewNames) || param.name);
-        const {tagName, RestParam} = signature;
+        const {tagName, RestParam} = signat;
         if (RestParam?.name)
             names.push( atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
 
-        for (const S of signature.Slots.values())
+        for (const S of signat.Slots.values())
             this.AddConstruct(S);
         if (bCheckAtts)
             atts.CheckNoAttsLeft();
@@ -1325,7 +1344,7 @@ labelNoCheck:
                     for (const lvar of lvars)
                         lvar(region.env)(args[i++]);
 
-                    if (bEncapsulate) {
+                    if (bEncaps) {
                         const elm = PrepareElement(srcElm, region, customName);
                         const shadow = bInit ? elm.attachShadow({mode: 'open'}) : elm.shadowRoot;
                         region = {parent: shadow, start: null, bInit, env};
@@ -1336,7 +1355,7 @@ labelNoCheck:
                             region.start = shadow.children[styles.length];
 
                         if (args[i])
-                            ApplyModifier(elm, ModifType.RestArgument, null, args[i]);
+                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
                     }
                     await builder.call(this, region); 
                 }
@@ -1348,7 +1367,7 @@ labelNoCheck:
     }
 
 
-    private CompConstructInstance(
+    private CompInstance(
         srcParent: ParentNode, srcElm: HTMLElement, atts: Atts,
         signature: Signature
     ) {
@@ -1369,7 +1388,7 @@ labelNoCheck:
                 && (Slot = signature.Slots.get((slotElm = (node as HTMLElement)).tagName))
             ) {
                 slotBuilders.get(slotElm.tagName).push(
-                    this.CompConstructTemplate(Slot, slotElm, slotElm, true)
+                    this.CompTemplate(Slot, slotElm, slotElm, true)
                 );
                 srcElm.removeChild(node);
             }
@@ -1377,7 +1396,7 @@ labelNoCheck:
         const contentSlot = signature.Slots.get('CONTENT');
         if (contentSlot)
             slotBuilders.get('CONTENT').push(
-                this.CompConstructTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
+                this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
             );
 
         const preModifiers = signature.RestParam ? this.CompAttributes(atts).preModifiers: null;
@@ -1439,28 +1458,14 @@ labelNoCheck:
 
             if (elm == start)
                 elm.removeAttribute('class');
-
-            ApplyPreModifiers(elm, preModifiers, env);
             
             if (!region.bNoChildBuilding)
                 // Add all children
                 await childnodesBuilder.call(this, {parent: elm, start: elm.firstChild, bInit, env, });
 
-            // Apply all modifiers: adding attributes, classes, styles, events
-            for (const mod of postModifiers) {
-                const attName = mod.name;
-                try {
-                    const val = mod.depValue(env);    // Evaluate the dependent value in the current environment
-                    // See what to do with it
-                    switch (mod.modType) {
-                        case ModifType.PseudoEvent:
-                            if (bInit || attName == 'onupdate')
-                                (val as ()=>void).call(elm); 
-                            break;
-                    }
-                }
-                catch (err) { throw `[${attName}]: ${err}` }
-            }
+            ApplyModifiers(elm, preModifiers, region);
+
+            ApplyModifiers(elm, postModifiers, region)
         };
 
         builder.bTrim = bTrim;
@@ -1475,12 +1480,12 @@ labelNoCheck:
             try {
                 if (m = /^on(create|update)$/i.exec(attName))
                     postModifiers.push({
-                        modType: ModifType.PseudoEvent, 
+                        modType: ModifType[attName], 
                         name: m[0], 
                         depValue: this.CompJavaScript<Handler>(
                             `function ${attName}(){${attValue}\n}`)
                     });
-                if (m = /^on(.*)$/i.exec(attName))               // Events
+                else if (m = /^on(.*)$/i.exec(attName))               // Events
                     preModifiers.push({
                         modType: ModifType.Event, 
                         name: CapitalizeProp(m[0]), 
@@ -1525,7 +1530,7 @@ labelNoCheck:
                         if (m[1] == '@')
                             preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue) });
                         else
-                            postModifiers.push({ modType: ModifType.PseudoEvent, name: 'oncreate', depValue: setter });
+                            postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
                         preModifiers.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}
@@ -1603,20 +1608,20 @@ labelNoCheck:
     }
 //*/
     private CompInterpolatedString(data: string, name?: string): Dependent<string> & {isBlank?: boolean} {
-        const generators: Array< string | Dependent<unknown> > = [],
-            regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
+        const generators: Array< string | Dependent<unknown> > = []
+            , regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
         let isBlank = true, isTrivial = true;
 
         while (regIS.lastIndex < data.length) {
-            const lastIndex = regIS.lastIndex, m = regIS.exec(data),
-                fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
+            const lastIndex = regIS.lastIndex, m = regIS.exec(data)
+                , fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
 
             if (fixed)
                 generators.push( fixed.replace(/\\([${}\\])/g, '$1') );  // Replace '\{' etc by '{'
             if (m[1] || /[^ \t\r\n]/.test(fixed)) {
                 isBlank = false;
                 if (m[1]) {
-                    generators.push( this.CompJavaScript<string>(m[1], '{}', null) );
+                    generators.push( this.CompJavaScript<string>(m[1], '{}') );
                     isTrivial = false;
                 }
             }
@@ -1637,6 +1642,7 @@ labelNoCheck:
                     catch (err) { throw name ? `[${name}]: ${err}` : err }
                 };
         dep.isBlank = isBlank;
+        dep.bUsesThis = false;
         return dep;
     }
 
@@ -1688,23 +1694,30 @@ labelNoCheck:
     private CompJavaScript<T>(
         expr: string,           // Expression to transform into a function
         delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
-        , bStatement: boolean = false   // Is it a statement or an expression
         , descript?: string             // To be inserted in an errormessage
     ): Dependent<T> {
         if (expr == null) return null;
 
-        let depExpr = 
-            bStatement 
-            ?  `'use strict';([${this.context}]) => {${expr}\n}`    // Braces
-            :  `'use strict';([${this.context}]) => (${expr}\n)`;   // Parentheses
-        const errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr,60)}${delims[1]}: `;
+        const bThis = /\bthis\b/.test(expr),
+            depExpr = bThis ?
+                `'use strict';(function expr([${this.context}]){return (${expr}\n)})`
+                : `'use strict';([${this.context}])=>(${expr}\n)`
+            , errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr,60)}${delims[1]}: `;
 
         try {
-            const routine = globalEval(depExpr) as (env:Environment) => T;
-            return (env: Environment) => {
-                try { return routine(env); } 
-                catch (err) { throw `${errorInfo}${err}`; }
-            }
+            const routine = globalEval(depExpr) as (env:Environment) => T
+            , depValue = (bThis
+                ? function (this: HTMLElement, env: Environment) {
+                        try { return routine.call(this, env); } 
+                        catch (err) { throw `${errorInfo}${err}`; }
+                    }
+                : (env: Environment) => {
+                        try { return routine(env); } 
+                        catch (err) { throw `${errorInfo}${err}`; }
+                    }
+                ) as Dependent<T>;
+            depValue.bUsesThis = bThis;
+            return depValue;
         }
         catch (err) { throw `${errorInfo}${err}` }             // Compiletime error
     }
@@ -1729,15 +1742,16 @@ labelNoCheck:
 function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, text: string = '')
     : Region & {marker: Comment}
 {
-    let {parent, start, bInit} = region;
+    let {parent, start, bInit, env} = region;
     let marker: Marker;
     if (bInit) {
         (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start) as Marker).nextM = null;
         FillNextM(region, marker);
-        region.lastM = marker;
+        region.lastNode = region.lastM = marker;
         
         if (start && start == srcElm)
             region.start = start.nextSibling;
+        
     }
     else {
         marker = start;
@@ -1754,12 +1768,12 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
         }
         bInit = true;
     }
-    return region.lastSub = {parent, marker: marker as Comment, start, bInit, env: region.env};
+    return region.lastSub = {parent, marker: marker as Comment, start, bInit, env};
 }
-function FillNextM(reg: Region, node: ChildNode) {
+function FillNextM(reg: Region, nextM: ChildNode) {
     do {
         if (!reg.lastM) break;
-        reg.lastM.nextM = node;
+        reg.lastM.nextM = nextM;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
@@ -1793,12 +1807,12 @@ interface Store {
 class _RVAR<T>{
     constructor(
         private rRuntime: RCompiler,
-        private name?: string, 
+        globalName?: string, 
         initialValue?: T, 
         private store?: Store,
         private storeName?: string,
     ) {
-        if (name) globalThis[name] = this;
+        if (globalName) globalThis[globalName] = this;
         
         let s: string;
         if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
@@ -1808,6 +1822,7 @@ class _RVAR<T>{
             }
             catch{}
         this._Value = initialValue;
+        this.storeName ||= globalName;
     }
     // The value of the variable
     private _Value: T;
@@ -1896,7 +1911,7 @@ function CheckValidIdentifier(name: string) {
 // In this way, we don't have to list all words that occur as property name final words.
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
 + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
-+ '|outline|overflow|owner|padding|parent|right|size|rule|scroll|table|tab(?=index)|text|top|value|variant)';
++ '|outline|overflow|owner|padding|parent|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName: string) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
