@@ -1045,7 +1045,7 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, name
         region.start = marker.nextM;
     }
     start = marker.nextSibling;
-    if (bInit || (bInit = bForcedClear || (result != marker.rResult ?? null))) {
+    if (bInit ||= (bForcedClear || (result != marker.rResult ?? null))) {
         marker.rResult = result;
         while (start != region.start) {
             const next = start.nextSibling;

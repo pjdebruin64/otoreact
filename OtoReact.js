@@ -60,20 +60,20 @@ class Signature {
         const iter = sig.Parameters.values();
         for (const thisParam of this.Parameters) {
             const sigParam = iter.next().value;
-            result && (result = thisParam.name == sigParam.name && (!thisParam.pDefault || !!sigParam.pDefault));
+            result &&= thisParam.name == sigParam.name && (!thisParam.pDefault || !!sigParam.pDefault);
         }
-        result && (result = !this.RestParam || this.RestParam.name == sig.RestParam?.name);
+        result &&= !this.RestParam || this.RestParam.name == sig.RestParam?.name;
         for (let [slotname, slotSig] of this.Slots)
-            result && (result = slotSig.IsCompatible(sig.Slots.get(slotname)));
+            result &&= slotSig.IsCompatible(sig.Slots.get(slotname));
         return result;
     }
 }
-const globalEval = eval, globalFetch = fetch;
-async function tryFetch(url) {
-    const response = await globalFetch(url);
+const globalEval = eval;
+async function FetchText(url) {
+    const response = await fetch(url);
     if (!response.ok)
         throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-    return response;
+    return await response.text();
 }
 var ModifType;
 (function (ModifType) {
@@ -85,10 +85,11 @@ var ModifType;
     ModifType[ModifType["AddToStyle"] = 5] = "AddToStyle";
     ModifType[ModifType["AddToClassList"] = 6] = "AddToClassList";
     ModifType[ModifType["RestArgument"] = 7] = "RestArgument";
-    ModifType[ModifType["PseudoEvent"] = 8] = "PseudoEvent";
+    ModifType[ModifType["oncreate"] = 8] = "oncreate";
+    ModifType[ModifType["onupdate"] = 9] = "onupdate";
 })(ModifType || (ModifType = {}));
 ;
-function ApplyModifier(elm, modType, name, val) {
+function ApplyModifier(elm, modType, name, val, bInit) {
     switch (modType) {
         case ModifType.Attr:
             elm.setAttribute(name, val || '');
@@ -126,15 +127,22 @@ function ApplyModifier(elm, modType, name, val) {
             break;
         case ModifType.RestArgument:
             for (const { modType, name, value } of val)
-                ApplyModifier(elm, modType, name, value);
+                ApplyModifier(elm, modType, name, value, bInit);
+            break;
+        case ModifType.oncreate:
+            if (bInit)
+                val.call(elm);
+            break;
+        case ModifType.onupdate:
+            val.call(elm);
             break;
     }
 }
-function ApplyPreModifiers(elm, preModifiers, env) {
-    for (const { modType, name, depValue } of preModifiers) {
+function ApplyModifiers(elm, modifiers, { env, bInit }) {
+    for (const { modType, name, depValue } of modifiers) {
         try {
-            const value = depValue(env);
-            ApplyModifier(elm, modType, name, value);
+            const value = depValue.bUsesThis ? depValue.call(elm, env) : depValue(env);
+            ApplyModifier(elm, modType, name, value, bInit);
         }
         catch (err) {
             throw `[${name}]: ${err}`;
@@ -397,7 +405,7 @@ class RCompiler {
         labelNoCheck: try {
             const construct = this.Constructs.get(srcElm.tagName);
             if (construct)
-                builder = this.CompConstructInstance(srcParent, srcElm, atts, construct);
+                builder = this.CompInstance(srcParent, srcElm, atts, construct);
             else {
                 switch (srcElm.tagName) {
                     case 'DEF':
@@ -422,6 +430,7 @@ class RCompiler {
                                 }
                                 newVar(region.env)(marker.rValue);
                                 await subBuilder.call(this, subRegion);
+                                marker.lastNode = subRegion.lastNode;
                             };
                         }
                         break;
@@ -545,11 +554,11 @@ class RCompiler {
                             const src = atts.get('src', true);
                             let C = new RCompiler(this);
                             const task = (async () => {
-                                const textContent = await (await tryFetch(src)).text();
+                                const textContent = await FetchText(src);
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
                                 C.Compile(parsedContent.body, this.Settings, false);
-                                this.bHasReacts || (this.bHasReacts = C.bHasReacts);
+                                this.bHasReacts ||= C.bHasReacts;
                             })();
                             builder =
                                 async function INCLUDE(region) {
@@ -586,13 +595,12 @@ class RCompiler {
                             const task = (async () => {
                                 let promiseModule = Modules.get(src);
                                 if (!promiseModule) {
-                                    promiseModule = tryFetch(src)
-                                        .then(async (response) => {
-                                        const textContent = await response.text();
+                                    promiseModule = FetchText(src)
+                                        .then(async (textContent) => {
                                         const parser = new DOMParser();
                                         const parsedContent = parser.parseFromString(textContent, 'text/html');
                                         const builder = compiler.CompChildNodes(parsedContent.body, true, undefined, true);
-                                        this.bHasReacts || (this.bHasReacts = compiler.bHasReacts);
+                                        this.bHasReacts ||= compiler.bHasReacts;
                                         const env = NewEnv();
                                         await builder.call(this, { parent: parsedContent.body, start: null, bInit: true, env });
                                         return { Signatures: compiler.Constructs, ConstructDefs: env.constructDefs };
@@ -662,9 +670,8 @@ class RCompiler {
                                 const result = tempElm.innerText;
                                 let { bInit } = region;
                                 const elm = PrepareElement(srcElm, region, 'rhtml-rhtml');
-                                ApplyPreModifiers(elm, preModifiers, region.env);
-                                const shadowRoot = bInit
-                                    ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
+                                ApplyModifiers(elm, preModifiers, region);
+                                const shadowRoot = bInit ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
                                 if (bInit || result != elm['rResult']) {
                                     elm['rResult'] = result;
                                     shadowRoot.innerHTML = '';
@@ -755,7 +762,7 @@ class RCompiler {
             console.log(message);
             if (this.Settings.bShowErrors) {
                 const errorNode = region.parent.insertBefore(createErrorNode(message), region.start);
-                if (start || (start = region.marker))
+                if (start ||= region.marker)
                     start.errorNode = errorNode;
             }
         }
@@ -864,37 +871,35 @@ class RCompiler {
                                 }
                             }
                         }
-                        RemoveStaleItemsHere();
                         const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
                         const setNext = initNext(env);
-                        let index = 0, prevItem = null;
+                        let index = 0, prevItem = null, nextItem, prevM = null;
                         const nextIterator = nextName ? newMap.values() : null;
                         let childRegion;
                         if (nextIterator)
                             nextIterator.next();
+                        RemoveStaleItemsHere();
                         for (const [key, { item, hash }] of newMap) {
-                            let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
-                                : bReactive ? this.RVAR_Light(item)
-                                    : item);
-                            setVar(rvar);
-                            setIndex(index);
-                            setPrevious(prevItem);
                             if (nextIterator)
-                                setNext(nextIterator.next().value?.item);
-                            let marker;
-                            let subscriber = keyMap.get(key);
-                            if (subscriber && subscriber.marker.isConnected) {
-                                marker = subscriber.marker;
+                                nextItem = nextIterator.next().value?.item;
+                            let subscriber = keyMap.get(key), marker;
+                            if (subscriber && (marker = subscriber.marker).isConnected) {
                                 const nextMarker = marker.nextM;
                                 if (marker != start) {
+                                    marker.prevM.nextM = marker.nextM;
+                                    if (marker.nextM)
+                                        marker.nextM.prevM = marker.prevM;
                                     let node = marker;
                                     while (node != nextMarker) {
                                         const next = node.nextSibling;
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
+                                    marker.nextM = start;
                                 }
+                                else
+                                    debugger;
                                 marker.textContent = `${varName}(${index})`;
                                 subregion.bInit = false;
                                 subregion.start = marker;
@@ -919,14 +924,25 @@ class RCompiler {
                                 marker = childRegion.marker;
                                 marker.key = key;
                             }
+                            marker.prevM = prevM;
+                            prevM = marker;
                             if (hash != null
                                 && (hash == marker.hash
                                     || (marker.hash = hash, false))) {
                             }
-                            else
+                            else {
+                                let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
+                                    : bReactive ? this.RVAR_Light(item)
+                                        : item);
+                                setVar(rvar);
+                                setIndex(index);
+                                setPrevious(prevItem);
+                                if (nextIterator)
+                                    setNext(nextItem);
                                 await bodyBuilder.call(this, childRegion);
-                            if (bReactive)
-                                rvar.Subscribe(subscriber);
+                                if (bReactive)
+                                    rvar.Subscribe(subscriber);
+                            }
                             prevItem = item;
                             index++;
                             start = subregion.start;
@@ -1035,7 +1051,7 @@ class RCompiler {
         this.AddConstruct(signature);
         const { tagName } = signature;
         const instanceBuilders = [
-            this.CompConstructTemplate(signature, elmTemplate.content, elmTemplate, false, bEncapsulate, styles)
+            this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncapsulate, styles)
         ];
         return (async function COMPONENT(region) {
             for (const [bldr, srcNode] of builders)
@@ -1048,17 +1064,17 @@ class RCompiler {
             envActions.push(() => { env.constructDefs.set(tagName, prevDef); });
         });
     }
-    CompConstructTemplate(signature, contentNode, srcElm, bNewNames, bEncapsulate, styles, atts) {
+    CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
         const names = [], saved = this.SaveContext();
         let bCheckAtts;
         if (bCheckAtts = !atts)
             atts = new Atts(srcElm);
-        for (const param of signature.Parameters)
+        for (const param of signat.Parameters)
             names.push(atts.get(param.name, bNewNames) || param.name);
-        const { tagName, RestParam } = signature;
+        const { tagName, RestParam } = signat;
         if (RestParam?.name)
             names.push(atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
-        for (const S of signature.Slots.values())
+        for (const S of signat.Slots.values())
             this.AddConstruct(S);
         if (bCheckAtts)
             atts.CheckNoAttsLeft();
@@ -1078,7 +1094,7 @@ class RCompiler {
                     let i = 0;
                     for (const lvar of lvars)
                         lvar(region.env)(args[i++]);
-                    if (bEncapsulate) {
+                    if (bEncaps) {
                         const elm = PrepareElement(srcElm, region, customName);
                         const shadow = bInit ? elm.attachShadow({ mode: 'open' }) : elm.shadowRoot;
                         region = { parent: shadow, start: null, bInit, env };
@@ -1088,7 +1104,7 @@ class RCompiler {
                         else
                             region.start = shadow.children[styles.length];
                         if (args[i])
-                            ApplyModifier(elm, ModifType.RestArgument, null, args[i]);
+                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
                     }
                     await builder.call(this, region);
                 }
@@ -1104,7 +1120,7 @@ class RCompiler {
             this.RestoreContext(saved);
         }
     }
-    CompConstructInstance(srcParent, srcElm, atts, signature) {
+    CompInstance(srcParent, srcElm, atts, signature) {
         srcParent.removeChild(srcElm);
         const tagName = signature.tagName;
         const getArgs = [];
@@ -1117,12 +1133,12 @@ class RCompiler {
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
                 && (Slot = signature.Slots.get((slotElm = node).tagName))) {
-                slotBuilders.get(slotElm.tagName).push(this.CompConstructTemplate(Slot, slotElm, slotElm, true));
+                slotBuilders.get(slotElm.tagName).push(this.CompTemplate(Slot, slotElm, slotElm, true));
                 srcElm.removeChild(node);
             }
         const contentSlot = signature.Slots.get('CONTENT');
         if (contentSlot)
-            slotBuilders.get('CONTENT').push(this.CompConstructTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
+            slotBuilders.get('CONTENT').push(this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
         const preModifiers = signature.RestParam ? this.CompAttributes(atts).preModifiers : null;
         atts.CheckNoAttsLeft();
         this.bTrimLeft = false;
@@ -1165,24 +1181,10 @@ class RCompiler {
             let elm = PrepareElement(srcElm, region, nodeName);
             if (elm == start)
                 elm.removeAttribute('class');
-            ApplyPreModifiers(elm, preModifiers, env);
             if (!region.bNoChildBuilding)
                 await childnodesBuilder.call(this, { parent: elm, start: elm.firstChild, bInit, env, });
-            for (const mod of postModifiers) {
-                const attName = mod.name;
-                try {
-                    const val = mod.depValue(env);
-                    switch (mod.modType) {
-                        case ModifType.PseudoEvent:
-                            if (bInit || attName == 'onupdate')
-                                val.call(elm);
-                            break;
-                    }
-                }
-                catch (err) {
-                    throw `[${attName}]: ${err}`;
-                }
-            }
+            ApplyModifiers(elm, preModifiers, region);
+            ApplyModifiers(elm, postModifiers, region);
         };
         builder.bTrim = bTrim;
         return builder;
@@ -1194,11 +1196,11 @@ class RCompiler {
             try {
                 if (m = /^on(create|update)$/i.exec(attName))
                     postModifiers.push({
-                        modType: ModifType.PseudoEvent,
+                        modType: ModifType[attName],
                         name: m[0],
                         depValue: this.CompJavaScript(`function ${attName}(){${attValue}\n}`)
                     });
-                if (m = /^on(.*)$/i.exec(attName))
+                else if (m = /^on(.*)$/i.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Event,
                         name: CapitalizeProp(m[0]),
@@ -1241,7 +1243,7 @@ class RCompiler {
                         if (m[1] == '@')
                             preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue) });
                         else
-                            postModifiers.push({ modType: ModifType.PseudoEvent, name: 'oncreate', depValue: setter });
+                            postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
                         preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
                     }
                     catch (err) {
@@ -1284,7 +1286,7 @@ class RCompiler {
             if (m[1] || /[^ \t\r\n]/.test(fixed)) {
                 isBlank = false;
                 if (m[1]) {
-                    generators.push(this.CompJavaScript(m[1], '{}', null));
+                    generators.push(this.CompJavaScript(m[1], '{}'));
                     isTrivial = false;
                 }
             }
@@ -1307,6 +1309,7 @@ class RCompiler {
                 }
             };
         dep.isBlank = isBlank;
+        dep.bUsesThis = false;
         return dep;
     }
     CompPattern(patt) {
@@ -1342,23 +1345,32 @@ class RCompiler {
     CompAttrExpression(atts, attName, bRequired) {
         return this.CompJavaScript(atts.get(attName, bRequired, true));
     }
-    CompJavaScript(expr, delims = '""', bStatement = false, descript) {
+    CompJavaScript(expr, delims = '""', descript) {
         if (expr == null)
             return null;
-        let depExpr = bStatement
-            ? `'use strict';([${this.context}]) => {${expr}\n}`
-            : `'use strict';([${this.context}]) => (${expr}\n)`;
-        const errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
+        const bThis = /\bthis\b/.test(expr), depExpr = bThis ?
+            `'use strict';(function expr([${this.context}]){return (${expr}\n)})`
+            : `'use strict';([${this.context}])=>(${expr}\n)`, errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr, 60)}${delims[1]}: `;
         try {
-            const routine = globalEval(depExpr);
-            return (env) => {
-                try {
-                    return routine(env);
+            const routine = globalEval(depExpr), depValue = (bThis
+                ? function (env) {
+                    try {
+                        return routine.call(this, env);
+                    }
+                    catch (err) {
+                        throw `${errorInfo}${err}`;
+                    }
                 }
-                catch (err) {
-                    throw `${errorInfo}${err}`;
-                }
-            };
+                : (env) => {
+                    try {
+                        return routine(env);
+                    }
+                    catch (err) {
+                        throw `${errorInfo}${err}`;
+                    }
+                });
+            depValue.bUsesThis = bThis;
+            return depValue;
         }
         catch (err) {
             throw `${errorInfo}${err}`;
@@ -1372,12 +1384,12 @@ class RCompiler {
     }
 }
 function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text = '') {
-    let { parent, start, bInit } = region;
+    let { parent, start, bInit, env } = region;
     let marker;
     if (bInit) {
         (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start)).nextM = null;
         FillNextM(region, marker);
-        region.lastM = marker;
+        region.lastNode = region.lastM = marker;
         if (start && start == srcElm)
             region.start = start.nextSibling;
     }
@@ -1395,13 +1407,13 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
         }
         bInit = true;
     }
-    return region.lastSub = { parent, marker: marker, start, bInit, env: region.env };
+    return region.lastSub = { parent, marker: marker, start, bInit, env };
 }
-function FillNextM(reg, node) {
+function FillNextM(reg, nextM) {
     do {
         if (!reg.lastM)
             break;
-        reg.lastM.nextM = node;
+        reg.lastM.nextM = nextM;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
@@ -1423,14 +1435,13 @@ function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
-    constructor(rRuntime, name, initialValue, store, storeName) {
+    constructor(rRuntime, globalName, initialValue, store, storeName) {
         this.rRuntime = rRuntime;
-        this.name = name;
         this.store = store;
         this.storeName = storeName;
         this.Subscribers = new Set();
-        if (name)
-            globalThis[name] = this;
+        if (globalName)
+            globalThis[globalName] = this;
         let s;
         if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
             try {
@@ -1439,6 +1450,7 @@ class _RVAR {
             }
             catch { }
         this._Value = initialValue;
+        this.storeName ||= globalName;
     }
     Subscribe(s) {
         this.Subscribers.add(s);
@@ -1501,7 +1513,7 @@ function CheckValidIdentifier(name) {
 }
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
     + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
-    + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|table|tab(?=index)|text|top|value|variant)';
+    + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());

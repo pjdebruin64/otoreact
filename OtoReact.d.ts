@@ -15,7 +15,9 @@ declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
 declare type Marker = ChildNode & {
+    lastNode?: ChildNode;
     nextM?: ChildNode;
+    prevM?: Marker;
     rResult?: unknown;
     rValue?: unknown;
     hash?: Hash;
@@ -33,6 +35,7 @@ declare type Region = {
     env: Environment;
     lastM?: Marker;
     lastSub?: Region;
+    lastNode?: ChildNode;
     bNoChildBuilding?: boolean;
 };
 declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
@@ -61,8 +64,8 @@ interface Hash {
 }
 declare class RCompiler {
     instanceNum: number;
-    private context;
     private ContextMap;
+    private context;
     private Constructs;
     private StyleRoot;
     private StyleBefore;
@@ -105,8 +108,8 @@ declare class RCompiler {
     CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder;
     private ParseSignature;
     private CompComponent;
-    private CompConstructTemplate;
-    private CompConstructInstance;
+    private CompTemplate;
+    private CompInstance;
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
@@ -123,10 +126,9 @@ interface Store {
 }
 declare class _RVAR<T> {
     private rRuntime;
-    private name?;
     private store?;
     private storeName?;
-    constructor(rRuntime: RCompiler, name?: string, initialValue?: T, store?: Store, storeName?: string);
+    constructor(rRuntime: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
     Subscribers: Set<Subscriber>;
     Subscribe(s: Subscriber): void;
