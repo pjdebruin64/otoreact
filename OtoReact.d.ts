@@ -15,11 +15,11 @@ declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
 declare type Marker = ChildNode & {
-    lastNode?: ChildNode;
-    nextM?: ChildNode;
-    prevM?: Marker;
+    nextN?: ChildNode;
+    lastSub?: Marker;
     rResult?: unknown;
     rValue?: unknown;
+    prevM?: Marker;
     hash?: Hash;
     key?: Key;
     keyMap?: Map<Key, Subscriber>;
@@ -35,7 +35,6 @@ declare type Region = {
     env: Environment;
     lastM?: Marker;
     lastSub?: Region;
-    lastNode?: ChildNode;
     bNoChildBuilding?: boolean;
 };
 declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
@@ -63,6 +62,7 @@ interface Key {
 interface Hash {
 }
 declare class RCompiler {
+    static iNum: number;
     instanceNum: number;
     private ContextMap;
     private context;
@@ -101,7 +101,7 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompChildNodes;
-    private preMods;
+    static preMods: string[];
     private CompElement;
     private CallWithErrorHandling;
     private CompScript;

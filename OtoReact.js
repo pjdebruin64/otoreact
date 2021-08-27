@@ -69,12 +69,6 @@ class Signature {
     }
 }
 const globalEval = eval;
-async function FetchText(url) {
-    const response = await fetch(url);
-    if (!response.ok)
-        throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-    return await response.text();
-}
 var ModifType;
 (function (ModifType) {
     ModifType[ModifType["Attr"] = 0] = "Attr";
@@ -158,10 +152,9 @@ function RestoreEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
-let iNum = 0;
 class RCompiler {
     constructor(clone) {
-        this.instanceNum = iNum++;
+        this.instanceNum = RCompiler.iNum++;
         this.restoreActions = [];
         this.ToBuild = [];
         this.AllRegions = [];
@@ -175,7 +168,6 @@ class RCompiler {
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
-        this.preMods = ['reacton', 'reactson', 'thisreactson'];
         this.context = clone ? clone.context : "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
@@ -278,14 +270,20 @@ class RCompiler {
                 this.buildStart = performance.now();
                 this.builtNodeCount = 0;
                 for (const { parent, marker, start, builder, env } of this.DirtySubs.values()) {
+                    const region = { parent,
+                        start: start || marker && marker.nextSibling || parent.firstChild,
+                        bInit: false,
+                        env, };
                     try {
-                        await builder.call(this, { parent,
-                            start: start || marker && marker.nextSibling || parent.firstChild,
-                            env, });
+                        await builder.call(this, region);
                     }
                     catch (err) {
                         const msg = `ERROR: ${err}`;
                         console.log(msg);
+                    }
+                    finally {
+                        if (!start && marker)
+                            FillNextN(region, marker.nextN);
                     }
                 }
                 console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.buildStart).toFixed(1)} ms`);
@@ -361,7 +359,7 @@ class RCompiler {
                                     region.start = start.nextSibling;
                                 }
                                 if (bInit)
-                                    FillNextM(region, text);
+                                    FillNextN(region, text);
                             }
                             builders.push([Text, srcNode, getText.isBlank]);
                         }
@@ -397,7 +395,7 @@ class RCompiler {
         const atts = new Atts(srcElm);
         let builder = null;
         const mapReacts = [];
-        for (const attName of this.preMods) {
+        for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
             if (val)
                 mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompJavaScript(expr)) });
@@ -420,8 +418,8 @@ class RCompiler {
                             const bReact = atts.get('reacting') != null;
                             const subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEFINE(region) {
-                                const subRegion = PrepareRegion(srcElm, region, undefined, undefined, varName);
-                                const { marker } = subRegion;
+                                const subReg = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const { marker } = subReg;
                                 if (region.bInit || bReact) {
                                     const value = getValue && getValue(region.env);
                                     marker.rValue = rvarName
@@ -429,8 +427,7 @@ class RCompiler {
                                         : value;
                                 }
                                 newVar(region.env)(marker.rValue);
-                                await subBuilder.call(this, subRegion);
-                                marker.lastNode = subRegion.lastNode;
+                                await subBuilder.call(this, subReg);
                             };
                         }
                         break;
@@ -511,21 +508,21 @@ class RCompiler {
                                             throw `${OuterOpenTag(alt.childElm)}${err}`;
                                         }
                                     if (bHiding) {
-                                        const subRegion = PrepareRegion(srcElm, region, null, bInit);
-                                        if (bInit && subRegion.start == srcElm) {
-                                            subRegion.start = srcElm.firstChild;
+                                        const subReg = PrepareRegion(srcElm, region, null, bInit);
+                                        if (bInit && subReg.start == srcElm) {
+                                            subReg.start = srcElm.firstChild;
                                             srcElm.replaceWith(...srcElm.childNodes);
                                         }
                                         for (const alt of caseList) {
                                             const bHidden = alt != choosenAlt;
-                                            const elm = PrepareElement(alt.childElm, subRegion);
+                                            const elm = PrepareElement(alt.childElm, subReg);
                                             elm.hidden = bHidden;
                                             if ((!bHidden || bInit) && !region.bNoChildBuilding)
                                                 await this.CallWithErrorHandling(alt.builder, alt.childElm, { parent: elm, start: elm.firstChild, bInit, env });
                                         }
                                     }
                                     else {
-                                        const subregion = PrepareRegion(srcElm, region, choosenAlt, bInit);
+                                        const subReg = PrepareRegion(srcElm, region, choosenAlt, bInit);
                                         if (choosenAlt) {
                                             const saved = SaveEnv();
                                             try {
@@ -534,7 +531,7 @@ class RCompiler {
                                                     for (const lvar of choosenAlt.patt.lvars)
                                                         lvar(env)((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[i++]));
                                                 }
-                                                await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion);
+                                                await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subReg);
                                             }
                                             finally {
                                                 RestoreEnv(saved);
@@ -565,8 +562,8 @@ class RCompiler {
                                     const t0 = performance.now();
                                     await task;
                                     this.buildStart += performance.now() - t0;
-                                    const subregion = PrepareRegion(srcElm, region, null, true);
-                                    await C.Builder(subregion);
+                                    const subReg = PrepareRegion(srcElm, region, null, true);
+                                    await C.Builder(subReg);
                                     this.builtNodeCount += C.builtNodeCount;
                                 };
                         }
@@ -638,23 +635,23 @@ class RCompiler {
                             const getDependencies = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                             builder = async function REACT(region) {
-                                let subregion = PrepareRegion(srcElm, region);
-                                if (subregion.bInit) {
-                                    if (subregion.start == srcElm) {
-                                        subregion.start = srcElm.firstChild;
+                                let subReg = PrepareRegion(srcElm, region);
+                                if (subReg.bInit) {
+                                    if (subReg.start == srcElm) {
+                                        subReg.start = srcElm.firstChild;
                                         srcElm.replaceWith(...srcElm.childNodes);
                                     }
                                     const subscriber = {
-                                        parent: subregion.parent, marker: subregion.marker,
+                                        parent: subReg.parent, marker: subReg.marker,
                                         builder: bodyBuilder,
-                                        env: CloneEnv(subregion.env),
+                                        env: CloneEnv(subReg.env),
                                     };
                                     for (const getRvar of getDependencies) {
-                                        const rvar = getRvar(subregion.env);
+                                        const rvar = getRvar(subReg.env);
                                         rvar.Subscribe(subscriber);
                                     }
                                 }
-                                await bodyBuilder.call(this, subregion);
+                                await bodyBuilder.call(this, subReg);
                             };
                         }
                         break;
@@ -687,9 +684,9 @@ class RCompiler {
                                         }
                                         R.Compile(tempElm, { bRunScripts: true }, false);
                                         elm['AddedHdrElms'] = R.AddedHeaderElements;
-                                        const subregion = PrepareRegion(srcElm, { parent: shadowRoot, start: null, bInit: true, env: NewEnv() });
-                                        R.StyleBefore = subregion.marker;
-                                        await R.Build(subregion);
+                                        const subReg = PrepareRegion(srcElm, { parent: shadowRoot, start: null, bInit: true, env: NewEnv() });
+                                        R.StyleBefore = subReg.marker;
+                                        await R.Build(subReg);
                                         this.builtNodeCount += R.builtNodeCount;
                                     }
                                     catch (err) {
@@ -721,11 +718,11 @@ class RCompiler {
         for (const { attName, rvars } of mapReacts) {
             const bNoChildUpdates = (attName == 'thisreactson'), bodyBuilder = builder;
             builder = async function REACT(region) {
-                const subregion = PrepareRegion(srcElm, region, null, null, attName);
-                await bodyBuilder.call(this, subregion);
+                const subReg = PrepareRegion(srcElm, region, null, null, attName);
+                await bodyBuilder.call(this, subReg);
                 if (region.bInit) {
                     const subscriber = {
-                        parent: region.parent, marker: subregion.marker,
+                        parent: region.parent, marker: subReg.marker,
                         builder: async function reacton(reg) {
                             if (bNoChildUpdates && !reg.bInit)
                                 reg.bNoChildBuilding = true;
@@ -838,8 +835,8 @@ class RCompiler {
                 const bodyBuilder = this.CompChildNodes(srcElm);
                 srcParent.removeChild(srcElm);
                 return async function FOREACH(region) {
-                    let subregion = PrepareRegion(srcElm, region, null, (getKey == null));
-                    let { parent, marker, start, env } = subregion;
+                    let subReg = PrepareRegion(srcElm, region, null, (getKey == null));
+                    let { parent, marker, start, env } = subReg;
                     const savedEnv = SaveEnv();
                     try {
                         const keyMap = (region.bInit ? marker.keyMap = new Map() : marker.keyMap);
@@ -863,7 +860,7 @@ class RCompiler {
                             while (start && start != region.start && !newMap.has(key = start.key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                const nextMarker = start.nextM || region.start;
+                                const nextMarker = start.nextN || region.start;
                                 while (start != nextMarker) {
                                     const next = start.nextSibling;
                                     parent.removeChild(start);
@@ -883,34 +880,32 @@ class RCompiler {
                         for (const [key, { item, hash }] of newMap) {
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
-                            let subscriber = keyMap.get(key), marker;
-                            if (subscriber && (marker = subscriber.marker).isConnected) {
-                                const nextMarker = marker.nextM;
-                                if (marker != start) {
-                                    marker.prevM.nextM = marker.nextM;
-                                    if (marker.nextM)
-                                        marker.nextM.prevM = marker.prevM;
-                                    let node = marker;
+                            let subscriber = keyMap.get(key), childMark;
+                            if (subscriber && (childMark = subscriber.marker).isConnected) {
+                                const nextMarker = childMark.nextN;
+                                if (childMark != start) {
+                                    SetNextN(childMark.prevM, childMark.nextN);
+                                    if (childMark.nextN)
+                                        childMark.nextN.prevM = childMark.prevM;
+                                    let node = childMark;
                                     while (node != nextMarker) {
                                         const next = node.nextSibling;
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
-                                    marker.nextM = start;
+                                    SetNextN(childMark, start);
                                 }
-                                else
-                                    debugger;
-                                marker.textContent = `${varName}(${index})`;
-                                subregion.bInit = false;
-                                subregion.start = marker;
-                                FillNextM(subregion, marker);
-                                childRegion = PrepareRegion(null, subregion, null, false);
-                                subregion.lastM = marker;
+                                childMark.textContent = `${varName}(${index})`;
+                                subReg.bInit = false;
+                                subReg.start = childMark;
+                                FillNextN(subReg, childMark);
+                                childRegion = PrepareRegion(null, subReg, null, false);
+                                subReg.lastM = childMark;
                             }
                             else {
-                                subregion.bInit = true;
-                                subregion.start = start;
-                                childRegion = PrepareRegion(null, subregion, null, true, `${varName}(${index})`);
+                                subReg.bInit = true;
+                                subReg.start = start;
+                                childRegion = PrepareRegion(null, subReg, null, true, `${varName}(${index})`);
                                 subscriber = {
                                     ...childRegion,
                                     builder: (bReactive ? bodyBuilder : undefined),
@@ -921,14 +916,14 @@ class RCompiler {
                                         throw `Duplicate key '${key}'`;
                                     keyMap.set(key, subscriber);
                                 }
-                                marker = childRegion.marker;
-                                marker.key = key;
+                                childMark = childRegion.marker;
+                                childMark.key = key;
                             }
-                            marker.prevM = prevM;
-                            prevM = marker;
+                            childMark.prevM = prevM;
+                            prevM = childMark;
                             if (hash != null
-                                && (hash == marker.hash
-                                    || (marker.hash = hash, false))) {
+                                && (hash == childMark.hash
+                                    || (childMark.hash = hash, false))) {
                             }
                             else {
                                 let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
@@ -945,11 +940,10 @@ class RCompiler {
                             }
                             prevItem = item;
                             index++;
-                            start = subregion.start;
+                            start = subReg.start;
                             RemoveStaleItemsHere();
                         }
-                        if (childRegion)
-                            region.lastSub = childRegion;
+                        marker.lastSub = childRegion.marker;
                     }
                     finally {
                         RestoreEnv(savedEnv);
@@ -965,8 +959,8 @@ class RCompiler {
                 const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                 srcParent.removeChild(srcElm);
                 return async function FOREACH_Slot(region) {
-                    const subregion = PrepareRegion(srcElm, region);
-                    const env = subregion.env;
+                    const subReg = PrepareRegion(srcElm, region);
+                    const env = subReg.env;
                     const saved = SaveEnv();
                     const slotDef = env.constructDefs.get(slotName);
                     try {
@@ -975,7 +969,7 @@ class RCompiler {
                         for (const slotBuilder of slotDef.instanceBuilders) {
                             setIndex(index++);
                             env.constructDefs.set(slotName, { instanceBuilders: [slotBuilder], constructEnv: slotDef.constructEnv });
-                            await bodyBuilder.call(this, subregion);
+                            await bodyBuilder.call(this, subReg);
                         }
                     }
                     finally {
@@ -1143,8 +1137,8 @@ class RCompiler {
         atts.CheckNoAttsLeft();
         this.bTrimLeft = false;
         return async function INSTANCE(region) {
-            const subregion = PrepareRegion(srcElm, region);
-            const localEnv = subregion.env;
+            const subReg = PrepareRegion(srcElm, region);
+            const localEnv = subReg.env;
             const { instanceBuilders, constructEnv } = localEnv.constructDefs.get(tagName);
             const savedEnv = SaveEnv();
             try {
@@ -1158,9 +1152,9 @@ class RCompiler {
                     args.push(rest);
                 }
                 const slotEnv = signature.Slots.size ? CloneEnv(localEnv) : null;
-                subregion.env = constructEnv;
+                subReg.env = constructEnv;
                 for (const parBuilder of instanceBuilders)
-                    await parBuilder.call(this, subregion, args, slotBuilders, slotEnv);
+                    await parBuilder.call(this, subReg, args, slotBuilders, slotEnv);
             }
             finally {
                 RestoreEnv(savedEnv);
@@ -1244,7 +1238,7 @@ class RCompiler {
                             preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue) });
                         else
                             postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter });
+                        preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
                     }
                     catch (err) {
                         throw `Invalid left-hand side '${attValue}'`;
@@ -1383,19 +1377,24 @@ class RCompiler {
         return env => env[i];
     }
 }
+RCompiler.iNum = 0;
+RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
 function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text = '') {
     let { parent, start, bInit, env } = region;
     let marker;
     if (bInit) {
-        (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start)).nextM = null;
-        FillNextM(region, marker);
-        region.lastNode = region.lastM = marker;
+        (marker =
+            parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start)).nextN = null;
+        FillNextN(region, marker);
+        region.lastM = marker;
+        if (region.marker)
+            region.marker.lastSub = marker;
         if (start && start == srcElm)
             region.start = start.nextSibling;
     }
     else {
         marker = start;
-        region.start = marker.nextM;
+        region.start = marker.nextN;
         start = marker.nextSibling;
     }
     if (bForcedClear || (result != marker.rResult ?? null)) {
@@ -1407,28 +1406,41 @@ function PrepareRegion(srcElm, region, result = null, bForcedClear = false, text
         }
         bInit = true;
     }
-    return region.lastSub = { parent, marker: marker, start, bInit, env };
+    return { parent, marker, start, bInit, env };
 }
-function FillNextM(reg, nextM) {
+function FillNextN(reg, nextN) {
     do {
         if (!reg.lastM)
             break;
-        reg.lastM.nextM = nextM;
+        reg.lastM.nextN = nextN;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
 }
-function PrepareElement(srcElm, region, nodeName = srcElm.nodeName) {
-    const { start, lastM } = region;
-    let elm = !region.bInit || start == srcElm
-        ? (region.start = start.nextSibling, start)
-        : region.parent.insertBefore(document.createElement(nodeName), start);
-    if (elm == srcElm && elm.nodeName != nodeName) {
-        (elm = document.createElement(nodeName)).append(...start.childNodes);
-        region.parent.replaceChild(elm, start);
+function SetNextN(marker, nextN) {
+    while (marker) {
+        marker.nextN = nextN;
+        marker = marker.lastSub;
     }
-    if (region.bInit)
-        FillNextM(region, elm);
+}
+function PrepareElement(srcElm, region, nodeName = srcElm.nodeName) {
+    const { start, bInit } = region;
+    let elm;
+    if (!bInit || start == srcElm) {
+        region.start = start.nextSibling;
+        elm = start;
+        if (elm == srcElm && elm.nodeName != nodeName) {
+            (elm = document.createElement(nodeName)).append(...start.childNodes);
+            region.parent.replaceChild(elm, start);
+        }
+    }
+    else
+        elm = region.parent.insertBefore(document.createElement(nodeName), start);
+    if (bInit) {
+        FillNextN(region, elm);
+        if (region.marker)
+            region.marker.lastSub = null;
+    }
     return elm;
 }
 function quoteReg(fixed) {
@@ -1502,12 +1514,12 @@ class Atts extends Map {
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-const regIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const regIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserved = /^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
 function CheckValidIdentifier(name) {
     name = name.trim();
     if (!regIdentifier.test(name))
         throw `Invalid identifier '${name}'`;
-    if (/^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
+    if (regReserved.test(name))
         throw `Reserved keyword '${name}'`;
     return name;
 }
@@ -1549,6 +1561,12 @@ function createErrorNode(message) {
     node.style.fontSize = '10pt';
     node.innerText = message;
     return node;
+}
+async function FetchText(url) {
+    const response = await fetch(url);
+    if (!response.ok)
+        throw `GET '${url}' returned ${response.status} ${response.statusText}`;
+    return await response.text();
 }
 export let RHTML = new RCompiler();
 Object.defineProperties(globalThis, {

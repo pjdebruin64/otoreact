@@ -65,12 +65,16 @@ function CloneEnv(env: Environment): Environment {
 }
 
 type Marker = ChildNode & {
-    lastNode?: ChildNode,
-    nextM?: ChildNode, 
-    prevM?: Marker, // Alleen voor FOR-iteraties
+    nextN?: ChildNode,
+    lastSub?: Marker,
+    
     rResult?: unknown, 
+
     rValue?: unknown,
+    
+    prevM?: Marker, // Alleen voor FOR-iteraties
     hash?: Hash, key?: Key, keyMap?: Map<Key, Subscriber>,
+
     errorNode?: ChildNode,
 };
 type Region     = {
@@ -81,7 +85,7 @@ type Region     = {
     env: Environment,
     lastM?: Marker,
     lastSub?: Region,
-    lastNode?: ChildNode,
+    //parentReg?: Region,
     bNoChildBuilding?: boolean,
 };
 type DOMBuilder = ((reg: Region) => Promise<void>) & {bTrim?: boolean};
@@ -145,12 +149,6 @@ type RVAR_Light<T> = T & {
 };
 
 const globalEval = eval;
-async function FetchText(url: string): Promise<string> {
-    const response = await fetch(url);
-    if (!response.ok)
-        throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-    return await response.text();
-}
 
 enum ModifType {Attr, Prop, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
@@ -159,7 +157,6 @@ type Modifier = {
     modType: ModifType,
     name: string,
     depValue: Dependent<unknown>,
-    tag?: string,
 }
 type RestParameter = Array<{modType: ModifType, name: string, value: unknown}>;
 
@@ -232,9 +229,11 @@ function RestoreEnv(savedEnv: SavedEnv) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
-let iNum=0;
 class RCompiler {
-    instanceNum = iNum++;
+
+    static iNum=0;
+    public instanceNum = RCompiler.iNum++;
+
     private ContextMap: Context;
     private context: string; 
 
@@ -391,15 +390,21 @@ class RCompiler {
                 this.buildStart = performance.now();
                 this.builtNodeCount = 0;
                 for (const {parent, marker, start, builder, env} of this.DirtySubs.values()) {
+                    const region = 
+                        { parent, 
+                        start: start || marker && marker.nextSibling || parent.firstChild, 
+                        bInit: false,
+                        env, }
                     try { 
-                        await builder.call(this, 
-                            { parent, 
-                            start: start || marker && marker.nextSibling || parent.firstChild, 
-                            env, }); 
+                        await builder.call(this, region); 
                     }
                     catch (err) {
                         const msg = `ERROR: ${err}`;
                         console.log(msg);
+                    }
+                    finally {
+                        if (!start && marker)
+                            FillNextN(region, (marker as Marker).nextN)
                     }
                 }
                 console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.buildStart).toFixed(1)} ms`);
@@ -501,7 +506,7 @@ class RCompiler {
                                     region.start = start.nextSibling;
                                 }
                                 if (bInit)
-                                    FillNextM(region, text)
+                                    FillNextN(region, text)
                             }
 
                             builders.push( [ Text, srcNode, getText.isBlank] );
@@ -533,12 +538,12 @@ class RCompiler {
             };
     }
 
-    private preMods = ['reacton','reactson','thisreactson'];
+    static preMods = ['reacton','reactson','thisreactson'];
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm);
         let builder: DOMBuilder = null;
         const mapReacts: Array<{attName: string, rvars: Dependent<_RVAR<unknown>>[]}> = [];
-        for (const attName of this.preMods) {
+        for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
             if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) )});
         }
@@ -563,8 +568,8 @@ labelNoCheck:
                         const subBuilder = this.CompChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, region) {
-                                const subRegion = PrepareRegion(srcElm, region, undefined, undefined, varName);
-                                const {marker} = subRegion;
+                                const subReg = PrepareRegion(srcElm, region, undefined, undefined, varName);
+                                const {marker} = subReg;
                                 if (region.bInit || bReact){
                                     const value = getValue && getValue(region.env);
                                     marker.rValue = rvarName 
@@ -572,8 +577,7 @@ labelNoCheck:
                                         : value;
                                 }
                                 newVar(region.env)(marker.rValue);
-                                await subBuilder.call(this, subRegion);
-                                marker.lastNode = subRegion.lastNode;
+                                await subBuilder.call(this, subReg);
                             };
                     } break;
 
@@ -656,15 +660,15 @@ labelNoCheck:
                                     } catch (err) { throw `${OuterOpenTag(alt.childElm)}${err}` }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
-                                    const subRegion = PrepareRegion(srcElm, region, null, bInit);
-                                    if (bInit && subRegion.start == srcElm) {
-                                        subRegion.start = srcElm.firstChild;
+                                    const subReg = PrepareRegion(srcElm, region, null, bInit);
+                                    if (bInit && subReg.start == srcElm) {
+                                        subReg.start = srcElm.firstChild;
                                         srcElm.replaceWith(...srcElm.childNodes);
                                     }
                                         
                                     for (const alt of caseList) {
                                         const bHidden = alt != choosenAlt;
-                                        const elm = PrepareElement(alt.childElm, subRegion);
+                                        const elm = PrepareElement(alt.childElm, subReg);
                                         elm.hidden = bHidden;
                                         if ((!bHidden || bInit) && !region.bNoChildBuilding)
                                             await this.CallWithErrorHandling(alt.builder, alt.childElm, {parent: elm, start: elm.firstChild, bInit, env} );
@@ -672,7 +676,7 @@ labelNoCheck:
                                 }
                                 else {
                                     // This is the regular CASE                                
-                                    const subregion = PrepareRegion(srcElm, region, choosenAlt, bInit);
+                                    const subReg = PrepareRegion(srcElm, region, choosenAlt, bInit);
                                     if (choosenAlt) {
                                         const saved = SaveEnv();
                                         try {
@@ -684,7 +688,7 @@ labelNoCheck:
                                                         (matchResult[i++])
                                                     );
                                             }
-                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subregion );
+                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subReg );
                                         } finally { RestoreEnv(saved) }
                                     }
                                 }
@@ -719,8 +723,8 @@ labelNoCheck:
                                 const t0 = performance.now();
                                 await task;
                                 this.buildStart += performance.now() - t0;
-                                const subregion = PrepareRegion(srcElm, region, null, true);
-                                await C.Builder(subregion);
+                                const subReg = PrepareRegion(srcElm, region, null, true);
+                                await C.Builder(subReg);
                                 this.builtNodeCount += C.builtNodeCount;
                             };
                     } break;
@@ -807,28 +811,28 @@ labelNoCheck:
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         
                         builder = async function REACT(this: RCompiler, region) {
-                            let subregion = PrepareRegion(srcElm, region);
+                            let subReg = PrepareRegion(srcElm, region);
 
-                            if (subregion.bInit) {
-                                if (subregion.start == srcElm) {
-                                    subregion.start = srcElm.firstChild;
+                            if (subReg.bInit) {
+                                if (subReg.start == srcElm) {
+                                    subReg.start = srcElm.firstChild;
                                     srcElm.replaceWith(...srcElm.childNodes );
                                 }
 
                                 const subscriber: Subscriber = {
-                                    parent: subregion.parent, marker: subregion.marker,
+                                    parent: subReg.parent, marker: subReg.marker,
                                     builder: bodyBuilder,
-                                    env: CloneEnv(subregion.env),
+                                    env: CloneEnv(subReg.env),
                                 };
                         
                                 // Subscribe bij de gegeven variabelen
                                 for (const getRvar of getDependencies) {
-                                    const rvar = getRvar(subregion.env);
+                                    const rvar = getRvar(subReg.env);
                                     rvar.Subscribe(subscriber);
                                 }
                             }
         
-                            await bodyBuilder.call(this, subregion);
+                            await bodyBuilder.call(this, subReg);
                         }
                     } break;
 
@@ -867,9 +871,9 @@ labelNoCheck:
                                     R.Compile(tempElm, {bRunScripts: true }, false);
                                     elm['AddedHdrElms'] = R.AddedHeaderElements;
                                     
-                                    const subregion = PrepareRegion(srcElm, {parent: shadowRoot, start: null, bInit: true, env: NewEnv()});
-                                    R.StyleBefore = subregion.marker;
-                                    await R.Build(subregion);
+                                    const subReg = PrepareRegion(srcElm, {parent: shadowRoot, start: null, bInit: true, env: NewEnv()});
+                                    R.StyleBefore = subReg.marker;
+                                    await R.Build(subReg);
                                     this.builtNodeCount += R.builtNodeCount;
                                 }
                                 catch(err) {
@@ -901,14 +905,15 @@ labelNoCheck:
         }
 
         for (const {attName, rvars} of mapReacts) {   
-            const bNoChildUpdates = (attName == 'thisreactson'), bodyBuilder = builder;
+            const bNoChildUpdates = (attName == 'thisreactson')
+                , bodyBuilder = builder;
             builder = async function REACT(this: RCompiler, region) {
-                const subregion = PrepareRegion(srcElm, region, null, null, attName);
-                await bodyBuilder.call(this, subregion);
+                const subReg = PrepareRegion(srcElm, region, null, null, attName);
+                await bodyBuilder.call(this, subReg);
 
                 if (region.bInit) {
                     const subscriber: Subscriber = {
-                        parent: region.parent, marker: subregion.marker,
+                        parent: region.parent, marker: subReg.marker,
                         builder: async function reacton(this: RCompiler, reg: Region) {
                             if (bNoChildUpdates && !reg.bInit) reg.bNoChildBuilding = true;
                             await this.CallWithErrorHandling(bodyBuilder, srcElm, reg);
@@ -1037,8 +1042,8 @@ labelNoCheck:
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOREACH(this: RCompiler, region: Region) {
-                    let subregion = PrepareRegion(srcElm, region, null, (getKey == null));
-                    let {parent, marker, start, env} = subregion;
+                    let subReg = PrepareRegion(srcElm, region, null, (getKey == null));
+                    let {parent, marker, start, env} = subReg;
                     const savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
@@ -1067,7 +1072,7 @@ labelNoCheck:
                             while (start && start != region.start && !newMap.has(key = (start as Marker).key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                const nextMarker = (start as Marker).nextM || region.start;
+                                const nextMarker = (start as Marker).nextN || region.start;
                                 while (start != nextMarker) {
                                     const next = start.nextSibling;
                                     parent.removeChild(start);
@@ -1093,40 +1098,39 @@ labelNoCheck:
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
 
-                            let subscriber = keyMap.get(key), marker: Marker;
-                            if (subscriber && (marker = subscriber.marker).isConnected) {
+                            let subscriber = keyMap.get(key), childMark: Marker;
+                            if (subscriber && (childMark = subscriber.marker).isConnected) {
                                 // Item already occurs in the series
-                                const nextMarker = marker.nextM;
+                                const nextMarker = childMark.nextN;
                                 
-                                if (marker != start) {
+                                if (childMark != start) {
                                     // Item has to be moved
-                                    marker.prevM.nextM = marker.nextM;
-                                    if (marker.nextM)
-                                        (marker.nextM as Marker).prevM = marker.prevM;
-                                    let node = marker
+                                    SetNextN(childMark.prevM, childMark.nextN);
+                                    if (childMark.nextN)
+                                        (childMark.nextN as Marker).prevM = childMark.prevM;
+                                    let node = childMark
                                     while(node != nextMarker) {
                                         const next = node.nextSibling;
                                         parent.insertBefore(node, start);
                                         node = next;
                                     }
-                                    marker.nextM = start;
+                                    SetNextN(childMark, start);
                                 }
-                                else //marker.nextM klopt niet
-                                    debugger;
+                                //else debugger //marker.nextM klopt niet
                                 
-                                (marker as Comment).textContent = `${varName}(${index})`;
+                                (childMark as Comment).textContent = `${varName}(${index})`;
 
-                                subregion.bInit = false;
-                                subregion.start = marker;
-                                FillNextM(subregion, marker);
-                                childRegion = PrepareRegion(null, subregion, null, false);
-                                subregion.lastM = marker;
+                                subReg.bInit = false;
+                                subReg.start = childMark;
+                                FillNextN(subReg, childMark);
+                                childRegion = PrepareRegion(null, subReg, null, false);
+                                subReg.lastM = childMark;
                             }
                             else {
                                 // Item has to be newly created
-                                subregion.bInit = true;
-                                subregion.start = start;
-                                childRegion = PrepareRegion(null,  subregion, null, true, `${varName}(${index})`);
+                                subReg.bInit = true;
+                                subReg.start = start;
+                                childRegion = PrepareRegion(null,  subReg, null, true, `${varName}(${index})`);
                                 subscriber = {
                                     ...childRegion,
                                     builder: (bReactive ? bodyBuilder : undefined),
@@ -1137,14 +1141,14 @@ labelNoCheck:
                                         throw `Duplicate key '${key}'`;
                                     keyMap.set(key, subscriber);
                                 }
-                                marker = childRegion.marker
-                                marker.key = key;
+                                childMark = childRegion.marker
+                                childMark.key = key;
                             }
-                            marker.prevM = prevM; prevM = marker;
+                            childMark.prevM = prevM; prevM = childMark;
 
                             if (hash != null
-                                && ( hash == marker.hash as Hash
-                                    || (marker.hash = hash, false)
+                                && ( hash == childMark.hash as Hash
+                                    || (childMark.hash = hash, false)
                                     )
                             ) { 
                                 // Nothing
@@ -1171,11 +1175,11 @@ labelNoCheck:
                             prevItem = item;
                             index++;
                             
-                            start = subregion.start;
+                            start = subReg.start;
                             RemoveStaleItemsHere();
                         }
-                        if (childRegion)
-                            region.lastSub = childRegion;
+                        marker.lastSub = childRegion.marker;
+                        //SetNextN(childRegion.marker, region.start);
                     }
                     finally { RestoreEnv(savedEnv) }
                 };
@@ -1192,8 +1196,8 @@ labelNoCheck:
                 srcParent.removeChild(srcElm);
 
                 return async function FOREACH_Slot(this: RCompiler, region: Region) {
-                    const subregion = PrepareRegion(srcElm, region);
-                    const env = subregion.env;
+                    const subReg = PrepareRegion(srcElm, region);
+                    const env = subReg.env;
                     const saved= SaveEnv();
                     const slotDef = env.constructDefs.get(slotName);
                     try {
@@ -1202,7 +1206,7 @@ labelNoCheck:
                         for (const slotBuilder of slotDef.instanceBuilders) {
                             setIndex(index++);
                             env.constructDefs.set(slotName, {instanceBuilders: [slotBuilder], constructEnv: slotDef.constructEnv});
-                            await bodyBuilder.call(this, subregion);
+                            await bodyBuilder.call(this, subReg);
                         }
                     }
                     finally {
@@ -1405,8 +1409,8 @@ labelNoCheck:
         this.bTrimLeft = false;
 
         return async function INSTANCE(this: RCompiler, region: Region) {
-            const subregion = PrepareRegion(srcElm, region);
-            const localEnv = subregion.env;
+            const subReg = PrepareRegion(srcElm, region);
+            const localEnv = subReg.env;
 
             // The construct-template(s) will be executed in this construct-env
             const {instanceBuilders, constructEnv} =  localEnv.constructDefs.get(tagName);
@@ -1427,9 +1431,9 @@ labelNoCheck:
                 
                 const slotEnv = signature.Slots.size ? CloneEnv(localEnv) : null;
 
-                subregion.env = constructEnv
+                subReg.env = constructEnv
                 for (const parBuilder of instanceBuilders) 
-                    await parBuilder.call(this, subregion, args, slotBuilders, slotEnv);
+                    await parBuilder.call(this, subReg, args, slotBuilders, slotEnv);
             }
             finally { 
                 RestoreEnv(savedEnv);
@@ -1531,7 +1535,7 @@ labelNoCheck:
                             preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue) });
                         else
                             postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        preModifiers.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', tag: propName, depValue: setter});
+                        preModifiers.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}
                 }
@@ -1740,22 +1744,28 @@ labelNoCheck:
     Anders worden zowel start- als eindmarkering vóór 'start' geplaatst.
 */
 function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = null, bForcedClear: boolean = false, text: string = '')
-    : Region & {marker: Comment}
+    : Region & {marker: Marker}
 {
     let {parent, start, bInit, env} = region;
     let marker: Marker;
     if (bInit) {
-        (marker = parent.insertBefore(document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`), start) as Marker).nextM = null;
-        FillNextM(region, marker);
-        region.lastNode = region.lastM = marker;
+        (marker = 
+            parent.insertBefore(
+                document.createComment(`${srcElm ? srcElm.tagName : ''} ${text}`)
+                , start
+            ) as Marker
+        ).nextN = null;
+        FillNextN(region, marker);
+        region.lastM = marker;
+        if (region.marker)
+            region.marker.lastSub = marker;
         
         if (start && start == srcElm)
             region.start = start.nextSibling;
-        
     }
     else {
         marker = start;
-        region.start = marker.nextM;
+        region.start = marker.nextN;
         start = marker.nextSibling;
     }
 
@@ -1768,31 +1778,46 @@ function PrepareRegion(srcElm: HTMLElement, region: Region, result: unknown = nu
         }
         bInit = true;
     }
-    return region.lastSub = {parent, marker: marker as Comment, start, bInit, env};
+    return {parent, marker, start, bInit, env};
 }
-function FillNextM(reg: Region, nextM: ChildNode) {
+function FillNextN(reg: Region, nextN: ChildNode) {
+    //SetNextN(reg.lastM, nextN);
+    //*
     do {
         if (!reg.lastM) break;
-        reg.lastM.nextM = nextM;
+        reg.lastM.nextN = nextN;
         reg.lastM = null;
         reg = reg.lastSub;
     } while (reg);
+    //*/
+}
+function SetNextN(marker: Marker, nextN: ChildNode) {
+    while (marker) {
+        marker.nextN = nextN;
+        marker = marker.lastSub;
+    }
 }
 
 function PrepareElement(srcElm: HTMLElement, region: Region, nodeName = srcElm.nodeName): HTMLElement {
-    const {start, lastM} = region;
-    let elm = !region.bInit || start == srcElm
-        ? (region.start = start.nextSibling, start as HTMLElement)
-        : region.parent.insertBefore<HTMLElement>(
-            document.createElement(nodeName),
-            start);
+    const {start, bInit} = region;
+    let elm: HTMLElement;
+    if (!bInit || start == srcElm) {
+        region.start = start.nextSibling;
+        elm = start as HTMLElement;
 
-    if (elm == srcElm && elm.nodeName != nodeName) {
-        (elm = document.createElement(nodeName)).append(...start.childNodes);
-        region.parent.replaceChild(elm, start);
+        if (elm == srcElm && elm.nodeName != nodeName) {
+            (elm = document.createElement(nodeName)).append(...start.childNodes);
+            region.parent.replaceChild(elm, start);
+        }
     }
-    if (region.bInit)
-        FillNextM(region, elm);
+    else
+        elm =  region.parent.insertBefore<HTMLElement>(document.createElement(nodeName), start);
+
+    if (bInit) {
+        FillNextN(region, elm);
+        if (region.marker)
+            region.marker.lastSub = null;
+    }
     return elm;
 }
 
@@ -1894,15 +1919,16 @@ class Atts extends Map<string,string> {
     }
 }
 
-const regIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const regIdentifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+    , regReserved = /^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
+
 function CheckValidIdentifier(name: string) {
     // Anders moet het een geldige JavaScript identifier zijn
     name = name.trim();
     if (!regIdentifier.test(name) )
         throw `Invalid identifier '${name}'`;
-    if (/^(?:break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|yield|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/.test(name))
+    if (regReserved.test(name))
         throw `Reserved keyword '${name}'`;
-
     return name;
 }
 
@@ -1952,6 +1978,13 @@ function createErrorNode(message: string) {
     node.style.fontSize = '10pt';
     node.innerText = message;
     return node;
+}
+
+async function FetchText(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok)
+        throw `GET '${url}' returned ${response.status} ${response.statusText}`;
+    return await response.text();
 }
 
 export let RHTML = new RCompiler();
