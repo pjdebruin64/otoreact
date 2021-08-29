@@ -6,57 +6,58 @@ declare const defaultSettings: {
     bBuild: boolean;
     rootPattern: string;
 };
+declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
+    bTrim?: boolean;
+};
+declare type Area = {
+    range: Range;
+    bInit?: boolean;
+    parent: Node;
+    env: Environment;
+    source?: ChildNode;
+    before?: ChildNode;
+    parentR?: Range;
+    prevR?: Range;
+    bNoChildBuilding?: boolean;
+};
+declare class Range<NodeType extends ChildNode = ChildNode> {
+    node?: NodeType;
+    text?: string;
+    child: Range;
+    next: Range;
+    constructor(node?: NodeType, text?: string);
+    toString(): string;
+    rResult?: unknown;
+    errorNode?: ChildNode;
+    previous?: Range;
+    hash?: Hash;
+    key?: Key;
+    get First(): ChildNode;
+    get isConnected(): boolean;
+    ChildNodes(): Generator<ChildNode>;
+}
+declare type Environment = Array<unknown> & {
+    constructDefs: Map<string, ConstructDef>;
+};
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = {
     [Property in keyof FullSettings]+?: FullSettings[Property];
 };
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-declare type Environment = Array<unknown> & {
-    constructDefs: Map<string, ConstructDef>;
-};
-declare type Marker = ChildNode & {
-    nextN?: ChildNode;
-    lastSub?: Marker;
-    rResult?: unknown;
-    rValue?: unknown;
-    prevM?: Marker;
-    hash?: Hash;
-    key?: Key;
-    keyMap?: Map<Key, Subscriber>;
-    errorNode?: ChildNode;
-};
-declare type Region = {
+declare class Subscriber {
+    builder: DOMBuilder;
     parent: Node;
-    marker?: Marker;
-    start: ChildNode & {
-        errorNode?: ChildNode;
-    };
-    bInit: boolean;
+    range: Range;
     env: Environment;
-    lastM?: Marker;
-    lastSub?: Region;
-    bNoChildBuilding?: boolean;
-};
-declare type DOMBuilder = ((reg: Region) => Promise<void>) & {
-    bTrim?: boolean;
-};
+    bNoChildBuilding: boolean;
+    constructor(area: Area, builder: DOMBuilder);
+}
+declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
     instanceBuilders: ParametrizedBuilder[];
     constructEnv: Environment;
 };
-declare type ParametrizedBuilder = (this: RCompiler, reg: Region, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
-declare type ParentNode = HTMLElement | DocumentFragment;
-declare type Subscriber = {
-    parent: Node;
-    marker?: ChildNode;
-    start?: ChildNode;
-    env: Environment;
-    builder: DOMBuilder;
-} & ({
-    marker: ChildNode;
-} | {
-    start: ChildNode;
-});
+declare type ParametrizedBuilder = (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
 interface Key {
 }
 interface Hash {
@@ -77,12 +78,10 @@ declare class RCompiler {
     private NewVar;
     private AddConstruct;
     Compile(elm: HTMLElement, settings: Settings, bIncludeSelf: boolean): void;
-    Build(reg: Region & {
-        marker?: ChildNode;
-    }): Promise<void>;
+    Build(area: Area): Promise<void>;
     Settings: FullSettings;
-    ToBuild: Region[];
-    private AllRegions;
+    ToBuild: Area[];
+    private AllAreas;
     private Builder;
     private bTrimLeft;
     private bTrimRight;

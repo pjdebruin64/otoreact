@@ -32,6 +32,9 @@ function CloneEnv(env) {
 ;
 ;
 class Construct {
+    TagName;
+    Parameters;
+    Slots;
     constructor(TagName, Parameters = [], Slots = new Map()) {
         this.TagName = TagName;
         this.Parameters = Parameters;
@@ -52,34 +55,16 @@ var ModifierType;
 })(ModifierType || (ModifierType = {}));
 let num = 0;
 class RCompiler {
+    instanceNum = num++;
+    Context;
+    ContextMap;
+    Constructs;
     constructor(clone) {
-        this.instanceNum = num++;
-        this.restoreActions = [];
-        this.ToBuild = [];
-        this.AllRegions = [];
-        this.bTrimLeft = false;
-        this.bTrimRight = false;
-        this.bCompiled = false;
-        this.bHasReacts = false;
-        this.DirtyRegions = new Set();
-        this.bUpdating = false;
-        this.handleUpdate = null;
-        this.RUpdate = function RUpdate() {
-            if (!this.handleUpdate)
-                this.handleUpdate = setTimeout(() => {
-                    this.handleUpdate = null;
-                    this.DoUpdate();
-                }, 0);
-        }.bind(this);
-        this.RVAR = function (name, initialValue, store) {
-            return new _RVAR(this, name, initialValue, store, name);
-        }.bind(this);
-        this.sourceNodeCount = 0;
-        this.builtNodeCount = 0;
         this.Context = clone ? clone.Context.slice() : [];
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
     }
+    restoreActions = [];
     Save() {
         return this.restoreActions.length;
     }
@@ -131,6 +116,25 @@ class RCompiler {
         });
         RHTML = savedRCompiler;
     }
+    Settings;
+    ToBuild = [];
+    AllRegions = [];
+    Builder;
+    bTrimLeft = false;
+    bTrimRight = false;
+    bCompiled = false;
+    bHasReacts = false;
+    DirtyRegions = new Set();
+    bSomethingDirty;
+    bUpdating = false;
+    handleUpdate = null;
+    RUpdate = function RUpdate() {
+        if (!this.handleUpdate)
+            this.handleUpdate = setTimeout(() => {
+                this.handleUpdate = null;
+                this.DoUpdate();
+            }, 0);
+    }.bind(this);
     DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
             return;
@@ -171,6 +175,9 @@ class RCompiler {
             this.bUpdating = false;
         }
     }
+    RVAR = function (name, initialValue, store) {
+        return new _RVAR(this, name, initialValue, store, name);
+    }.bind(this);
     RVAR_Light(t, updatesTo = []) {
         if (!t._Subscribers) {
             t._Subscribers = [];
@@ -191,6 +198,8 @@ class RCompiler {
         }
         return t;
     }
+    sourceNodeCount = 0;
+    builtNodeCount = 0;
     CompileChildNodes(srcParent, bBlockLevel, childNodes = Array.from(srcParent.childNodes)) {
         const builders = [];
         const saved = this.Save();
@@ -1065,12 +1074,15 @@ function UpdateHandler(R, handler) {
         };
 }
 class _RVAR {
+    rRuntime;
+    name;
+    store;
+    storeName;
     constructor(rRuntime, name, initialValue, store, storeName) {
         this.rRuntime = rRuntime;
         this.name = name;
         this.store = store;
         this.storeName = storeName;
-        this.Subscribers = new Set();
         if (name) {
             globalThis[name] = this;
         }
@@ -1083,6 +1095,8 @@ class _RVAR {
             catch { }
         this._Value = initialValue;
     }
+    _Value;
+    Subscribers = new Set();
     Subscribe(s) {
         this.Subscribers.add(s);
     }

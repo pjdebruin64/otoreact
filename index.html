@@ -29,7 +29,7 @@
         import {RCompile} from './OtoReact.js';
         msg('OtoReact loaded');
         
-        RCompile(document.body, {rootPattern: '/otoreact/|http://localhost:5000/'});
+        RCompile(window.sampleGreeting, {rootPattern: '/otoreact/|http://localhost:5000/'});
         //document.body.hidden = false;
         msg('Document compiled');
         
@@ -44,10 +44,15 @@
     gtag('config', 'G-T23W7PMPX4');
     </script>
 </head>
-<body hidden onload="msg('All loaded');">
-    <script nomodule type=module>
-        globalThis.test = 'Hi';
-    </script>
+<body onload="msg('All loaded');">
+
+    
+    <div class=sample 
+        style="min-width: 325px; min-height: 110px;" 
+        id=sampleGreeting>
+        <RHTML>{sampleGreeting}</RHTML>
+    </div>
+
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href #target? ...rest><content></content></a>
