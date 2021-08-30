@@ -10,12 +10,11 @@ declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
     bTrim?: boolean;
 };
 declare type Area = {
-    range: Range;
-    bInit?: boolean;
+    range?: Range;
     parent: Node;
     env: Environment;
-    source?: ChildNode;
     before?: ChildNode;
+    source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
     bNoChildBuilding?: boolean;
@@ -27,9 +26,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     next: Range;
     constructor(node?: NodeType, text?: string);
     toString(): string;
-    rResult?: unknown;
+    result?: any;
     errorNode?: ChildNode;
-    previous?: Range;
     hash?: Hash;
     key?: Key;
     get First(): ChildNode;
@@ -46,11 +44,12 @@ declare type Settings = {
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare class Subscriber {
     builder: DOMBuilder;
-    parent: Node;
     range: Range;
+    parent: Node;
+    succ: Range;
     env: Environment;
     bNoChildBuilding: boolean;
-    constructor(area: Area, builder: DOMBuilder);
+    constructor(area: Area, builder: DOMBuilder, range: Range);
 }
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
@@ -77,8 +76,8 @@ declare class RCompiler {
     private RestoreContext;
     private NewVar;
     private AddConstruct;
-    Compile(elm: HTMLElement, settings: Settings, bIncludeSelf: boolean): void;
-    Build(area: Area): Promise<void>;
+    Compile(elm: ParentNode, settings: Settings, bIncludeSelf: boolean): void;
+    InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     ToBuild: Area[];
     private AllAreas;
@@ -109,6 +108,7 @@ declare class RCompiler {
     private CompComponent;
     private CompTemplate;
     private CompInstance;
+    static regTrimmable: RegExp;
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
@@ -145,9 +145,9 @@ declare class Atts extends Map<string, string> {
 }
 export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
-export declare function range(from: number, upto?: number, step?: number): Generator<number, void, unknown>;
+declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
+export { _range as range };
 export declare const docLocation: _RVAR<Location> & {
     subpath?: string;
 };
 export declare const reroute: (arg: Event | string) => boolean;
-export {};
