@@ -3,14 +3,13 @@
     import {RCompile} from './OtoReact.js';
     RCompile(document.body);
 </script>
-</head>
-<body onload="msg('All loaded');">
-<define rvar='yourName' store=sessionStorage><p>Hi,</p></define>
+<define rvar='yourName' store=sessionStorage></define>
+<pre #innerHTML=yourName.V *innerText=yourName.V></pre>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
 </p>
-<if cond="yourName.V" hiding>
+<if cond="yourName.V">
     <p>
         Nice to meet you, {yourName.V}.
         <br>By the way, your name consists of {yourName.V.length} characters.

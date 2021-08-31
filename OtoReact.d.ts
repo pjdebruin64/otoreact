@@ -47,7 +47,7 @@ declare class Subscriber {
     builder: DOMBuilder;
     range: Range;
     parent: Node;
-    succ: Range;
+    before: ChildNode;
     env: Environment;
     bNoChildBuilding: boolean;
     constructor(area: Area, builder: DOMBuilder, range: Range);
@@ -63,6 +63,7 @@ interface Key {
 interface Hash {
 }
 declare class RCompiler {
+    private clone?;
     static iNum: number;
     instanceNum: number;
     private ContextMap;
@@ -72,6 +73,7 @@ declare class RCompiler {
     private StyleBefore;
     private AddedHeaderElements;
     constructor(clone?: RCompiler);
+    private get MainC();
     private restoreActions;
     private SaveContext;
     private RestoreContext;
@@ -91,6 +93,7 @@ declare class RCompiler {
     private DirtySubs;
     AddDirty(sub: Subscriber): void;
     private bUpdating;
+    private bUpdate;
     private handleUpdate;
     RUpdate(): void;
     private buildStart;
@@ -125,10 +128,10 @@ interface Store {
     setItem(key: string, value: string): void;
 }
 declare class _RVAR<T> {
-    private rRuntime;
+    private MainC;
     private store?;
     private storeName?;
-    constructor(rRuntime: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
+    constructor(MainC: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
     Subscribers: Set<Subscriber>;
     Subscribe(s: Subscriber): void;
