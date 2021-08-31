@@ -731,8 +731,8 @@ labelNoCheck:
                         const subBuilder = this.CompChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, area) {
-                                const {range, subArea} = PrepareArea(srcElm, area);
-                                if (!subArea.range || bReact){
+                                const {range, subArea, bInit} = PrepareArea(srcElm, area);
+                                if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
                                     range.value = rvarName 
                                         ? new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName) 
@@ -1195,7 +1195,7 @@ labelNoCheck:
                 srcParent.removeChild(srcElm);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return async function FOREACH(this: RCompiler, area: Area) {
+                return async function FOR(this: RCompiler, area: Area) {
                     const {range, subArea} = PrepareArea(srcElm, area, '', getKey ? true : 2),
                         {parent, env} = subArea,
                         savedEnv = SaveEnv();
@@ -1473,8 +1473,8 @@ labelNoCheck:
             const customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
             return async function TEMPLATE(this: RCompiler, area: Area, args: unknown[], mapSlotBuilders, slotEnv) {
-                const saved = SaveEnv();
-                const {env, range} = area;
+                const saved = SaveEnv(),
+                    {env} = area;
                 try {
                     for (const [slotName, instanceBuilders] of mapSlotBuilders) {
                         const savedDef = env.constructDefs.get(slotName);
@@ -1488,15 +1488,15 @@ labelNoCheck:
                         lvar(area.env)(args[i++]);
 
                     if (bEncaps) {
-                        const {elmRange, childArea} = PrepareElement(srcElm, area, customName), 
-                            elm = elmRange.node;
-                        const shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
-                        if (!range)
+                        const {elmRange, childArea, bInit} = PrepareElement(srcElm, area, customName), 
+                            elm = elmRange.node,
+                            shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
+                        if (bInit)
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
 
                         if (args[i])
-                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], !range);
+                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
                         area = childArea;
                     }
                     await builder.call(this, area); 
