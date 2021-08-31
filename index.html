@@ -46,26 +46,6 @@
 </head>
 <body onload="msg('All loaded');">
 
-<!-- 
-    <define rvar='yourName' store=sessionStorage><p>Hi,</p></define>
-    <p>
-        What's your name?
-        <input type=text @value="yourName.V">
-    </p>
-    <if cond="yourName.V" hiding>
-        <p>
-            Nice to meet you, {yourName.V}.
-            <br>By the way, your name consists of {yourName.V.length} characters.
-        </p>
-    </if>
-    <hr>
-    
-    <div class=sample 
-        style="min-width: 325px; min-height: 110px;" 
-        id=sampleGreeting>
-        <RHTML>{sampleGreeting}</RHTML>
-    </div>-->
-
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href #target? ...rest><content></content></a>

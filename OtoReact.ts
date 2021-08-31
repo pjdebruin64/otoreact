@@ -50,6 +50,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     toString() { return this.text || this.node?.nodeName; }
 
     result?: any;
+    value?: any;
     errorNode?: ChildNode;
 
     // Alleen voor FOR-iteraties
@@ -109,8 +110,8 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
     result?: any, forcedClear?: boolean
 ) : {range: Range, subArea:Area}
 {
-    let {parent, env, range} = area,
-        subArea: Area = {parent, env, range: null, };
+    let {parent, env, range, before} = area,
+        subArea: Area = {parent, env, range: null, before};
     if (!range) {
         (range = new Range(null, `${srcElm ? srcElm.localName : ''} ${text}`))
         .result = result;
@@ -128,7 +129,6 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         else
             subArea.range = range.child;
             
-        subArea
         area.range = range.next;
     }
     return {range, subArea};
@@ -478,7 +478,7 @@ class RCompiler {
         RHTML = this;
         await this.Builder(area);
 
-        this.AllAreas.push(new Subscriber(area, this.Builder, parentR && parentR.child));
+        this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
 
@@ -559,8 +559,7 @@ class RCompiler {
          }
     }
 
-    /* A "responsive variable" is a variable which listeners can subscribe to.
-    */
+    /* A "responsive variable" is a variable which listeners can subscribe to. */
     RVAR<T>(
         name?: string, 
         initialValue?: T, 
@@ -705,11 +704,11 @@ labelNoCheck:
                                 const {range, subArea} = PrepareArea(srcElm, area);
                                 if (!subArea.range || bReact){
                                     const value = getValue && getValue(area.env);
-                                    range.result = rvarName 
+                                    range.value = rvarName 
                                         ? new _RVAR(this, null, value, getStore && getStore(area.env), rvarName) 
                                         : value;
                                 }
-                                newVar(area.env)(range.result);
+                                newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
                             };
                     } break;
@@ -779,7 +778,7 @@ labelNoCheck:
 
                         builder = 
                             async function CASE(this: RCompiler, area: Area) {
-                                const {range, env} = area;
+                                const {parent, range, env} = area;
                                 const value = getValue && getValue(env);
                                 let choosenAlt: typeof caseList[0] = null;
                                 let matchResult: RegExpExecArray;
@@ -812,7 +811,13 @@ labelNoCheck:
                                 }
                                 else {
                                     // This is the regular CASE                                
-                                    const {subArea} = PrepareArea(srcElm, area, null, choosenAlt);
+                                    const {subArea, range: aRange} = PrepareArea(srcElm, area, null, choosenAlt);
+                                    area.before = range 
+                                        ? aRange.node.nextSibling 
+                                        : parent.insertBefore(
+                                            document.createComment(`/${srcElm.localName}`),
+                                            aRange.node.nextSibling
+                                        )
                                     if (choosenAlt) {
                                         const saved = SaveEnv();
                                         try {
@@ -1178,7 +1183,7 @@ labelNoCheck:
                     const savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
-                        const keyMap: Map<Key, Subscriber> = range.result ||= new Map();
+                        const keyMap: Map<Key, Subscriber> = range.value ||= new Map();
                         // Map of the newly obtained data
                         const newMap: Map<Key, {item:Item, hash:Hash}> = new Map();
                         const setVar = initVar(env);

@@ -44,7 +44,7 @@ class Range {
     }
 }
 function PrepareArea(srcElm, area, text = '', result, forcedClear) {
-    let { parent, env, range } = area, subArea = { parent, env, range: null, };
+    let { parent, env, range, before } = area, subArea = { parent, env, range: null, before };
     if (!range) {
         (range = new Range(null, `${srcElm ? srcElm.localName : ''} ${text}`))
             .result = result;
@@ -61,7 +61,6 @@ function PrepareArea(srcElm, area, text = '', result, forcedClear) {
         }
         else
             subArea.range = range.child;
-        subArea;
         area.range = range.next;
     }
     return { range, subArea };
@@ -335,7 +334,7 @@ class RCompiler {
         const savedRCompiler = RHTML, { parentR } = area;
         RHTML = this;
         await this.Builder(area);
-        this.AllAreas.push(new Subscriber(area, this.Builder, parentR && parentR.child));
+        this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
     AddDirty(sub) {
@@ -511,11 +510,11 @@ class RCompiler {
                                 const { range, subArea } = PrepareArea(srcElm, area);
                                 if (!subArea.range || bReact) {
                                     const value = getValue && getValue(area.env);
-                                    range.result = rvarName
+                                    range.value = rvarName
                                         ? new _RVAR(this, null, value, getStore && getStore(area.env), rvarName)
                                         : value;
                                 }
-                                newVar(area.env)(range.result);
+                                newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
                             };
                         }
@@ -581,7 +580,7 @@ class RCompiler {
                                 });
                             builder =
                                 async function CASE(area) {
-                                    const { range, env } = area;
+                                    const { parent, range, env } = area;
                                     const value = getValue && getValue(env);
                                     let choosenAlt = null;
                                     let matchResult;
@@ -607,7 +606,10 @@ class RCompiler {
                                         }
                                     }
                                     else {
-                                        const { subArea } = PrepareArea(srcElm, area, null, choosenAlt);
+                                        const { subArea, range: aRange } = PrepareArea(srcElm, area, null, choosenAlt);
+                                        area.before = range
+                                            ? aRange.node.nextSibling
+                                            : parent.insertBefore(document.createComment(`/${srcElm.localName}`), aRange.node.nextSibling);
                                         if (choosenAlt) {
                                             const saved = SaveEnv();
                                             try {
@@ -906,7 +908,7 @@ class RCompiler {
                     const { parent, env } = subArea;
                     const savedEnv = SaveEnv();
                     try {
-                        const keyMap = range.result ||= new Map();
+                        const keyMap = range.value ||= new Map();
                         const newMap = new Map();
                         const setVar = initVar(env);
                         const iterator = getRange(env);

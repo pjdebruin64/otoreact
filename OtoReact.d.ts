@@ -27,6 +27,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     constructor(node?: NodeType, text?: string);
     toString(): string;
     result?: any;
+    value?: any;
     errorNode?: ChildNode;
     hash?: Hash;
     key?: Key;
