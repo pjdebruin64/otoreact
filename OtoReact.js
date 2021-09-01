@@ -25,44 +25,43 @@ class Range {
                 return f;
             child = child.next;
         }
-        return null;
+        return this.endMark || null;
+    }
+    Nodes() {
+        return (function* Nodes(r) {
+            if (r.node)
+                yield r.node;
+            else {
+                let child = r.child;
+                while (child) {
+                    yield* Nodes(child);
+                    child = child.next;
+                }
+            }
+            if (r.endMark)
+                yield r.endMark;
+        })(this);
     }
     get isConnected() {
         const f = this.First;
         return f && f.isConnected;
-    }
-    ChildNodes() {
-        return (function* ChildNodes(r) {
-            if (r.node)
-                yield r.node;
-            let child = r.child;
-            while (child) {
-                ChildNodes(child);
-                child = child.next;
-            }
-        })(this);
     }
 }
 function PrepareArea(srcElm, area, text = '', bMark, result) {
     let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
     if (bInit) {
         if (srcElm)
-            text = `${srcElm.localName} ${text}`;
-        (range = new Range(null, text)).result = result;
+            text = `${srcElm.localName}${text ? ' ' : ''}${text}`;
+        (range = subArea.parentR = new Range(null, text)).result = result;
         UpdatePrevArea(area, range);
-        subArea.parentR = range;
-        if (bMark) {
-            text = `/${text}`;
-            before = parent.insertBefore(document.createComment(text), before);
-            area.prevR = range.next = new Range(before, text);
-        }
+        if (bMark)
+            before = range.endMark = parent.insertBefore(document.createComment('/' + text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
         if (bMark) {
-            before = area.range.node;
-            area.range = area.range.next;
+            before = range.endMark;
             if (bMark == 1 && result != range.result || bMark == 2) {
                 range.result = result;
                 let node = range.First || before;
@@ -206,6 +205,7 @@ var ModifType;
     ModifType[ModifType["onupdate"] = 9] = "onupdate";
 })(ModifType || (ModifType = {}));
 ;
+let bReadOnly = false;
 function ApplyModifier(elm, modType, name, val, bCreate) {
     switch (modType) {
         case ModifType.Attr:
@@ -258,7 +258,9 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
 function ApplyModifiers(elm, modifiers, { env, range }) {
     for (const { modType, name, depValue } of modifiers) {
         try {
+            bReadOnly = true;
             const value = depValue.bThis ? depValue.call(elm, env) : depValue(env);
+            bReadOnly = false;
             ApplyModifier(elm, modType, name, value, !range);
         }
         catch (err) {
@@ -367,10 +369,8 @@ class RCompiler {
         this.MainC.DirtySubs.set(sub.range, sub);
     }
     RUpdate() {
-        if (!this.bCompiled)
-            debugger;
         this.MainC.bUpdate = true;
-        if (this == this.MainC && !this.bUpdating && !this.handleUpdate)
+        if (!this.clone && !this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
@@ -380,7 +380,7 @@ class RCompiler {
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
             return;
-        do {
+        for (let i = 0; i < 2; i++) {
             this.bUpdate = false;
             this.bUpdating = true;
             let savedRCompiler = RHTML;
@@ -425,7 +425,9 @@ class RCompiler {
                 RHTML = savedRCompiler;
                 this.bUpdating = false;
             }
-        } while (this.bUpdate);
+            if (!this.bUpdate)
+                break;
+        }
     }
     RVAR(name, initialValue, store) {
         return new _RVAR(this.MainC, name, initialValue, store, name);
@@ -749,7 +751,7 @@ class RCompiler {
                                 const { range, subArea } = PrepareArea(srcElm, area, '', true);
                                 await bodyBuilder.call(this, subArea);
                                 if (area.prevR) {
-                                    const subscriber = new Subscriber(subArea, bodyBuilder, range);
+                                    const subscriber = new Subscriber(subArea, bodyBuilder, range.child);
                                     for (const getRvar of getDependencies) {
                                         const rvar = getRvar(subArea.env);
                                         rvar.Subscribe(subscriber);
@@ -929,17 +931,18 @@ class RCompiler {
                 const bodyBuilder = this.CompChildNodes(srcElm);
                 srcParent.removeChild(srcElm);
                 return async function FOR(area) {
-                    const { range, subArea } = PrepareArea(srcElm, area, '', getKey ? true : 2), { parent, env } = subArea, savedEnv = SaveEnv();
+                    const { range, subArea } = PrepareArea(srcElm, area, '', true), { parent, env } = subArea, savedEnv = SaveEnv();
                     try {
-                        const keyMap = range.value ||= new Map();
-                        const newMap = new Map();
-                        const setVar = initVar(env);
+                        const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env);
                         const iterator = getRange(env);
+                        const setIndex = initIndex(env);
                         if (iterator !== undefined) {
                             if (!iterator || !(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterator}) is not iterable`;
+                            let index = 0;
                             for await (const item of iterator) {
                                 setVar(item);
+                                setIndex(index++);
                                 const hash = getHash && getHash(env);
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
@@ -953,17 +956,18 @@ class RCompiler {
                             while (nextChild && !newMap.has(key = nextChild.key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                for (const node of nextChild.ChildNodes())
+                                for (const node of nextChild.Nodes())
                                     parent.removeChild(node);
+                                nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
                         }
-                        const setIndex = initIndex(env);
                         const setPrevious = initPrevious(env);
                         const setNext = initNext(env);
                         let index = 0, prevItem = null, nextItem, prevRange = null;
                         const nextIterator = nextName ? newMap.values() : null;
                         let childArea, childRange;
+                        subArea.parentR = range;
                         if (nextIterator)
                             nextIterator.next();
                         RemoveStaleItems();
@@ -971,21 +975,31 @@ class RCompiler {
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
                             let subscriber = keyMap.get(key);
-                            if (subscriber && (childRange = subscriber.range).isConnected) {
+                            if (subscriber) {
+                                childRange = subscriber.range;
                                 if (childRange != nextChild) {
-                                    const nextNode = nextChild.First;
-                                    for (const node of childRange.ChildNodes())
+                                    childRange.prev.next = childRange.next;
+                                    if (childRange.next)
+                                        childRange.next.prev = childRange.prev;
+                                    const nextNode = nextChild?.First || range.endMark;
+                                    for (const node of childRange.Nodes())
                                         parent.insertBefore(node, nextNode);
                                 }
                                 else
                                     nextChild = childRange.next;
                                 childRange.text = `${varName}(${index})`;
+                                if (prevRange)
+                                    prevRange.next = childRange;
+                                else
+                                    range.child = childRange;
                                 subArea.range = childRange;
-                                ({ subArea: childArea } = PrepareArea(null, subArea));
+                                ({ subArea: childArea } = PrepareArea(null, subArea, '', true));
                             }
                             else {
                                 subArea.range = null;
-                                ({ range: childRange, subArea: childArea } = PrepareArea(null, subArea, `${varName}(${index})`));
+                                subArea.prevR = prevRange;
+                                subArea.before = nextChild?.First || range.endMark;
+                                ({ range: childRange, subArea: childArea } = PrepareArea(null, subArea, `${varName}(${index})`, true));
                                 subscriber = new Subscriber((bReactive ? area : { ...area, env: undefined }), (bReactive ? bodyBuilder : undefined), childRange);
                                 if (key != null) {
                                     if (keyMap.has(key))
@@ -994,19 +1008,19 @@ class RCompiler {
                                 }
                                 childRange.key = key;
                             }
-                            if (prevRange)
-                                prevRange.next = childRange;
+                            childRange.prev = prevRange;
                             prevRange = childRange;
                             if (hash != null
                                 && (hash == childRange.hash
                                     || (childRange.hash = hash, false))) {
+                                index++;
                             }
                             else {
                                 let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
                                     : bReactive ? this.RVAR_Light(item)
                                         : item);
                                 setVar(rvar);
-                                setIndex(index);
+                                setIndex(index++);
                                 setPrevious(prevItem);
                                 if (nextIterator)
                                     setNext(nextItem);
@@ -1015,9 +1029,12 @@ class RCompiler {
                                     rvar.Subscribe(subscriber);
                             }
                             prevItem = item;
-                            index++;
                             RemoveStaleItems();
                         }
+                        if (prevRange)
+                            prevRange.next = null;
+                        else
+                            range.child = null;
                     }
                     finally {
                         RestoreEnv(savedEnv);
@@ -1472,7 +1489,11 @@ class _RVAR {
             this.SetDirty();
         }
     }
-    get U() { this.SetDirty(); return this._Value; }
+    get U() {
+        if (!bReadOnly)
+            this.SetDirty();
+        return this._Value;
+    }
     set U(t) { this.V = t; }
     SetDirty() {
         if (this.store)

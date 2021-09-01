@@ -24,6 +24,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     text?: string;
     child: Range;
     next: Range;
+    endMark?: Comment;
     constructor(node?: NodeType, text?: string);
     toString(): string;
     result?: any;
@@ -31,9 +32,10 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     errorNode?: ChildNode;
     hash?: Hash;
     key?: Key;
+    prev?: Range;
     get First(): ChildNode;
+    Nodes(): Generator<ChildNode>;
     get isConnected(): boolean;
-    ChildNodes(): Generator<ChildNode>;
 }
 declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;

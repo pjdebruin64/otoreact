@@ -197,13 +197,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "d5e185fe1568b69c92e37e9d37d842cb8fde98368f251886a658a9b49e01cf55",
-        "signature": "652a971bc9ef58549693c60be9870a8f6806ea6102e67c0fac76181324d91809",
-        "affectsGlobalScope": false
-      },
-      "./save/otoreact.ts": {
-        "version": "c1fd9b9ca539c2ca55b6608888933a1c97307639cfcae4e5c0096aa35870a226",
-        "signature": "ec4a15fb4460a74afd21d5be276cee3dd1d015dfb8b7fc59676615aa303a6f27",
+        "version": "bb9867880451a1ee3d3a9eb4ef7ca31b4b5156b934f7f404ceaf0a6146c0f4f6",
+        "signature": "a2cb7faae918e75325e1885879b6385e66f27b590be081c9a5c8f7eca139bcc7",
         "affectsGlobalScope": false
       }
     },
@@ -220,7 +215,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -266,8 +260,7 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es5.d.ts",
-      "./otoreact.ts",
-      "./save/otoreact.ts"
+      "./otoreact.ts"
     ]
   },
   "version": "4.1.3"
