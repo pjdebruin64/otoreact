@@ -969,11 +969,11 @@ labelNoCheck:
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         
                         builder = async function REACT(this: RCompiler, area) {
-                            const {range, subArea} = PrepareArea(srcElm, area, '', true);
+                            const {range, subArea, bInit} = PrepareArea(srcElm, area, '', true);
         
                             await bodyBuilder.call(this, subArea);
 
-                            if (area.prevR) {
+                            if (bInit) {
                                 const subscriber = new Subscriber(subArea, bodyBuilder, range.child);
                         
                                 // Subscribe bij de gegeven variabelen
@@ -1050,23 +1050,20 @@ labelNoCheck:
         }
 
         for (const {attName, rvars} of mapReacts) {   
-            const bNoChildUpdates = (attName == 'thisreactson')
-                , bodyBuilder = builder;
+            const bodyBuilder = builder
+                , updateBuilder = (attName == 'thisreactson')
+                    ? async function reacton(this: RCompiler, area: Area) {
+                        if (area.range) area.bNoChildBuilding = true;
+                        await builder.call(this, area);
+                    }
+                    : builder
             builder = async function REACT(this: RCompiler, area) {
                 const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true);
                 
-                await bodyBuilder.call(this, subArea);
+                await updateBuilder.call(this, subArea);
 
                 if (bInit) {
-                    const subscriber = new Subscriber(
-                        subArea,
-                        async function reacton(this: RCompiler, area: Area) {
-                            if (bNoChildUpdates && area.range) area.bNoChildBuilding = true;
-                            await this.CallWithErrorHandling(bodyBuilder, srcElm, area);
-                            this.builtNodeCount ++;
-                        },
-                        range.child,
-                    );
+                    const subscriber = new Subscriber(subArea, updateBuilder, range.child);
             
                     // Subscribe bij de gegeven variabelen
                     for (const getRvar of rvars) {
@@ -1921,7 +1918,8 @@ class _RVAR<T>{
     // It will be marked dirty.
     // Set var.U to have the DOM update immediately.
     get U() { 
-        if (!bReadOnly) this.SetDirty();  
+        //if (!bReadOnly) 
+            this.SetDirty();  
         return this._Value }
     set U(t: T) { this.V = t }
 

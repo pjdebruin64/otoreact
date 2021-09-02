@@ -748,9 +748,9 @@ class RCompiler {
                             const getDependencies = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                             builder = async function REACT(area) {
-                                const { range, subArea } = PrepareArea(srcElm, area, '', true);
+                                const { range, subArea, bInit } = PrepareArea(srcElm, area, '', true);
                                 await bodyBuilder.call(this, subArea);
-                                if (area.prevR) {
+                                if (bInit) {
                                     const subscriber = new Subscriber(subArea, bodyBuilder, range.child);
                                     for (const getRvar of getDependencies) {
                                         const rvar = getRvar(subArea.env);
@@ -816,17 +816,18 @@ class RCompiler {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
         for (const { attName, rvars } of mapReacts) {
-            const bNoChildUpdates = (attName == 'thisreactson'), bodyBuilder = builder;
+            const bodyBuilder = builder, updateBuilder = (attName == 'thisreactson')
+                ? async function reacton(area) {
+                    if (area.range)
+                        area.bNoChildBuilding = true;
+                    await builder.call(this, area);
+                }
+                : builder;
             builder = async function REACT(area) {
                 const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
-                await bodyBuilder.call(this, subArea);
+                await updateBuilder.call(this, subArea);
                 if (bInit) {
-                    const subscriber = new Subscriber(subArea, async function reacton(area) {
-                        if (bNoChildUpdates && area.range)
-                            area.bNoChildBuilding = true;
-                        await this.CallWithErrorHandling(bodyBuilder, srcElm, area);
-                        this.builtNodeCount++;
-                    }, range.child);
+                    const subscriber = new Subscriber(subArea, updateBuilder, range.child);
                     for (const getRvar of rvars) {
                         const rvar = getRvar(area.env);
                         rvar.Subscribe(subscriber);
@@ -1490,8 +1491,7 @@ class _RVAR {
         }
     }
     get U() {
-        if (!bReadOnly)
-            this.SetDirty();
+        this.SetDirty();
         return this._Value;
     }
     set U(t) { this.V = t; }
