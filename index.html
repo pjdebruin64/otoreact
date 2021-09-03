@@ -44,7 +44,7 @@
     gtag('config', 'G-T23W7PMPX4');
     </script>
 </head>
-<body onload="msg('All loaded');">
+<body hidden onload="msg('All loaded');">
 
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -80,12 +80,7 @@
         </when>
         <when match="routing">
             <include src="Routing.html">
-        </when>
-        <else>
-            <case thisreactson=docLocation #value="docLocation.subpath">
-                <when regmatch="invoice/(.*)$" captures=nr>Invoice {nr}</when>
-                <else>Page not found</else>
-            </case>            
+        </when>       
     </case>
 
 </body>

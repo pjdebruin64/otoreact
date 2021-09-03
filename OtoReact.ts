@@ -1054,16 +1054,16 @@ labelNoCheck:
                 , updateBuilder = (attName == 'thisreactson')
                     ? async function reacton(this: RCompiler, area: Area) {
                         if (area.range) area.bNoChildBuilding = true;
-                        await builder.call(this, area);
+                        await bodyBuilder.call(this, area);
                     }
-                    : builder
+                    : bodyBuilder
             builder = async function REACT(this: RCompiler, area) {
                 const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true);
                 
-                await updateBuilder.call(this, subArea);
+                await bodyBuilder.call(this, subArea);
 
                 if (bInit) {
-                    const subscriber = new Subscriber(subArea, updateBuilder, range.child);
+                    const subscriber = new Subscriber(subArea, updateBuilder, range.child, );
             
                     // Subscribe bij de gegeven variabelen
                     for (const getRvar of rvars) {
@@ -1267,7 +1267,8 @@ labelNoCheck:
                                 else
                                     range.child = childRange;
                                 subArea.range = childRange;
-                                ({subArea: childArea} = PrepareArea(null, subArea, '', true));
+                                childArea = PrepareArea(null, subArea, '', true).subArea;
+                                subArea.parentR = null;
                             }
                             else {
                                 // Item has to be newly created
@@ -1918,8 +1919,7 @@ class _RVAR<T>{
     // It will be marked dirty.
     // Set var.U to have the DOM update immediately.
     get U() { 
-        //if (!bReadOnly) 
-            this.SetDirty();  
+        if (!bReadOnly) this.SetDirty();  
         return this._Value }
     set U(t: T) { this.V = t }
 

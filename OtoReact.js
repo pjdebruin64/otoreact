@@ -820,12 +820,12 @@ class RCompiler {
                 ? async function reacton(area) {
                     if (area.range)
                         area.bNoChildBuilding = true;
-                    await builder.call(this, area);
+                    await bodyBuilder.call(this, area);
                 }
-                : builder;
+                : bodyBuilder;
             builder = async function REACT(area) {
                 const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
-                await updateBuilder.call(this, subArea);
+                await bodyBuilder.call(this, subArea);
                 if (bInit) {
                     const subscriber = new Subscriber(subArea, updateBuilder, range.child);
                     for (const getRvar of rvars) {
@@ -994,7 +994,8 @@ class RCompiler {
                                 else
                                     range.child = childRange;
                                 subArea.range = childRange;
-                                ({ subArea: childArea } = PrepareArea(null, subArea, '', true));
+                                childArea = PrepareArea(null, subArea, '', true).subArea;
+                                subArea.parentR = null;
                             }
                             else {
                                 subArea.range = null;
@@ -1491,7 +1492,8 @@ class _RVAR {
         }
     }
     get U() {
-        this.SetDirty();
+        if (!bReadOnly)
+            this.SetDirty();
         return this._Value;
     }
     set U(t) { this.V = t; }
