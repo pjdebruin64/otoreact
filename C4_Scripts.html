@@ -49,7 +49,7 @@ Here you have a playground to enter your own Reactive HTML.
 
 <def rvar=playCount #value=1 store=localStorage></def>
 <react on=playCount>
-    <def rvar=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" reacting></def>
+    <def rvar=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
     <for let=rvar of="Playgrounds.V" index key=index>
         <demo #rvar="rvar"></demo>
     </for>

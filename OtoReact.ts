@@ -89,7 +89,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
         const f = this.First;
         return f && f.isConnected;
     }
-} setInterval()
+}
 
 // A CONTEXT is the set of local variable names, each with a number indicating its position in an environment
 type Context = Map<string, number>;
@@ -726,7 +726,7 @@ labelNoCheck:
                         const getValue = this.CompParameter(atts, 'value');
                         const getStore = rvarName && this.CompAttrExpression<Store>(atts, 'store');
                         const newVar = this.NewVar(varName);
-                        const bReact = atts.get('reacting') != null;
+                        const bReact = atts.get('updating') != null;
                         const subBuilder = this.CompChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, area) {
@@ -963,12 +963,25 @@ labelNoCheck:
 
                     case 'react': {
                         this.MainC.bHasReacts = true;
-                        const reacts = atts.get('on', true, true);
+                        const reacts = atts.get('on', false, true);
                         const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) ) : [];
+                        const getHash = this.CompAttrExpression(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         
                         builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
+
+                        if (getHash) {
+                            const b = builder;
+                            builder = async function HASH(this: RCompiler, area: Area) {
+                                const hash = getHash(area.env);
+                                const {subArea, range} = PrepareArea(srcElm, area, 'hash');
+                                if (hash !== range.value) {
+                                    range.value = hash;
+                                    await b.call(this, subArea);
+                                }
+                            }
+                        }
                     } break;
 
                     case 'rhtml': {
@@ -996,8 +1009,8 @@ labelNoCheck:
                                         for (const elm of elmRange.hdrElms) elm.remove();
                                         elmRange.hdrElms = null;
                                     }
-                                    const R = new RCompiler();
-                                    ;(R.StyleRoot = shadowRoot).innerHTML = '';
+                                    const R = new RCompiler();;
+                                    (R.StyleRoot = shadowRoot).innerHTML = '';
                                     R.Compile(tempElm, {bRunScripts: true }, false);
                                     elmRange.hdrElms = R.AddedHeaderElements;
                                     

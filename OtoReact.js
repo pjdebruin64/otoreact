@@ -534,7 +534,7 @@ class RCompiler {
                             const getValue = this.CompParameter(atts, 'value');
                             const getStore = rvarName && this.CompAttrExpression(atts, 'store');
                             const newVar = this.NewVar(varName);
-                            const bReact = atts.get('reacting') != null;
+                            const bReact = atts.get('updating') != null;
                             const subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEFINE(area) {
                                 const { range, subArea, bInit } = PrepareArea(srcElm, area);
@@ -738,10 +738,22 @@ class RCompiler {
                     case 'react':
                         {
                             this.MainC.bHasReacts = true;
-                            const reacts = atts.get('on', true, true);
+                            const reacts = atts.get('on', false, true);
                             const getRvars = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
+                            const getHash = this.CompAttrExpression(atts, 'hash');
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                             builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
+                            if (getHash) {
+                                const b = builder;
+                                builder = async function HASH(area) {
+                                    const hash = getHash(area.env);
+                                    const { subArea, range } = PrepareArea(srcElm, area, 'hash');
+                                    if (hash !== range.value) {
+                                        range.value = hash;
+                                        await b.call(this, subArea);
+                                    }
+                                };
+                            }
                         }
                         break;
                     case 'rhtml':
