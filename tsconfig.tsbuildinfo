@@ -197,8 +197,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "00cf4f5618ca1f3d30297e2c655118bff228d556671830faa6b91aa39b8c11e0",
-        "signature": "a2cb7faae918e75325e1885879b6385e66f27b590be081c9a5c8f7eca139bcc7",
+        "version": "5d7ae917c27430534c7394e636d01356c17795fd741073d8d136b38012ebf32c",
+        "signature": "a5afdf7dadbfd0a0e2d9eba7344378f33f6e997886b131fa6657e57156d5b816",
         "affectsGlobalScope": false
       }
     },
@@ -260,7 +260,35 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es5.d.ts",
-      "./otoreact.ts"
+      [
+        "./otoreact.ts",
+        [
+          {
+            "file": "./otoreact.ts",
+            "start": 2958,
+            "length": 13,
+            "messageText": "Expected at least 1 arguments, but got 0.",
+            "category": 1,
+            "code": 2555,
+            "relatedInformation": [
+              {
+                "file": "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.dom.d.ts",
+                "start": 821316,
+                "length": 21,
+                "messageText": "An argument for 'handler' was not provided.",
+                "category": 3,
+                "code": 6210
+              }
+            ]
+          }
+        ]
+      ]
+    ],
+    "affectedFilesPendingEmit": [
+      [
+        "./otoreact.ts",
+        1
+      ]
     ]
   },
   "version": "4.1.3"

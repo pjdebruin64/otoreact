@@ -89,7 +89,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
         const f = this.First;
         return f && f.isConnected;
     }
-}
+} setInterval()
 
 // A CONTEXT is the set of local variable names, each with a number indicating its position in an environment
 type Context = Map<string, number>;
@@ -116,8 +116,9 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         , bInit = !range;
     if (bInit) {
         if (srcElm) text = `${srcElm.localName}${text?' ':''}${text}`;
-        (range = subArea.parentR = new Range(null, text)).result = result;
-        UpdatePrevArea(area, range);
+        
+        UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
+        range.result = result;
 
         if (bMark)
             before = range.endMark = parent.insertBefore<Comment>(
@@ -254,7 +255,7 @@ class Subscriber {
         this.bNoChildBuilding = area.bNoChildBuilding;
         this.env = area.env && CloneEnv(area.env);
     }
-};
+}
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -310,13 +311,13 @@ type RVAR_Light<T> = T & {
 
 const globalEval = eval;
 
-interface Item {};  // Three unknown but distinct types, used by the <FOR> construct
-interface Key {};
-interface Hash {};
+interface Item {}  // Three unknown but distinct types, used by the <FOR> construct
+interface Key {}
+interface Hash {}
 
 enum ModifType {Attr, Prop, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
-};
+}
 type Modifier = {
     modType: ModifType,
     name: string,
@@ -680,7 +681,7 @@ class RCompiler {
                         srcParent.removeChild(srcNode);
                         continue;
                 }
-            };
+            }
         }
         finally {
             if (!bNorestore) this.RestoreContext(saved);
@@ -853,7 +854,7 @@ labelNoCheck:
                                         } finally { RestoreEnv(saved) }
                                     }
                                 }
-                        };
+                        }
                         this.bTrimLeft = false;
                     } break;
                             
@@ -963,26 +964,11 @@ labelNoCheck:
                     case 'react': {
                         this.MainC.bHasReacts = true;
                         const reacts = atts.get('on', true, true);
-                        const getDependencies = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) ) : [];
+                        const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) ) : [];
 
-                        // We transformeren de template in een routine die gewenste content genereert
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         
-                        builder = async function REACT(this: RCompiler, area) {
-                            const {range, subArea, bInit} = PrepareArea(srcElm, area, '', true);
-        
-                            await bodyBuilder.call(this, subArea);
-
-                            if (bInit) {
-                                const subscriber = new Subscriber(subArea, bodyBuilder, range.child);
-                        
-                                // Subscribe bij de gegeven variabelen
-                                for (const getRvar of getDependencies) {
-                                    const rvar = getRvar(subArea.env);
-                                    rvar.Subscribe(subscriber);
-                                }
-                            }
-                        }
+                        builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
                     } break;
 
                     case 'rhtml': {
@@ -1011,7 +997,7 @@ labelNoCheck:
                                         elmRange.hdrElms = null;
                                     }
                                     const R = new RCompiler();
-                                    (R.StyleRoot = shadowRoot).innerHTML = '';
+                                    ;(R.StyleRoot = shadowRoot).innerHTML = '';
                                     R.Compile(tempElm, {bRunScripts: true }, false);
                                     elmRange.hdrElms = R.AddedHeaderElements;
                                     
@@ -1049,34 +1035,40 @@ labelNoCheck:
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
 
-        for (const {attName, rvars} of mapReacts) {   
-            const bodyBuilder = builder
-                , updateBuilder = (attName == 'thisreactson')
-                    ? async function reacton(this: RCompiler, area: Area) {
-                        if (area.range) area.bNoChildBuilding = true;
-                        await bodyBuilder.call(this, area);
-                    }
-                    : bodyBuilder
-            builder = async function REACT(this: RCompiler, area) {
-                const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true);
-                
-                await bodyBuilder.call(this, subArea);
-
-                if (bInit) {
-                    const subscriber = new Subscriber(subArea, updateBuilder, range.child, );
-            
-                    // Subscribe bij de gegeven variabelen
-                    for (const getRvar of rvars) {
-                        const rvar = getRvar(area.env);
-                        rvar.Subscribe(subscriber);
-                    }
-                }
-            }
-            this.MainC.bHasReacts = true;
-        }
+        for (const {attName, rvars} of mapReacts)
+            builder = this.GetREACT(srcElm, attName, builder, rvars);
+        
         if (builder)
             return [builder, srcElm];
         return null;
+    }
+
+    private GetREACT(srcElm: HTMLElement, attName: string, builder: DOMBuilder, rvars: Array<Dependent<_RVAR>>): DOMBuilder{
+        this.MainC.bHasReacts = true;
+        const  updateBuilder = 
+            ( attName == 'thisreactson'
+            ? async function reacton(this: RCompiler, area: Area) {
+                area.bNoChildBuilding = true;
+                await builder.call(this, area);
+            }
+            : builder
+            );
+
+        return async function REACT(this: RCompiler, area) {
+            const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true);
+            
+            await builder.call(this, subArea);
+
+            if (bInit) {
+                const subscriber = new Subscriber(subArea, updateBuilder, range.child, );
+        
+                // Subscribe bij de gegeven variabelen
+                for (const getRvar of rvars) {
+                    const rvar = getRvar(area.env);
+                    rvar.Subscribe(subscriber);
+                }
+            }
+        }
     }
 
     private async CallWithErrorHandling(this: RCompiler, builder: DOMBuilder, srcNode: ChildNode, area: Area){
@@ -1097,7 +1089,7 @@ labelNoCheck:
             console.log(message);
             if (this.Settings.bShowErrors) {
                 const errorNode =
-                    area.parent.insertBefore(createErrorNode(message), area.range.First);
+                    area.parent.insertBefore(createErrorNode(message), area.range?.First);
                 if (range)
                     range.errorNode = errorNode;    /* */
             }
@@ -1275,7 +1267,7 @@ labelNoCheck:
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.First || range.endMark;
-                                ({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
+                                ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
                                 subscriber = new Subscriber(
                                     (bReactive ? area : {...area, env: undefined}), 
                                     (bReactive ? bodyBuilder : undefined),
@@ -1874,7 +1866,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-class _RVAR<T>{
+class _RVAR<T = unknown>{
     constructor(
         private MainC: RCompiler,
         globalName?: string, 

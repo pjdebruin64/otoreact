@@ -12,7 +12,7 @@ const sampleGreeting=
 </if>`;
 
 const ColorTableDefs =
-`<script nomodule defines="ColorTable,toHex" >
+`<script nomodule defines="ColorTable,toHex,timer,Rotate" >
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
 const ColorTable = RVAR('', []);
@@ -26,6 +26,19 @@ fetch("webColors.json").then(async response => {
 /* Utility for 2-digit hex code */
 function toHex(n){ 
   return n.toString(16).toUpperCase().padStart(2,'0');
+}
+
+/* Rotation */
+let timer=RVAR('', 0);
+function Rotate() {
+    if (timer.V) {
+        clearInterval(timer.V);
+        timer.V = 0;
+    }
+    else
+        timer.V = setInterval(
+            () => { ColorTable.U.push(ColorTable.V.shift()) }
+            , 500)
 }
 </script>
 
@@ -46,7 +59,11 @@ const sampleServerData =
     child of <TABLE>. OtoReact removes these dots. -->
   <table. class=colorTable>
     <!-- Table caption -->
-    <caption.>Web Colors</caption.>
+    <caption.>Web Colors 
+        <button onclick="Rotate();" reacton=timer style.float=right>
+            {timer.V ? 'Stop' : 'Rotate'}
+        </button>
+    </caption.>
     <!-- Column headers -->
     <tr.>
       <th.>Name</th.>
@@ -54,7 +71,8 @@ const sampleServerData =
       <th.>Hex</th.>
     </tr.>
     <!-- Detail records -->
-    <FOR let=C of="ColorTable.V">
+    <FOR let=C of="ColorTable.V" 
+        _comment="Optimization:" reacton=ColorTable key=C hash=C>
       <tr. 
            style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
            #style.color="C.green<148 ? 'white' : 'black'">

@@ -107,6 +107,7 @@ declare class RCompiler {
     private CompChildNodes;
     static preMods: string[];
     private CompElement;
+    private GetREACT;
     private CallWithErrorHandling;
     private CompScript;
     CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder;
@@ -129,7 +130,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-declare class _RVAR<T> {
+declare class _RVAR<T = unknown> {
     private MainC;
     private store?;
     private storeName?;

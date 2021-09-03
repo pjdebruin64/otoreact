@@ -52,8 +52,8 @@ function PrepareArea(srcElm, area, text = '', bMark, result) {
     if (bInit) {
         if (srcElm)
             text = `${srcElm.localName}${text ? ' ' : ''}${text}`;
-        (range = subArea.parentR = new Range(null, text)).result = result;
-        UpdatePrevArea(area, range);
+        UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
+        range.result = result;
         if (bMark)
             before = range.endMark = parent.insertBefore(document.createComment('/' + text), before);
     }
@@ -163,7 +163,6 @@ class Subscriber {
         this.env = area.env && CloneEnv(area.env);
     }
 }
-;
 class Signature {
     constructor(srcElm) {
         this.srcElm = srcElm;
@@ -188,9 +187,6 @@ class Signature {
     }
 }
 const globalEval = eval;
-;
-;
-;
 var ModifType;
 (function (ModifType) {
     ModifType[ModifType["Attr"] = 0] = "Attr";
@@ -204,7 +200,6 @@ var ModifType;
     ModifType[ModifType["oncreate"] = 8] = "oncreate";
     ModifType[ModifType["onupdate"] = 9] = "onupdate";
 })(ModifType || (ModifType = {}));
-;
 let bReadOnly = false;
 function ApplyModifier(elm, modType, name, val, bCreate) {
     switch (modType) {
@@ -496,7 +491,6 @@ class RCompiler {
                         continue;
                 }
             }
-            ;
         }
         finally {
             if (!bNorestore)
@@ -745,19 +739,9 @@ class RCompiler {
                         {
                             this.MainC.bHasReacts = true;
                             const reacts = atts.get('on', true, true);
-                            const getDependencies = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
+                            const getRvars = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
                             const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
-                            builder = async function REACT(area) {
-                                const { range, subArea, bInit } = PrepareArea(srcElm, area, '', true);
-                                await bodyBuilder.call(this, subArea);
-                                if (bInit) {
-                                    const subscriber = new Subscriber(subArea, bodyBuilder, range.child);
-                                    for (const getRvar of getDependencies) {
-                                        const rvar = getRvar(subArea.env);
-                                        rvar.Subscribe(subscriber);
-                                    }
-                                }
-                            };
+                            builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
                         }
                         break;
                     case 'rhtml':
@@ -782,6 +766,7 @@ class RCompiler {
                                             elmRange.hdrElms = null;
                                         }
                                         const R = new RCompiler();
+                                        ;
                                         (R.StyleRoot = shadowRoot).innerHTML = '';
                                         R.Compile(tempElm, { bRunScripts: true }, false);
                                         elmRange.hdrElms = R.AddedHeaderElements;
@@ -815,30 +800,31 @@ class RCompiler {
         catch (err) {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
-        for (const { attName, rvars } of mapReacts) {
-            const bodyBuilder = builder, updateBuilder = (attName == 'thisreactson')
-                ? async function reacton(area) {
-                    if (area.range)
-                        area.bNoChildBuilding = true;
-                    await bodyBuilder.call(this, area);
-                }
-                : bodyBuilder;
-            builder = async function REACT(area) {
-                const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
-                await bodyBuilder.call(this, subArea);
-                if (bInit) {
-                    const subscriber = new Subscriber(subArea, updateBuilder, range.child);
-                    for (const getRvar of rvars) {
-                        const rvar = getRvar(area.env);
-                        rvar.Subscribe(subscriber);
-                    }
-                }
-            };
-            this.MainC.bHasReacts = true;
-        }
+        for (const { attName, rvars } of mapReacts)
+            builder = this.GetREACT(srcElm, attName, builder, rvars);
         if (builder)
             return [builder, srcElm];
         return null;
+    }
+    GetREACT(srcElm, attName, builder, rvars) {
+        this.MainC.bHasReacts = true;
+        const updateBuilder = (attName == 'thisreactson'
+            ? async function reacton(area) {
+                area.bNoChildBuilding = true;
+                await builder.call(this, area);
+            }
+            : builder);
+        return async function REACT(area) {
+            const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
+            await builder.call(this, subArea);
+            if (bInit) {
+                const subscriber = new Subscriber(subArea, updateBuilder, range.child);
+                for (const getRvar of rvars) {
+                    const rvar = getRvar(area.env);
+                    rvar.Subscribe(subscriber);
+                }
+            }
+        };
     }
     async CallWithErrorHandling(builder, srcNode, area) {
         let { range } = area;
@@ -855,7 +841,7 @@ class RCompiler {
                 throw message;
             console.log(message);
             if (this.Settings.bShowErrors) {
-                const errorNode = area.parent.insertBefore(createErrorNode(message), area.range.First);
+                const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.First);
                 if (range)
                     range.errorNode = errorNode;
             }
@@ -1001,6 +987,7 @@ class RCompiler {
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.First || range.endMark;
+                                ;
                                 ({ range: childRange, subArea: childArea } = PrepareArea(null, subArea, `${varName}(${index})`, true));
                                 subscriber = new Subscriber((bReactive ? area : { ...area, env: undefined }), (bReactive ? bodyBuilder : undefined), childRange);
                                 if (key != null) {
