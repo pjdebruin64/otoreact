@@ -60,6 +60,12 @@ declare type ConstructDef = {
     constructEnv: Environment;
 };
 declare type ParametrizedBuilder = (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
+export declare type RVAR_Light<T> = T & {
+    _Subscribers?: Array<Subscriber>;
+    _UpdatesTo?: Array<_RVAR>;
+    Subscribe?: (sub: Subscriber) => void;
+    readonly U?: T;
+};
 interface Key {
 }
 interface Hash {

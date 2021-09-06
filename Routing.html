@@ -70,4 +70,81 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like "http
 <h2>How does OtoReact facilitate URL Routing</h2>
 
 
+
+<script nomodule defines="ColorTable,toHex,rotating,Rotate,lineh" >
+    // Here we store the data. Columns are:
+    // name:string, red:number, green:number, blue:number.
+    const ColorTable = RVAR('', []), 
+        lineh=RVAR('',100);     // Relative height of first line
+    
+    /* Fetch the data! */
+    fetch("webColors.json").then(async response => {
+        if (response.ok)
+            ColorTable.V = JSON.parse(await response.text());
+    });
+    
+    /* Utility for 2-digit hex code */
+    function toHex(n){ 
+      return n.toString(16).toUpperCase().padStart(2,'0');
+    }
+    
+    /* Rotation */
+    let rotating=RVAR('', false);
+    async function Rotate() {
+        rotating.V = !rotating.V;
+        while (rotating.V) { 
+            // Animating the first row
+            for (lineh.V=100; lineh.V>0; lineh.V-=25)
+                await new Promise(r => setTimeout(r, 125));
+
+            // Modifying the data model triggers a page update:
+            ColorTable.U.push(ColorTable.V.shift());
+        }
+    }
+    </script>
+    
+    <style> /* Styling */
+        table.colorTable td {
+        padding: 0px 4px;
+        text-align: center;
+        max-width: 8em; overflow:hidden;
+        }
+    </style>
+    
+    <div style="height:50ex; overflow-y:scroll;">
+      <!-- Now we build our table! 
+        The dots are needed because HTML does not allow <FOR> as a
+        child of <TABLE>. OtoReact removes these dots. -->
+      <table. class=colorTable>
+        <!-- Table caption -->
+        <caption.>Web Colors 
+            <button onclick="Rotate();" reacton=rotating style.float=right>
+                {rotating.V ? 'Stop' : 'Rotate'}
+            </button>
+        </caption.>
+        <!-- Column headers -->
+        <tr.>
+          <th.>Name</th.>
+          <th.>R</th.><th.>G</th.><th.>B</th.>
+          <th.>Hex</th.>
+        </tr.>
+        <!-- Detail records -->
+        <FOR let=C of="ColorTable.V" index=i
+            _comment="Optimization:" reacton="ColorTable,lineh" key=C>
+          <tr. style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+               #style.color="C.green<148 ? 'white' : 'black'"
+               #style.lineHeight="i==0 ? `${lineh.V}%` : null"
+          >
+            <react hash=C>
+                <td.>{C.name}</td.>
+                <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
+                <td.>
+                #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+                </td.>
+            </react>
+          </tr.>
+        </FOR>
+      </table.>
+    </div>
+
 </pageLayout>

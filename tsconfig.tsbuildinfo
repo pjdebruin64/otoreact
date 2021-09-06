@@ -197,8 +197,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "32838d6146003f49edf3d6231ada25df71e63eaa79974faa311da4043ec7072f",
-        "signature": "a5afdf7dadbfd0a0e2d9eba7344378f33f6e997886b131fa6657e57156d5b816",
+        "version": "e7777c0fb0b2f5829f3bcdda45271265d8bdc55f7cb868db9a2f77b1420abb17",
+        "signature": "b5a10c18ed96b500f6ef4276de9424bf99027abe280dfd285d3fca9843caef43",
         "affectsGlobalScope": false
       }
     },
@@ -215,7 +215,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },

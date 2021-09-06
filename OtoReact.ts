@@ -302,11 +302,11 @@ type ParametrizedBuilder =
     (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment)
     => Promise<void>;
 
-    
-type RVAR_Light<T> = T & {
-    _Subscribers?: Array<Subscriber>,
-    _UpdatesTo?: Array<_RVAR>,
-    Subscribe?: (sub:Subscriber) => void
+export type RVAR_Light<T> = T & {
+    _Subscribers?: Array<Subscriber>;
+    _UpdatesTo?: Array<_RVAR>;
+    Subscribe?: (sub:Subscriber) => void;
+    readonly U?: T;
 };
 
 const globalEval = eval;
@@ -649,7 +649,7 @@ class RCompiler {
                             if (builderElm[0].bTrim) {
                                 let i = builders.length - 2;
                                 while (i>=0 && builders[i][2]) {
-                                    srcParent.removeChild(builders[i][1]);
+                                    //srcParent.removeChild(builders[i][1]);
                                     builders.splice(i, 1);
                                     i--;
                                 }
@@ -658,14 +658,13 @@ class RCompiler {
                         break;
 
                     case Node.TEXT_NODE:
-                        let str = (srcNode as Text).data;
-                        if (this.bTrimLeft && /^\s*$/.test(str))
+                        let str = srcNode.nodeValue;
+                        if (this.bTrimLeft && /^[ \t\r\n]*$/.test(str))
                             str = "";
-                        else
-                            str = str.replace(/^\s+|\s+$/, ' ');
+                        else str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
 
                         if (str != '') {
-                            this.bTrimLeft = / $/.test(str);
+                            this.bTrimLeft = /[ \t\r\n]$/.test(str);
                             const getText = this.CompInterpolatedString( str );
                             async function Text(area: Area) {
                                 PrepareText(area, getText(area.env))
@@ -673,13 +672,14 @@ class RCompiler {
 
                             builders.push( [ Text, srcNode, getText.isBlank] );
                         }
-                        else
-                            srcParent.removeChild(srcNode);
+                        //else
+                        //    srcParent.removeChild(srcNode);
                         break;
-
+/*
                     default:    // Other nodes (especially comments) are removed
                         srcParent.removeChild(srcNode);
                         continue;
+*/
                 }
             }
         }
@@ -719,8 +719,7 @@ labelNoCheck:
                 switch (srcElm.localName) {
                     case 'def':
                     case 'define': { // 'LET' staat de parser niet toe.
-                        // En <DEFINE> moet helaas afgesloten worden met </DEFINE>; <DEFINE /> wordt niet herkend.
-                        srcParent.removeChild(srcElm);
+                        //srcParent.removeChild(srcElm);
                         const rvarName = atts.get('rvar');
                         const varName = rvarName || atts.get('name') || atts.get('var', true);
                         const getValue = this.CompParameter(atts, 'value');
@@ -731,16 +730,25 @@ labelNoCheck:
 
                         builder = async function DEFINE(this: RCompiler, area) {
                                 const {range, subArea, bInit} = PrepareArea(srcElm, area);
+                                let rvar: _RVAR;
                                 if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
                                     range.value = rvarName 
-                                        ? new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName) 
+                                        ? rvar = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName) 
                                         : value;
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
-                                //if (bInit && rvarName && (range.value as _RVAR).Subscribers.size == 0)
+                                if (bInit && rvar) {
                                 //    (range.value as _RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
+                                    const a = area;
+                                    envActions.push(() => {
+                                        if (rvar.Subscribers.size == 0)
+                                        rvar.Subscribe(new Subscriber(
+                                            a, null, range.next
+                                        ))
+                                    })
+                                }
                             };
                     } break;
 
@@ -949,7 +957,7 @@ labelNoCheck:
                                 }
                             })();
                         
-                        srcParent.removeChild(srcElm);
+                        //srcParent.removeChild(srcElm);
 
                         builder = async function IMPORT({env}: Area) {
                             for (const [{name}, constructDef] of listImports.values()) {
@@ -988,7 +996,7 @@ labelNoCheck:
 
                     case 'rhtml': {
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
-                        srcParent.removeChild(srcElm);
+                        //srcParent.removeChild(srcElm);
                         //const bEncapsulate = CBool(atts.get('encapsulate'));
                         let {preModifiers} = this.CompAttributes(atts);
 
@@ -1112,7 +1120,7 @@ labelNoCheck:
     }
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
-        srcParent.removeChild(srcElm);
+        //srcParent.removeChild(srcElm);
         const bModule = atts.get('type') == 'module';
         const src = atts.get('src');
 
@@ -1188,7 +1196,7 @@ labelNoCheck:
                 // Compileer alle childNodes
                 const bodyBuilder = this.CompChildNodes(srcElm);
                 
-                srcParent.removeChild(srcElm);
+                //srcParent.removeChild(srcElm);
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
@@ -1204,8 +1212,8 @@ labelNoCheck:
 
                         const iterator = getRange(env);
                         const setIndex = initIndex(env);
-                        if (iterator !== undefined) {
-                            if (!iterator || !(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
+                        if (iterator) {
+                            if (!(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterator}) is not iterable`;
                             let index=0;
                             for await (const item of iterator) {
@@ -1340,7 +1348,7 @@ labelNoCheck:
 
                 const initIndex = this.NewVar(indexName);
                 const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
-                srcParent.removeChild(srcElm);
+                //srcParent.removeChild(srcElm);
 
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
                     const {subArea} = PrepareArea(srcElm, area);
@@ -1391,7 +1399,7 @@ labelNoCheck:
     }
 
     private CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
-        srcParent.removeChild(srcElm);
+        //srcParent.removeChild(srcElm);
 
         const builders: [DOMBuilder, ChildNode][] = [];
         let signature: Signature, elmTemplate: HTMLTemplateElement;
@@ -1521,7 +1529,7 @@ labelNoCheck:
         srcParent: ParentNode, srcElm: HTMLElement, atts: Atts,
         signature: Signature
     ) {
-        srcParent.removeChild(srcElm);
+        //srcParent.removeChild(srcElm);
         const {name} = signature;
         const getArgs: Array<Dependent<unknown>> = [];
 
@@ -1987,7 +1995,7 @@ function CheckValidIdentifier(name: string) {
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-+ '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|margin|max|min|node|offset|outer'
++ '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
 + '|outline|overflow|owner|padding|parent|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName: string) {
