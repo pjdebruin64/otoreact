@@ -400,9 +400,9 @@ class RCompiler {
                             RHTML = this;
                         this.buildStart = performance.now();
                         this.builtNodeCount = 0;
-                        const iterator = this.DirtySubs.values();
+                        const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const { range, builder, parent, before, env, bNoChildBuilding } of iterator) {
+                        for (const { range, builder, parent, before, env, bNoChildBuilding } of subs.values()) {
                             try {
                                 await builder.call(this, { range, parent, before, env, bNoChildBuilding });
                             }
@@ -534,7 +534,7 @@ class RCompiler {
                             const getValue = this.CompParameter(atts, 'value');
                             const getStore = rvarName && this.CompAttrExpression(atts, 'store');
                             const newVar = this.NewVar(varName);
-                            const bReact = atts.get('updating') != null;
+                            const bReact = atts.get('reacting') ?? atts.get('updating') != null;
                             const subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEFINE(area) {
                                 const { range, subArea, bInit } = PrepareArea(srcElm, area);
@@ -965,7 +965,7 @@ class RCompiler {
                         const setNext = initNext(env);
                         let index = 0, prevItem = null, nextItem, prevRange = null;
                         const nextIterator = nextName ? newMap.values() : null;
-                        let childArea, childRange;
+                        let childArea;
                         subArea.parentR = range;
                         if (nextIterator)
                             nextIterator.next();
@@ -973,9 +973,8 @@ class RCompiler {
                         for (const [key, { item, hash }] of newMap) {
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
-                            let subscriber = keyMap.get(key);
-                            if (subscriber) {
-                                childRange = subscriber.range;
+                            let childRange = keyMap.get(key), bInit = !childRange;
+                            if (childRange) {
                                 if (childRange != nextChild) {
                                     childRange.prev.next = childRange.next;
                                     if (childRange.next)
@@ -1001,11 +1000,10 @@ class RCompiler {
                                 subArea.before = nextChild?.First || range.endMark;
                                 ;
                                 ({ range: childRange, subArea: childArea } = PrepareArea(null, subArea, `${varName}(${index})`, true));
-                                subscriber = new Subscriber((bReactive ? area : { ...area, env: undefined }), (bReactive ? bodyBuilder : undefined), childRange);
                                 if (key != null) {
                                     if (keyMap.has(key))
                                         throw `Duplicate key '${key}'`;
-                                    keyMap.set(key, subscriber);
+                                    keyMap.set(key, childRange);
                                 }
                                 childRange.key = key;
                             }
@@ -1026,8 +1024,8 @@ class RCompiler {
                                 if (nextIterator)
                                     setNext(nextItem);
                                 await bodyBuilder.call(this, childArea);
-                                if (bReactive)
-                                    rvar.Subscribe(subscriber);
+                                if (bReactive && bInit)
+                                    rvar.Subscribe(new Subscriber(childArea, bodyBuilder, childRange.child));
                             }
                             prevItem = item;
                             RemoveStaleItems();

@@ -305,7 +305,7 @@ type ParametrizedBuilder =
     
 type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>,
-    _UpdatesTo?: Array<_RVAR<unknown>>,
+    _UpdatesTo?: Array<_RVAR>,
     Subscribe?: (sub:Subscriber) => void
 };
 
@@ -514,7 +514,7 @@ class RCompiler {
     private bCompiled = false;
     private bHasReacts = false;
 
-    public DirtyVars = new Set<_RVAR<unknown>>();
+    public DirtyVars = new Set<_RVAR>();
     private DirtySubs = new Map<Range, Subscriber>();
     public AddDirty(sub: Subscriber) {
         this.MainC.DirtySubs.set(sub.range, sub)
@@ -565,9 +565,9 @@ class RCompiler {
                         if (!this.clone) RHTML = this;
                         this.buildStart = performance.now();
                         this.builtNodeCount = 0;
-                        const iterator = this.DirtySubs.values();
+                        const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const {range, builder, parent, before, env, bNoChildBuilding} of iterator) {
+                        for (const {range, builder, parent, before, env, bNoChildBuilding} of subs.values()) {
                             try { 
                                 await builder.call(this, {range, parent, before, env, bNoChildBuilding}); 
                             }
@@ -600,7 +600,7 @@ class RCompiler {
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
         //: Array<Subscriber> = [],
-        updatesTo: Array<_RVAR<unknown>> = [],
+        updatesTo: Array<_RVAR> = [],
     ): RVAR_Light<T> {
         if (!t._Subscribers) {
             t._Subscribers = []; //subscribers;
@@ -704,10 +704,10 @@ class RCompiler {
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm);
         let builder: DOMBuilder = null;
-        const mapReacts: Array<{attName: string, rvars: Dependent<_RVAR<unknown>>[]}> = [];
+        const mapReacts: Array<{attName: string, rvars: Dependent<_RVAR>[]}> = [];
         for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
-            if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) )});
+            if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) )});
         }
 labelNoCheck:
         try {
@@ -726,7 +726,7 @@ labelNoCheck:
                         const getValue = this.CompParameter(atts, 'value');
                         const getStore = rvarName && this.CompAttrExpression<Store>(atts, 'store');
                         const newVar = this.NewVar(varName);
-                        const bReact = atts.get('updating') != null;
+                        const bReact = atts.get('reacting') ?? atts.get('updating') != null;
                         const subBuilder = this.CompChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, area) {
@@ -739,6 +739,8 @@ labelNoCheck:
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
+                                //if (bInit && rvarName && (range.value as _RVAR).Subscribers.size == 0)
+                                //    (range.value as _RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
                             };
                     } break;
 
@@ -964,7 +966,7 @@ labelNoCheck:
                     case 'react': {
                         this.MainC.bHasReacts = true;
                         const reacts = atts.get('on', false, true);
-                        const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR<unknown>>(expr) ) : [];
+                        const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) ) : [];
                         const getHash = this.CompAttrExpression(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
@@ -1171,7 +1173,7 @@ labelNoCheck:
                 if (nextName == '') nextName = 'next';
 
                 const bReactive = CBool(atts.get('updateable') ?? atts.get('reactive'));
-                const getUpdatesTo = this.CompAttrExpression<_RVAR<unknown>>(atts, 'updates');
+                const getUpdatesTo = this.CompAttrExpression<_RVAR>(atts, 'updates');
             
                 // Voeg de loop-variabele toe aan de context
                 const initVar = this.NewVar(varName);
@@ -1195,7 +1197,7 @@ labelNoCheck:
                         savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
-                        const keyMap: Map<Key, Subscriber> = range.value ||= new Map(),
+                        const keyMap: Map<Key, Range> = range.value ||= new Map(),
                         // Map of the newly obtained data
                             newMap: Map<Key, {item:Item, hash:Hash}> = new Map(),
                             setVar = initVar(env);
@@ -1237,7 +1239,7 @@ labelNoCheck:
                         let index = 0, prevItem: Item = null, nextItem: Item
                             , prevRange: Range = null;
                         const nextIterator = nextName ? newMap.values() : null;
-                        let childArea: Area, childRange: Range;
+                        let childArea: Area;
                         subArea.parentR = range;
 
                         if (nextIterator) nextIterator.next();
@@ -1248,10 +1250,9 @@ labelNoCheck:
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
 
-                            let subscriber = keyMap.get(key);
-                            if (subscriber) {
+                            let childRange = keyMap.get(key), bInit = !childRange;
+                            if (childRange) {
                                 // Item already occurs in the series
-                                childRange = subscriber.range;
                                 
                                 if (childRange != nextChild) {
                                     // Item has to be moved
@@ -1281,15 +1282,10 @@ labelNoCheck:
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.First || range.endMark;
                                 ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
-                                subscriber = new Subscriber(
-                                    (bReactive ? area : {...area, env: undefined}), 
-                                    (bReactive ? bodyBuilder : undefined),
-                                    childRange
-                                );
                                 if (key != null) {
                                     if (keyMap.has(key))
                                         throw `Duplicate key '${key}'`;
-                                    keyMap.set(key, subscriber);
+                                    keyMap.set(key, childRange);
                                 }
                                 childRange.key = key;
                             }
@@ -1319,8 +1315,11 @@ labelNoCheck:
 
                                 // Body berekenen
                                 await bodyBuilder.call(this, childArea);
-                                if (bReactive)
-                                    (rvar as _RVAR<Item>).Subscribe(subscriber);
+
+                                if (bReactive && bInit)
+                                    (rvar as _RVAR<Item>).Subscribe(
+                                        new Subscriber(childArea, bodyBuilder, childRange.child)
+                                    );
                             }
 
                             prevItem = item;

@@ -1,4 +1,0 @@
-
-(function(ModifType){
-(patt=this.CompPattern(pattern)).url=true;
-(R.StyleRoot=shadowRoot).innerHTML='';
