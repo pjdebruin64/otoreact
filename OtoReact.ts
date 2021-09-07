@@ -1144,10 +1144,16 @@ labelNoCheck:
             ? async function MSCRIPT({env}: Area) {
                 // Execute the script now
                 if (!exports) {
-                    if (!src)
-                        // Thanks https://stackoverflow.com/a/67359410/2061591
-                        src = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
-                    exports = await import(src);
+                    if (!src) 
+                        try {
+                            // Thanks https://stackoverflow.com/a/67359410/2061591
+                            src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
+                            const m = import.meta.url;
+                            exports = await import(src);
+                        }
+                        finally { URL.revokeObjectURL(src); }
+                    else
+                        exports = await import(src);
                 }
                 for (const [name, init] of lvars) {
                     if (!(name in exports))

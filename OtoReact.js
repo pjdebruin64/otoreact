@@ -7,14 +7,24 @@ const defaultSettings = {
     rootPattern: null,
 };
 class Range {
+    node;
+    text;
+    child;
+    next = null;
+    endMark;
     constructor(node, text) {
         this.node = node;
         this.text = text;
-        this.next = null;
         if (!node)
             this.child = null;
     }
     toString() { return this.text || this.node?.nodeName; }
+    result;
+    value;
+    errorNode;
+    hash;
+    key;
+    prev;
     get First() {
         let f;
         if (f = this.node)
@@ -154,6 +164,12 @@ function CloneEnv(env) {
     return clone;
 }
 class Subscriber {
+    builder;
+    range;
+    parent;
+    before;
+    env;
+    bNoChildBuilding;
     constructor(area, builder, range) {
         this.builder = builder;
         this.range = range;
@@ -164,13 +180,15 @@ class Subscriber {
     }
 }
 class Signature {
+    srcElm;
     constructor(srcElm) {
         this.srcElm = srcElm;
-        this.Parameters = [];
-        this.RestParam = null;
-        this.Slots = new Map();
         this.name = srcElm.localName;
     }
+    name;
+    Parameters = [];
+    RestParam = null;
+    Slots = new Map();
     IsCompatible(sig) {
         let result = sig
             && this.name == sig.name
@@ -273,23 +291,17 @@ function RestoreEnv(savedEnv) {
         envActions.pop()();
 }
 class RCompiler {
+    clone;
+    static iNum = 0;
+    instanceNum = RCompiler.iNum++;
+    ContextMap;
+    context;
+    Constructs;
+    StyleRoot;
+    StyleBefore;
+    AddedHeaderElements;
     constructor(clone) {
         this.clone = clone;
-        this.instanceNum = RCompiler.iNum++;
-        this.restoreActions = [];
-        this.ToBuild = [];
-        this.AllAreas = [];
-        this.bTrimLeft = false;
-        this.bTrimRight = false;
-        this.bCompiled = false;
-        this.bHasReacts = false;
-        this.DirtyVars = new Set();
-        this.DirtySubs = new Map();
-        this.bUpdating = false;
-        this.bUpdate = false;
-        this.handleUpdate = null;
-        this.sourceNodeCount = 0;
-        this.builtNodeCount = 0;
         this.context = clone ? clone.context : "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
@@ -299,6 +311,7 @@ class RCompiler {
         this.StyleBefore = clone?.StyleBefore;
     }
     get MainC() { return this.clone || this; }
+    restoreActions = [];
     SaveContext() {
         return this.restoreActions.length;
     }
@@ -365,9 +378,22 @@ class RCompiler {
         this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
+    Settings;
+    ToBuild = [];
+    AllAreas = [];
+    Builder;
+    bTrimLeft = false;
+    bTrimRight = false;
+    bCompiled = false;
+    bHasReacts = false;
+    DirtyVars = new Set();
+    DirtySubs = new Map();
     AddDirty(sub) {
         this.MainC.DirtySubs.set(sub.range, sub);
     }
+    bUpdating = false;
+    bUpdate = false;
+    handleUpdate = null;
     RUpdate() {
         this.MainC.bUpdate = true;
         if (!this.clone && !this.bUpdating && !this.handleUpdate)
@@ -377,6 +403,7 @@ class RCompiler {
             }, 0);
     }
     ;
+    buildStart;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating)
             return;
@@ -453,6 +480,8 @@ class RCompiler {
         }
         return t;
     }
+    sourceNodeCount = 0;
+    builtNodeCount = 0;
     CompChildNodes(srcParent, bBlockLevel, childNodes = Array.from(srcParent.childNodes), bNorestore) {
         const builders = [];
         const saved = this.SaveContext();
@@ -510,6 +539,7 @@ class RCompiler {
                 }
             };
     }
+    static preMods = ['reacton', 'reactson', 'thisreactson'];
     CompElement(srcParent, srcElm, bBlockLevel) {
         const atts = new Atts(srcElm);
         let builder = null;
@@ -872,8 +902,16 @@ class RCompiler {
                 ? async function MSCRIPT({ env }) {
                     if (!exports) {
                         if (!src)
-                            src = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
-                        exports = await import(src);
+                            try {
+                                src = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
+                                const m = import.meta.url;
+                                exports = await import(src);
+                            }
+                            finally {
+                                URL.revokeObjectURL(src);
+                            }
+                        else
+                            exports = await import(src);
                     }
                     for (const [name, init] of lvars) {
                         if (!(name in exports))
@@ -1243,6 +1281,7 @@ class RCompiler {
                 await parBuilder.call(this, subArea, args, slotBuilders, slotEnv);
         };
     }
+    static regTrimmable = /^(blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, '');
         const bTrim = RCompiler.regTrimmable.test(name);
@@ -1457,18 +1496,17 @@ class RCompiler {
         return env => env[i];
     }
 }
-RCompiler.iNum = 0;
-RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
-RCompiler.regTrimmable = /^(blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
+    MainC;
+    store;
+    storeName;
     constructor(MainC, globalName, initialValue, store, storeName) {
         this.MainC = MainC;
         this.store = store;
         this.storeName = storeName;
-        this.Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         let s;
@@ -1481,6 +1519,8 @@ class _RVAR {
         this._Value = initialValue;
         this.storeName ||= globalName;
     }
+    _Value;
+    Subscribers = new Set();
     Subscribe(s) {
         this.Subscribers.add(s);
     }
