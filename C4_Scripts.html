@@ -27,6 +27,9 @@ The HTML parser does not allow string interpolation inside <elm>STYLE</elm>, but
         <elm>STYLE.</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
         <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code>.
     </li>
+    <li>
+        Sheets imported with <code><a href="{MDN}CSS/@import">@import</a></code> cannot use string interpolation.
+    </li>
 </ul>
 <p>
     Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue:
@@ -37,7 +40,7 @@ The HTML parser does not allow string interpolation inside <elm>STYLE</elm>, but
 <h2>No formatting</h2>
 OtoReact does not (yet) have extra formatting functionality for numbers and dates, etc. You can use standard JavaScript features like the <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Intl">Internationalization API</a>, or existing libraries like <a href="https://day.js.org/">Day.js</a>.
 
-<demo></demo>
+<demo #content=sampleFormatting></demo>
 
 <h2>Options ...</h2>
 

@@ -3,6 +3,14 @@
 N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
+<p>
+    Any attribute starting with an underscore "_" is ignored. So one can use this to insert a comment right between attributes (<code>_="Some comment"</code>) or to comment out some attribute.
+</p>
+
+<p>
+    Otherwise, it is an error when a construct instance has unknown attributes.
+</p>
+
 <h2 id=define><{}DEFINE var #value>, Local Variables</h2>
 <pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm>
@@ -16,8 +24,8 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 </p>
 <p>
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
-    <br>When you add an attribute <code>updating</code> (without value), then the expression is re-evaluated at every update.
 </p>
+<p>When you add an attribute <code>updating</code> or <code>reacting</code> (without value), then the expression is re-evaluated at every update.</p>
 <pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>" store?=<i>storage</i></elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
@@ -63,7 +71,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
     <li>
-        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be hidden.
+        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden">hidden</a>.
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#thisreactson"><code>thisreactson</code></a>).
     </li>
 </ul>
@@ -90,7 +98,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
             <li><code>?</code> matches any single character</li>
             <li><code>*</code> matches any string of characters</li>
             <li><code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">all usual rules</a> apply</li>
-            <li><code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and the matched string will be captured in <a href=Variables>local variable</a> <i>varName</i></li>
+            <li><code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and the matched string will be captured in <a href=#Variables>local variable</a> <i>varName</i></li>
             <li><code>\</code> followed by any character matches just that character</li>
         </ul>
         The whole value has to match, not just a substring.
@@ -268,6 +276,10 @@ Further on, <elm>FOR</elm> can have the following attributes:
             </li>
             <li>
                 When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the scope surrounding the <elm>SCRIPT</elm> element.
+                <br>This works for both classic and module, internal and external scripts.
+                <p>
+                    For module scripts, the names must be marked as exports inside the script.
+                </p>
             </li>
         </ul>
     </dd>
@@ -295,8 +307,9 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <div id=TicTacToe></div>
 <demo #bShow=false #content=sampleTicTacToe></demo>
 
+<h2><{}REACT hash></h2>
 
-<h2 id=Component><{}COMPONENT encapsulate?> ...</h2>
+<h2 id=Component><{}COMPONENT encapsulate?></h2>
 (Note: This documentation is unfinished.)
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
@@ -311,29 +324,23 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
   <{}TEMPLATE> <i>Template</i> <{}/TEMPLATE>  
 <{}/COMPONENT>
 </pre>
-<p>
-    The <i>signature</i> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify parameters and slots.</p>
-<p>
-    The <i>template</i> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</p>
-<p>
-    <i>Instances</i> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</p>
-<p>
-    A component may be <i>encapsulated</i> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</p>
-
+<ul>
+<li>
+    The <i>signature</i> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
+<li>
+    The <i>template</i> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
+<li>
+    <i>Instances</i> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
+<li>
+    A component may be <i>encapsulated</i> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
+</ul>
 <h3>Signatures</h3>
 <p>
     The first element inside <elm>COMPONENT</elm> is its signature. E.g.:
-    <pre>
-{}  <{}!-- Component signature with parameter-->
-  <{}repeat #count>
-    <{}!-- Slot signature -->
-    <{}rbody><{}/rbody>
-  <{}/repeat>
-</pre>
+    <pre>{C1}</pre>
     <ul>
         <li>
-            The tag name of the signature element ('repeat') is the name of the component.
-            <br>The component is instantiated by writing an element with same tag name.
+            The tag name of the signature element ('repeat' in this example) defines the name of the component.
         </li>
         <li>
             Attributes <code><i>name</i></code> or <code><i>#name</i></code> of the signature element define the parameters of the component.
@@ -341,17 +348,11 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             <p>There are special cases:</p>
             <ul>
                 <li>
-                    When the instance attribute starts with '#', it is interpreted as an expression, otherwise as an interpolated string. It doesn't matter whether the signature attribute starts with '#' or not.
-                </li>
-                <li>
-                    When <i>name</i> starts with 'on', the instance attribute is interpreted as a JavaScript event handler.
-                </li>
-                <li>
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> are <i>optional</i> parameters.
-                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead.
+                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>null</code> when there is no default..
                     <p>
                         An empty <i>string</i> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
-                        <br>To specify the empty string as default value, use an empty string expression: <code>#<i>name</i>="''"</code>.
+                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
                     </p>
                 </li>
                 <li>
@@ -361,12 +362,15 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             </ul>
         </li>
         <li>
-            Child elements of the signature element define <i>slots</i> of the component.
-            <br>Each child element is itself the signature of a slot.
+            Each child element of the signature element defines a <i>slot</i> of the component.
+            <br>These child elements are themselves signatures: slot signatures.
             <br>For each slot, component instances may have one or more child elements that should match the slot signature.
             <br>The slots are available <i>as constructs</i> within the component template.
             <p>
-                When building a component instance, the content of child elements that match a slot becomes the (slot) template for the slot instances within the component template
+                When building a component instance, the content of any instance child element that matches a slot becomes the (slot) template for the slot instances within the component template
+            </p>
+            <p>
+                As slots have signatures, they can have parameters and slots themselves.
             </p>
         </li>
         <li>
@@ -376,20 +380,58 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </p>
 
 <h3>Templates</h3>
-<pre>
-{}  <{}!-- Component template -->
-  <{}template>
-    <{}for let=i #of="range(count)">
-      <{}!-- Slot instance -->
-      <{}rbody><{}/rbody>
-    <{}/for>
-  <{}/template>
-</pre>
+The component template is tagged <elm>template</elm>.
+<p>Parameters of the component are available as local variables inside the template.
+    <br>Parameter names may be repeated in the template tag: <elm>template count</elm>.
+    <br>Or they may be renamed: <elm>template count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
+    
+<p>Slots of the component are available as constructs inside  the template:
+</p>
+<pre>{C2}</pre>
+
+
+<p>
+    The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates.
+</p>
 
 <h3>Instances</h3>
+A component is instantiated by a tag containing the component name.
+<p>
+    Attributes may/must provide values for all optional/compulsory parameters of the template. There are four forms:
+</p>
+<ul>
+    <li>By default, the value is specified as an interpolated string: <code><i>name</i>="<i>string</i>"</code></li>
+    <li>When prefixed with a hash mark, the value is computed as a JavaScript expression: <code>#<i>name</i>="<i>expression</i>"</code></li>
+    <li>
+        When <i>name</i> starts with "on", then the value is specified as a block of JavaScript statements, just like an event handler: <code><i>name</i>="<i>statements</i>"</code>
+        <br>The value of the parameter will be the routine <code>(event) => \{ <i>statements</i> \}</code>.
+    </li>
+    <li>
+        As with elements, attribute names starting with an underscore "_" are ignored.
+    </li>
+</ul>
+<p>
+    When the component has a rest attribute, then the values specified by any remaining attribute are collected into that rest attribute. Otherwise it is an error when there are remaining attributes.
+</p>
+<p>
+    The instance may contain one or more templates for each of the slots of the component.
+</p>
 
+<p>Slot templates</p>
 
-<demo #bShow=false #content=sampleComponent1></demo>
+<pre>{C3}</pre>
+
+Had we named the slot <elm>content</elm> in stead of <elm>rbody</elm>, then the instance would have looked like:
+<pre>
+<{}!-- Component instance -->
+<{}repeat #count=3 i>
+  <{}!-- Slot template -->
+  <{}p>This is <{}u>paragraph \{i}.<{}/u><{}/p>
+<{}/repeat>
+</pre>
+
+<p>Putting it all together, we get:</p>
+<demo #content=sampleComponent1></demo>
 
 <h3>Encapsulate</h3>
 The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
@@ -407,17 +449,21 @@ The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
             <br>Styling rules and inline styles specifically targeted at the custom element, however, are inherited by the encapsulated content.
         </p>
         <p>
-            The custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
-            If the component name does not already contain a hyphen, then 'rhtml-' is prepended.
+            The generated custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
+            If the component name does not already contain a hyphen, then a prefix 'rhtml-' is prepended.
+            <br>This concerns the generated output only, component instances use just the component name, but styling rules targeted at the custom element must use the prefix.
         </p>
     </li>
 </ul>
+Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but quite a different syntax.
+
+<h4>More samples</h4>
 
 <demo #content=sampleTODO>
 </demo>
 
 <p>Components may be recursive, i.e. refer to themselve.
-<br>Here is a recursive component, imaging nested lists of lists:</p>
+<br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #bShow=false #content=sampleRecursion></demo>
 
 <p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.

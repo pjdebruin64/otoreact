@@ -11,79 +11,86 @@ const sampleGreeting=
     </p>
 </if>`;
 
-const ColorTableDefs =
-`<script nomodule defines="ColorTable,toHex,timer,Rotate" >
-// Here we store the data. Columns are:
-// name:string, red:number, green:number, blue:number.
-const ColorTable = RVAR('', []);
-
-/* Fetch the data! */
-fetch("webColors.json").then(async response => {
-    if (response.ok)
-        ColorTable.V = JSON.parse(await response.text());
-});
-
-/* Utility for 2-digit hex code */
-function toHex(n){ 
-  return n.toString(16).toUpperCase().padStart(2,'0');
-}
-
-/* Rotation */
-let timer=RVAR('', 0);
-function Rotate() {
-    if (timer.V) {
-        clearInterval(timer.V);
-        timer.V = 0;
+const sampleServerData =
+`<script nomodule 
+        defines="ColorTable,toHex,bRunning,StartStop,lineh" >
+    const
+        // Here we store the data. Columns are:
+        // name:string, red:number, green:number, blue:number.
+        ColorTable = RVAR(), 
+        lineh=RVAR('',100);     // Relative height of first line
+    
+    /* Fetch the data! */
+    fetch("webColors.json").then(async response => {
+        if (response.ok)
+            ColorTable.V = JSON.parse(await response.text());
+    });
+    
+    /* Utility for 2-digit hex code */
+    function toHex(n){ 
+      return n.toString(16).toUpperCase().padStart(2,'0');
     }
-    else
-        timer.V = setInterval(
-            () => { ColorTable.U.push(ColorTable.V.shift()) }
-            , 500)
-}
+    
+    /* Rotation */
+    let bRunning=RVAR('', false);
+    async function StartStop() {
+        bRunning.V = !bRunning.V;
+        while (bRunning.V) { 
+            // Animate the first row
+            for (lineh.V=75; lineh.V>=0; lineh.V-=25)
+                // Sleep
+                await new Promise(r => setTimeout(r, 125));
+
+            // Modify the data model, triggering a DOM update:
+            ColorTable.U.push(ColorTable.V.shift());
+        }
+    }
 </script>
 
 <style> /* Styling */
-table.colorTable td {
-  padding: 0px 4px;
-  text-align: center;
-  max-width: 8em; overflow:hidden;
-}
-</style>`;
-
-const sampleServerData =
-`${ColorTableDefs}
+    table.colorTable td {
+    padding: 0px 4px;
+    text-align: center;
+    max-width: 8em; overflow:hidden;
+    }
+</style>
 
 <div style="height:50ex; overflow-y:scroll;">
-  <!-- Now we build our table! 
+    <!-- Now we build our table! 
     The dots are needed because HTML does not allow <FOR> as a
     child of <TABLE>. OtoReact removes these dots. -->
-  <table. class=colorTable>
+    <table. class=colorTable>
     <!-- Table caption -->
     <caption.>Web Colors 
-        <button onclick="Rotate();" reacton=timer style.float=right>
-            {timer.V ? 'Stop' : 'Rotate'}
+        <button onclick="StartStop();" reacton=bRunning
+            style.float=right>
+            {bRunning.V ? 'Stop' : 'Rotate'}
         </button>
     </caption.>
     <!-- Column headers -->
     <tr.>
-      <th.>Name</th.>
-      <th.>R</th.><th.>G</th.><th.>B</th.>
-      <th.>Hex</th.>
+        <th.>Name</th.>
+        <th.>R</th.><th.>G</th.><th.>B</th.>
+        <th.>Hex</th.>
     </tr.>
     <!-- Detail records -->
-    <FOR let=C of="ColorTable.V" 
-        _comment="Optimization:" reacton=ColorTable key=C hash=C>
-      <tr. 
-           style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
-           #style.color="C.green<148 ? 'white' : 'black'">
-        <td.>{C.name}</td.>
-        <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
-        <td.>
-          #{toHex(C.red) + toHex(C.green) + toHex(C.blue)}
-        </td.>
-      </tr.>
+    <FOR let=C of="ColorTable.V" index=i
+        key=C reacton="ColorTable,lineh">
+        <tr. 
+          style.backgroundColor= "rgb({C.red},{C.green},{C.blue})" 
+          #style.color      = "C.green<148 ? 'white' : 'black'"
+          #style.lineHeight = "i==0 ? \`\${lineh.V}%\` : null"
+        >
+        <react hash=C> <!-- Optimization -->
+          <td.>{C.name}</td.>
+          <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
+          <td.>
+            #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+          </td.>
+        </react>
+        </tr.>
     </FOR>
-  </table.>
+    </table.>
 </div>`;
 
 const sampleBraces =
@@ -301,7 +308,7 @@ const sampleTableMaker =
     <HDEF>Leeftijd</HDEF>
     <DDEF item=record>{record.age}</DDEF>
 </tablemaker>`;
-
+/*
 const sampleTMColor=
 `${ColorTableDefs}
 
@@ -316,7 +323,7 @@ const sampleTMColor=
   </TABLEMAKER>
 </div>
 `;
-
+*/
 const sampleTicTacToe = 
 `<script nomodule defines=TicTacToe>
     function Board() {
@@ -365,46 +372,47 @@ const sampleTicTacToe =
 </script>
 
 <style>
-    .tic-tac-toe td {
+    table.tic-tac-toe td {
         height:2em; width: 2em; padding: 0px;
         border: 2px solid; 
         text-align: center; vertical-align: middle;
     }
 </style>
 
-<div style="display: grid; background-color: white; grid-template-columns: auto 120pt">
-    <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
-        <b>Tic-Tac-Toe</b>
-    </div>
+<div style="display:grid; grid-template-columns: auto 120pt;
+        background-color: white; ">
+  <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
+    <b>Tic-Tac-Toe</b>
+  </div>
 
-    <define var=T #value="new TicTacToe()"></define>
-    <table. class=tic-tac-toe reacton=T.board
+  <define var=T #value="new TicTacToe()"></define>
+  <table. class=tic-tac-toe reacton=T.board
             style="width: fit-content; margin:1ex">
-        <for let=row #of="T.board.V">
-            <tr.>
-                <for let=cell #of=row updates=T.board>
-                    <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
-                    >{cell.V ?? ''}</td.>
-                </for>
-            </tr.>
+    <for let=row #of="T.board.V">
+      <tr.>
+        <for let=cell #of=row updates=T.board>
+          <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
+           >{cell.V ?? ''}</td.>
         </for>
-    </table.>
-    <div style="padding:1ex">
-        <p reacton=T.winner,T.toMove>
-            <case>
-                <when #cond="T.winner.V==true">
-                    <b>It's a draw.</b>
-                </when>
-                <when #cond="T.winner.V">
-                    <b>The winner is: <large>{T.winner.V}</large></b>
-                </when>
-                <else>
-                    Player to move: {T.toMove.V}
-                </else>
-            </case>
-        </p>
-        <button onclick="T.ClearAll()">Clear</button>
-    </div>
+      </tr.>
+    </for>
+  </table.>
+  <div style="padding:1ex">
+    <p reacton=T.winner,T.toMove>
+      <case>
+        <when #cond="T.winner.V==true">
+          <b>It's a draw.</b>
+        </when>
+        <when #cond="T.winner.V">
+          <b>The winner is: <large>{T.winner.V}</large></b>
+        </when>
+        <else>
+          Player to move: {T.toMove.V}
+        </else>
+      </case>
+    </p>
+    <button onclick="T.ClearAll()">Clear</button>
+  </div>
 </div>`;
 
 const sampleRHTML =
@@ -435,32 +443,39 @@ Content
   Random color
 </button>`;
 
-const sampleComponent1 =
+const C1=
+`  <!-- Component signature with parameter -->
+  <repeat #count>
+    <!-- Slot signature with parameter -->
+    <rbody #num></rbody>
+  </repeat>`,
+C2 =
+`  <!-- Component template -->
+  <template>
+    <for let=i #of="range(1,1+count)">
+      <!-- Slot instance -->
+      <rbody #num="i"></rbody>
+    </for>
+  </template>`,
+C3 =
+`<!-- Component instance -->
+<repeat #count=10>
+  <!-- Slot template -->
+  <rbody #num>
+    <p>This is <u>paragraph {num}</u>.</p>
+  </rbody>
+</repeat>`,
+
+sampleComponent1 =
 `<!-- Component definition -->
 <component>
-  <!-- Component signature with parameter-->
-  <repeat #count>
-    <!-- Slot signature -->
-    <rbody></rbody>
-  </repeat>
+${C1}
 
-  <!-- Component template -->
-  <template>
-    <for let=i #of="range(count)">
-      <!-- Slot instance -->
-      <rbody></rbody>
-    </for>
-  </template>
+${C2}
 </component>
 
 
-<!-- Component instance -->
-<repeat #count=3>
-  <!-- Slot template -->
-  <rbody>
-    <p>Here is a <u>paragraph</u></p>
-  </rbody>
-</repeat>`,
+${C3}`,
 
 sampleComponent2 =
 `<component>
@@ -499,3 +514,21 @@ sampleComponent3 =
 <repeat #count=3 x >
   <p>This is paragraph {x}.</p>
 </repeat>`;
+
+const sampleFormatting =
+`<define var=today #value="new Date()"></define>
+
+<h4>Internationalization API</h4>
+<script>
+    globalThis.dateFmt = 
+        new Intl.DateTimeFormat('en', {day:'numeric', month: 'short'});
+</script>
+<p>
+    Today is {dateFmt.format(today)}.
+</p>
+
+<h4>Day.js</h4>
+<script src="dayjs.min.js"></script>
+<p>
+    Today is {dayjs(today).format('MMM D')}.
+</p>`

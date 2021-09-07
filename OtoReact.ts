@@ -261,7 +261,7 @@ type ParentNode = HTMLElement|DocumentFragment;
 
 
 type Handler = (ev:Event) => any;
-type LVar = (env: Environment) => (value: unknown) => void;
+type LVar = ((env: Environment) => (value: unknown) => void) & {varName: string};
 
 // A SIGNATURE describes an RHTML user construct (a component or a slot)
 class Signature {
@@ -309,7 +309,7 @@ export type RVAR_Light<T> = T & {
     readonly U?: T;
 };
 
-const globalEval = eval;
+const globalEval = eval, globalFetch = fetch;
 
 interface Item {}  // Three unknown but distinct types, used by the <FOR> construct
 interface Key {}
@@ -435,31 +435,35 @@ class RCompiler {
     }
 
     private NewVar(name: string): LVar {
+        let init: LVar;
         if (!name)
             // Lege variabelenamen staan we toe; dan wordt er niets gedefinieerd
-            return (_) => (_) => {};
-       
-        name = CheckValidIdentifier(name);
+           init = ((_) => (_) => {}) as LVar;
+        else {
+            name = CheckValidIdentifier(name);
 
-        let i = this.ContextMap.get(name);
-        const bNewName = i == null;
-        if (bNewName){
-            const savedContext = this.context;
-            i = this.ContextMap.size;
-            this.ContextMap.set(name, i);
-            this.context += `${name},`
-            this.restoreActions.push(
-                () => { this.ContextMap.delete( name );
-                    this.context = savedContext;
-                }
-            );
+            let i = this.ContextMap.get(name);
+            const bNewName = i == null;
+            if (bNewName){
+                const savedContext = this.context;
+                i = this.ContextMap.size;
+                this.ContextMap.set(name, i);
+                this.context += `${name},`
+                this.restoreActions.push(
+                    () => { this.ContextMap.delete( name );
+                        this.context = savedContext;
+                    }
+                );
+            }
+            init = function InitVar(env: Environment) {
+                const prev = env[i], j=i;
+                envActions.push( () => {env[j] = prev } );
+                
+                return (value: unknown) => {env[j] = value };
+            }.bind(this) as LVar;
         }
-        return function InitVar(env: Environment) {
-            const prev = env[i], j=i;
-            envActions.push( () => {env[j] = prev } );
-            
-            return (value: unknown) => {env[j] = value };
-        }.bind(this) as LVar            
+        init.varName = name;
+        return init;        
     }
 
     private AddConstruct(C: Signature) {
@@ -639,6 +643,7 @@ class RCompiler {
         this.sourceNodeCount += childNodes.length;
         try {
             for (const srcNode of childNodes) {
+                ///srcParent.removeChild(srcNode);
                 switch (srcNode.nodeType) {
                     
                     case Node.ELEMENT_NODE:
@@ -649,7 +654,7 @@ class RCompiler {
                             if (builderElm[0].bTrim) {
                                 let i = builders.length - 2;
                                 while (i>=0 && builders[i][2]) {
-                                    //srcParent.removeChild(builders[i][1]);
+                                    srcParent.removeChild(builders[i][1]);
                                     builders.splice(i, 1);
                                     i--;
                                 }
@@ -739,6 +744,7 @@ labelNoCheck:
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
+                                /*
                                 if (bInit && rvar) {
                                 //    (range.value as _RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
                                     const a = area;
@@ -749,6 +755,7 @@ labelNoCheck:
                                         ))
                                     })
                                 }
+                                */
                             };
                     } break;
 
@@ -1122,47 +1129,42 @@ labelNoCheck:
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
         const bModule = atts.get('type') == 'module';
-        const src = atts.get('src');
+        let src = atts.get('src');
 
         if ( atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            if (src) {
-                srcElm.noModule = false;
-                document.body.appendChild(srcElm);
-                this.AddedHeaderElements.push(srcElm);
-            }
-            else {
-                let script = srcElm.text+'\n';
-                const defines = atts.get('defines');
-                if (src && defines) throw `'src' and'defines' cannot be combined (yet)`
-                const lvars: LVar[] = [];
-                if (defines) {
-                    for (let name of defines.split(','))
-                        lvars.push(this.NewVar(name));
-                    
-                    let exports: Array<unknown>;
-                    async function SCRIPT({env}: Area) {
-                        let i=0;
-                        for (const lvar of lvars)
-                            lvar(env)(exports[i++]);
-                    }
-                    // Execute the script now
-                    if (bModule) {
+            let script = srcElm.text+'\n';
+            const defines = atts.get('defines');
+            const lvars: Array<[string,LVar]> = [];
+            if (defines) 
+                for (const name of defines.split(','))
+                    lvars.push([name, this.NewVar(name)]);
+                
+            let exports: Object;
+            return (bModule 
+            ? async function MSCRIPT({env}: Area) {
+                // Execute the script now
+                if (!exports) {
+                    if (!src)
                         // Thanks https://stackoverflow.com/a/67359410/2061591
-                        const objectURL = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
-                        const task = import(objectURL);
-                        return async function SCRIPT(reg: Area) {
-                            if (!exports) exports = await task;
-                            await SCRIPT(reg);
-                        }
-                    }
-                    else {
-                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
-                        return SCRIPT;
-                    }    
-                }   
-                else
-                    globalEval(`'use strict';{${script}}`);
-            }        
+                        src = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+                    exports = await import(src);
+                }
+                for (const [name, init] of lvars) {
+                    if (!(name in exports))
+                        throw `'${name}' is not exported by this script`;
+                    init(env)(exports[name]);
+                }
+            }
+            : async function CSCRIPT({env}: Area) {
+                if (!exports) {
+                    if (src)
+                        script = await FetchText(src);
+                    exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
+                }
+                let i=0;
+                for (const [_,init] of lvars)
+                    init(env)(exports[i++]);
+            });
         }
         return null;
     }
@@ -1207,7 +1209,7 @@ labelNoCheck:
                         // Map of previous data, if any
                         const keyMap: Map<Key, Range> = range.value ||= new Map(),
                         // Map of the newly obtained data
-                            newMap: Map<Key, {item:Item, hash:Hash}> = new Map(),
+                            newMap: Map<Key, {item:Item, hash:Hash, index: number}> = new Map(),
                             setVar = initVar(env);
 
                         const iterator = getRange(env);
@@ -1223,7 +1225,7 @@ labelNoCheck:
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, {item, hash});
+                                newMap.set(key ?? {}, {item, hash, index});
                             }
                         }
 
@@ -1238,6 +1240,20 @@ labelNoCheck:
                                     parent.removeChild(node);
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
+                            }
+                        }
+                        function MoveRange(range: Range, before: Range) {
+                            if (range.prev) range.prev.next = range.next;
+                            if (range.next) range.next.prev = range.prev;
+                            const refNode = before?.First || range.endMark;
+                            for (const node of range.Nodes())
+                                parent.insertBefore(node, refNode);
+                            range.next = before;
+                            if (before) {
+                                if (before.prev)
+                                    before.prev.next = range;
+                                range.prev = before.prev;
+                                before.prev = range;
                             }
                         }
 
@@ -1264,6 +1280,9 @@ labelNoCheck:
                                 
                                 if (childRange != nextChild) {
                                     // Item has to be moved
+                                    const nextIndex = newMap.get(nextChild.key).index;
+                                    if (nextIndex - index > (newMap.size - index) / 2)
+
                                     childRange.prev.next = childRange.next;
                                     if (childRange.next)
                                         childRange.next.prev = childRange.prev;
@@ -1469,12 +1488,13 @@ labelNoCheck:
         bNewNames: boolean, bEncaps?: boolean, styles?: Node[], atts?: Atts
     ): ParametrizedBuilder
     {
-        const names: string[] = [], saved = this.SaveContext();
-        let bCheckAtts: boolean;
-        if (bCheckAtts = !atts)
+        const names: string[] = [], 
+        saved = this.SaveContext(),
+            bCheckAtts = !atts;
+        if (bCheckAtts)
             atts = new Atts(srcElm);
         for (const param of signat.Parameters)
-            names.push( atts.get(param.name, bNewNames) || param.name);
+            names.push( (atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
         const {name, RestParam} = signat;
         if (RestParam?.name)
             names.push( atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
@@ -2040,7 +2060,7 @@ function createErrorNode(message: string) {
 }
 
 async function FetchText(url: string): Promise<string> {
-    const response = await fetch(url);
+    const response = await globalFetch(url);
     if (!response.ok)
         throw `GET '${url}' returned ${response.status} ${response.statusText}`;
     return await response.text();

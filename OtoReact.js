@@ -186,7 +186,7 @@ class Signature {
         return result;
     }
 }
-const globalEval = eval;
+const globalEval = eval, globalFetch = fetch;
 var ModifType;
 (function (ModifType) {
     ModifType[ModifType["Attr"] = 0] = "Attr";
@@ -307,26 +307,31 @@ class RCompiler {
             this.restoreActions.pop()();
     }
     NewVar(name) {
+        let init;
         if (!name)
-            return (_) => (_) => { };
-        name = CheckValidIdentifier(name);
-        let i = this.ContextMap.get(name);
-        const bNewName = i == null;
-        if (bNewName) {
-            const savedContext = this.context;
-            i = this.ContextMap.size;
-            this.ContextMap.set(name, i);
-            this.context += `${name},`;
-            this.restoreActions.push(() => {
-                this.ContextMap.delete(name);
-                this.context = savedContext;
-            });
+            init = ((_) => (_) => { });
+        else {
+            name = CheckValidIdentifier(name);
+            let i = this.ContextMap.get(name);
+            const bNewName = i == null;
+            if (bNewName) {
+                const savedContext = this.context;
+                i = this.ContextMap.size;
+                this.ContextMap.set(name, i);
+                this.context += `${name},`;
+                this.restoreActions.push(() => {
+                    this.ContextMap.delete(name);
+                    this.context = savedContext;
+                });
+            }
+            init = function InitVar(env) {
+                const prev = env[i], j = i;
+                envActions.push(() => { env[j] = prev; });
+                return (value) => { env[j] = value; };
+            }.bind(this);
         }
-        return function InitVar(env) {
-            const prev = env[i], j = i;
-            envActions.push(() => { env[j] = prev; });
-            return (value) => { env[j] = value; };
-        }.bind(this);
+        init.varName = name;
+        return init;
     }
     AddConstruct(C) {
         const CName = C.name;
@@ -462,6 +467,7 @@ class RCompiler {
                             if (builderElm[0].bTrim) {
                                 let i = builders.length - 2;
                                 while (i >= 0 && builders[i][2]) {
+                                    srcParent.removeChild(builders[i][1]);
                                     builders.splice(i, 1);
                                     i--;
                                 }
@@ -540,13 +546,6 @@ class RCompiler {
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
-                                if (bInit && rvar) {
-                                    const a = area;
-                                    envActions.push(() => {
-                                        if (rvar.Subscribers.size == 0)
-                                            rvar.Subscribe(new Subscriber(a, null, range.next));
-                                    });
-                                }
                             };
                         }
                         break;
@@ -860,45 +859,38 @@ class RCompiler {
     }
     CompScript(srcParent, srcElm, atts) {
         const bModule = atts.get('type') == 'module';
-        const src = atts.get('src');
+        let src = atts.get('src');
         if (atts.get('nomodule') != null || this.Settings.bRunScripts) {
-            if (src) {
-                srcElm.noModule = false;
-                document.body.appendChild(srcElm);
-                this.AddedHeaderElements.push(srcElm);
-            }
-            else {
-                let script = srcElm.text + '\n';
-                const defines = atts.get('defines');
-                if (src && defines)
-                    throw `'src' and'defines' cannot be combined (yet)`;
-                const lvars = [];
-                if (defines) {
-                    for (let name of defines.split(','))
-                        lvars.push(this.NewVar(name));
-                    let exports;
-                    async function SCRIPT({ env }) {
-                        let i = 0;
-                        for (const lvar of lvars)
-                            lvar(env)(exports[i++]);
+            let script = srcElm.text + '\n';
+            const defines = atts.get('defines');
+            const lvars = [];
+            if (defines)
+                for (const name of defines.split(','))
+                    lvars.push([name, this.NewVar(name)]);
+            let exports;
+            return (bModule
+                ? async function MSCRIPT({ env }) {
+                    if (!exports) {
+                        if (!src)
+                            src = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+                        exports = await import(src);
                     }
-                    if (bModule) {
-                        const objectURL = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
-                        const task = import(objectURL);
-                        return async function SCRIPT(reg) {
-                            if (!exports)
-                                exports = await task;
-                            await SCRIPT(reg);
-                        };
-                    }
-                    else {
-                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
-                        return SCRIPT;
+                    for (const [name, init] of lvars) {
+                        if (!(name in exports))
+                            throw `'${name}' is not exported by this script`;
+                        init(env)(exports[name]);
                     }
                 }
-                else
-                    globalEval(`'use strict';{${script}}`);
-            }
+                : async function CSCRIPT({ env }) {
+                    if (!exports) {
+                        if (src)
+                            script = await FetchText(src);
+                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
+                    }
+                    let i = 0;
+                    for (const [_, init] of lvars)
+                        init(env)(exports[i++]);
+                });
         }
         return null;
     }
@@ -943,7 +935,7 @@ class RCompiler {
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, { item, hash });
+                                newMap.set(key ?? {}, { item, hash, index });
                             }
                         }
                         let nextChild = range.child;
@@ -956,6 +948,22 @@ class RCompiler {
                                     parent.removeChild(node);
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
+                            }
+                        }
+                        function MoveRange(range, before) {
+                            if (range.prev)
+                                range.prev.next = range.next;
+                            if (range.next)
+                                range.next.prev = range.prev;
+                            const refNode = before?.First || range.endMark;
+                            for (const node of range.Nodes())
+                                parent.insertBefore(node, refNode);
+                            range.next = before;
+                            if (before) {
+                                if (before.prev)
+                                    before.prev.next = range;
+                                range.prev = before.prev;
+                                before.prev = range;
                             }
                         }
                         const setPrevious = initPrevious(env);
@@ -973,7 +981,9 @@ class RCompiler {
                             let childRange = keyMap.get(key), bInit = !childRange;
                             if (childRange) {
                                 if (childRange != nextChild) {
-                                    childRange.prev.next = childRange.next;
+                                    const nextIndex = newMap.get(nextChild.key).index;
+                                    if (nextIndex - index > (newMap.size - index) / 2)
+                                        childRange.prev.next = childRange.next;
                                     if (childRange.next)
                                         childRange.next.prev = childRange.prev;
                                     const nextNode = nextChild?.First || range.endMark;
@@ -1144,12 +1154,11 @@ class RCompiler {
         });
     }
     CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
-        const names = [], saved = this.SaveContext();
-        let bCheckAtts;
-        if (bCheckAtts = !atts)
+        const names = [], saved = this.SaveContext(), bCheckAtts = !atts;
+        if (bCheckAtts)
             atts = new Atts(srcElm);
         for (const param of signat.Parameters)
-            names.push(atts.get(param.name, bNewNames) || param.name);
+            names.push((atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
         const { name, RestParam } = signat;
         if (RestParam?.name)
             names.push(atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
@@ -1575,7 +1584,7 @@ function createErrorNode(message) {
     return node;
 }
 async function FetchText(url) {
-    const response = await fetch(url);
+    const response = await globalFetch(url);
     if (!response.ok)
         throw `GET '${url}' returned ${response.status} ${response.statusText}`;
     return await response.text();
