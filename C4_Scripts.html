@@ -21,7 +21,7 @@ The HTML parser does not allow string interpolation inside <elm>STYLE</elm>, but
     <li>Braces inside <elm>STYLE.</elm> that are part of the style sheet and do not delimit an embedded string must be escaped: <code>\\{ \\}</code>.</li>
     <li>
         <elm>STYLE.</elm> style sheet templates have global effect just like <elm>STYLE</elm>, so you must avoid having multiple possibly conflicting instances of the same style sheet.
-        <br>E.G.,don'tputthem inside a <elm>FOR</elm>loop.
+        <br>E.g., don't put them inside a <elm>FOR</elm> loop.
     </li>
     <li>
         <elm>STYLE.</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
