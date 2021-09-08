@@ -29,7 +29,8 @@
         import {RCompile} from './OtoReact.js';
         msg('OtoReact loaded');
         
-        RCompile(document.body, {rootPattern: '/otoreact(\.dev)?/|http://localhost:5000/'});
+        RCompile(document.body, {rootPattern: '.*/'});
+        console.log(`RootPath = ${RootPath}`)
         //document.body.hidden = false;
         msg('Document compiled');
         

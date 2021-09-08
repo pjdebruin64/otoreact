@@ -41,9 +41,7 @@ declare type Environment = Array<unknown> & {
     constructDefs: Map<string, ConstructDef>;
 };
 declare type FullSettings = typeof defaultSettings;
-declare type Settings = {
-    [Property in keyof FullSettings]+?: FullSettings[Property];
-};
+declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare class Subscriber {
     builder: DOMBuilder;
@@ -80,6 +78,7 @@ declare class RCompiler {
     private StyleRoot;
     private StyleBefore;
     private AddedHeaderElements;
+    FilePath: string;
     constructor(clone?: RCompiler);
     private get MainC();
     private restoreActions;
@@ -87,7 +86,7 @@ declare class RCompiler {
     private RestoreContext;
     private NewVar;
     private AddConstruct;
-    Compile(elm: ParentNode, settings: Settings, bIncludeSelf: boolean): void;
+    Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     ToBuild: Area[];

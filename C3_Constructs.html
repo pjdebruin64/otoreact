@@ -1,4 +1,4 @@
-<h1>RHTML Construct Details</h1>
+<h1>RHTML Constructs</h1>
 
 N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
@@ -381,24 +381,29 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 
 <h3>Templates</h3>
 The component template is tagged <elm>template</elm>.
-<p>Parameters of the component are available as local variables inside the template.
-    <br>Parameter names may be repeated in the template tag: <elm>template count</elm>.
-    <br>Or they may be renamed: <elm>template count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
-    
-<p>Slots of the component are available as constructs inside  the template:
+<ul>
+    <li>
+<p>Parameters of the component are available as local variables inside the template.</p>
+<p>
+    Parameter names may be repeated in the template tag, like: <elm>template #count</elm>.
+    <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
 </p>
+</li>
+<li>
+<p>Slots of the component are available as constructs inside  the template, like:</p>
 <pre>{C2}</pre>
 
 
 <p>
     The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates.
 </p>
+</li>
+</ul>
 
 <h3>Instances</h3>
 A component is instantiated by a tag containing the component name.
-<p>
-    Attributes may/must provide values for all optional/compulsory parameters of the template. There are four forms:
-</p>
+<h4>Parameter values</h4>
+Attributes may/must provide values for all optional/compulsory parameters of the template. There are four forms:
 <ul>
     <li>By default, the value is specified as an interpolated string: <code><i>name</i>="<i>string</i>"</code></li>
     <li>When prefixed with a hash mark, the value is computed as a JavaScript expression: <code>#<i>name</i>="<i>expression</i>"</code></li>
@@ -407,17 +412,17 @@ A component is instantiated by a tag containing the component name.
         <br>The value of the parameter will be the routine <code>(event) => \{ <i>statements</i> \}</code>.
     </li>
     <li>
-        As with elements, attribute names starting with an underscore "_" are ignored.
+        As with standard constructs, attribute names starting with an underscore "_" are ignored.
     </li>
 </ul>
 <p>
-    When the component has a rest attribute, then the values specified by any remaining attribute are collected into that rest attribute. Otherwise it is an error when there are remaining attributes.
-</p>
-<p>
-    The instance may contain one or more templates for each of the slots of the component.
+    When the component has a rest parameter, then the values specified by any remaining attributes are collected into that rest parameter. Otherwise it is an error when there are remaining attributes.
 </p>
 
-<p>Slot templates</p>
+<h4>Slot templates</h4>
+The component instance may contain one or more templates for each of the slots of the component.
+
+
 
 <pre>{C3}</pre>
 

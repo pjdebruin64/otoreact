@@ -196,25 +196,27 @@ function PrepareText(area: Area, content: string) {
 }
 
 
-type FullSettings = typeof defaultSettings
-type Settings = { [Property in keyof FullSettings]+?: FullSettings[Property] };
+type FullSettings = typeof defaultSettings;
+type Settings = Partial<FullSettings>;
+const location = document.location;
 let RootPath: string = null;
 
 export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {    
     try {
-        const {rootPattern} = settings = {...defaultSettings, ...settings};
+        let {rootPattern} = settings = {...defaultSettings, ...settings},
+            url = `${location.origin}${location.pathname}`;
         if (rootPattern) {
-            const url = document.location.href;
             const m = url.match(`^.*(${rootPattern})`);
             if (!m)
                 throw `Root pattern '${rootPattern}' does not match URL '${url}'`;
-            RootPath = (new URL(m[0])).pathname;
+            url = m[0]; // (new URL(m[0])).pathname;
         }
-        else
-            RootPath = `${document.location.origin}${document.location.pathname}`;
+        RootPath = (new URL(url)).pathname.replace(/[^/]*$/, '');
         globalThis.RootPath = RootPath;
+        SetLocation();
 
         const R = RHTML;
+        R.FilePath = `${location.origin}${RootPath}`;
         R.Compile(elm, settings, true);
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
@@ -409,18 +411,20 @@ class RCompiler {
     private StyleRoot: Node;
     private StyleBefore: ChildNode;
     private AddedHeaderElements: Array<HTMLElement>;
+    public FilePath: string;
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(
-        private clone?: RCompiler
+        private clone?: RCompiler,
     ) { 
-        this.context    = clone ? clone.context : "";
+        this.context    = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
         this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
-        this.AddedHeaderElements = clone ? clone.AddedHeaderElements : [];
-        this.StyleRoot  = clone ? clone.StyleRoot : document.head;
+        this.AddedHeaderElements = clone?.AddedHeaderElements || [];
+        this.StyleRoot  = clone?.StyleRoot || document.head;
         this.StyleBefore = clone?.StyleBefore
+        this.FilePath   = clone?.FilePath || RootPath;
     }
     private get MainC():RCompiler { return this.clone || this; }
 
@@ -478,10 +482,10 @@ class RCompiler {
     // Compile a source tree into an ElmBuilder
     public Compile(
         elm: ParentNode, 
-        settings: Settings,
-        bIncludeSelf: boolean,  // Compile the element itself, or just its childnodes
+        settings: Settings = {},
+        bIncludeSelf: boolean = false,  // Compile the element itself, or just its childnodes
     ) {
-        this.Settings = {...defaultSettings, ...settings, };
+        Object.assign(this.Settings, settings);
         const t0 = performance.now();
         const savedR = RHTML; 
         try {
@@ -535,13 +539,13 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 0);
+            }, 5);
     };
 
     private buildStart: number;
     async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating)
-            return;
+        if (!this.bCompiled || this.bUpdating) { window.alert('Updating X!')
+            return;}
         
         for (let i=0;i<2;i++) {
             this.bUpdate = false;
@@ -884,6 +888,7 @@ labelNoCheck:
                         const src = atts.get('src', true);
                         // Placeholder that will contain a Template when the file has been received
                         let C: RCompiler = new RCompiler(this);
+                        C.FilePath = GetPath(src, this.FilePath);
                         
                         const task = (async () => {
                             const textContent = await FetchText(src);
@@ -892,7 +897,7 @@ labelNoCheck:
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
                             // Compile the parsed contents of the file in the original context
-                            C.Compile(parsedContent.body, this.Settings, false);
+                            C.Compile(parsedContent.body, {bRunScripts: true}, false);
                         })();
 
                         builder = 
@@ -913,7 +918,6 @@ labelNoCheck:
                         
                         for (const child of srcElm.children) {
                             const signature = this.ParseSignature(child);
-                            const holdOn: ParametrizedBuilder =
                             async function holdOn(this: RCompiler, area, args, mapSlotBuilders, slotEnv) {
                                 const t0 = performance.now();
                                 await task;
@@ -928,8 +932,9 @@ labelNoCheck:
                             
                             this.AddConstruct(signature);
                         }
-                        const compiler = new RCompiler();
-                        compiler.Settings.bRunScripts = true;
+                        const C = new RCompiler();
+                        C.FilePath = GetPath(src, this.FilePath);
+                        C.Settings.bRunScripts = true;
                         
                         const task =
                             (async () => {
@@ -938,21 +943,21 @@ labelNoCheck:
                                     promiseModule = FetchText(src)
                                     .then(async textContent => {
                                         // Parse the contents of the file
-                                        const parser = new DOMParser();
-                                        const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
-                                        const builder = compiler.CompChildNodes(parsedContent.body, true, undefined, true);
+                                        const parser = new DOMParser(),
+                                            parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
+                                            builder = C.CompChildNodes(parsedContent.body, true, undefined, true),
+                                            env = NewEnv();
 
-                                        const env = NewEnv();
                                         await builder.call(this, {parent: parsedContent.body, start: null, bInit: true, env});
-                                        return {Signatures: compiler.Constructs, ConstructDefs: env.constructDefs};
+                                        return {Signatures: C.Constructs, ConstructDefs: env.constructDefs};
                                     });
                                     Modules.set(src, promiseModule);
                                 }
                                 const module = await promiseModule;
                                 
                                 for (const [clientSig, placeholder] of listImports) {
-                                    const {name} = clientSig;
-                                    const signature = module.Signatures.get(name);
+                                    const {name} = clientSig,
+                                        signature = module.Signatures.get(name);
                                     if (!signature)
                                         throw `<${name}> is missing in '${src}'`;
                                     if (!clientSig.IsCompatible(signature))
@@ -1005,7 +1010,9 @@ labelNoCheck:
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         //srcParent.removeChild(srcElm);
                         //const bEncapsulate = CBool(atts.get('encapsulate'));
-                        let {preModifiers} = this.CompAttributes(atts);
+
+                        const imports = this.CompAttrExpression(atts, 'imports');
+                        const {preModifiers} = this.CompAttributes(atts);
 
                         builder = async function RHTML(this: RCompiler, area) {
                             const tempElm = document.createElement('rhtml');
@@ -1140,37 +1147,38 @@ labelNoCheck:
                     lvars.push([name, this.NewVar(name)]);
                 
             let exports: Object;
-            return (bModule 
-            ? async function MSCRIPT({env}: Area) {
-                // Execute the script now
-                if (!exports) {
-                    if (!src) 
-                        try {
-                            // Thanks https://stackoverflow.com/a/67359410/2061591
-                            src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
-                            const m = import.meta.url;
+            return async function SCRIPT(this: RCompiler, {env}: Area) {
+                if (bModule) {
+                    // Execute the script now
+                    if (!exports) {
+                        if (!src) 
+                            try {
+                                script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
+                                // Thanks https://stackoverflow.com/a/67359410/2061591
+                                src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
+                                exports = await import(src);
+                            }
+                            finally { URL.revokeObjectURL(src); }
+                        else
                             exports = await import(src);
-                        }
-                        finally { URL.revokeObjectURL(src); }
-                    else
-                        exports = await import(src);
+                    }
+                    for (const [name, init] of lvars) {
+                        if (!(name in exports))
+                            throw `'${name}' is not exported by this script`;
+                        init(env)(exports[name]);
+                    }
                 }
-                for (const [name, init] of lvars) {
-                    if (!(name in exports))
-                        throw `'${name}' is not exported by this script`;
-                    init(env)(exports[name]);
+                else  {
+                    if (!exports) {
+                        if (src)
+                            script = await FetchText(src);
+                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
+                    }
+                    let i=0;
+                    for (const [_,init] of lvars)
+                        init(env)(exports[i++]);
                 }
-            }
-            : async function CSCRIPT({env}: Area) {
-                if (!exports) {
-                    if (src)
-                        script = await FetchText(src);
-                    exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
-                }
-                let i=0;
-                for (const [_,init] of lvars)
-                    init(env)(exports[i++]);
-            });
+            };
         }
         return null;
     }
@@ -1248,25 +1256,11 @@ labelNoCheck:
                                 nextChild = nextChild.next;
                             }
                         }
-                        function MoveRange(range: Range, before: Range) {
-                            if (range.prev) range.prev.next = range.next;
-                            if (range.next) range.next.prev = range.prev;
-                            const refNode = before?.First || range.endMark;
-                            for (const node of range.Nodes())
-                                parent.insertBefore(node, refNode);
-                            range.next = before;
-                            if (before) {
-                                if (before.prev)
-                                    before.prev.next = range;
-                                range.prev = before.prev;
-                                before.prev = range;
-                            }
-                        }
 
                         const setPrevious = initPrevious(env);
                         const setNext = initNext(env);
 
-                        let index = 0, prevItem: Item = null, nextItem: Item
+                        let prevItem: Item = null, nextItem: Item
                             , prevRange: Range = null;
                         const nextIterator = nextName ? newMap.values() : null;
                         let childArea: Area;
@@ -1276,12 +1270,25 @@ labelNoCheck:
                         RemoveStaleItems();
 
                         // Voor elke waarde in de range
-                        for (const [key, {item, hash}] of newMap) {
+                        for (const [key, {item, hash, index}] of newMap) {
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
 
                             let childRange = keyMap.get(key), bInit = !childRange;
-                            if (childRange) {
+                            if (bInit) {
+                                // Item has to be newly created
+                                subArea.range = null;
+                                subArea.prevR = prevRange;
+                                subArea.before = nextChild?.First || range.endMark;
+                                ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
+                                if (key != null) {
+                                    if (keyMap.has(key))
+                                        throw `Duplicate key '${key}'`;
+                                    keyMap.set(key, childRange);
+                                }
+                                childRange.key = key;
+                            }
+                            else {
                                 // Item already occurs in the series
                                 
                                 if (childRange != nextChild) {
@@ -1309,31 +1316,13 @@ labelNoCheck:
                                 childArea = PrepareArea(null, subArea, '', true).subArea;
                                 subArea.parentR = null;
                             }
-                            else {
-                                // Item has to be newly created
-                                subArea.range = null;
-                                subArea.prevR = prevRange;
-                                subArea.before = nextChild?.First || range.endMark;
-                                ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
-                                if (key != null) {
-                                    if (keyMap.has(key))
-                                        throw `Duplicate key '${key}'`;
-                                    keyMap.set(key, childRange);
-                                }
-                                childRange.key = key;
-                            }
                             childRange.prev = prevRange;
                             prevRange = childRange;
 
-                            if (hash != null
-                                && ( hash == childRange.hash as Hash
-                                    || (childRange.hash = hash, false)
-                                    )
-                            ) { 
-                                index++;
-                                // Nothing
-                            }
-                            else {
+                            if (hash == null
+                                ||  hash != childRange.hash as Hash
+                                    && (childRange.hash = hash, true)
+                            ) {
                                 // Environment instellen
                                 let rvar: Item =
                                     ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
@@ -1341,7 +1330,7 @@ labelNoCheck:
                                     : item
                                     );
                                 setVar(rvar);
-                                setIndex(index++);
+                                setIndex(index);
                                 setPrevious(prevItem);
                                 if (nextIterator)
                                     setNext(nextItem)
@@ -2095,15 +2084,22 @@ const _range = globalThis.range = function* range(from: number, upto?: number, s
 }
 export {_range as range};
 
-export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', document.location);
-Object.defineProperties(docLocation, {subpath: {get:()=>document.location.pathname.substr(RootPath.length)}})
-function SetDocLocation()  { 
-    docLocation.SetDirty();
-    //if (RootPath)docLocation.subpath = document.location.pathname.substr(RootPath.length);
+function GetPath(url: string, base?: string) {
+    const U = new URL(url, base);
+    return `${U.origin}${U.pathname.replace(/[^/]*$/, '')}`;
 }
-window.addEventListener('popstate', SetDocLocation );
+
+export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', location);
+function SetLocation() {
+    const subpath = location.pathname.substr(RootPath.length);
+    if (docLocation.subpath != null && subpath != docLocation.subpath)
+        docLocation.SetDirty();
+    docLocation.subpath = subpath;
+}
+
+window.addEventListener('popstate', SetLocation );
 export const reroute = globalThis.reroute = (arg: Event | string) => {
     history.pushState(null, null, typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href );
-    SetDocLocation();
+    SetLocation();
     return false;
 }
