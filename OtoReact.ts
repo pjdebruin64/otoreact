@@ -57,6 +57,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
 
     // Alleen voor FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
+    fragm?: DocumentFragment;
 
     public get First(): ChildNode {
         let f: ChildNode
@@ -216,7 +217,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         SetLocation();
 
         const R = RHTML;
-        R.FilePath = `${location.origin}${RootPath}`;
+        R.FilePath = location.origin + RootPath
         R.Compile(elm, settings, true);
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
@@ -424,7 +425,7 @@ class RCompiler {
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.StyleRoot  = clone?.StyleRoot || document.head;
         this.StyleBefore = clone?.StyleBefore
-        this.FilePath   = clone?.FilePath || RootPath;
+        this.FilePath   = clone?.FilePath || location.origin + RootPath;
     }
     private get MainC():RCompiler { return this.clone || this; }
 
@@ -539,7 +540,7 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 5);
+            }, 0);
     };
 
     private buildStart: number;
@@ -732,7 +733,7 @@ labelNoCheck:
                         const rvarName = atts.get('rvar');
                         const varName = rvarName || atts.get('name') || atts.get('var', true);
                         const getValue = this.CompParameter(atts, 'value');
-                        const getStore = rvarName && this.CompAttrExpression<Store>(atts, 'store');
+                        const getStore = rvarName && this.CompAttrExpr<Store>(atts, 'store');
                         const newVar = this.NewVar(varName);
                         const bReact = atts.get('reacting') ?? atts.get('updating') != null;
                         const subBuilder = this.CompChildNodes(srcElm);
@@ -772,8 +773,8 @@ labelNoCheck:
                             builder: DOMBuilder, 
                             childElm: HTMLElement,
                         }> = [];
-                        const getCondition = (srcElm.nodeName == 'IF') && this.CompAttrExpression<boolean>(atts, 'cond', true);
-                        const getValue = this.CompAttrExpression<string>(atts, 'value');
+                        const getCondition = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', true);
+                        const getValue = this.CompAttrExpr<string>(atts, 'value');
                         atts.CheckNoAttsLeft();
                         const bodyNodes: ChildNode[] = [];
                         const bTrimLeft = this.bTrimLeft;
@@ -788,7 +789,7 @@ labelNoCheck:
                                     let patt:  {lvars: LVar[], regex: RegExp, url?: boolean};
                                     switch (child.nodeName) {
                                         case 'WHEN':                                
-                                            condition = this.CompAttrExpression<unknown>(atts, 'cond');
+                                            condition = this.CompAttrExpr<unknown>(atts, 'cond');
                                             let pattern: string;
                                             if ((pattern = atts.get('match')) != null)
                                                 patt = this.CompPattern(pattern);
@@ -814,7 +815,7 @@ labelNoCheck:
                                             continue;
                                     }
                                 } 
-                                catch (err) { throw `${OuterOpenTag(childElm)}${err}`  }
+                                catch (err) { throw OuterOpenTag(childElm)+ err  }
                                 finally { this.RestoreContext(saved) }
                             }
                             bodyNodes.push(child);
@@ -839,7 +840,7 @@ labelNoCheck:
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             )
                                         { choosenAlt = alt; break }
-                                    } catch (err) { throw `${OuterOpenTag(alt.childElm)}${err}` }
+                                    } catch (err) { throw OuterOpenTag(alt.childElm) + err }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                     /*
@@ -987,7 +988,7 @@ labelNoCheck:
                         this.MainC.bHasReacts = true;
                         const reacts = atts.get('on', false, true);
                         const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) ) : [];
-                        const getHash = this.CompAttrExpression(atts, 'hash');
+                        const getHash = this.CompAttrExpr(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         
@@ -1011,7 +1012,7 @@ labelNoCheck:
                         //srcParent.removeChild(srcElm);
                         //const bEncapsulate = CBool(atts.get('encapsulate'));
 
-                        const imports = this.CompAttrExpression(atts, 'imports');
+                        const imports = this.CompAttrExpr(atts, 'imports');
                         const {preModifiers} = this.CompAttributes(atts);
 
                         builder = async function RHTML(this: RCompiler, area) {
@@ -1190,14 +1191,14 @@ labelNoCheck:
         const saved = this.SaveContext();
         try {
             if (varName != null) { /* A regular iteration */
-                const getRange = this.CompAttrExpression<Iterable<Item>>(atts, 'of', true);
+                const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true);
                 let prevName = atts.get('previous');
                 if (prevName == '') prevName = 'previous';
                 let nextName = atts.get('next');
                 if (nextName == '') nextName = 'next';
 
                 const bReactive = CBool(atts.get('updateable') ?? atts.get('reactive'));
-                const getUpdatesTo = this.CompAttrExpression<_RVAR>(atts, 'updates');
+                const getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates');
             
                 // Voeg de loop-variabele toe aan de context
                 const initVar = this.NewVar(varName);
@@ -1206,8 +1207,8 @@ labelNoCheck:
                 const initPrevious = this.NewVar(prevName);
                 const initNext = this.NewVar(nextName);
 
-                const getKey = this.CompAttrExpression<Key>(atts, 'key');
-                const getHash = this.CompAttrExpression<Hash>(atts, 'hash');
+                const getKey = this.CompAttrExpr<Key>(atts, 'key');
+                const getHash = this.CompAttrExpr<Hash>(atts, 'hash');
 
                 // Compileer alle childNodes
                 const bodyBuilder = this.CompChildNodes(srcElm);
@@ -1234,12 +1235,13 @@ labelNoCheck:
                             let index=0;
                             for await (const item of iterator) {
                                 setVar(item);
-                                setIndex(index++);
+                                setIndex(index);
                                 const hash = getHash && getHash(env);
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
                                 newMap.set(key ?? {}, {item, hash, index});
+                                index++;
                             }
                         }
 
@@ -1291,21 +1293,37 @@ labelNoCheck:
                             else {
                                 // Item already occurs in the series
                                 
-                                if (childRange != nextChild) {
-                                    // Item has to be moved
-                                    const nextIndex = newMap.get(nextChild.key).index;
-                                    if (nextIndex - index > (newMap.size - index) / 2)
-
-                                    childRange.prev.next = childRange.next;
-                                    if (childRange.next)
-                                        childRange.next.prev = childRange.prev;
+                                if (childRange.fragm) {
                                     const nextNode = nextChild?.First || range.endMark;
-                                    for (const node of childRange.Nodes())
-                                        parent.insertBefore(node, nextNode);
+                                    parent.insertBefore(childRange.fragm, nextNode);
+                                    childRange.fragm = null;
                                 }
                                 else
-                                    nextChild = childRange.next;
-                                
+                                    while (true) {
+                                        if (nextChild == childRange)
+                                            nextChild = nextChild.next;
+                                        else {
+                                            // Item has to be moved
+                                            const nextIndex = newMap.get(nextChild.key).index;
+                                            if (nextIndex > index + 2) {
+                                                const fragm = nextChild.fragm = document.createDocumentFragment();
+                                                for (const node of nextChild.Nodes())
+                                                    fragm.appendChild(node);
+                                                
+                                                nextChild = nextChild.next;
+                                                continue;
+                                            }
+
+                                            childRange.prev.next = childRange.next;
+                                            if (childRange.next)
+                                                childRange.next.prev = childRange.prev;
+                                            const nextNode = nextChild?.First || range.endMark;
+                                            for (const node of childRange.Nodes())
+                                                parent.insertBefore(node, nextNode);
+                                        }
+                                        break;
+                                    }
+
                                 childRange.text = `${varName}(${index})`;
 
                                 if (prevRange) 
@@ -1846,12 +1864,12 @@ labelNoCheck:
     private CompParameter(atts: Atts, attName: string, bRequired?: boolean): Dependent<unknown> {
         const value = atts.get(attName);
         return (
-            value == null ? this.CompAttrExpression(atts, attName, bRequired)
+            value == null ? this.CompAttrExpr(atts, attName, bRequired)
             : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`)
             : this.CompInterpolatedString(value)
         );
     }
-    private CompAttrExpression<T>(atts: Atts, attName: string, bRequired?: boolean) {
+    private CompAttrExpr<T>(atts: Atts, attName: string, bRequired?: boolean) {
         return this.CompJavaScript<T>(atts.get(attName, bRequired, true));
     }
 
@@ -1873,17 +1891,17 @@ labelNoCheck:
             , depValue = (bThis
                 ? function (this: HTMLElement, env: Environment) {
                         try { return routine.call(this, env); } 
-                        catch (err) { throw `${errorInfo}${err}`; }
+                        catch (err) { throw errorInfo + err; }
                     }
                 : (env: Environment) => {
                         try { return routine(env); } 
-                        catch (err) { throw `${errorInfo}${err}`; }
+                        catch (err) { throw errorInfo + err; }
                     }
                 ) as Dependent<T>;
             depValue.bThis = bThis;
             return depValue;
         }
-        catch (err) { throw `${errorInfo}${err}` }             // Compiletime error
+        catch (err) { throw errorInfo + err }             // Compiletime error
     }
     private CompName(name: string): Dependent<unknown> {
         const i = this.ContextMap.get(name);
@@ -2086,7 +2104,7 @@ export {_range as range};
 
 function GetPath(url: string, base?: string) {
     const U = new URL(url, base);
-    return `${U.origin}${U.pathname.replace(/[^/]*$/, '')}`;
+    return U.origin + U.pathname.replace(/[^/]*$/, '');
 }
 
 export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', location);

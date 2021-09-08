@@ -33,6 +33,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     hash?: Hash;
     key?: Key;
     prev?: Range;
+    fragm?: DocumentFragment;
     get First(): ChildNode;
     Nodes(): Generator<ChildNode>;
     get isConnected(): boolean;
@@ -127,7 +128,7 @@ declare class RCompiler {
     private CompInterpolatedString;
     private CompPattern;
     private CompParameter;
-    private CompAttrExpression;
+    private CompAttrExpr;
     private CompJavaScript;
     private CompName;
 }

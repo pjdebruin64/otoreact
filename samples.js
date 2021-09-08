@@ -36,8 +36,9 @@ const sampleServerData =
     async function StartStop() {
         bRunning.V = !bRunning.V;
         while (bRunning.V) { 
+
             // Animate the first row
-            for (lineh.V=75; lineh.V>=0; lineh.V-=25)
+            for (lineh.V=100; lineh.V>=0; lineh.V-=20)
                 // Sleep
                 await new Promise(r => setTimeout(r, 125));
 
@@ -81,13 +82,13 @@ const sampleServerData =
           #style.color      = "C.green<148 ? 'white' : 'black'"
           #style.lineHeight = "i==0 ? \`\${lineh.V}%\` : null"
         >
-        <react hash=C> <!-- Optimization -->
-          <td.>{C.name}</td.>
-          <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
-          <td.>
-            #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
-          </td.>
-        </react>
+          <react hash=C> <!-- Optimization -->
+            <td.>{C.name}</td.>
+            <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
+            <td.>
+              #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+            </td.>
+          </react>
         </tr.>
     </FOR>
     </table.>
