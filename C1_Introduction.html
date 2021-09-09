@@ -40,7 +40,7 @@
 <pre class=sourcecode #innerText=sampleGreeting></pre>
 
 <h4>Working with server data</h4>
-<p id=colorTable>Here is an example of dynamically building a table based on server data, which does a bit of animation as well:</p>
+<p id=colorTable>Here is an example of dynamically building a table based on server data, with a bit of animation as well:</p>
 <demo #content="sampleServerData" #bShow=false #editable=true></demo>                                
 
 <h4>Other frameworks</h4>
@@ -263,6 +263,7 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
     <li>
         Each snippet of JavaScript is compiled <i>separately</i> into a routine, by offering it to JavaScripts <code>eval</code> function (in global scope, of course).
         <br>E.g., an RHTML property expression <code>a+b</code> is compiled by calling <code>eval("([a,b]) => (a+b)")</code>.
+        <p>OtoReact does not itself parse and analyse the JavaScript, so it is unaware which variables are actually used and which are not</p>
     </li>
     <li>
         While traversing the RHTML document tree, all these tiny routines are combined by JavaScript functions into a large "builder" routine, which can build ór update the DOM tree according to the RHTML.

@@ -310,7 +310,6 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <h2><{}REACT hash></h2>
 
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
-(Note: This documentation is unfinished.)
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
 <br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
@@ -380,36 +379,33 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </p>
 
 <h3>Templates</h3>
-The component template is tagged <elm>template</elm>.
+The component template is tagged <elm>template</elm>. E.g.:
+<pre>{C2}</pre>
 <ul>
     <li>
-<p>Parameters of the component are available as local variables inside the template.</p>
-<p>
-    Parameter names may be repeated in the template tag, like: <elm>template #count</elm>.
-    <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
-</p>
-</li>
-<li>
-<p>Slots of the component are available as constructs inside  the template, like:</p>
-<pre>{C2}</pre>
-
-
-<p>
-    The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates.
-</p>
-</li>
+        Parameters of the component (like <code>count</code>) are available as local variables inside the template.
+        <p>
+            Parameter names <u>may</u> be repeated in the template tag, like: <elm>template #count</elm>.
+            <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
+        </p>
+    </li>
+    <li>Slots of the component (like <elm>rbody</elm>) are available as constructs inside  the template</li>
+    <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
 </ul>
 
 <h3>Instances</h3>
-A component is instantiated by a tag containing the component name.
+A component is instantiated by a tag containing the component name:
+
+<pre>{C3}</pre>
+
 <h4>Parameter values</h4>
-Attributes may/must provide values for all optional/compulsory parameters of the template. There are four forms:
+A component instance may/must have attributes that provide values for all optional/compulsory parameters of the template. There are four forms:
 <ul>
     <li>By default, the value is specified as an interpolated string: <code><i>name</i>="<i>string</i>"</code></li>
-    <li>When prefixed with a hash mark, the value is computed as a JavaScript expression: <code>#<i>name</i>="<i>expression</i>"</code></li>
+    <li>When the name is prefixed with a hash mark, the value is computed as a JavaScript expression: <code>#<i>name</i>="<i>expression</i>"</code></li>
     <li>
         When <i>name</i> starts with "on", then the value is specified as a block of JavaScript statements, just like an event handler: <code><i>name</i>="<i>statements</i>"</code>
-        <br>The value of the parameter will be the routine <code>(event) => \{ <i>statements</i> \}</code>.
+        <br>The value of the parameter will be the routine <code>function(event) \{ <i>statements</i> \}</code>.
     </li>
     <li>
         As with standard constructs, attribute names starting with an underscore "_" are ignored.
@@ -420,18 +416,29 @@ Attributes may/must provide values for all optional/compulsory parameters of the
 </p>
 
 <h4>Slot templates</h4>
-The component instance may contain one or more templates for each of the slots of the component.
+The component instance may contain templates for each of the slots of the component. So just as the component definition contains a component template that can be instantiated by a client, so the component instances may contain slot templates that can be instantiated within the component template.
+<ul>
+    <li>
+        Slot templates are tagged by the slot name (not by <elm>template</elm>)
+    </li>
+    <li>
+        Slot templates must be immediate children of the component instance. They are fixed at compile time, so they cannot be inside a <elm>CASE</elm> or some other construct.
+    </li>
+    <li>
+        When the slot signature contains parameters, then these <u>must</u> be repeated in the slot template tag
+    </li>
+    <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
+    <li>
+        When the component signature contains a slot named <elm>CONTENT</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
+    </li>
+</ul>
 
-
-
-<pre>{C3}</pre>
-
-Had we named the slot <elm>content</elm> in stead of <elm>rbody</elm>, then the instance would have looked like:
+Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody</elm>, then the instance would have looked like:
 <pre>
 <{}!-- Component instance -->
-<{}repeat #count=3 i>
+<{}repeat #count=7 num>
   <{}!-- Slot template -->
-  <{}p>This is <{}u>paragraph \{i}.<{}/u><{}/p>
+  <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
 <{}/repeat>
 </pre>
 
@@ -462,19 +469,31 @@ The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
 </ul>
 Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but quite a different syntax.
 
-<h4>More samples</h4>
 
+<h4>More examples</h4>
+Here is a to-do application, which splits the collection of items into those done and not done. We use a component <elm>itemlist</elm> to show such a filtered list.
 <demo #content=sampleTODO>
 </demo>
+
 
 <p>Components may be recursive, i.e. refer to themselve.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #bShow=false #content=sampleRecursion></demo>
 
+
 <p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
 <demo #content=sampleRedefineA>
 </demo>
+
+
+<p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
+    <br>This is particularly useful for components with a <elm>CONTENT</elm> slot. The component may provide new or redefined constructs, that are available only within the content of component instances, and that may provide interaction with the component.
+</p>
+<p>
+    This documentation website uses such subslots to redefine <elm>H1</elm>, <elm>H2</elm> within the context of a particular page, so that the given section titles are automatically entered into the table of contents of that page.
+</p>
+
 
 <h2 id=FORoverSlots><{}FOR of> over component slots ...</h2>
 Here is a component which allows one to define tables column by column.
@@ -484,7 +503,7 @@ Here is a component which allows one to define tables column by column.
 
 <h2 id=Include><{}INCLUDE src></h2>
 <elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
-<br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the file is being fetched.
+<br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the included file is being fetched.
 
 <p>
     To speed things up, you can insert a <code>preload</code> link in the document header:

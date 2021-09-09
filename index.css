@@ -10,7 +10,8 @@
     body { font-size: 18pt; }
 }
 @media print {
-    body { font-size: 10pt; }
+    body { font-size: 7.5pt; }
+    button { font-size: 6.5pt !important; }
 }
 @media screen {
     section { content-visibility: auto; }
@@ -55,7 +56,11 @@ h3,h4  {margin: .6em 0 .2em 0}
 a { cursor: pointer; }
 a:not([target]) {
     text-decoration: none;
-    border-bottom: .1em dashed;
+    border-bottom: .05em dashed;
+}
+a[target] {
+    text-decoration: none;
+    border-bottom: .05em solid;
 }
 
 section:not(:first-of-type) > h1 {

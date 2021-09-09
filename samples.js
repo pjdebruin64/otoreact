@@ -17,8 +17,9 @@ const sampleServerData =
     const
         // Here we store the data. Columns are:
         // name:string, red:number, green:number, blue:number.
-        ColorTable = RVAR(), 
-        lineh=RVAR('',100);     // Relative height of first line
+        ColorTable = RVAR(),
+        // Relative height of first row 
+        lineh=RVAR('',100);
     
     /* Fetch the data! */
     fetch("webColors.json").then(async response => {
@@ -48,7 +49,8 @@ const sampleServerData =
     }
 </script>
 
-<style> /* Styling */
+/* Styling */
+<style>
     table.colorTable td {
     padding: 0px 4px;
     text-align: center;
@@ -144,24 +146,24 @@ const sampleParticipants=
 `<!-- Here we use a local RVAR -->
 <define rvar=Participants #value="['Joe', 'Mary', 'Eileen']"></define>
 
-<p><b>Participants:</b></p>
+<b>Participants:</b>
 <ul>
     <for let=participant #of="Participants.V">
         <li>{participant}</li>
     </for>
 </ul>
-<p>
-    New participant (Enter):
-    <br>
-    <input type=text onchange="
-        if(this.value) {
-            Participants.U.push(this.value); this.value=''; 
-        }
+
+New participant (Enter):
+<br><input type=text onchange="
+      if(this.value) {
+          Participants.U.push(this.value); this.value=''; 
+      }
     ">
-<!-- "this" in all RHTML event handlers refers to the target element.
+<!-- 
+  "this" in all RHTML event handlers refers to the target element.
   Getting "Participants.U" means "Participants" will be marked as
-  changed, even though it is not assigned to. -->
-</p>`;
+  changed, even though it is not assigned to.
+-->`;
 
 const sampleTODO=
 `<script nomodule defines=AddItem>
@@ -169,10 +171,10 @@ const sampleTODO=
     let TODO = RVAR('TODO',
         [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
     );
-    // Adding an item
-    function AddItem(inputElement) {
-        if (inputElement.value) {
-            TODO.U.push( [inputElement.value, false] );
+    // Adding an item to the list
+    function AddItem(inputElem) {
+        if (inputElem.value) {
+            TODO.U.push( [inputElem.value, false] );
             inputElement.value = '';
         }
     }
@@ -190,10 +192,8 @@ with a caption -->
             <for let=item of=TODO.V updates=TODO>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
-                    <label>
-                        <input type=checkbox @checked='item.U[1]'> 
-                        {item[0]}
-                    </label>
+                    <input type=checkbox @checked='item.U[1]'> 
+                    {item[0]}
                     <br>
                 </if>
             </for>
@@ -201,11 +201,11 @@ with a caption -->
     </template>
 </component>
 
-<!-- These elements should react on changes in RVAR 'TODO' -->
-<react on='TODO'>
-    <itemlist caption='To do:' #bDone=false></itemlist>
-    <itemlist caption='Done:'  #bDone=true ></itemlist>
-</react>
+<!-- Now we create two instances: one list of undone items and one list of completed items -->
+<itemlist caption='To do:' #bDone=false></itemlist>
+<itemlist caption='Done:'  #bDone=true ></itemlist>
+
+<!-- Adding an item -->
 <p>
     New item (Enter):
     <br>
@@ -309,22 +309,7 @@ const sampleTableMaker =
     <HDEF>Leeftijd</HDEF>
     <DDEF item=record>{record.age}</DDEF>
 </tablemaker>`;
-/*
-const sampleTMColor=
-`${ColorTableDefs}
 
-<div style="height:55ex; overflow-y:scroll;">
-  <!-- Now we build our table! -->
-  <TABLEMAKER #datasource="ColorTable.V" class=colorTable>
-    <hdef>Name</hdef><ddef item=C>{C.name}</ddef>
-    <hdef>R</hdef><ddef item=C>{C.red}</ddef>
-    <hdef>G</hdef><ddef item=C>{C.green}</ddef>
-    <hdef>B</hdef><ddef item=C>{C.blue}</ddef>
-    <hdef>Hex</hdef><ddef item=C>#{toHex(C.red) + toHex(C.green) + toHex(C.blue)}</ddef>
-  </TABLEMAKER>
-</div>
-`;
-*/
 const sampleTicTacToe = 
 `<script nomodule defines=TicTacToe>
     function Board() {
@@ -460,7 +445,7 @@ C2 =
   </template>`,
 C3 =
 `<!-- Component instance -->
-<repeat #count=10>
+<repeat #count=7>
   <!-- Slot template -->
   <rbody #num>
     <p>This is <u>paragraph {num}</u>.</p>
@@ -476,45 +461,7 @@ ${C2}
 </component>
 
 
-${C3}`,
-
-sampleComponent2 =
-`<component>
-  <repeat #count>
-    <!-- Slot signature -->
-    <content></content>
-  </repeat>
-
-  <template>
-    <for let=i #of="range(count)">
-      <!-- Slot instance -->
-      <content></content>
-    </for>
-  </template>
-</component>
-
-<!-- Component instance -->
-<repeat #count=3>
-  <p>Here is a <u>paragraph</u></p>
-</repeat>`,
-
-sampleComponent3 =
-`<component>
-  <repeat #count>
-    <content x></content>
-  </repeat>
-
-  <template>
-    <for let=i #of="range(count)">
-      <content #x=i></content>
-    </for>
-  </template>
-</component>
-
-<!-- Component instance  -->
-<repeat #count=3 x >
-  <p>This is paragraph {x}.</p>
-</repeat>`;
+${C3}`;
 
 const sampleFormatting =
 `<define var=today #value="new Date()"></define>

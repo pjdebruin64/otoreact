@@ -374,7 +374,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
             break;
     }
 }
-function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], {env, range}: Area) {
+function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], env: Environment, bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
     for (const {modType, name, depValue} of modifiers) {
         try {
@@ -382,7 +382,7 @@ function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], {env, range}: A
             const value = depValue.bThis ? depValue.call(elm, env) : depValue(env);    // Evaluate the dependent value in the current environment
             bReadOnly = false;
             // See what to do with it
-            ApplyModifier(elm, modType, name, value, !range)
+            ApplyModifier(elm, modType, name, value, bCreate)
         }
         catch (err) { throw `[${name}]: ${err}` }
     }
@@ -540,13 +540,15 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 0);
+            }, 1);
     };
 
     private buildStart: number;
     async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating) { window.alert('Updating X!')
-            return;}
+        if (!this.bCompiled || this.bUpdating) { 
+            this.bUpdate = true;
+            return;
+        }
         
         for (let i=0;i<2;i++) {
             this.bUpdate = false;
@@ -1010,7 +1012,6 @@ labelNoCheck:
                     case 'rhtml': {
                         const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
                         //srcParent.removeChild(srcElm);
-                        //const bEncapsulate = CBool(atts.get('encapsulate'));
 
                         const imports = this.CompAttrExpr(atts, 'imports');
                         const {preModifiers} = this.CompAttributes(atts);
@@ -1020,9 +1021,9 @@ labelNoCheck:
                             await bodyBuilder.call(this, {parent: tempElm, env: area.env, range: null});
                             const result = tempElm.innerText
                             
-                            const {elmRange} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
+                            const {elmRange, bInit} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
                                 elm = elmRange.node;
-                            ApplyModifiers(elm, preModifiers, area);
+                            ApplyModifiers(elm, preModifiers, area.env, bInit);
 
                             if (area.prevR || result != elmRange.result) {
                                 elmRange.result = result;
@@ -1502,7 +1503,7 @@ labelNoCheck:
     ): ParametrizedBuilder
     {
         const names: string[] = [], 
-        saved = this.SaveContext(),
+            saved = this.SaveContext(),
             bCheckAtts = !atts;
         if (bCheckAtts)
             atts = new Atts(srcElm);
@@ -1543,9 +1544,10 @@ labelNoCheck:
                         if (bInit)
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
-
+                        
                         if (args[i])
                             ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
+                        childArea.parent = shadow;
                         area = childArea;
                     }
                     await builder.call(this, area); 
@@ -1638,16 +1640,15 @@ labelNoCheck:
 
         // Now the runtime action
         const builder = async function ELEMENT(this: RCompiler, area: Area) {
-            const {elmRange, childArea} = PrepareElement(srcElm, area, name), elm = elmRange.node;
+            const {elmRange: {node}, childArea, bInit} = PrepareElement(srcElm, area, name);
             
             if (!area.bNoChildBuilding)
-                // Add all children
+                // Build children
                 await childnodesBuilder.call(this, childArea);
 
-
-            elm.removeAttribute('class');
-            ApplyModifiers(elm, preModifiers, area);
-            ApplyModifiers(elm, postModifiers, area)
+            node.removeAttribute('class');
+            ApplyModifiers(node, preModifiers, area.env);
+            ApplyModifiers(node, postModifiers, area.env, bInit)
         };
 
         builder.bTrim = bTrim;

@@ -7,25 +7,14 @@ const defaultSettings = {
     rootPattern: null,
 };
 class Range {
-    node;
-    text;
-    child;
-    next = null;
-    endMark;
     constructor(node, text) {
         this.node = node;
         this.text = text;
+        this.next = null;
         if (!node)
             this.child = null;
     }
     toString() { return this.text || this.node?.nodeName; }
-    result;
-    value;
-    errorNode;
-    hash;
-    key;
-    prev;
-    fragm;
     get First() {
         let f;
         if (f = this.node)
@@ -166,12 +155,6 @@ function CloneEnv(env) {
     return clone;
 }
 class Subscriber {
-    builder;
-    range;
-    parent;
-    before;
-    env;
-    bNoChildBuilding;
     constructor(area, builder, range) {
         this.builder = builder;
         this.range = range;
@@ -182,15 +165,13 @@ class Subscriber {
     }
 }
 class Signature {
-    srcElm;
     constructor(srcElm) {
         this.srcElm = srcElm;
+        this.Parameters = [];
+        this.RestParam = null;
+        this.Slots = new Map();
         this.name = srcElm.localName;
     }
-    name;
-    Parameters = [];
-    RestParam = null;
-    Slots = new Map();
     IsCompatible(sig) {
         let result = sig
             && this.name == sig.name
@@ -270,13 +251,13 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             break;
     }
 }
-function ApplyModifiers(elm, modifiers, { env, range }) {
+function ApplyModifiers(elm, modifiers, env, bCreate) {
     for (const { modType, name, depValue } of modifiers) {
         try {
             bReadOnly = true;
             const value = depValue.bThis ? depValue.call(elm, env) : depValue(env);
             bReadOnly = false;
-            ApplyModifier(elm, modType, name, value, !range);
+            ApplyModifier(elm, modType, name, value, bCreate);
         }
         catch (err) {
             throw `[${name}]: ${err}`;
@@ -293,18 +274,23 @@ function RestoreEnv(savedEnv) {
         envActions.pop()();
 }
 class RCompiler {
-    clone;
-    static iNum = 0;
-    instanceNum = RCompiler.iNum++;
-    ContextMap;
-    context;
-    Constructs;
-    StyleRoot;
-    StyleBefore;
-    AddedHeaderElements;
-    FilePath;
     constructor(clone) {
         this.clone = clone;
+        this.instanceNum = RCompiler.iNum++;
+        this.restoreActions = [];
+        this.ToBuild = [];
+        this.AllAreas = [];
+        this.bTrimLeft = false;
+        this.bTrimRight = false;
+        this.bCompiled = false;
+        this.bHasReacts = false;
+        this.DirtyVars = new Set();
+        this.DirtySubs = new Map();
+        this.bUpdating = false;
+        this.bUpdate = false;
+        this.handleUpdate = null;
+        this.sourceNodeCount = 0;
+        this.builtNodeCount = 0;
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
@@ -315,7 +301,6 @@ class RCompiler {
         this.FilePath = clone?.FilePath || location.origin + RootPath;
     }
     get MainC() { return this.clone || this; }
-    restoreActions = [];
     SaveContext() {
         return this.restoreActions.length;
     }
@@ -382,35 +367,21 @@ class RCompiler {
         this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
-    Settings;
-    ToBuild = [];
-    AllAreas = [];
-    Builder;
-    bTrimLeft = false;
-    bTrimRight = false;
-    bCompiled = false;
-    bHasReacts = false;
-    DirtyVars = new Set();
-    DirtySubs = new Map();
     AddDirty(sub) {
         this.MainC.DirtySubs.set(sub.range, sub);
     }
-    bUpdating = false;
-    bUpdate = false;
-    handleUpdate = null;
     RUpdate() {
         this.MainC.bUpdate = true;
         if (!this.clone && !this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 0);
+            }, 1);
     }
     ;
-    buildStart;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) {
-            window.alert('Updating X!');
+            this.bUpdate = true;
             return;
         }
         for (let i = 0; i < 2; i++) {
@@ -486,8 +457,6 @@ class RCompiler {
         }
         return t;
     }
-    sourceNodeCount = 0;
-    builtNodeCount = 0;
     CompChildNodes(srcParent, bBlockLevel, childNodes = Array.from(srcParent.childNodes), bNorestore) {
         const builders = [];
         const saved = this.SaveContext();
@@ -545,7 +514,6 @@ class RCompiler {
                 }
             };
     }
-    static preMods = ['reacton', 'reactson', 'thisreactson'];
     CompElement(srcParent, srcElm, bBlockLevel) {
         const atts = new Atts(srcElm);
         let builder = null;
@@ -798,8 +766,8 @@ class RCompiler {
                                 const tempElm = document.createElement('rhtml');
                                 await bodyBuilder.call(this, { parent: tempElm, env: area.env, range: null });
                                 const result = tempElm.innerText;
-                                const { elmRange } = PrepareElement(srcElm, area, 'rhtml-rhtml'), elm = elmRange.node;
-                                ApplyModifiers(elm, preModifiers, area);
+                                const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), elm = elmRange.node;
+                                ApplyModifiers(elm, preModifiers, area.env, bInit);
                                 if (area.prevR || result != elmRange.result) {
                                     elmRange.result = result;
                                     const shadowRoot = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
@@ -1229,6 +1197,7 @@ class RCompiler {
                                 shadow.appendChild(style.cloneNode(true));
                         if (args[i])
                             ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
+                        childArea.parent = shadow;
                         area = childArea;
                     }
                     await builder.call(this, area);
@@ -1284,7 +1253,6 @@ class RCompiler {
                 await parBuilder.call(this, subArea, args, slotBuilders, slotEnv);
         };
     }
-    static regTrimmable = /^(blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, '');
         const bTrim = RCompiler.regTrimmable.test(name);
@@ -1295,12 +1263,12 @@ class RCompiler {
         if (bTrim)
             this.bTrimLeft = true;
         const builder = async function ELEMENT(area) {
-            const { elmRange, childArea } = PrepareElement(srcElm, area, name), elm = elmRange.node;
+            const { elmRange: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
             if (!area.bNoChildBuilding)
                 await childnodesBuilder.call(this, childArea);
-            elm.removeAttribute('class');
-            ApplyModifiers(elm, preModifiers, area);
-            ApplyModifiers(elm, postModifiers, area);
+            node.removeAttribute('class');
+            ApplyModifiers(node, preModifiers, area.env);
+            ApplyModifiers(node, postModifiers, area.env, bInit);
         };
         builder.bTrim = bTrim;
         return builder;
@@ -1499,17 +1467,18 @@ class RCompiler {
         return env => env[i];
     }
 }
+RCompiler.iNum = 0;
+RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
+RCompiler.regTrimmable = /^(blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
-    MainC;
-    store;
-    storeName;
     constructor(MainC, globalName, initialValue, store, storeName) {
         this.MainC = MainC;
         this.store = store;
         this.storeName = storeName;
+        this.Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         let s;
@@ -1522,8 +1491,6 @@ class _RVAR {
         this._Value = initialValue;
         this.storeName ||= globalName;
     }
-    _Value;
-    Subscribers = new Set();
     Subscribe(s) {
         this.Subscribers.add(s);
     }
