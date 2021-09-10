@@ -34,12 +34,18 @@
     </script>
 </head>
 <body hidden>
+    <ul>
+        <li>
+            <i>With</i> <code>encapsulate</code>
+        </li>
+    </ul>
+
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo #content?="''" #bshow=true #editable?=true rvar?></demo>
+        <demo #content?="''" #bshow=false #editable?=true rvar?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout>

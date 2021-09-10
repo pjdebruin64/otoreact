@@ -1,13 +1,12 @@
 declare const defaultSettings: {
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bStripSpaces: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
     rootPattern: string;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    bTrim?: boolean;
+    bTrim?: boolean | 1;
 };
 declare type Area = {
     range?: Range;
@@ -112,7 +111,7 @@ declare class RCompiler {
     private GetREACT;
     private CallWithErrorHandling;
     private CompScript;
-    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean | 1): DOMBuilder;
     private ParseSignature;
     private CompComponent;
     private CompTemplate;

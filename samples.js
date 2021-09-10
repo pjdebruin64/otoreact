@@ -313,7 +313,7 @@ const sampleTableMaker =
 
     <!-- Second column -->
     <HDEF>Leeftijd</HDEF>
-    <DDEF item=record>{record.age}</DDEF>
+    <DDEF item>{item.age}</DDEF>
 </tablemaker>`;
 
 const sampleTicTacToe = 

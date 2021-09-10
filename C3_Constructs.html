@@ -118,9 +118,10 @@ All three variants are case-insensitive, and all can be combined with a simple c
 </dl>
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
-<h2 id=If><{}IF cond> <ELSE></h2>
-<pre class=sourcecode><{}IF cond="<i>expr</i>">{}
-    {}<i>ThenPart</i>{}
+<h2 id=If><{}IF cond> <{}ELSE></h2>
+<pre class=sourcecode>
+<{}IF cond="<i>expr</i>">
+    <i>ThenPart</i>
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/IF>
 </pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>.
@@ -132,7 +133,7 @@ Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tr
 <h2 id=For><{}FOR let of index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
-    {}<i>BodyPart</i>{}
+    <i>BodyPart</i>
 <{}/FOR>
 </pre>
 <p>
@@ -314,8 +315,8 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
 <br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
 <pre class=sourcecode>
-<{}COMPONENT encapsulate?>{}
-  {}<i>Signature</i>{}
+<{}COMPONENT encapsulate?>
+  <i>Signature</i>
 
   <{}SCRIPT &hellip;> &hellip; <{}/SCRIPT>&hellip;
   <{}STYLE &hellip;> &hellip; <{}/STYLE>&hellip;
@@ -495,8 +496,18 @@ Here is a to-do application, which splits the collection of items into those don
 </p>
 
 
-<h2 id=FORoverSlots><{}FOR of> over component slots ...</h2>
+<h2 id=FORoverSlots><{}FOR of> over component slots</h2>
+When a custom construct (a component or a slot) has a slot <i>slot</i>, then instances of the construct may provide multiple templates for that slot.
+<br>Now, inside the construct template, one can write:
+<pre>
+<{}FOR of=<i>slot</i>>
+    <i>Body</i>
+<{}/FOR>
+</pre>
+When this template is instantiated, <i>Body</i> will be repeated for each provided slot template, and slot instances inside <i>Body</i> will be replaced by the output of just that template, rather than by the concatenation of all slot templates.
+<p>
 Here is a component which allows one to define tables column by column.
+</p>
 <demo #bShow=false #content=sampleTableMaker></demo>
 
 
@@ -516,7 +527,7 @@ Here is a component which allows one to define tables column by column.
 <h2 id=Import><{}IMPORT src>, modules</h2>
 <pre>
 <{}IMPORT src="<i>URL</i>">
-    &nbsp;<i>Signatures</i>{}
+    <i>Signatures</i>
 <{}/IMPORT>
 </pre>
 imports a number of components defined in an external file, called a <i>module</i>.

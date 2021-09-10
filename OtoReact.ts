@@ -3,7 +3,6 @@ const defaultSettings = {
     bAbortOnError:  false,  // Abort processing on runtime errors,
                             // When false, only the element producing the error will be skipped
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
-    bStripSpaces:   true,   // To do
     bRunScripts:    false,
     bBuild:         true,
     rootPattern:    null as string,
@@ -12,7 +11,7 @@ const defaultSettings = {
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area) => Promise<void>) & {bTrim?: boolean};
+type DOMBuilder = ((reg: Area) => Promise<void>) & {bTrim?: boolean|1};
 
 // An AREA is the (runtime) place to build or update, with all required information
 type Area = {
@@ -261,16 +260,19 @@ class Signature {
     public Slots = new Map<string, Signature>();
 
     IsCompatible(sig: Signature): boolean {
-        let result =
-            sig
+        let result = sig
             && this.name == sig.name
-            && this.Parameters.length <= sig.Parameters.length;
         
-        const iter = sig.Parameters.values();
-        for (const thisParam of this.Parameters) {
-            const sigParam = iter.next().value as Parameter;
-            result &&= thisParam.name == sigParam.name && (!thisParam.pDefault || !!sigParam.pDefault);
-        }
+        const mapSigParams = new Map(sig.Parameters.map(p => [p.name, p.pDefault]));
+        for (const {name, pDefault} of this.Parameters)
+            if (mapSigParams.has(name)) {
+                result &&= (!pDefault || !!mapSigParams.get(name));
+                mapSigParams.delete(name);
+            }
+            else result = false
+        
+        for (const pDefault of mapSigParams.values())
+            result &&= pDefault != null;
                 
         result &&= !this.RestParam || this.RestParam.name == sig.RestParam?.name;
 
@@ -636,7 +638,7 @@ class RCompiler {
 
     private CompChildNodes(
         srcParent: ParentNode,
-        bBlockLevel?: boolean,
+        bBlockLevel?: boolean|1,
         childNodes: ChildNode[] = Array.from( srcParent.childNodes ),
         bNorestore?: boolean
     ): DOMBuilder {
@@ -645,7 +647,7 @@ class RCompiler {
         this.sourceNodeCount += childNodes.length;
         try {
             for (const srcNode of childNodes) {
-                ///srcParent.removeChild(srcNode);
+                //srcParent.removeChild(srcNode);
                 switch (srcNode.nodeType) {
                     
                     case Node.ELEMENT_NODE:
@@ -653,10 +655,10 @@ class RCompiler {
                         if (builderElm) {
                             builders.push(builderElm);
                         
-                            if (builderElm[0].bTrim) {
+                            if (builderElm[0].bTrim==true) {
                                 let i = builders.length - 2;
                                 while (i>=0 && builders[i][2]) {
-                                    srcParent.removeChild(builders[i][1]);
+                                    //srcParent.removeChild(builders[i][1]);
                                     builders.splice(i, 1);
                                     i--;
                                 }
@@ -666,18 +668,21 @@ class RCompiler {
 
                     case Node.TEXT_NODE:
                         let str = srcNode.nodeValue;
-                        if (this.bTrimLeft && /^[ \t\r\n]*$/.test(str))
+                        if ((bBlockLevel==true || this.bTrimLeft) && /^[ \t\r\n]*$/.test(str))
                             str = "";
-                        else str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
+                        else if (bBlockLevel != 1) {
+                            str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
+                            bBlockLevel = false;
+                        }
 
                         if (str != '') {
-                            this.bTrimLeft = /[ \t\r\n]$/.test(str);
                             const getText = this.CompInterpolatedString( str );
                             async function Text(area: Area) {
                                 PrepareText(area, getText(area.env))
                             }
 
                             builders.push( [ Text, srcNode, getText.isBlank] );
+                            this.bTrimLeft = (bBlockLevel != 1) && /[ \t\r\n]$/.test(str);
                         }
                         //else
                         //    srcParent.removeChild(srcNode);
@@ -708,7 +713,7 @@ class RCompiler {
     }
 
     static preMods = ['reacton','reactson','thisreactson'];
-    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel?: boolean): [DOMBuilder, ChildNode] {
+    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bBlockLevel?: boolean|1): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm);
         let builder: DOMBuilder = null;
         const mapReacts: Array<{attName: string, rvars: Dependent<_RVAR>[]}> = [];
@@ -732,8 +737,8 @@ labelNoCheck:
                             getValue    = this.CompParameter(atts, 'value'),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
-                            subBuilder  = this.CompChildNodes(srcElm),
-                            newVar      = this.NewVar(varName);
+                            newVar      = this.NewVar(varName),
+                            subBuilder  = this.CompChildNodes(srcElm);
 
                         builder = async function DEFINE(this: RCompiler, area) {
                                 const {range, subArea, bInit} = PrepareArea(srcElm, area);
@@ -806,6 +811,7 @@ labelNoCheck:
 
                                         // Fall through!
                                         case 'ELSE':
+
                                             const builder = this.CompChildNodes(childElm, bBlockLevel);
                                             caseList.push({condition, patt, builder, childElm});
                                             atts.CheckNoAttsLeft();
@@ -1005,7 +1011,7 @@ labelNoCheck:
                     } break;
 
                     case 'rhtml': {
-                        const bodyBuilder = this.CompChildNodes(srcElm, bBlockLevel);
+                        const bodyBuilder = this.CompChildNodes(srcElm, true);
                         //srcParent.removeChild(srcElm);
 
                         const imports = this.CompAttrExpr(atts, 'imports');
@@ -1180,7 +1186,7 @@ labelNoCheck:
         return null;
     }
 
-    public CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder {
+    public CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean|1): DOMBuilder {
         const varName = atts.get('let');
         let indexName = atts.get('index');
         if (indexName == '') indexName = 'index';
@@ -1529,8 +1535,13 @@ labelNoCheck:
                         env.constructDefs.set(slotName, {instanceBuilders, constructEnv: slotEnv});
                     }
                     let i = 0;
-                    for (const lvar of lvars)
-                        lvar(area.env)(args[i++]);
+                    for (const lvar of lvars){
+                        let arg = args[i];
+                        if (arg===undefined)
+                            arg = signat.Parameters[i].pDefault(env);
+                        lvar(env)(arg);
+                        i++;
+                    }
 
                     if (bEncaps) {
                         const {elmRange, childArea, bInit} = PrepareElement(srcElm, area, customName), 
@@ -1564,7 +1575,7 @@ labelNoCheck:
         const getArgs: Array<Dependent<unknown>> = [];
 
         for (const {name, pDefault} of signature.Parameters)
-            getArgs.push( this.CompParameter(atts, name, !pDefault) || pDefault );
+            getArgs.push( this.CompParameter(atts, name, !pDefault) );
 
         const slotBuilders = new Map<string, ParametrizedBuilder[]>();
         for (const name of signature.Slots.keys())
@@ -1601,7 +1612,7 @@ labelNoCheck:
 
             const args: unknown[] = [];
             for ( const getArg of getArgs)
-                args.push(getArg(env));
+                args.push(getArg ? getArg(env) : undefined);
             
             if (signature.RestParam) {
                 const rest: RestParameter = [];
@@ -1619,11 +1630,12 @@ labelNoCheck:
         }
     }
 
-    static regTrimmable = /^(blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
+    static regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, '');
-        const bTrim = RCompiler.regTrimmable.test(name)
+
+        const bTrim: boolean|1 = /^pre/.test(window.getComputedStyle(srcElm).whiteSpace) ? 1 : RCompiler.regTrimmable.test(name)
 
         // We turn each given attribute into a modifier on created elements
         const {preModifiers, postModifiers} = this.CompAttributes(atts);
