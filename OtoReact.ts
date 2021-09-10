@@ -242,23 +242,7 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 
-
-class Subscriber {
-    parent: Node;
-    before: ChildNode;
-    env: Environment;
-    bNoChildBuilding: boolean;
-    constructor(
-        area: Area,
-        public builder: DOMBuilder, 
-        public range: Range,
-    ) {
-        this.parent = area.parent;
-        this.before = area.before;
-        this.bNoChildBuilding = area.bNoChildBuilding;
-        this.env = area.env && CloneEnv(area.env);
-    }
-}
+type Subscriber = {before: Node; notify: () => Promise<void>;};
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -503,13 +487,24 @@ class RCompiler {
         const t1 = performance.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
     }
+        
+    Subscriber(area: Area, builder: DOMBuilder, range: Range ): Subscriber {
+        const
+            {parent, before, bNoChildBuilding} = area,
+            env = area.env && CloneEnv(area.env);
+        return { before,
+            notify: async () => {
+                await builder.call(this, {range, parent, before, env, bNoChildBuilding})
+            }
+        };
+    }
 
     public async InitialBuild(area: Area) {
         const savedRCompiler = RHTML, {parentR} = area;
         RHTML = this;
         await this.Builder(area);
 
-        this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
+        this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
 
@@ -524,9 +519,9 @@ class RCompiler {
     private bHasReacts = false;
 
     public DirtyVars = new Set<_RVAR>();
-    private DirtySubs = new Map<Range, Subscriber>();
+    private DirtySubs = new Map<Node, Subscriber>();
     public AddDirty(sub: Subscriber) {
-        this.MainC.DirtySubs.set(sub.range, sub)
+        this.MainC.DirtySubs.set(sub.before, sub)
     }
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
@@ -578,9 +573,9 @@ class RCompiler {
                         this.builtNodeCount = 0;
                         const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const {range, builder, parent, before, env, bNoChildBuilding} of subs.values()) {
+                        for (const sub of subs.values()) {
                             try { 
-                                await builder.call(this, {range, parent, before, env, bNoChildBuilding}); 
+                                await sub.notify(); 
                             }
                             catch (err) {
                                 const msg = `ERROR: ${err}`;
@@ -1099,7 +1094,7 @@ labelNoCheck:
             await builder.call(this, subArea);
 
             if (bInit) {
-                const subscriber = new Subscriber(subArea, updateBuilder, range.child, );
+                const subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
         
                 // Subscribe bij de gegeven variabelen
                 for (const getRvar of rvars) {
@@ -1359,7 +1354,7 @@ labelNoCheck:
 
                                 if (bReactive && bInit)
                                     (rvar as _RVAR<Item>).Subscribe(
-                                        new Subscriber(childArea, bodyBuilder, childRange.child)
+                                        this.Subscriber(childArea, bodyBuilder, childRange.child)
                                     );
                             }
 

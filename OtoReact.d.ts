@@ -44,15 +44,10 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-declare class Subscriber {
-    builder: DOMBuilder;
-    range: Range;
-    parent: Node;
-    before: ChildNode;
-    env: Environment;
-    bNoChildBuilding: boolean;
-    constructor(area: Area, builder: DOMBuilder, range: Range);
-}
+declare type Subscriber = {
+    before: Node;
+    notify: () => Promise<void>;
+};
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
     instanceBuilders: ParametrizedBuilder[];
@@ -88,6 +83,7 @@ declare class RCompiler {
     private NewVar;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
+    Subscriber(area: Area, builder: DOMBuilder, range: Range): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     ToBuild: Area[];

@@ -154,16 +154,6 @@ function CloneEnv(env) {
     clone.constructDefs = new Map(env.constructDefs.entries());
     return clone;
 }
-class Subscriber {
-    constructor(area, builder, range) {
-        this.builder = builder;
-        this.range = range;
-        this.parent = area.parent;
-        this.before = area.before;
-        this.bNoChildBuilding = area.bNoChildBuilding;
-        this.env = area.env && CloneEnv(area.env);
-    }
-}
 class Signature {
     constructor(srcElm) {
         this.srcElm = srcElm;
@@ -360,15 +350,23 @@ class RCompiler {
         const t1 = performance.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
     }
+    Subscriber(area, builder, range) {
+        const { parent, before, bNoChildBuilding } = area, env = area.env && CloneEnv(area.env);
+        return { before,
+            notify: async () => {
+                await builder.call(this, { range, parent, before, env, bNoChildBuilding });
+            }
+        };
+    }
     async InitialBuild(area) {
         const savedRCompiler = RHTML, { parentR } = area;
         RHTML = this;
         await this.Builder(area);
-        this.AllAreas.push(new Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
+        this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
     AddDirty(sub) {
-        this.MainC.DirtySubs.set(sub.range, sub);
+        this.MainC.DirtySubs.set(sub.before, sub);
     }
     RUpdate() {
         this.MainC.bUpdate = true;
@@ -411,9 +409,9 @@ class RCompiler {
                         this.builtNodeCount = 0;
                         const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const { range, builder, parent, before, env, bNoChildBuilding } of subs.values()) {
+                        for (const sub of subs.values()) {
                             try {
-                                await builder.call(this, { range, parent, before, env, bNoChildBuilding });
+                                await sub.notify();
                             }
                             catch (err) {
                                 const msg = `ERROR: ${err}`;
@@ -825,7 +823,7 @@ class RCompiler {
             const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
             await builder.call(this, subArea);
             if (bInit) {
-                const subscriber = new Subscriber(subArea, updateBuilder, range.child);
+                const subscriber = this.Subscriber(subArea, updateBuilder, range.child);
                 for (const getRvar of rvars) {
                     const rvar = getRvar(area.env);
                     rvar.Subscribe(subscriber);
@@ -1035,7 +1033,7 @@ class RCompiler {
                                     setNext(nextItem);
                                 await bodyBuilder.call(this, childArea);
                                 if (bReactive && bInit)
-                                    rvar.Subscribe(new Subscriber(childArea, bodyBuilder, childRange.child));
+                                    rvar.Subscribe(this.Subscriber(childArea, bodyBuilder, childRange.child));
                             }
                             prevItem = item;
                             RemoveStaleItems();
