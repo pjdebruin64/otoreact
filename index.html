@@ -12,6 +12,8 @@
     <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
     <link rel="stylesheet"      href="index.css">
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
+    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
+
 
     <script>
         const 
@@ -34,12 +36,6 @@
     </script>
 </head>
 <body hidden>
-    <ul>
-        <li>
-            <i>With</i> <code>encapsulate</code>
-        </li>
-    </ul>
-
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href #target? ...rest><content></content></a>

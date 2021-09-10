@@ -6,8 +6,13 @@ declare const defaultSettings: {
     rootPattern: string;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    bTrim?: boolean | 1;
+    whitespace?: WhiteSpace;
 };
+declare enum WhiteSpace {
+    preserve = 0,
+    keep = 1,
+    trim = 2
+}
 declare type Area = {
     range?: Range;
     parent: Node;
@@ -88,8 +93,7 @@ declare class RCompiler {
     ToBuild: Area[];
     private AllAreas;
     private Builder;
-    private bTrimLeft;
-    private bTrimRight;
+    private whiteSpc;
     private bCompiled;
     private bHasReacts;
     DirtyVars: Set<_RVAR<unknown>>;
@@ -111,7 +115,7 @@ declare class RCompiler {
     private GetREACT;
     private CallWithErrorHandling;
     private CompScript;
-    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean | 1): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder;
     private ParseSignature;
     private CompComponent;
     private CompTemplate;
