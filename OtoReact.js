@@ -532,13 +532,7 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            const rvarName = atts.get('rvar');
-                            const varName = rvarName || atts.get('name') || atts.get('var', true);
-                            const getValue = this.CompParameter(atts, 'value');
-                            const getStore = rvarName && this.CompAttrExpr(atts, 'store');
-                            const newVar = this.NewVar(varName);
-                            const bReact = atts.get('reacting') ?? atts.get('updating') != null;
-                            const subBuilder = this.CompChildNodes(srcElm);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('name') || atts.get('var', true), getValue = this.CompParameter(atts, 'value'), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), subBuilder = this.CompChildNodes(srcElm), newVar = this.NewVar(varName);
                             builder = async function DEFINE(area) {
                                 const { range, subArea, bInit } = PrepareArea(srcElm, area);
                                 let rvar;

@@ -14,26 +14,14 @@
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
 
     <script>
-        let s = Date.now();
-        function msg(m) {
-            console.log(`${Date.now() - s} ${m}`);
-        }
         const 
             wiki = "https://en.wikipedia.org/wiki/",
             MDN="https://developer.mozilla.org/en-US/docs/";
     </script>
     <script src="samples.js" defer></script>
     <script type=module>
-        msg('Document parsed');
-
-        import {RCompile} from './OtoReact.js';
-        msg('OtoReact loaded');
-        
+        import {RCompile} from './OtoReact.js';        
         RCompile(document.body, {rootPattern: '.*/'});
-        console.log(`RootPath = ${RootPath}`)
-        //document.body.hidden = false;
-        msg('Document compiled');
-        
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
@@ -45,7 +33,7 @@
     gtag('config', 'G-T23W7PMPX4');
     </script>
 </head>
-<body hidden onload="msg('All loaded');">
+<body hidden>
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href #target? ...rest><content></content></a>

@@ -9,6 +9,7 @@
         ><content></content></a.
     ></template>
 </component>
+
     
 <!-- Component to demonstrate RHTML -->
 <component>
@@ -22,9 +23,9 @@
                 ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
         }
         const orgFetch = globalThis.fetch;
-        globalThis.fetch = function(url) {
-            if (url != "webColors.json") throw 'fetch is not allowed';
-            return orgFetch(url);
+        globalThis.fetch = function(url, init) {
+            if (url != "webColors.json") throw "Calling 'fetch' is not allowed in these demo's";
+            return orgFetch(url, init);
         }
         delete globalThis.XMLHttpRequest;
         delete globalThis.import;
@@ -80,7 +81,17 @@
                         *innerText="MyRVAR.V"></pre>
                 </td.>
                 <td. class=demo>
+                    <script defines=prefix>
+                        let prefix=
+`<component><include src></include>
+    <template>Usage of <\{}INCLUDE> is not allowed in these demo's</template>
+</component>
+<component><import><content></content></import>
+    <template>Usage of <\{}IMPORT> is not allowed in these demo's</template>
+</component>`;
+                    </script>                    
                     <RHTML reacton=MyRVAR>
+                        {prefix}
                         {MyRVAR.V}
                     </RHTML>
                 </td.>

@@ -13,19 +13,17 @@ const sampleGreeting=
 
 const sampleServerData =
 `<script nomodule 
-        defines="ColorTable,toHex,bRunning,StartStop,lineh" >
-    const
-        // Here we store the data. Columns are:
-        // name:string, red:number, green:number, blue:number.
-        ColorTable = RVAR(),
-        // Relative height of first row 
-        lineh=RVAR('',100);
+        defines="ColorTable,toHex,bRunning,rh,StartStop" >
+    // Here we store the data. Columns are:
+    // name:string, red:number, green:number, blue:number.
+    const ColorTable = RVAR();
     
     /* Fetch the data! */
-    fetch("webColors.json").then(async response => {
-        if (response.ok)
-            ColorTable.V = JSON.parse(await response.text());
-    });
+    (async ()=>{
+      let response = await fetch("webColors.json");
+      if (response.ok)
+        ColorTable.V = await response.json();
+    })();
     
     /* Utility for 2-digit hex code */
     function toHex(n){ 
@@ -33,15 +31,17 @@ const sampleServerData =
     }
     
     /* Rotation */
-    let bRunning=RVAR('', false);
+    let bRunning=RVAR('', false),
+        // Relative height of first row 
+        rh=RVAR('',100);
     async function StartStop() {
         bRunning.V = !bRunning.V;
         while (bRunning.V) { 
 
             // Animate the first row
-            for (lineh.V=100; lineh.V>=0; lineh.V-=20)
-                // Sleep
-                await new Promise(r => setTimeout(r, 125));
+            for (rh.V=100; rh.V>=0; rh.V-=25)
+                // Sleep 30 ms
+                await new Promise(r => setTimeout(r, 30));
 
             // Modify the data model, triggering a DOM update:
             ColorTable.U.push(ColorTable.V.shift());
@@ -49,7 +49,7 @@ const sampleServerData =
     }
 </script>
 
-/* Styling */
+<!-- Styling -->
 <style>
     table.colorTable td {
     padding: 0px 4px;
@@ -59,10 +59,11 @@ const sampleServerData =
 </style>
 
 <div style="height:50ex; overflow-y:scroll;">
-    <!-- Now we build our table! 
-    The dots are needed because HTML does not allow <FOR> as a
-    child of <TABLE>. OtoReact removes these dots. -->
-    <table. class=colorTable>
+  <!-- Now we build our table! 
+  The dots are needed because HTML does not allow <FOR> as a
+  child of <TABLE>. OtoReact removes these dots. -->
+  <table. class=colorTable>
+
     <!-- Table caption -->
     <caption.>Web Colors 
         <button onclick="StartStop();" reacton=bRunning
@@ -70,35 +71,40 @@ const sampleServerData =
             {bRunning.V ? 'Stop' : 'Rotate'}
         </button>
     </caption.>
+
     <!-- Column headers -->
     <tr.>
         <th.>Name</th.>
-        <th.>R</th.><th.>G</th.><th.>B</th.>
+        <th.>R</th.> <th.>G</th.> <th.>B</th.>
         <th.>Hex</th.>
     </tr.>
+
     <!-- Detail records -->
     <FOR let=C of="ColorTable.V" index=i
-        key=C reacton="ColorTable,lineh">
+        key=C reacton="ColorTable,rh">
         <tr. 
           style.backgroundColor= "rgb({C.red},{C.green},{C.blue})" 
           #style.color      = "C.green<148 ? 'white' : 'black'"
-          #style.lineHeight = "i==0 ? \`\${lineh.V}%\` : null"
+          #style.lineHeight = "i==0 ? \`\${rh.V}%\` : null"
         >
           <react hash=C> <!-- Optimization -->
             <td.>{C.name}</td.>
-            <td.>{C.red}</td.><td.>{C.green}</td.><td.>{C.blue}</td.>
+            <td.>{C.red}</td.>
+            <td.>{C.green}</td.>
+            <td.>{C.blue}</td.>
             <td.>
               #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
             </td.>
           </react>
         </tr.>
     </FOR>
-    </table.>
+  </table.>
 </div>`;
 
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check this }
-<br>Tag <{}br> looks better in source code than &lt;br&gt;`;
+<br>
+Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
 `<script nomodule>

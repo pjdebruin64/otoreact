@@ -288,12 +288,12 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <br>These are always skipped by the browser, and always executed by OtoReact.
     </dd>
 </dl>
-
+<!--
 <p>
-    To waylay hackers of this website, JavaScript names <code>fetch</code>, <code>XMLHttpRequest</code>, and <code>import</code> are not available in scripts within the editable demo's on this page.
+    To waylay hackers of this website, <code>fetch</code>, <code>XMLHttpRequest</code>, <code>import</code>, <elm>include</elm>, and <elm>import</elm> are not available in scripts within the editable demo's on this page.
     <br><code>eval</code> is redefined to access the global environment only.
 </p>
-
+-->
 
 <h2 id=ReactOn><{}REACT on>, reacton, thisreactson</h2>
 One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should <i>react on</i> changes to any of the listed RVAR's.
@@ -499,22 +499,42 @@ Here is a to-do application, which splits the collection of items into those don
 Here is a component which allows one to define tables column by column.
 <demo #bShow=false #content=sampleTableMaker></demo>
 
-<h2 id=Import><{}IMPORT src>, modules</h2>
 
 <h2 id=Include><{}INCLUDE src></h2>
-<elm>INCLUDE src="<i>URL</i>"</elm> allows you to include another RHTML file as if it were inserted into the main file.
+<elm>INCLUDE src="<i>URL</i>"</elm><elm>/INCLUDE</elm> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the included file is being fetched.
 
 <p>
-    To speed things up, you can insert a <code>preload</code> link in the document header:
+    To speed things up, you can insert a <code>preload</code> link in the main document header:
 </p>
 <pre>    
-    <{}link rel=preload href="<i>URL</i>" as=fetch crossorigin>
+<{}link rel=preload href="<i>URL</i>" as=fetch crossorigin>
 </pre>
 ("<code>crossorigin</code>" seems incorrect, but Google Chrome requires it.)
 
+
+<h2 id=Import><{}IMPORT src>, modules</h2>
+<pre>
+<{}IMPORT src="<i>URL</i>">
+    &nbsp;<i>Signatures</i>{}
+<{}/IMPORT>
+</pre>
+imports a number of components defined in an external file, called a <i>module</i>.
+<ul>
+<li>
+    The component signatures must be repeated in the main file, because the file is fetched asynchronously while compiling should continue synchronously.
+</li>
+<li>
+    Components from the same module may be imported at multiple places and will be fetched and compiled only once.
+</li>
+<li>
+    Local variables from the main file are not visible within the external file.
+</li>
+</ul>
+Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
+
 <h2 id=RHTML><{}RHTML></h2>
-<code><elm>RHTML/elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
+<code><elm>RHTML</elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
 <p>After each build or update, when the resulting <u>text content</u> of the element has changed, then this text content is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
