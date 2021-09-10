@@ -67,7 +67,7 @@ const sampleServerData =
     <!-- Table caption -->
     <caption.>Web Colors 
         <button onclick="StartStop();" reacton=bRunning
-            style.float=right>
+            style="float:right; width:50px">
             {bRunning.V ? 'Stop' : 'Rotate'}
         </button>
     </caption.>
@@ -275,17 +275,21 @@ This link opens in a blank window:
 const sampleTableMaker =
 `<component>
     <TABLEMAKER datasource ...rest>
+        <!-- One column header definition -->
         <HDEF></HDEF>
+        <!-- One column detail definition -->
         <DDEF item></DDEF>
     </TABLEMAKER>
 
     <template>
         <table. ...rest>
+            <!-- Header row -->
             <tr.>
                 <for of=HDEF>
                     <th.><HDEF></HDEF></th.>
                 </for>
             </tr.>
+            <!-- Detail rows -->
             <for let=rec of='datasource'>
                 <tr.>
                     <for of=DDEF>

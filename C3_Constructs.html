@@ -326,15 +326,15 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </pre>
 <ul>
 <li>
-    The <i>signature</i> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
+    The <a href=#Signatures><i>signature</i></a> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
 <li>
-    The <i>template</i> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
+    The <a href=#Templates><i>template</i></a> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
 <li>
-    <i>Instances</i> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
+    <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
 <li>
-    A component may be <i>encapsulated</i> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
+    A component may be <a href=#Encapsulate><i>encapsulated</i></a> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
 </ul>
-<h3>Signatures</h3>
+<h3 id=Signatures>Signatures</h3>
 <p>
     The first element inside <elm>COMPONENT</elm> is its signature. E.g.:
     <pre>{C1}</pre>
@@ -354,6 +354,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                         An empty <i>string</i> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
                         <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
                     </p>
+                    <p>The default default value is <code>undefined</code>.</p>
                 </li>
                 <li>
                     An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
@@ -364,8 +365,10 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
         <li>
             Each child element of the signature element defines a <i>slot</i> of the component.
             <br>These child elements are themselves signatures: slot signatures.
-            <br>For each slot, component instances may have one or more child elements that should match the slot signature.
-            <br>The slots are available <i>as constructs</i> within the component template.
+            <p>
+                For each slot, component instances may have one or more child elements that should match the slot signature.
+                <br>The slots are available <i>as constructs</i> within the component template.
+            </p>
             <p>
                 When building a component instance, the content of any instance child element that matches a slot becomes the (slot) template for the slot instances within the component template
             </p>
@@ -374,12 +377,12 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a slot <elm>CONTENT</elm>, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
+            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
         </li>
     </ul>
 </p>
 
-<h3>Templates</h3>
+<h3 id=Templates>Templates</h3>
 The component template is tagged <elm>template</elm>. E.g.:
 <pre>{C2}</pre>
 <ul>
@@ -394,7 +397,7 @@ The component template is tagged <elm>template</elm>. E.g.:
     <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
 </ul>
 
-<h3>Instances</h3>
+<h3 id=Templates>Instances</h3>
 A component is instantiated by a tag containing the component name:
 
 <pre>{C3}</pre>
@@ -446,7 +449,7 @@ Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody
 <p>Putting it all together, we get:</p>
 <demo #content=sampleComponent1></demo>
 
-<h3>Encapsulate</h3>
+<h3 id=Encapsulate>Encapsulate</h3>
 The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
 <ul>
     <li>
@@ -504,9 +507,9 @@ When a custom construct (a component or a slot) has a slot <i>slot</i>, then ins
     <i>Body</i>
 <{}/FOR>
 </pre>
-When this template is instantiated, <i>Body</i> will be repeated for each provided slot template, and slot instances inside <i>Body</i> will be replaced by the output of just that template, rather than by the concatenation of all slot templates.
+When this template is instantiated, <i>Body</i> will be repeated for each provided <i>slot</i> template, and <i>slot</i> instances inside <i>Body</i> will be replaced by the output of just that template, rather than by the concatenation of all <i>slot</i> templates.
 <p>
-Here is a component which allows one to define tables column by column.
+Here is a component which allows one to define tables column by column:
 </p>
 <demo #bShow=false #content=sampleTableMaker></demo>
 
