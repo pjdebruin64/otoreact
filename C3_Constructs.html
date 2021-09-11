@@ -138,7 +138,6 @@ Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tr
 </pre>
 <p>
     The normal FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
-    <br>(There is also a variant FOR-construct without attribute <code>let</code>, which <a href="#FORoverSlots">iterates over component slots</a>.)
 </p>
 <p>
     The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
@@ -236,6 +235,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 <p>
     You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, and that OtoReact is imported as a JavaScript module.
 </p>
+<p>This gives you the followingalternatives.</p>
 <dl>
     <dt><elm>SCRIPT src?</elm> in main file</dt>
     <dd>
@@ -255,13 +255,14 @@ Further on, <elm>FOR</elm> can have the following attributes:
 
     <dt>
         <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere
-        <br><elm>SCRIPT src?</elm> in included files or inside <{}RHTML>
+        <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>
     </dt>
     <dd>
         Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
         <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during or after compilation:
         <ul>
             <li>OtoReact functions are available</li>
+            <li>The script may be external (with <code>src</code>) or internal</li>
             <li>
                 The script may be classic or module.
                 <br>For classic scripts:
@@ -313,7 +314,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
-<br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
+<br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
 <pre class=sourcecode>
 <{}COMPONENT encapsulate?>
   <i>Signature</i>
@@ -445,6 +446,7 @@ Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody
   <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
 <{}/repeat>
 </pre>
+Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>num</code>.
 
 <p>Putting it all together, we get:</p>
 <demo #content=sampleComponent1></demo>

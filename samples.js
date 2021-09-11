@@ -322,38 +322,37 @@ const sampleTableMaker =
 
 const sampleTicTacToe = 
 `<script nomodule defines=TicTacToe>
-    function Board() {
-        function Cell() {return {V: null}; }
-        function Row()  {return [Cell(), Cell(), Cell()]; }
-        return [Row(), Row(), Row()]; 
-    }
 
     class TicTacToe {
-        board =     RVAR('board');
-        toMove =    RVAR('toMove', '✕');
-        winner =    RVAR('winner');
+        board =     RVAR('board');        //: Array<Array<{P: '◯'|'✕'}>>
+        toMove =    RVAR('toMove', '✕'); //: '◯' | '✕'
+        outcome =   RVAR('outcome');      //: '◯' | '✕' | true
         count = 0;
 
         ClearAll() {
             this.board.V = Board();
-            this.winner.V = null;
+            this.outcome.V = null;
             this.count = 0;
+            
+            function Cell() {return {P: null}; }
+            function Row()  {return [Cell(), Cell(), Cell()]; }
+            function Board(){return [Row(), Row(), Row()]; }
         }
+
         constructor() {
             this.ClearAll();
         }
 
         Move(cell) {
-            cell.U.V = this.toMove.V;
+            cell.U.P = this.toMove.V;
             this.count++;
             this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
-            this.winner.V = this.CheckWinner(this.board.V) || this.count==9;
+            this.outcome.V = this.CheckWinner(this.board.V) || this.count==9;
         }
 
         CheckWinner(b) {
             function CheckRow(c1, c2, c3) {
-                return (c1.V && c1.V == c2.V && c2.V == c3.V
-                    ? c1.V : null);
+                return (c1.P == c2.P && c2.P == c3.P && c1.P);
             }
             let w = null;
             for (let i=0;i<3;i++) {
@@ -387,20 +386,20 @@ const sampleTicTacToe =
     <for let=row #of="T.board.V">
       <tr.>
         <for let=cell #of=row updates=T.board>
-          <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
-           >{cell.V ?? ''}</td.>
+          <td. onclick="!T.outcome.V && !cell.P && T.Move(cell)"
+           >{cell.P || ''}</td.>
         </for>
       </tr.>
     </for>
   </table.>
   <div style="padding:1ex">
-    <p reacton=T.winner,T.toMove>
+    <p reacton=T.outcome,T.toMove>
       <case>
-        <when #cond="T.winner.V==true">
+        <when #cond="T.outcome.V===true">
           <b>It's a draw.</b>
         </when>
-        <when #cond="T.winner.V">
-          <b>The winner is: <large>{T.winner.V}</large></b>
+        <when #cond="T.outcome.V">
+          <b>The winner is: <large>{T.outcome.V}</large></b>
         </when>
         <else>
           Player to move: {T.toMove.V}
@@ -448,9 +447,9 @@ const C1=
 C2 =
 `  <!-- Component template -->
   <template>
-    <for let=i #of="range(1,1+count)">
-      <!-- Slot instance -->
-      <rbody #num="i"></rbody>
+    <for let=i #of="range(count)">
+        <!-- Slot instance -->
+        <rbody #num="i+1"></rbody>
     </for>
   </template>`,
 C3 =
@@ -486,7 +485,7 @@ const sampleFormatting =
 </p>
 
 <h4>Day.js</h4>
-<script src="dayjs.min.js"></script>
+<script src="./dayjs.min.js"></script>
 <p>
     Today is {dayjs(today).format('MMM D')}.
 </p>`

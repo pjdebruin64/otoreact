@@ -91,7 +91,6 @@
 </component>`;
                     </script>                    
                     <RHTML reacton=MyRVAR>
-                        {prefix}
                         {MyRVAR.V}
                     </RHTML>
                 </td.>
@@ -111,7 +110,7 @@
         </content>
     </pageLayout>
 
-    <script nomodule defines=TOC,maxHeight>
+    <script nomodule defines=TOC>
         class TOC {
             numbers = [0,0,0];
             getNr(level) {
@@ -128,13 +127,6 @@
                 this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
             }
         }
-        const maxHeight = RVAR();
-        const screenOnly = window.matchMedia('screen');
-        (   window.onresize= screenOnly.onchange=
-            () => {
-                maxHeight.V = screenOnly.matches ? `${window.innerHeight - 8}px` : undefined;
-            }
-        )(); // Call immediately"
     </script>
 
     <style>
@@ -187,6 +179,7 @@
             div.pageLayout  {
                 grid-template-columns: 16em 1fr;
                 grid-template-rows: min-content 1fr;
+                max-height: calc(100vh - 8px);
                 min-width: 980px;
                 max-width: 1430px;
             }
@@ -230,7 +223,7 @@
 
     <template>
         <def var=toc #value="new TOC()"></def>
-        <div class=pageLayout #style.maxHeight="maxHeight.V" thisreactson=maxHeight>
+        <div class=pageLayout>
             <header>
                     <div style="padding-left: 40px">
                         <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">

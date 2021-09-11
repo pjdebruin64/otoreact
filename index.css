@@ -5,16 +5,18 @@
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
     font-size: 12pt;
-}
-@media screen and (hover: none) {
-    body { font-size: 18pt; }
+    text-size-adjust: 150%;
 }
 @media print {
     body { font-size: 7.5pt; }
     button { font-size: 6.5pt !important; }
 }
 @media screen {
-    section { content-visibility: auto; }
+    section             { content-visibility: auto; }
+    section:nth-child(1) {min-height: 6234px;}
+    section:nth-child(2) {min-height: 2670px;}
+    section:nth-child(3) {min-height: 6939px;}
+    section:nth-child(4) {min-height: 1165px;}
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {

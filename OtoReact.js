@@ -908,12 +908,14 @@ class RCompiler {
             const lvars = [];
             if (defines)
                 for (const name of defines.split(','))
-                    lvars.push([name, this.NewVar(name)]);
+                    lvars.push({ name, init: this.NewVar(name) });
             let exports;
             return async function SCRIPT({ env }) {
                 if (bModule) {
                     if (!exports) {
-                        if (!src)
+                        if (src)
+                            exports = await import(src);
+                        else
                             try {
                                 script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
                                 src = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
@@ -922,10 +924,8 @@ class RCompiler {
                             finally {
                                 URL.revokeObjectURL(src);
                             }
-                        else
-                            exports = await import(src);
                     }
-                    for (const [name, init] of lvars) {
+                    for (const { name, init } of lvars) {
                         if (!(name in exports))
                             throw `'${name}' is not exported by this script`;
                         init(env)(exports[name]);
@@ -933,12 +933,20 @@ class RCompiler {
                 }
                 else {
                     if (!exports) {
+                        if (0 && src && !defines) {
+                            const e = document.createElement('script');
+                            e.src = src;
+                            document.head.appendChild(e);
+                            this.AddedHeaderElements.push(e);
+                            exports = {};
+                            return;
+                        }
                         if (src)
                             script = await FetchText(src);
                         exports = globalEval(`'use strict'\n;${script};[${defines}]\n`);
                     }
                     let i = 0;
-                    for (const [_, init] of lvars)
+                    for (const { init } of lvars)
                         init(env)(exports[i++]);
                 }
             };
@@ -1148,10 +1156,8 @@ class RCompiler {
         return signature;
     }
     CompComponent(srcParent, srcElm, atts) {
-        const builders = [];
+        const builders = [], bEncapsulate = CBool(atts.get('encapsulate')), styles = [], saveWS = this.whiteSpc;
         let signature, elmTemplate;
-        const bEncapsulate = CBool(atts.get('encapsulate'));
-        const styles = [];
         for (const srcChild of Array.from(srcElm.children)) {
             const childAtts = new Atts(srcChild);
             let builder;
@@ -1186,16 +1192,14 @@ class RCompiler {
         if (bEncapsulate && !signature.RestParam)
             signature.RestParam = { name: null, pDefault: null };
         this.AddConstruct(signature);
-        const { name } = signature;
-        const instanceBuilders = [
+        const { name } = signature, instanceBuilders = [
             this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncapsulate, styles)
         ];
+        this.whiteSpc = saveWS;
         return (async function COMPONENT(area) {
             for (const [bldr, srcNode] of builders)
                 await this.CallWithErrorHandling(bldr, srcNode, area);
-            const construct = { instanceBuilders, constructEnv: undefined };
-            const { env } = area;
-            const prevDef = env.constructDefs.get(name);
+            const construct = { instanceBuilders, constructEnv: undefined }, { env } = area, prevDef = env.constructDefs.get(name);
             env.constructDefs.set(name, construct);
             construct.constructEnv = CloneEnv(env);
             envActions.push(() => { env.constructDefs.set(name, prevDef); });
@@ -1203,21 +1207,19 @@ class RCompiler {
     }
     CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
         const names = [], saved = this.SaveContext(), bCheckAtts = !atts;
-        if (bCheckAtts)
-            atts = new Atts(srcElm);
-        for (const param of signat.Parameters)
-            names.push((atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
-        const { name, RestParam } = signat;
-        if (RestParam?.name)
-            names.push(atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
-        for (const S of signat.Slots.values())
-            this.AddConstruct(S);
-        if (bCheckAtts)
-            atts.CheckNoAttsLeft();
         try {
-            const lvars = names.map(name => this.NewVar(name));
-            const builder = this.CompChildNodes(contentNode);
-            const customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
+            if (bCheckAtts)
+                atts = new Atts(srcElm);
+            for (const param of signat.Parameters)
+                names.push((atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
+            const { name, RestParam } = signat;
+            if (RestParam?.name)
+                names.push(atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
+            for (const S of signat.Slots.values())
+                this.AddConstruct(S);
+            if (bCheckAtts)
+                atts.CheckNoAttsLeft();
+            const lvars = names.map(name => this.NewVar(name)), builder = this.CompChildNodes(contentNode), customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
             return async function TEMPLATE(area, args, mapSlotBuilders, slotEnv) {
                 const saved = SaveEnv(), { env } = area;
                 try {
@@ -1228,9 +1230,9 @@ class RCompiler {
                     }
                     let i = 0;
                     for (const lvar of lvars) {
-                        let arg = args[i];
-                        if (arg === undefined)
-                            arg = signat.Parameters[i].pDefault(env);
+                        let arg = args[i], dflt;
+                        if (arg === undefined && (dflt = signat.Parameters[i].pDefault))
+                            arg = dflt(env);
                         lvar(env)(arg);
                         i++;
                     }
@@ -1252,24 +1254,23 @@ class RCompiler {
             };
         }
         catch (err) {
-            throw `${OuterOpenTag(srcElm)} ${err}`;
+            throw `${OuterOpenTag(srcElm)} template: ${err}`;
         }
         finally {
             this.RestoreContext(saved);
         }
     }
     CompInstance(srcParent, srcElm, atts, signature) {
-        const { name } = signature;
-        const getArgs = [];
+        const { name } = signature, getArgs = [], slotBuilders = new Map();
         for (const { name, pDefault } of signature.Parameters)
             getArgs.push(this.CompParameter(atts, name, !pDefault));
-        const slotBuilders = new Map();
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
         let slotElm, Slot;
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
-                && (Slot = signature.Slots.get((slotElm = node).localName))) {
+                && (Slot = signature.Slots.get((slotElm = node).localName))
+                && slotElm.localName != 'content') {
                 slotBuilders.get(slotElm.localName).push(this.CompTemplate(Slot, slotElm, slotElm, true));
                 srcElm.removeChild(node);
             }
@@ -1280,9 +1281,7 @@ class RCompiler {
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpace.keep;
         return async function INSTANCE(area) {
-            const { subArea } = PrepareArea(srcElm, area), env = area.env;
-            const { instanceBuilders, constructEnv } = env.constructDefs.get(name);
-            const args = [];
+            const { subArea } = PrepareArea(srcElm, area), { env } = area, { instanceBuilders, constructEnv } = env.constructDefs.get(name), args = [];
             for (const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
             if (signature.RestParam) {

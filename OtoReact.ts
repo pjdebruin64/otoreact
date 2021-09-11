@@ -846,12 +846,6 @@ labelNoCheck:
                                     } catch (err) { throw OuterOpenTag(alt.childElm) + err }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
-                                    /*
-                                    if (bInit && area.source == srcElm) {
-                                        subArea.range.first = srcElm.child;
-                                        srcElm.replaceWith(...srcElm.childNodes);
-                                    }
-                                    */
                                         
                                     for (const alt of caseList) {
                                         const {elmRange, childArea, bInit} = PrepareElement(alt.childElm, area);
@@ -972,8 +966,6 @@ labelNoCheck:
                                     placeholder.constructEnv = constructdef.constructEnv;
                                 }
                             })();
-                        
-                        //srcParent.removeChild(srcElm);
 
                         builder = async function IMPORT({env}: Area) {
                             for (const [{name}, constructDef] of listImports.values()) {
@@ -1145,17 +1137,19 @@ labelNoCheck:
         if ( atts.get('nomodule') != null || this.Settings.bRunScripts) {
             let script = srcElm.text+'\n';
             const defines = atts.get('defines');
-            const lvars: Array<[string,LVar]> = [];
+            const lvars: Array<{name: string,init: LVar}> = [];
             if (defines) 
                 for (const name of defines.split(','))
-                    lvars.push([name, this.NewVar(name)]);
+                    lvars.push({name, init: this.NewVar(name)});
                 
             let exports: Object;
             return async function SCRIPT(this: RCompiler, {env}: Area) {
                 if (bModule) {
                     // Execute the script now
                     if (!exports) {
-                        if (!src) 
+                        if (src) 
+                            exports = await import(src);
+                        else
                             try {
                                 script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
                                 // Thanks https://stackoverflow.com/a/67359410/2061591
@@ -1163,10 +1157,8 @@ labelNoCheck:
                                 exports = await import(src);
                             }
                             finally { URL.revokeObjectURL(src); }
-                        else
-                            exports = await import(src);
                     }
-                    for (const [name, init] of lvars) {
+                    for (const {name, init} of lvars) {
                         if (!(name in exports))
                             throw `'${name}' is not exported by this script`;
                         init(env)(exports[name]);
@@ -1174,12 +1166,20 @@ labelNoCheck:
                 }
                 else  {
                     if (!exports) {
+                        if (0 && src && !defines) {
+                            const e = document.createElement('script');
+                            e.src=src;
+                            document.head.appendChild(e); // 
+                            this.AddedHeaderElements.push(e);
+                            exports = {};
+                            return;
+                        }
                         if (src)
                             script = await FetchText(src);
                         exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
                     }
                     let i=0;
-                    for (const [_,init] of lvars)
+                    for (const {init} of lvars)
                         init(env)(exports[i++]);
                 }
             };
@@ -1436,10 +1436,11 @@ labelNoCheck:
     private CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
         //srcParent.removeChild(srcElm);
 
-        const builders: [DOMBuilder, ChildNode][] = [];
+        const builders: [DOMBuilder, ChildNode][] = [],
+            bEncapsulate = CBool(atts.get('encapsulate')),
+            styles: Node[] = [],
+            saveWS = this.whiteSpc;
         let signature: Signature, elmTemplate: HTMLTemplateElement;
-        const bEncapsulate = CBool(atts.get('encapsulate'));
-        const styles: Node[] = [];
 
         for (const srcChild of Array.from(srcElm.children) as Array<HTMLElement>  ) {
             const childAtts = new Atts(srcChild);
@@ -1474,12 +1475,14 @@ labelNoCheck:
         this.AddConstruct(signature);
         
         
-        const {name} = signature;
+        const {name} = signature,
         // Deze builder bouwt de component-instances op
-        const instanceBuilders = [
-            this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
-                false, bEncapsulate, styles)
-        ];
+            instanceBuilders = [
+                this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
+                    false, bEncapsulate, styles)
+            ];
+
+        this.whiteSpc = saveWS;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return ( 
@@ -1489,9 +1492,9 @@ labelNoCheck:
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
-                const construct = {instanceBuilders, constructEnv: undefined as Environment};
-                const {env} = area;
-                const prevDef = env.constructDefs.get(name);
+                const construct = {instanceBuilders, constructEnv: undefined as Environment},
+                    {env} = area,
+                    prevDef = env.constructDefs.get(name);
                 env.constructDefs.set(name, construct);
                 construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
                 envActions.push(
@@ -1507,22 +1510,23 @@ labelNoCheck:
         const names: string[] = [], 
             saved = this.SaveContext(),
             bCheckAtts = !atts;
-        if (bCheckAtts)
-            atts = new Atts(srcElm);
-        for (const param of signat.Parameters)
-            names.push( (atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
-        const {name, RestParam} = signat;
-        if (RestParam?.name)
-            names.push( atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
-
-        for (const S of signat.Slots.values())
-            this.AddConstruct(S);
-        if (bCheckAtts)
-            atts.CheckNoAttsLeft();
         try {
-            const lvars: LVar[] = names.map(name => this.NewVar(name));
-            const builder = this.CompChildNodes(contentNode);
-            const customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
+            if (bCheckAtts)
+                atts = new Atts(srcElm);
+            for (const param of signat.Parameters)
+                names.push( (atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
+            const {name, RestParam} = signat;
+            if (RestParam?.name)
+                names.push( atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
+
+            for (const S of signat.Slots.values())
+                this.AddConstruct(S);
+            if (bCheckAtts)
+                atts.CheckNoAttsLeft();
+
+            const lvars: LVar[] = names.map(name => this.NewVar(name)),
+                builder = this.CompChildNodes(contentNode),
+                customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
             return async function TEMPLATE(this: RCompiler, area: Area, args: unknown[], mapSlotBuilders, slotEnv) {
                 const saved = SaveEnv(),
@@ -1537,9 +1541,9 @@ labelNoCheck:
                     }
                     let i = 0;
                     for (const lvar of lvars){
-                        let arg = args[i];
-                        if (arg===undefined)
-                            arg = signat.Parameters[i].pDefault(env);
+                        let arg = args[i], dflt: Dependent<unknown>;
+                        if (arg===undefined && (dflt = signat.Parameters[i].pDefault))
+                            arg = dflt(env);
                         lvar(env)(arg);
                         i++;
                     }
@@ -1560,9 +1564,8 @@ labelNoCheck:
                     await builder.call(this, area); 
                 }
                 finally { RestoreEnv(saved) }}
-
         }
-        catch (err) {throw `${OuterOpenTag(srcElm)} ${err}` }
+        catch (err) {throw `${OuterOpenTag(srcElm)} template: ${err}` }
         finally { this.RestoreContext(saved) }
     }
 
@@ -1572,13 +1575,13 @@ labelNoCheck:
         signature: Signature
     ) {
         //srcParent.removeChild(srcElm);
-        const {name} = signature;
-        const getArgs: Array<Dependent<unknown>> = [];
+        const {name} = signature,
+            getArgs: Array<Dependent<unknown>> = [],
+            slotBuilders = new Map<string, ParametrizedBuilder[]>();
 
         for (const {name, pDefault} of signature.Parameters)
             getArgs.push( this.CompParameter(atts, name, !pDefault) );
 
-        const slotBuilders = new Map<string, ParametrizedBuilder[]>();
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
 
@@ -1586,6 +1589,7 @@ labelNoCheck:
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE 
                 && (Slot = signature.Slots.get((slotElm = (node as HTMLElement)).localName))
+                && slotElm.localName != 'content'
             ) {
                 slotBuilders.get(slotElm.localName).push(
                     this.CompTemplate(Slot, slotElm, slotElm, true)
@@ -1606,12 +1610,11 @@ labelNoCheck:
 
         return async function INSTANCE(this: RCompiler, area: Area) {
             const {subArea} = PrepareArea(srcElm, area),
-                env = area.env;
+                {env} = area,
+                // The construct-template(s) will be executed in this construct-env
+                {instanceBuilders, constructEnv} =  env.constructDefs.get(name),
 
-            // The construct-template(s) will be executed in this construct-env
-            const {instanceBuilders, constructEnv} =  env.constructDefs.get(name);
-
-            const args: unknown[] = [];
+                args: unknown[] = [];
             for ( const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
             
