@@ -292,9 +292,9 @@ class Signature {
 type Parameter = {name: string, pDefault: Dependent<unknown>};
 
 // A CONSTRUCTDEF is a concrete instance of a signature
-type ConstructDef = {instanceBuilders: ParametrizedBuilder[], constructEnv: Environment};
-type ParametrizedBuilder = 
-    (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment)
+type ConstructDef = {templates: Template[], constructEnv: Environment};
+type Template = 
+    (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment)
     => Promise<void>;
 
 export type RVAR_Light<T> = T & {
@@ -304,7 +304,7 @@ export type RVAR_Light<T> = T & {
     readonly U?: T;
 };
 
-const globalEval = eval, globalFetch = fetch;
+const gEval = eval, gFetch = fetch;
 
 interface Item {}  // Three unknown but distinct types, used by the <FOR> construct
 interface Key {}
@@ -464,11 +464,11 @@ class RCompiler {
     }
 
     private AddConstruct(C: Signature) {
-        const CName = C.name;
-        const savedConstr = this.Constructs.get(CName);
-        this.Constructs.set(CName, C);
+        const Cnm = C.name,
+            savedConstr = this.Constructs.get(Cnm);
+        this.Constructs.set(Cnm, C);
         this.restoreActions.push(
-            () => this.Constructs.set(CName, savedConstr)
+            () => this.Constructs.set(Cnm, savedConstr)
         );
     }
 
@@ -483,10 +483,10 @@ class RCompiler {
         const savedR = RHTML; 
         try {
             if (!this.clone) RHTML = this;
-            if (bIncludeSelf)
-                this.Builder = this.CompElement(elm.parentElement, elm as HTMLElement)[0];
-            else
-                this.Builder = this.CompChildNodes(elm);
+            this.Builder =
+                bIncludeSelf
+                ? this.CompElement(elm.parentElement, elm as HTMLElement)[0]
+                : this.CompChildNodes(elm);
             this.bCompiled = true;
         }
         finally {
@@ -646,8 +646,8 @@ class RCompiler {
         childNodes: Iterable<ChildNode> = srcParent.childNodes,
         bNorestore?: boolean
     ): DOMBuilder {
-        const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
-        const saved = this.SaveContext();
+        const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >,
+            saved = this.SaveContext();
         try {
             for (const srcNode of childNodes) {
                 switch (srcNode.nodeType) {
@@ -673,7 +673,7 @@ class RCompiler {
                         if (this.whiteSpc != WhiteSpace.preserve)
                             str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                         
-                        const getText = this.CompInterpolatedString( str ), fixed = getText.fixed;
+                        const getText = this.CompInterpStr( str ), fixed = getText.fixed;
                         if (fixed !== '') {
                             if (fixed == undefined)
                                 builders.push( [ 
@@ -714,9 +714,9 @@ class RCompiler {
 
     static preMods = ['reacton','reactson','thisreactson'];
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, whiteSpace?: WhiteSpace): [DOMBuilder, ChildNode] {
-        const atts =  new Atts(srcElm);
+        const atts =  new Atts(srcElm),
+            mapReacts: Array<{attName: string, rvars: Dependent<_RVAR>[]}> = [];
         let builder: DOMBuilder = null;
-        const mapReacts: Array<{attName: string, rvars: Dependent<_RVAR>[]}> = [];
         for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
             if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) )});
@@ -768,52 +768,52 @@ labelNoCheck:
 
                     case 'if':
                     case 'case': {
-                        const bHiding = CBool(atts.get('hiding'));
-                        const caseList: Array<{
-                            condition: Dependent<unknown>,
-                            patt: {lvars: LVar[], regex: RegExp, url?: boolean},
-                            builder: DOMBuilder, 
-                            childElm: HTMLElement,
-                        }> = [];
-                        const getCondition = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', true);
-                        const getValue = this.CompAttrExpr<string>(atts, 'value');
+                        const bHiding = CBool(atts.get('hiding')),
+                            caseList: Array<{
+                                cond: Dependent<unknown>,
+                                patt: {lvars: LVar[], regex: RegExp, url?: boolean},
+                                builder: DOMBuilder, 
+                                childElm: HTMLElement,
+                            }> = [],
+                            getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', true),
+                            getVal = this.CompAttrExpr<string>(atts, 'value');
                         atts.CheckNoAttsLeft();
-                        const bodyNodes: ChildNode[] = [];
-                        const bTrimLeft = this.whiteSpc;
+                        const bodyNodes: ChildNode[] = [],
+                            bTrimLeft = this.whiteSpc;
                         for (const child of srcElm.childNodes) {
                             if (child.nodeType == Node.ELEMENT_NODE) {
-                                const childElm = child as HTMLElement;
-                                const atts = new Atts(childElm);
+                                const childElm = child as HTMLElement,
+                                    atts = new Atts(childElm),
+                                    saved = this.SaveContext();
                                 this.whiteSpc = bTrimLeft;
-                                const saved = this.SaveContext();
                                 try {
-                                    let condition: Dependent<unknown>;
+                                    let cond: Dependent<unknown>;
                                     let patt:  {lvars: LVar[], regex: RegExp, url?: boolean};
                                     switch (child.nodeName) {
                                         case 'WHEN':                                
-                                            condition = this.CompAttrExpr<unknown>(atts, 'cond');
+                                            cond = this.CompAttrExpr<unknown>(atts, 'cond');
                                             let pattern: string;
-                                            if ((pattern = atts.get('match')) != null)
-                                                patt = this.CompPattern(pattern);
-                                            else if ((pattern = atts.get('urlmatch')) != null)
-                                                (patt = this.CompPattern(pattern)).url = true;
-                                            else if ((pattern = atts.get('regmatch')) != null) {
-                                                const lvars = atts.get('captures')?.split(',') || []
-                                                patt = {regex: new RegExp(pattern, 'i'), lvars: lvars.map(this.NewVar.bind(this))};
-                                            }
-                                            else 
-                                                patt = null;
+                                            patt =
+                                                (pattern = atts.get('match')) != null
+                                                    ? this.CompPattern(pattern)
+                                                : (pattern = atts.get('urlmatch')) != null
+                                                    ? this.CompPattern(pattern, true)
+                                                : (pattern = atts.get('regmatch')) != null
+                                                    ?  {regex: new RegExp(pattern, 'i'), 
+                                                    lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
+                                                    }
+                                                : null;
 
                                             if (bHiding && patt?.lvars.length)
                                                 throw `Pattern capturing cannot be combined with hiding`;
-                                            if (patt && !getValue)
+                                            if (patt && !getVal)
                                                 throw `Match requested but no 'value' specified.`;
 
                                         // Fall through!
                                         case 'ELSE':
 
                                             const builder = this.CompChildNodes(childElm);
-                                            caseList.push({condition, patt, builder, childElm});
+                                            caseList.push({cond, patt, builder, childElm});
                                             atts.CheckNoAttsLeft();
                                             continue;
                                     }
@@ -823,9 +823,9 @@ labelNoCheck:
                             }
                             bodyNodes.push(child);
                         }
-                        if (getCondition)
+                        if (getCond)
                             caseList.unshift({
-                                condition: getCondition, patt: null,
+                                cond: getCond, patt: null,
                                 builder: this.CompChildNodes(srcElm, bodyNodes),
                                 childElm: srcElm
                             });
@@ -833,13 +833,13 @@ labelNoCheck:
                         builder = 
                             async function CASE(this: RCompiler, area: Area) {
                                 const {env} = area,
-                                    value = getValue && getValue(env);
+                                    value = getVal && getVal(env);
                                 let choosenAlt: typeof caseList[0] = null;
                                 let matchResult: RegExpExecArray;
                                 for (const alt of caseList)
                                     try {
                                         if (
-                                            (!alt.condition || alt.condition(env)) 
+                                            (!alt.cond || alt.cond(env)) 
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             )
                                         { choosenAlt = alt; break }
@@ -916,15 +916,15 @@ labelNoCheck:
                         
                         for (const child of srcElm.children) {
                             const signature = this.ParseSignature(child);
-                            async function holdOn(this: RCompiler, area, args, mapSlotBuilders, slotEnv) {
+                            async function holdOn(this: RCompiler, area, args, mSlotTemplates, slotEnv) {
                                 const t0 = performance.now();
                                 await task;
                                 this.buildStart += performance.now() - t0;
                                 area.env = placeholder.constructEnv;
-                                for (const builder of placeholder.instanceBuilders)
-                                    await builder.call(this, area, args, mapSlotBuilders, slotEnv);
+                                for (const builder of placeholder.templates)
+                                    await builder.call(this, area, args, mSlotTemplates, slotEnv);
                             }
-                            const placeholder: ConstructDef = {instanceBuilders: [holdOn], constructEnv: dummyEnv} ;
+                            const placeholder: ConstructDef = {templates: [holdOn], constructEnv: dummyEnv} ;
 
                             listImports.push([signature, placeholder]);
                             
@@ -962,7 +962,7 @@ labelNoCheck:
                                         throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
                                     
                                     const constructdef = module.ConstructDefs.get(name);
-                                    placeholder.instanceBuilders = constructdef.instanceBuilders;
+                                    placeholder.templates = constructdef.templates;
                                     placeholder.constructEnv = constructdef.constructEnv;
                                 }
                             })();
@@ -1176,7 +1176,7 @@ labelNoCheck:
                         }
                         if (src)
                             script = await FetchText(src);
-                        exports = globalEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
+                        exports = gEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
                     }
                     let i=0;
                     for (const {init} of lvars)
@@ -1184,6 +1184,7 @@ labelNoCheck:
                 }
             };
         }
+        atts.clear();
         return null;
     }
 
@@ -1393,9 +1394,9 @@ labelNoCheck:
                     try {
                         const setIndex = initIndex(area.env);
                         let index = 0;
-                        for (const slotBuilder of slotDef.instanceBuilders) {
+                        for (const slotBuilder of slotDef.templates) {
                             setIndex(index++);
-                            env.constructDefs.set(slotName, {instanceBuilders: [slotBuilder], constructEnv: slotDef.constructEnv});
+                            env.constructDefs.set(slotName, {templates: [slotBuilder], constructEnv: slotDef.constructEnv});
                             await bodyBuilder.call(this, subArea);
                         }
                     }
@@ -1422,7 +1423,7 @@ labelNoCheck:
                     { name: m[2]
                     , pDefault: 
                         attr.value != '' 
-                        ? (m[1] == '#' ? this.CompJavaScript(attr.value) :  this.CompInterpolatedString(attr.value))
+                        ? (m[1] == '#' ? this.CompJavaScript(attr.value) :  this.CompInterpStr(attr.value))
                         : m[3] ? (_) => undefined
                         : null 
                     }
@@ -1477,7 +1478,7 @@ labelNoCheck:
         
         const {name} = signature,
         // Deze builder bouwt de component-instances op
-            instanceBuilders = [
+            templates = [
                 this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
                     false, bEncapsulate, styles)
             ];
@@ -1492,7 +1493,7 @@ labelNoCheck:
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
-                const construct = {instanceBuilders, constructEnv: undefined as Environment},
+                const construct: ConstructDef = {templates, constructEnv: undefined as Environment},
                     {env} = area,
                     prevDef = env.constructDefs.get(name);
                 env.constructDefs.set(name, construct);
@@ -1505,7 +1506,7 @@ labelNoCheck:
 
     private CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
         bNewNames: boolean, bEncaps?: boolean, styles?: Node[], atts?: Atts
-    ): ParametrizedBuilder
+    ): Template
     {
         const names: string[] = [], 
             saved = this.SaveContext(),
@@ -1528,16 +1529,16 @@ labelNoCheck:
                 builder = this.CompChildNodes(contentNode),
                 customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
-            return async function TEMPLATE(this: RCompiler, area: Area, args: unknown[], mapSlotBuilders, slotEnv) {
+            return async function TEMPLATE(this: RCompiler, area: Area, args: unknown[], mSlotTemplates, slotEnv) {
                 const saved = SaveEnv(),
                     {env} = area;
                 try {
-                    for (const [slotName, instanceBuilders] of mapSlotBuilders) {
+                    for (const [slotName, instanceBuilders] of mSlotTemplates) {
                         const savedDef = env.constructDefs.get(slotName);
                         envActions.push(
                             () => { env.constructDefs.set(slotName, savedDef) }
                         );
-                        env.constructDefs.set(slotName, {instanceBuilders, constructEnv: slotEnv});
+                        env.constructDefs.set(slotName, {templates: instanceBuilders, constructEnv: slotEnv});
                     }
                     let i = 0;
                     for (const lvar of lvars){
@@ -1577,7 +1578,7 @@ labelNoCheck:
         //srcParent.removeChild(srcElm);
         const {name} = signature,
             getArgs: Array<Dependent<unknown>> = [],
-            slotBuilders = new Map<string, ParametrizedBuilder[]>();
+            slotBuilders = new Map<string, Template[]>();
 
         for (const {name, pDefault} of signature.Parameters)
             getArgs.push( this.CompParameter(atts, name, !pDefault) );
@@ -1612,7 +1613,7 @@ labelNoCheck:
             const {subArea} = PrepareArea(srcElm, area),
                 {env} = area,
                 // The construct-template(s) will be executed in this construct-env
-                {instanceBuilders, constructEnv} =  env.constructDefs.get(name),
+                {templates: instanceBuilders, constructEnv} =  env.constructDefs.get(name),
 
                 args: unknown[] = [];
             for ( const getArg of getArgs)
@@ -1699,7 +1700,7 @@ labelNoCheck:
                 else if (m = /^style\.(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompInterpolatedString(attValue)
+                        depValue: this.CompInterpStr(attValue)
                     });
                 else if (attName == '+style')
                     preModifiers.push({
@@ -1739,7 +1740,7 @@ labelNoCheck:
                 else
                     preModifiers.push({
                         modType: ModifType.Attr, name: attName,
-                        depValue: this.CompInterpolatedString(attValue)
+                        depValue: this.CompInterpStr(attValue)
                     });
             }
             catch (err) {
@@ -1755,7 +1756,7 @@ labelNoCheck:
         this.AddedHeaderElements.push(srcStyle);
     }
 
-    private CompInterpolatedString(data: string, name?: string): Dependent<string> & {fixed?: string; last?: string} {
+    private CompInterpStr(data: string, name?: string): Dependent<string> & {fixed?: string; last?: string} {
         const generators: Array< string | Dependent<unknown> > = []
             , regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
         let isTrivial = true, last = '';
@@ -1793,7 +1794,7 @@ labelNoCheck:
     }
 
     // Compile a 'regular pattern' into a RegExp and a list of bound LVars
-    private CompPattern(patt:string): {lvars: LVar[], regex: RegExp, url?: boolean}
+    private CompPattern(patt:string, url?: boolean): {lvars: LVar[], regex: RegExp, url: boolean}
     {
         let reg = '', lvars: LVar[] = [];
         
@@ -1822,7 +1823,7 @@ labelNoCheck:
                 reg += m[0];
         }
 
-        return {lvars, regex: new RegExp(`^${reg}$`, 'i')}; 
+        return {lvars, regex: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
     private CompParameter(atts: Atts, attName: string, bRequired?: boolean): Dependent<unknown> {
@@ -1830,7 +1831,7 @@ labelNoCheck:
         return (
             value == null ? this.CompAttrExpr(atts, attName, bRequired)
             : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`)
-            : this.CompInterpolatedString(value)
+            : this.CompInterpStr(value)
         );
     }
     private CompAttrExpr<T>(atts: Atts, attName: string, bRequired?: boolean) {
@@ -1851,7 +1852,7 @@ labelNoCheck:
             , errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbreviate(expr,60)}${delims[1]}: `;
 
         try {
-            const routine = globalEval(depExpr) as (env:Environment) => T
+            const routine = gEval(depExpr) as (env:Environment) => T
             , depValue = (bThis
                 ? function (this: HTMLElement, env: Environment) {
                         try { return routine.call(this, env); } 
@@ -2037,7 +2038,7 @@ function createErrorNode(message: string) {
 }
 
 async function FetchText(url: string): Promise<string> {
-    const response = await globalFetch(url);
+    const response = await gFetch(url);
     if (!response.ok)
         throw `GET '${url}' returned ${response.status} ${response.statusText}`;
     return await response.text();

@@ -54,10 +54,10 @@ declare type Subscriber = {
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
-    instanceBuilders: ParametrizedBuilder[];
+    templates: Template[];
     constructEnv: Environment;
 };
-declare type ParametrizedBuilder = (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
+declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>;
     _UpdatesTo?: Array<_RVAR>;
@@ -124,7 +124,7 @@ declare class RCompiler {
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
-    private CompInterpolatedString;
+    private CompInterpStr;
     private CompPattern;
     private CompParameter;
     private CompAttrExpr;
