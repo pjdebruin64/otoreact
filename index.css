@@ -5,16 +5,18 @@
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
     font-size: 12pt;
-}
-@media screen and (hover: none) {
-    body { font-size: 18pt; }
+    text-size-adjust: 150%;
 }
 @media print {
     body { font-size: 7.5pt; }
     button { font-size: 6.5pt !important; }
 }
 @media screen {
-    section { content-visibility: auto; }
+    section             { content-visibility: auto; }
+    section:nth-of-type() {min-height: 7000px;}
+    section:nth-of-type(2) {min-height: 6900px;}
+    section:nth-of-type(3) {min-height: 6939px;}
+    section:nth-of-type(4) {min-height: 1165px;}
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {
@@ -39,7 +41,7 @@ pre {
 }
 pre, code, elm {
     color: darkblue;
-    background-color: rgb(245, 245, 245);
+    background-color: rgb(236, 236, 236);
     font-family: 'Lucida Console', monospace;
     font-size: 92.5%;
 }
@@ -57,10 +59,6 @@ a { cursor: pointer; }
 a:not([target]) {
     text-decoration: none;
     border-bottom: .05em dashed;
-}
-a[target] {
-    text-decoration: none;
-    border-bottom: .05em solid;
 }
 
 section:not(:first-of-type) > h1 {

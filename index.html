@@ -6,12 +6,14 @@
     <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
     <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
     <link rel=preload href="KoninklijkeOtolift.png" as=image>
-    <link rel=preload href="C2_HtmlElements.html"   as=fetch crossorigin>
-    <link rel=preload href="C3_Constructs.html"     as=fetch crossorigin>
-    <link rel=preload href="C4_Scripts.html"        as=fetch crossorigin>
+    <link rel=prefetch href="C2_HtmlElements.html"  as=fetch crossorigin>
+    <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
+    <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
     <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
     <link rel="stylesheet"      href="index.css">
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
+    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
+
 
     <script>
         const 
@@ -32,14 +34,15 @@
 
     gtag('config', 'G-T23W7PMPX4');
     </script>
+  <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>
 </head>
 <body hidden>
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-        <a href #target? ...rest><content></content></a>
+        <a href? #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo #content?="''" #bshow=true #editable?=true rvar?></demo>
+        <demo #content?="''" #bshow=false #editable?=true rvar?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout>
@@ -59,16 +62,19 @@
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
                 </pageHead>
 
-                <section style.minHeight='6234px'><include src="C1_Introduction.html"></include></section>
-                <section style.minHeight='2670px'><include src="C2_HtmlElements.html"></include></section>
-                <section style.minHeight='6939px'><include src="C3_Constructs.html"></include></section>
-                <section style.minHeight='1165px'><include src="C4_Scripts.html"></include></section>
+                <section><include src="C1_Introduction.html"></include></section>
+                <section><include src="C2_HtmlElements.html"></include></section>
+                <section><include src="C3_Constructs.html"></include></section>
+                <section><include src="C4_Scripts.html"></include></section>
 
             </pageLayout>
         </when>
         <when match="routing">
             <include src="Routing.html">
-        </when>       
+        </when>  
+        <when match="download">
+            <include src="download.html">
+        </when>        
     </case>
 
 </body>

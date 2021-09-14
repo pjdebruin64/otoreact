@@ -118,9 +118,10 @@ All three variants are case-insensitive, and all can be combined with a simple c
 </dl>
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
-<h2 id=If><{}IF cond> <ELSE></h2>
-<pre class=sourcecode><{}IF cond="<i>expr</i>">{}
-    {}<i>ThenPart</i>{}
+<h2 id=If><{}IF cond> <{}ELSE></h2>
+<pre class=sourcecode>
+<{}IF cond="<i>expr</i>">
+    <i>ThenPart</i>
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/IF>
 </pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>.
@@ -132,12 +133,11 @@ Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tr
 <h2 id=For><{}FOR let of index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
-    {}<i>BodyPart</i>{}
+    <i>BodyPart</i>
 <{}/FOR>
 </pre>
 <p>
     The normal FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
-    <br>(There is also a variant FOR-construct without attribute <code>let</code>, which <a href="#FORoverSlots">iterates over component slots</a>.)
 </p>
 <p>
     The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
@@ -235,6 +235,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 <p>
     You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, and that OtoReact is imported as a JavaScript module.
 </p>
+<p>This gives you the followingalternatives.</p>
 <dl>
     <dt><elm>SCRIPT src?</elm> in main file</dt>
     <dd>
@@ -254,13 +255,14 @@ Further on, <elm>FOR</elm> can have the following attributes:
 
     <dt>
         <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere
-        <br><elm>SCRIPT src?</elm> in included files or inside <{}RHTML>
+        <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>
     </dt>
     <dd>
         Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
         <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during or after compilation:
         <ul>
             <li>OtoReact functions are available</li>
+            <li>The script may be external (with <code>src</code>) or internal</li>
             <li>
                 The script may be classic or module.
                 <br>For classic scripts:
@@ -312,10 +314,10 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
-<br>A component definition consistes of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
+<br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
 <pre class=sourcecode>
-<{}COMPONENT encapsulate?>{}
-  {}<i>Signature</i>{}
+<{}COMPONENT encapsulate?>
+  <i>Signature</i>
 
   <{}SCRIPT &hellip;> &hellip; <{}/SCRIPT>&hellip;
   <{}STYLE &hellip;> &hellip; <{}/STYLE>&hellip;
@@ -325,15 +327,15 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </pre>
 <ul>
 <li>
-    The <i>signature</i> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
+    The <a href=#Signatures><i>signature</i></a> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
 <li>
-    The <i>template</i> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
+    The <a href=#Templates><i>template</i></a> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
 <li>
-    <i>Instances</i> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
+    <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
 <li>
-    A component may be <i>encapsulated</i> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
+    A component may be <a href=#Encapsulate><i>encapsulated</i></a> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
 </ul>
-<h3>Signatures</h3>
+<h3 id=Signatures>Signatures</h3>
 <p>
     The first element inside <elm>COMPONENT</elm> is its signature. E.g.:
     <pre>{C1}</pre>
@@ -353,6 +355,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                         An empty <i>string</i> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
                         <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
                     </p>
+                    <p>The default default value is <code>undefined</code>.</p>
                 </li>
                 <li>
                     An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
@@ -363,8 +366,10 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
         <li>
             Each child element of the signature element defines a <i>slot</i> of the component.
             <br>These child elements are themselves signatures: slot signatures.
-            <br>For each slot, component instances may have one or more child elements that should match the slot signature.
-            <br>The slots are available <i>as constructs</i> within the component template.
+            <p>
+                For each slot, component instances may have one or more child elements that should match the slot signature.
+                <br>The slots are available <i>as constructs</i> within the component template.
+            </p>
             <p>
                 When building a component instance, the content of any instance child element that matches a slot becomes the (slot) template for the slot instances within the component template
             </p>
@@ -373,12 +378,12 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a slot <elm>CONTENT</elm>, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
+            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
         </li>
     </ul>
 </p>
 
-<h3>Templates</h3>
+<h3 id=Templates>Templates</h3>
 The component template is tagged <elm>template</elm>. E.g.:
 <pre>{C2}</pre>
 <ul>
@@ -393,7 +398,7 @@ The component template is tagged <elm>template</elm>. E.g.:
     <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
 </ul>
 
-<h3>Instances</h3>
+<h3 id=Templates>Instances</h3>
 A component is instantiated by a tag containing the component name:
 
 <pre>{C3}</pre>
@@ -441,11 +446,12 @@ Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody
   <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
 <{}/repeat>
 </pre>
+Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>num</code>.
 
 <p>Putting it all together, we get:</p>
 <demo #content=sampleComponent1></demo>
 
-<h3>Encapsulate</h3>
+<h3 id=Encapsulate>Encapsulate</h3>
 The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
 <ul>
     <li>
@@ -495,8 +501,18 @@ Here is a to-do application, which splits the collection of items into those don
 </p>
 
 
-<h2 id=FORoverSlots><{}FOR of> over component slots ...</h2>
-Here is a component which allows one to define tables column by column.
+<h2 id=FORoverSlots><{}FOR of> over component slots</h2>
+When a custom construct (a component or a slot) has a slot <i>slot</i>, then instances of the construct may provide multiple templates for that slot.
+<br>Now, inside the construct template, one can write:
+<pre>
+<{}FOR of=<i>slot</i>>
+    <i>Body</i>
+<{}/FOR>
+</pre>
+When this template is instantiated, <i>Body</i> will be repeated for each provided <i>slot</i> template, and <i>slot</i> instances inside <i>Body</i> will be replaced by the output of just that template, rather than by the concatenation of all <i>slot</i> templates.
+<p>
+Here is a component which allows one to define tables column by column:
+</p>
 <demo #bShow=false #content=sampleTableMaker></demo>
 
 
@@ -516,7 +532,7 @@ Here is a component which allows one to define tables column by column.
 <h2 id=Import><{}IMPORT src>, modules</h2>
 <pre>
 <{}IMPORT src="<i>URL</i>">
-    &nbsp;<i>Signatures</i>{}
+    <i>Signatures</i>
 <{}/IMPORT>
 </pre>
 imports a number of components defined in an external file, called a <i>module</i>.

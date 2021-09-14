@@ -13,40 +13,43 @@ const sampleGreeting=
 
 const sampleServerData =
 `<script nomodule 
-        defines="ColorTable,toHex,bRunning,rh,StartStop" >
-    // Here we store the data. Columns are:
-    // name:string, red:number, green:number, blue:number.
-    const ColorTable = RVAR();
+        defines="ColorTable,toHex,handle,rh,StartStop" >
+  // Here we store the data. Columns are:
+  // name:string, red:number, green:number, blue:number.
+  const ColorTable = RVAR();
     
-    /* Fetch the data! */
-    (async ()=>{
+  /* Fetch the data! */
+  (async ()=>{
       let response = await fetch("webColors.json");
       if (response.ok)
-        ColorTable.V = await response.json();
+          ColorTable.V = await response.json();
     })();
     
-    /* Utility for 2-digit hex code */
-    function toHex(n){ 
-      return n.toString(16).toUpperCase().padStart(2,'0');
-    }
+  /* Utility for 2-digit hex code */
+  function toHex(n){ 
+     return n.toString(16).toUpperCase().padStart(2,'0');
+  }
     
-    /* Rotation */
-    let bRunning=RVAR('', false),
-        // Relative height of first row 
-        rh=RVAR('',100);
-    async function StartStop() {
-        bRunning.V = !bRunning.V;
-        while (bRunning.V) { 
+  /* Rotation */
+  let handle=RVAR('', 0),
+      // Relative height of first row 
+      rh=RVAR('',100);
 
-            // Animate the first row
-            for (rh.V=100; rh.V>=0; rh.V-=25)
-                // Sleep 30 ms
-                await new Promise(r => setTimeout(r, 30));
-
-            // Modify the data model, triggering a DOM update:
-            ColorTable.U.push(ColorTable.V.shift());
-        }
-    }
+  async function StartStop() {
+      if (handle.V) {
+          clearInterval(handle.V); handle.V=0;
+      }
+      else
+          handle.V = setInterval(() => {
+              // Animation
+              rh.V -= 22;
+              if (rh.V <= 0) {
+                  // Modify the data model, triggering a DOM update:
+                  ColorTable.U.push(ColorTable.V.shift());
+                  rh.V = 100;
+              }
+          }, 50);
+  }
 </script>
 
 <!-- Styling -->
@@ -66,9 +69,9 @@ const sampleServerData =
 
     <!-- Table caption -->
     <caption.>Web Colors 
-        <button onclick="StartStop();" reacton=bRunning
-            style.float=right>
-            {bRunning.V ? 'Stop' : 'Rotate'}
+        <button onclick="StartStop();" reacton=handle
+            style="float:right; width:5em">
+            {handle.V ? 'Stop' : 'Rotate'}
         </button>
     </caption.>
 
@@ -275,17 +278,21 @@ This link opens in a blank window:
 const sampleTableMaker =
 `<component>
     <TABLEMAKER datasource ...rest>
+        <!-- One column header definition -->
         <HDEF></HDEF>
+        <!-- One column detail definition -->
         <DDEF item></DDEF>
     </TABLEMAKER>
 
     <template>
         <table. ...rest>
+            <!-- Header row -->
             <tr.>
                 <for of=HDEF>
                     <th.><HDEF></HDEF></th.>
                 </for>
             </tr.>
+            <!-- Detail rows -->
             <for let=rec of='datasource'>
                 <tr.>
                     <for of=DDEF>
@@ -313,43 +320,42 @@ const sampleTableMaker =
 
     <!-- Second column -->
     <HDEF>Leeftijd</HDEF>
-    <DDEF item=record>{record.age}</DDEF>
+    <DDEF item>{item.age}</DDEF>
 </tablemaker>`;
 
 const sampleTicTacToe = 
 `<script nomodule defines=TicTacToe>
-    function Board() {
-        function Cell() {return {V: null}; }
-        function Row()  {return [Cell(), Cell(), Cell()]; }
-        return [Row(), Row(), Row()]; 
-    }
 
     class TicTacToe {
-        board =     RVAR('board');
-        toMove =    RVAR('toMove', '✕');
-        winner =    RVAR('winner');
+        board =     RVAR('board');        //: Array<Array<{P: '◯'|'✕'}>>
+        toMove =    RVAR('toMove', '✕'); //: '◯' | '✕'
+        outcome =   RVAR('outcome');      //: '◯' | '✕' | true
         count = 0;
 
         ClearAll() {
             this.board.V = Board();
-            this.winner.V = null;
+            this.outcome.V = null;
             this.count = 0;
+            
+            function Cell() {return {P: null}; }
+            function Row()  {return [Cell(), Cell(), Cell()]; }
+            function Board(){return [Row(), Row(), Row()]; }
         }
+
         constructor() {
             this.ClearAll();
         }
 
         Move(cell) {
-            cell.U.V = this.toMove.V;
+            cell.U.P = this.toMove.V;
             this.count++;
             this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
-            this.winner.V = this.CheckWinner(this.board.V) || this.count==9;
+            this.outcome.V = this.CheckWinner(this.board.V) || this.count==9;
         }
 
         CheckWinner(b) {
             function CheckRow(c1, c2, c3) {
-                return (c1.V && c1.V == c2.V && c2.V == c3.V
-                    ? c1.V : null);
+                return (c1.P == c2.P && c2.P == c3.P && c1.P);
             }
             let w = null;
             for (let i=0;i<3;i++) {
@@ -383,20 +389,20 @@ const sampleTicTacToe =
     <for let=row #of="T.board.V">
       <tr.>
         <for let=cell #of=row updates=T.board>
-          <td. onclick="!T.winner.V && !cell.V && T.Move(cell)"
-           >{cell.V ?? ''}</td.>
+          <td. onclick="!T.outcome.V && !cell.P && T.Move(cell)"
+           >{cell.P || ''}</td.>
         </for>
       </tr.>
     </for>
   </table.>
   <div style="padding:1ex">
-    <p reacton=T.winner,T.toMove>
+    <p reacton=T.outcome,T.toMove>
       <case>
-        <when #cond="T.winner.V==true">
+        <when #cond="T.outcome.V===true">
           <b>It's a draw.</b>
         </when>
-        <when #cond="T.winner.V">
-          <b>The winner is: <large>{T.winner.V}</large></b>
+        <when #cond="T.outcome.V">
+          <b>The winner is: <large>{T.outcome.V}</large></b>
         </when>
         <else>
           Player to move: {T.toMove.V}
@@ -444,9 +450,9 @@ const C1=
 C2 =
 `  <!-- Component template -->
   <template>
-    <for let=i #of="range(1,1+count)">
-      <!-- Slot instance -->
-      <rbody #num="i"></rbody>
+    <for let=i #of="range(count)">
+        <!-- Slot instance -->
+        <rbody #num="i+1"></rbody>
     </for>
   </template>`,
 C3 =
@@ -471,18 +477,21 @@ ${C3}`;
 
 const sampleFormatting =
 `<define var=today #value="new Date()"></define>
+<style>dt {font-weight:bold}</style>
+<dl>
+    <dt>Internationalization API</dt>
+    <script>
+        globalThis.dateFmt = 
+            new Intl.DateTimeFormat('en', 
+                {day:'numeric', month: 'short'});
+    </script>
+    <dd>
+        Today is {dateFmt.format(today)}.
+    </dd>
 
-<h4>Internationalization API</h4>
-<script>
-    globalThis.dateFmt = 
-        new Intl.DateTimeFormat('en', {day:'numeric', month: 'short'});
-</script>
-<p>
-    Today is {dateFmt.format(today)}.
-</p>
-
-<h4>Day.js</h4>
-<script src="dayjs.min.js"></script>
-<p>
-    Today is {dayjs(today).format('MMM D')}.
-</p>`
+    <dt>Day.js</dt>
+    <script src="./dayjs.min.js"></script>
+    <dd>
+        Today is {dayjs(today).format('MMM D')}.
+    </dd>
+</dl>`

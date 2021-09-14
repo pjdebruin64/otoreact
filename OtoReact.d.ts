@@ -1,14 +1,18 @@
 declare const defaultSettings: {
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bStripSpaces: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
     rootPattern: string;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    bTrim?: boolean;
+    whitespace?: WhiteSpace;
 };
+declare enum WhiteSpace {
+    preserve = 0,
+    keep = 1,
+    trim = 2
+}
 declare type Area = {
     range?: Range;
     parent: Node;
@@ -44,21 +48,16 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-declare class Subscriber {
-    builder: DOMBuilder;
-    range: Range;
-    parent: Node;
-    before: ChildNode;
-    env: Environment;
-    bNoChildBuilding: boolean;
-    constructor(area: Area, builder: DOMBuilder, range: Range);
-}
+declare type Subscriber = {
+    before: Node;
+    notify: () => Promise<void>;
+};
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
-    instanceBuilders: ParametrizedBuilder[];
+    templates: Template[];
     constructEnv: Environment;
 };
-declare type ParametrizedBuilder = (this: RCompiler, area: Area, args: unknown[], mapSlotBuilders: Map<string, ParametrizedBuilder[]>, slotEnv: Environment) => Promise<void>;
+declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>;
     _UpdatesTo?: Array<_RVAR>;
@@ -88,13 +87,13 @@ declare class RCompiler {
     private NewVar;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
+    Subscriber(area: Area, builder: DOMBuilder, range: Range): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     ToBuild: Area[];
     private AllAreas;
     private Builder;
-    private bTrimLeft;
-    private bTrimRight;
+    private whiteSpc;
     private bCompiled;
     private bHasReacts;
     DirtyVars: Set<_RVAR<unknown>>;
@@ -116,7 +115,7 @@ declare class RCompiler {
     private GetREACT;
     private CallWithErrorHandling;
     private CompScript;
-    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts, bBlockLevel: boolean): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder;
     private ParseSignature;
     private CompComponent;
     private CompTemplate;
@@ -125,7 +124,7 @@ declare class RCompiler {
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
-    private CompInterpolatedString;
+    private CompInterpStr;
     private CompPattern;
     private CompParameter;
     private CompAttrExpr;

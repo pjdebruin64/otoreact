@@ -1,6 +1,6 @@
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? ...rest>
+    <a href? #target? ...rest>
         <content></content>
     </a>
     <template><a. #href="href" ...rest
@@ -91,7 +91,6 @@
 </component>`;
                     </script>                    
                     <RHTML reacton=MyRVAR>
-                        {prefix}
                         {MyRVAR.V}
                     </RHTML>
                 </td.>
@@ -111,7 +110,7 @@
         </content>
     </pageLayout>
 
-    <script nomodule defines=TOC,maxHeight>
+    <script nomodule defines=TOC>
         class TOC {
             numbers = [0,0,0];
             getNr(level) {
@@ -119,7 +118,7 @@
                 this.numbers[level+1] = 0;
                 let result = '';
                 for (let i=0; i<=level; i++)
-                    if (this.numbers[i])
+                    if (result||this.numbers[i])
                         result += `${this.numbers[i]}.`;
                 return result.replace(/(?<=\..*)\.$/, '');
             }
@@ -128,13 +127,6 @@
                 this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
             }
         }
-        const maxHeight = RVAR();
-        const screenOnly = window.matchMedia('screen');
-        (   window.onresize= screenOnly.onchange=
-            () => {
-                maxHeight.V = screenOnly.matches ? `${window.innerHeight - 8}px` : undefined;
-            }
-        )(); // Call immediately"
     </script>
 
     <style>
@@ -187,6 +179,7 @@
             div.pageLayout  {
                 grid-template-columns: 16em 1fr;
                 grid-template-rows: min-content 1fr;
+                max-height: calc(100vh - 8px);
                 min-width: 980px;
                 max-width: 1430px;
             }
@@ -230,7 +223,7 @@
 
     <template>
         <def var=toc #value="new TOC()"></def>
-        <div class=pageLayout #style.maxHeight="maxHeight.V" thisreactson=maxHeight>
+        <div class=pageLayout>
             <header>
                     <div style="padding-left: 40px">
                         <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">
@@ -252,7 +245,7 @@
                         <a href="{RootPath}"           #onclick=reroute>Home</a>
                         <a href=""      style.color=grey>Components</a>
                         <a href="{RootPath}routing"    #onclick=reroute>Routing</a>
-                        <a href=""      style.color=grey>Download</a>                        
+                        <a href="{RootPath}download"   #onclick=reroute>Download</a>                        
                         <a href="https://forum.otoreact.dev/">Forum</a>
                     </nav>
             </header>
