@@ -34,11 +34,12 @@
 
     gtag('config', 'G-T23W7PMPX4');
     </script>
+  <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>
 </head>
 <body hidden>
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-        <a href #target? ...rest><content></content></a>
+        <a href? #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
         <demo #content?="''" #bshow=false #editable?=true rvar?></demo>

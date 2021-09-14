@@ -1,6 +1,6 @@
 <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
 <component>
-    <a href #target? ...rest>
+    <a href? #target? ...rest>
         <content></content>
     </a>
     <template><a. #href="href" ...rest
@@ -118,7 +118,7 @@
                 this.numbers[level+1] = 0;
                 let result = '';
                 for (let i=0; i<=level; i++)
-                    if (this.numbers[i])
+                    if (result||this.numbers[i])
                         result += `${this.numbers[i]}.`;
                 return result.replace(/(?<=\..*)\.$/, '');
             }

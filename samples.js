@@ -13,40 +13,43 @@ const sampleGreeting=
 
 const sampleServerData =
 `<script nomodule 
-        defines="ColorTable,toHex,bRunning,rh,StartStop" >
-    // Here we store the data. Columns are:
-    // name:string, red:number, green:number, blue:number.
-    const ColorTable = RVAR();
+        defines="ColorTable,toHex,handle,rh,StartStop" >
+  // Here we store the data. Columns are:
+  // name:string, red:number, green:number, blue:number.
+  const ColorTable = RVAR();
     
-    /* Fetch the data! */
-    (async ()=>{
+  /* Fetch the data! */
+  (async ()=>{
       let response = await fetch("webColors.json");
       if (response.ok)
-        ColorTable.V = await response.json();
+          ColorTable.V = await response.json();
     })();
     
-    /* Utility for 2-digit hex code */
-    function toHex(n){ 
-      return n.toString(16).toUpperCase().padStart(2,'0');
-    }
+  /* Utility for 2-digit hex code */
+  function toHex(n){ 
+     return n.toString(16).toUpperCase().padStart(2,'0');
+  }
     
-    /* Rotation */
-    let bRunning=RVAR('', false),
-        // Relative height of first row 
-        rh=RVAR('',100);
-    async function StartStop() {
-        bRunning.V = !bRunning.V;
-        while (bRunning.V) { 
+  /* Rotation */
+  let handle=RVAR('', 0),
+      // Relative height of first row 
+      rh=RVAR('',100);
 
-            // Animate the first row
-            for (rh.V=100; rh.V>=0; rh.V-=25)
-                // Sleep 30 ms
-                await new Promise(r => setTimeout(r, 30));
-
-            // Modify the data model, triggering a DOM update:
-            ColorTable.U.push(ColorTable.V.shift());
-        }
-    }
+  async function StartStop() {
+      if (handle.V) {
+          clearInterval(handle.V); handle.V=0;
+      }
+      else
+          handle.V = setInterval(() => {
+              // Animation
+              rh.V -= 22;
+              if (rh.V <= 0) {
+                  // Modify the data model, triggering a DOM update:
+                  ColorTable.U.push(ColorTable.V.shift());
+                  rh.V = 100;
+              }
+          }, 50);
+  }
 </script>
 
 <!-- Styling -->
@@ -66,9 +69,9 @@ const sampleServerData =
 
     <!-- Table caption -->
     <caption.>Web Colors 
-        <button onclick="StartStop();" reacton=bRunning
-            style="float:right; width:50px">
-            {bRunning.V ? 'Stop' : 'Rotate'}
+        <button onclick="StartStop();" reacton=handle
+            style="float:right; width:5em">
+            {handle.V ? 'Stop' : 'Rotate'}
         </button>
     </caption.>
 
@@ -474,18 +477,21 @@ ${C3}`;
 
 const sampleFormatting =
 `<define var=today #value="new Date()"></define>
+<style>dt {font-weight:bold}</style>
+<dl>
+    <dt>Internationalization API</dt>
+    <script>
+        globalThis.dateFmt = 
+            new Intl.DateTimeFormat('en', 
+                {day:'numeric', month: 'short'});
+    </script>
+    <dd>
+        Today is {dateFmt.format(today)}.
+    </dd>
 
-<h4>Internationalization API</h4>
-<script>
-    globalThis.dateFmt = 
-        new Intl.DateTimeFormat('en', {day:'numeric', month: 'short'});
-</script>
-<p>
-    Today is {dateFmt.format(today)}.
-</p>
-
-<h4>Day.js</h4>
-<script src="./dayjs.min.js"></script>
-<p>
-    Today is {dayjs(today).format('MMM D')}.
-</p>`
+    <dt>Day.js</dt>
+    <script src="./dayjs.min.js"></script>
+    <dd>
+        Today is {dayjs(today).format('MMM D')}.
+    </dd>
+</dl>`

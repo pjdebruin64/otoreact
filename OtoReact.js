@@ -12,25 +12,14 @@ var WhiteSpace;
     WhiteSpace[WhiteSpace["trim"] = 2] = "trim";
 })(WhiteSpace || (WhiteSpace = {}));
 class Range {
-    node;
-    text;
-    child;
-    next = null;
-    endMark;
     constructor(node, text) {
         this.node = node;
         this.text = text;
+        this.next = null;
         if (!node)
             this.child = null;
     }
     toString() { return this.text || this.node?.nodeName; }
-    result;
-    value;
-    errorNode;
-    hash;
-    key;
-    prev;
-    fragm;
     get First() {
         let f;
         if (f = this.node)
@@ -171,15 +160,13 @@ function CloneEnv(env) {
     return clone;
 }
 class Signature {
-    srcElm;
     constructor(srcElm) {
         this.srcElm = srcElm;
+        this.Parameters = [];
+        this.RestParam = null;
+        this.Slots = new Map();
         this.name = srcElm.localName;
     }
-    name;
-    Parameters = [];
-    RestParam = null;
-    Slots = new Map();
     IsCompatible(sig) {
         if (!sig)
             return false;
@@ -287,18 +274,22 @@ function RestoreEnv(savedEnv) {
         envActions.pop()();
 }
 class RCompiler {
-    clone;
-    static iNum = 0;
-    instanceNum = RCompiler.iNum++;
-    ContextMap;
-    context;
-    Constructs;
-    StyleRoot;
-    StyleBefore;
-    AddedHeaderElements;
-    FilePath;
     constructor(clone) {
         this.clone = clone;
+        this.instanceNum = RCompiler.iNum++;
+        this.restoreActions = [];
+        this.ToBuild = [];
+        this.AllAreas = [];
+        this.whiteSpc = WhiteSpace.keep;
+        this.bCompiled = false;
+        this.bHasReacts = false;
+        this.DirtyVars = new Set();
+        this.DirtySubs = new Map();
+        this.bUpdating = false;
+        this.bUpdate = false;
+        this.handleUpdate = null;
+        this.sourceNodeCount = 0;
+        this.builtNodeCount = 0;
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.Constructs = clone ? new Map(clone.Constructs) : new Map();
@@ -309,7 +300,6 @@ class RCompiler {
         this.FilePath = clone?.FilePath || location.origin + RootPath;
     }
     get MainC() { return this.clone || this; }
-    restoreActions = [];
     SaveContext() {
         return this.restoreActions.length;
     }
@@ -383,31 +373,18 @@ class RCompiler {
         this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
-    Settings;
-    ToBuild = [];
-    AllAreas = [];
-    Builder;
-    whiteSpc = WhiteSpace.keep;
-    bCompiled = false;
-    bHasReacts = false;
-    DirtyVars = new Set();
-    DirtySubs = new Map();
     AddDirty(sub) {
         this.MainC.DirtySubs.set(sub.before, sub);
     }
-    bUpdating = false;
-    bUpdate = false;
-    handleUpdate = null;
     RUpdate() {
         this.MainC.bUpdate = true;
         if (!this.clone && !this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 1);
+            }, 2);
     }
     ;
-    buildStart;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) {
             this.bUpdate = true;
@@ -486,8 +463,6 @@ class RCompiler {
         }
         return t;
     }
-    sourceNodeCount = 0;
-    builtNodeCount = 0;
     CompChildNodes(srcParent, childNodes = srcParent.childNodes, bNorestore) {
         const builders = [], saved = this.SaveContext();
         try {
@@ -518,7 +493,8 @@ class RCompiler {
                                 builders.push([
                                     async function IText(area) {
                                         PrepareText(area, getText(area.env));
-                                    }, srcNode
+                                    },
+                                    srcNode
                                 ]);
                             else {
                                 const isBlank = /^[ \t\r\n]*$/.test(fixed);
@@ -526,7 +502,8 @@ class RCompiler {
                                     builders.push([
                                         async function FText(area) {
                                             PrepareText(area, fixed);
-                                        }, srcNode, isBlank
+                                        },
+                                        srcNode, isBlank
                                     ]);
                             }
                             if (this.whiteSpc != WhiteSpace.preserve)
@@ -554,7 +531,6 @@ class RCompiler {
                 }
             };
     }
-    static preMods = ['reacton', 'reactson', 'thisreactson'];
     CompElement(srcParent, srcElm, whiteSpace) {
         const atts = new Atts(srcElm), mapReacts = [];
         let builder = null;
@@ -891,9 +867,10 @@ class RCompiler {
         }
     }
     CompScript(srcParent, srcElm, atts) {
-        const bModule = atts.get('type') == 'module';
+        const bModule = atts.get('type') == 'module', bNoModule = atts.get('nomodule') != null;
         let src = atts.get('src');
-        if (atts.get('nomodule') != null || this.Settings.bRunScripts) {
+        let builder;
+        if (bNoModule || this.Settings.bRunScripts) {
             let script = srcElm.text + '\n';
             const defines = atts.get('defines');
             const lvars = [];
@@ -901,8 +878,16 @@ class RCompiler {
                 for (const name of defines.split(','))
                     lvars.push({ name, init: this.NewVar(name) });
             let exports;
-            return async function SCRIPT({ env }) {
-                if (bModule) {
+            builder = async function SCRIPT({ env }) {
+                if (!(bNoModule || defines || !this.clone)) {
+                    if (!exports) {
+                        const e = srcElm.cloneNode(true);
+                        document.head.appendChild(e);
+                        this.AddedHeaderElements.push(e);
+                        exports = {};
+                    }
+                }
+                else if (bModule) {
                     if (!exports) {
                         if (src)
                             exports = await import(src);
@@ -924,14 +909,6 @@ class RCompiler {
                 }
                 else {
                     if (!exports) {
-                        if (0 && src && !defines) {
-                            const e = document.createElement('script');
-                            e.src = src;
-                            document.head.appendChild(e);
-                            this.AddedHeaderElements.push(e);
-                            exports = {};
-                            return;
-                        }
                         if (src)
                             script = await FetchText(src);
                         exports = gEval(`'use strict'\n;${script};[${defines}]\n`);
@@ -943,7 +920,7 @@ class RCompiler {
             };
         }
         atts.clear();
-        return null;
+        return builder;
     }
     CompFor(srcParent, srcElm, atts) {
         const varName = atts.get('let');
@@ -996,8 +973,11 @@ class RCompiler {
                             while (nextChild && !newMap.has(key = nextChild.key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                for (const node of nextChild.Nodes())
-                                    parent.removeChild(node);
+                                try {
+                                    for (const node of nextChild.Nodes())
+                                        parent.removeChild(node);
+                                }
+                                catch { }
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
@@ -1288,7 +1268,6 @@ class RCompiler {
                 await parBuilder.call(this, subArea, args, slotBuilders, slotEnv);
         };
     }
-    static regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
         const ws = name == 'pre' ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
@@ -1503,17 +1482,18 @@ class RCompiler {
         return env => env[i];
     }
 }
+RCompiler.iNum = 0;
+RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
+RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
-    MainC;
-    store;
-    storeName;
     constructor(MainC, globalName, initialValue, store, storeName) {
         this.MainC = MainC;
         this.store = store;
         this.storeName = storeName;
+        this.Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         let s;
@@ -1526,8 +1506,6 @@ class _RVAR {
         this._Value = initialValue;
         this.storeName ||= globalName;
     }
-    _Value;
-    Subscribers = new Set();
     Subscribe(s) {
         this.Subscribers.add(s);
     }

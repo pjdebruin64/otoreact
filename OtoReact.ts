@@ -542,7 +542,7 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 1);
+            }, 2);
     };
 
     private buildStart: number;
@@ -1131,10 +1131,11 @@ labelNoCheck:
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        const bModule = atts.get('type') == 'module';
+        const bModule = atts.get('type') == 'module', bNoModule = atts.get('nomodule') != null;
         let src = atts.get('src');
+        let builder: DOMBuilder;
 
-        if ( atts.get('nomodule') != null || this.Settings.bRunScripts) {
+        if ( bNoModule || this.Settings.bRunScripts) {
             let script = srcElm.text+'\n';
             const defines = atts.get('defines');
             const lvars: Array<{name: string,init: LVar}> = [];
@@ -1143,8 +1144,16 @@ labelNoCheck:
                     lvars.push({name, init: this.NewVar(name)});
                 
             let exports: Object;
-            return async function SCRIPT(this: RCompiler, {env}: Area) {
-                if (bModule) {
+            builder = async function SCRIPT(this: RCompiler, {env}: Area) {
+                if (!(bNoModule || defines || !this.clone)) {
+                    if (!exports) {
+                        const e = srcElm.cloneNode(true) as HTMLScriptElement;
+                        document.head.appendChild(e); // 
+                        this.AddedHeaderElements.push(e);
+                        exports = {};
+                    }
+                }
+                else if (bModule) {
                     // Execute the script now
                     if (!exports) {
                         if (src) 
@@ -1166,14 +1175,6 @@ labelNoCheck:
                 }
                 else  {
                     if (!exports) {
-                        if (0 && src && !defines) {
-                            const e = document.createElement('script');
-                            e.src=src;
-                            document.head.appendChild(e); // 
-                            this.AddedHeaderElements.push(e);
-                            exports = {};
-                            return;
-                        }
                         if (src)
                             script = await FetchText(src);
                         exports = gEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
@@ -1185,7 +1186,7 @@ labelNoCheck:
             };
         }
         atts.clear();
-        return null;
+        return builder;
     }
 
     public CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
@@ -1256,8 +1257,10 @@ labelNoCheck:
                             while (nextChild && !newMap.has(key = nextChild.key)) {
                                 if (key != null)
                                     keyMap.delete(key);
-                                for (const node of nextChild.Nodes())
-                                    parent.removeChild(node);
+                                try {
+                                    for (const node of nextChild.Nodes())
+                                        parent.removeChild(node);
+                                } catch {}
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
