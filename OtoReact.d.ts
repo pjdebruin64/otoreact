@@ -38,6 +38,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     key?: Key;
     prev?: Range;
     fragm?: DocumentFragment;
+    rvar?: RVAR_Light<Item>;
     get First(): ChildNode;
     Nodes(): Generator<ChildNode>;
     get isConnected(): boolean;
@@ -64,6 +65,8 @@ export declare type RVAR_Light<T> = T & {
     Subscribe?: (sub: Subscriber) => void;
     readonly U?: T;
 };
+interface Item {
+}
 interface Key {
 }
 interface Hash {
@@ -130,6 +133,7 @@ declare class RCompiler {
     private CompAttrExpr;
     private CompJavaScript;
     private CompName;
+    private compAttrExprList;
 }
 interface Store {
     getItem(key: string): string | null;

@@ -208,7 +208,7 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             elm.setAttribute(name, val || '');
             break;
         case ModifType.Prop:
-            if (val != null)
+            if (val != null && val != elm[name])
                 elm[name] = val;
             else
                 delete elm[name];
@@ -443,7 +443,7 @@ class RCompiler {
         return new _RVAR(this.MainC, name, initialValue, store, name);
     }
     ;
-    RVAR_Light(t, updatesTo = []) {
+    RVAR_Light(t, updatesTo) {
         if (!t._Subscribers) {
             t._Subscribers = [];
             t._UpdatesTo = updatesTo;
@@ -451,7 +451,7 @@ class RCompiler {
             Object.defineProperty(t, 'U', { get: function () {
                     for (const sub of t._Subscribers)
                         R.AddDirty(sub);
-                    if (t._UpdatesTo.length)
+                    if (t._UpdatesTo?.length)
                         for (const rvar of t._UpdatesTo)
                             rvar.SetDirty();
                     else
@@ -537,7 +537,7 @@ class RCompiler {
         for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
             if (val)
-                mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompJavaScript(expr)) });
+                mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompJavaScript(expr, attName)) });
         }
         labelNoCheck: try {
             const construct = this.Constructs.get(srcElm.localName);
@@ -549,14 +549,17 @@ class RCompiler {
                     case 'define':
                         {
                             const rvarName = atts.get('rvar'), varName = rvarName || atts.get('name') || atts.get('var', true), getValue = this.CompParameter(atts, 'value'), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), newVar = this.NewVar(varName), subBuilder = this.CompChildNodes(srcElm);
-                            builder = async function DEFINE(area) {
+                            builder = async function DEF(area) {
                                 const { range, subArea, bInit } = PrepareArea(srcElm, area);
-                                let rvar;
                                 if (bInit || bReact) {
                                     const value = getValue && getValue(area.env);
-                                    range.value = rvarName
-                                        ? rvar = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName)
-                                        : value;
+                                    if (rvarName)
+                                        if (bInit)
+                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName);
+                                        else
+                                            range.value.V = value;
+                                    else
+                                        range.value = value;
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
@@ -744,8 +747,7 @@ class RCompiler {
                     case 'react':
                         {
                             this.MainC.bHasReacts = true;
-                            const reacts = atts.get('on', false, true);
-                            const getRvars = reacts ? reacts.split(',').map(expr => this.CompJavaScript(expr)) : [];
+                            const getRvars = this.compAttrExprList(atts, 'on', false);
                             const getHash = this.CompAttrExpr(atts, 'hash');
                             const bodyBuilder = this.CompChildNodes(srcElm);
                             builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
@@ -879,7 +881,7 @@ class RCompiler {
                     lvars.push({ name, init: this.NewVar(name) });
             let exports;
             builder = async function SCRIPT({ env }) {
-                if (!(bNoModule || defines || !this.clone)) {
+                if (!(bModule || bNoModule || defines || !this.clone)) {
                     if (!exports) {
                         const e = srcElm.cloneNode(true);
                         document.head.appendChild(e);
@@ -930,28 +932,17 @@ class RCompiler {
         const saved = this.SaveContext();
         try {
             if (varName != null) {
-                const getRange = this.CompAttrExpr(atts, 'of', true);
                 let prevName = atts.get('previous');
                 if (prevName == '')
                     prevName = 'previous';
                 let nextName = atts.get('next');
                 if (nextName == '')
                     nextName = 'next';
-                const bReactive = CBool(atts.get('updateable') ?? atts.get('reactive'));
-                const getUpdatesTo = this.CompAttrExpr(atts, 'updates');
-                const initVar = this.NewVar(varName);
-                const initIndex = this.NewVar(indexName);
-                const initPrevious = this.NewVar(prevName);
-                const initNext = this.NewVar(nextName);
-                const getKey = this.CompAttrExpr(atts, 'key');
-                const getHash = this.CompAttrExpr(atts, 'hash');
-                const bodyBuilder = this.CompChildNodes(srcElm);
+                const getRange = this.CompAttrExpr(atts, 'of', true), bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOR(area) {
                     const { range, subArea } = PrepareArea(srcElm, area, '', true), { parent, env } = subArea, savedEnv = SaveEnv();
                     try {
-                        const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env);
-                        const iterator = getRange(env);
-                        const setIndex = initIndex(env);
+                        const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env), iterator = getRange(env), setIndex = initIndex(env);
                         if (iterator) {
                             if (!(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterator}) is not iterable`;
@@ -982,11 +973,8 @@ class RCompiler {
                                 nextChild = nextChild.next;
                             }
                         }
-                        const setPrevious = initPrevious(env);
-                        const setNext = initNext(env);
-                        let prevItem = null, nextItem, prevRange = null;
-                        const nextIterator = nextName ? newMap.values() : null;
-                        let childArea;
+                        const setPrevious = initPrevious(env), setNext = initNext(env), nextIterator = nextName ? newMap.values() : null;
+                        let prevItem = null, nextItem, prevRange = null, childArea;
                         subArea.parentR = range;
                         if (nextIterator)
                             nextIterator.next();
@@ -1050,16 +1038,24 @@ class RCompiler {
                             if (hash == null
                                 || hash != childRange.hash
                                     && (childRange.hash = hash, true)) {
-                                let rvar = (getUpdatesTo ? this.RVAR_Light(item, [getUpdatesTo(env)])
-                                    : bReactive ? this.RVAR_Light(item)
-                                        : item);
-                                setVar(rvar);
+                                let rvar;
+                                if (bReactive) {
+                                    if (item === childRange.rvar)
+                                        rvar = item;
+                                    else {
+                                        rvar = this.RVAR_Light(item, getUpdatesTo && [getUpdatesTo(env)]);
+                                        if (childRange.rvar)
+                                            rvar._Subscribers = childRange.rvar._Subscribers;
+                                        childRange.rvar = rvar;
+                                    }
+                                }
+                                setVar(rvar || item);
                                 setIndex(index);
                                 setPrevious(prevItem);
                                 if (nextIterator)
                                     setNext(nextItem);
                                 await bodyBuilder.call(this, childArea);
-                                if (bReactive && bInit)
+                                if (bReactive)
                                     rvar.Subscribe(this.Subscriber(childArea, bodyBuilder, childRange.child));
                             }
                             prevItem = item;
@@ -1118,7 +1114,7 @@ class RCompiler {
             else
                 signature.Parameters.push({ name: m[2],
                     pDefault: attr.value != ''
-                        ? (m[1] == '#' ? this.CompJavaScript(attr.value) : this.CompInterpStr(attr.value))
+                        ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) : this.CompInterpStr(attr.value, attr.name))
                         : m[3] ? (_) => undefined
                             : null
                 });
@@ -1299,23 +1295,23 @@ class RCompiler {
                     postModifiers.push({
                         modType: ModifType[attName],
                         name: m[0],
-                        depValue: this.CompJavaScript(`function ${attName}(){${attValue}\n}`)
+                        depValue: this.CompJavaScript(`function ${attName}(){${attValue}\n}`, attName)
                     });
                 else if (m = /^on(.*)$/i.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Event,
                         name: CapitalizeProp(m[0]),
-                        depValue: this.CompJavaScript(`function ${attName}(event){${attValue}\n}`)
+                        depValue: this.CompJavaScript(`function ${attName}(event){${attValue}\n}`, attName)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Class, name: m[1],
-                        depValue: this.CompJavaScript(attValue)
+                        depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompJavaScript(attValue)
+                        depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     preModifiers.push({
@@ -1325,24 +1321,24 @@ class RCompiler {
                 else if (attName == '+style')
                     preModifiers.push({
                         modType: ModifType.AddToStyle, name: null,
-                        depValue: this.CompJavaScript(attValue)
+                        depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Prop, name: CapitalizeProp(m[1]),
-                        depValue: this.CompJavaScript(attValue)
+                        depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (attName == "+class")
                     preModifiers.push({
                         modType: ModifType.AddToClassList, name: null,
-                        depValue: this.CompJavaScript(attValue)
+                        depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) {
                     const propName = CapitalizeProp(m[3]);
                     try {
-                        const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`);
+                        const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         if (m[1] == '@')
-                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue) });
+                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) });
                         else
                             postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
                         preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
@@ -1384,7 +1380,7 @@ class RCompiler {
             if (fixed)
                 generators.push(last = fixed.replace(/\\([${}\\])/g, '$1'));
             if (m[1]) {
-                generators.push(this.CompJavaScript(m[1], '{}'));
+                generators.push(this.CompJavaScript(m[1], name, '{}'));
                 isTrivial = false;
                 last = '';
             }
@@ -1438,13 +1434,13 @@ class RCompiler {
     CompParameter(atts, attName, bRequired) {
         const value = atts.get(attName);
         return (value == null ? this.CompAttrExpr(atts, attName, bRequired)
-            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`)
-                : this.CompInterpStr(value));
+            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`, attName)
+                : this.CompInterpStr(value, attName));
     }
     CompAttrExpr(atts, attName, bRequired) {
-        return this.CompJavaScript(atts.get(attName, bRequired, true));
+        return this.CompJavaScript(atts.get(attName, bRequired, true), attName);
     }
-    CompJavaScript(expr, delims = '""', descript) {
+    CompJavaScript(expr, descript, delims = '""') {
         if (expr == null)
             return null;
         const bThis = /\bthis\b/.test(expr), depExpr = bThis ?
@@ -1480,6 +1476,10 @@ class RCompiler {
         if (i === undefined)
             throw `Unknown name '${name}'`;
         return env => env[i];
+    }
+    compAttrExprList(atts, attName, bRequired) {
+        const list = atts.get(attName, bRequired, true);
+        return list ? list.split(',').map(expr => this.CompJavaScript(expr, attName)) : [];
     }
 }
 RCompiler.iNum = 0;

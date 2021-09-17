@@ -5,9 +5,10 @@
 
   <h2>Downloads</h2>
 
-  <if cond="!/masterlist/i.test(document.location.host)">
+  <if cond="/dev\//i.test(document.location.href)">
     <def rvar=donate></def>
     <if cond=donate.V reacton=donate>
+      <!-- of iframe met absolute/relative position -->
       <div style="width:20em;float:right; border:solid 2pt gold; padding:8px">
         <!--
         <iframe src="donate.html" onload="this.height = this.contentWindow.document.body.scrollHeight+'px';"></iframe>
@@ -17,9 +18,9 @@
     </if>
     <h2>License</h2>
     OtoReact is free for noncommercial use, and free for unlimited trial for commercial use.
-    <br>
-    <a onclick="donate.V=true">Donations</a> are welcome.
-    <br>Commercial licences can be obtained at a price of €250 per developer, valid for 5 years.
+    <br>Reverse engineering is allowed.
+    <br><a onclick="donate.V=true">Donations</a> are welcome.
+    <br>Commercial licences can be obtained at a price of €200 per developer, valid for 5 years.
     <br>Sourcecode access is negotiable.
 
   </if>

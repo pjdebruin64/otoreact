@@ -58,6 +58,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     // Alleen voor FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
     fragm?: DocumentFragment;
+    rvar?: RVAR_Light<Item>;
 
     public get First(): ChildNode {
         let f: ChildNode
@@ -327,7 +328,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
             elm.setAttribute(name, val as string || ''); 
             break;
         case ModifType.Prop:
-            if (val != null)
+            if (val != null && val != elm[name])
                 elm[name] = val;
             else
                 delete elm[name];
@@ -612,8 +613,7 @@ class RCompiler {
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
-        //: Array<Subscriber> = [],
-        updatesTo: Array<_RVAR> = [],
+        updatesTo?: Array<_RVAR>,
     ): RVAR_Light<T> {
         if (!t._Subscribers) {
             t._Subscribers = []; //subscribers;
@@ -624,7 +624,7 @@ class RCompiler {
                     function() {
                         for (const sub of t._Subscribers)
                             R.AddDirty(sub);
-                        if (t._UpdatesTo.length)
+                        if (t._UpdatesTo?.length)
                             for (const rvar of t._UpdatesTo)
                                 rvar.SetDirty();
                         else
@@ -719,7 +719,7 @@ class RCompiler {
         let builder: DOMBuilder = null;
         for (const attName of RCompiler.preMods) {
             const val = atts.get(attName);
-            if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) )});
+            if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR>(expr, attName) )});
         }
 labelNoCheck:
         try {
@@ -740,14 +740,17 @@ labelNoCheck:
                             newVar      = this.NewVar(varName),
                             subBuilder  = this.CompChildNodes(srcElm);
 
-                        builder = async function DEFINE(this: RCompiler, area) {
+                        builder = async function DEF(this: RCompiler, area) {
                                 const {range, subArea, bInit} = PrepareArea(srcElm, area);
-                                let rvar: _RVAR;
                                 if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
-                                    range.value = rvarName 
-                                        ? rvar = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName) 
-                                        : value;
+                                    if (rvarName)
+                                        if (bInit)
+                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName);
+                                        else
+                                            range.value.V = value;
+                                    else
+                                        range.value = value;
                                 }
                                 newVar(area.env)(range.value);
                                 await subBuilder.call(this, subArea);
@@ -981,8 +984,7 @@ labelNoCheck:
 
                     case 'react': {
                         this.MainC.bHasReacts = true;
-                        const reacts = atts.get('on', false, true);
-                        const getRvars = reacts ? reacts.split(',').map( expr => this.CompJavaScript<_RVAR>(expr) ) : [];
+                        const getRvars = this.compAttrExprList<_RVAR>(atts, 'on', false);
                         const getHash = this.CompAttrExpr(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
@@ -1145,7 +1147,7 @@ labelNoCheck:
                 
             let exports: Object;
             builder = async function SCRIPT(this: RCompiler, {env}: Area) {
-                if (!(bNoModule || defines || !this.clone)) {
+                if (!(bModule || bNoModule || defines || !this.clone)) {
                     if (!exports) {
                         const e = srcElm.cloneNode(true) as HTMLScriptElement;
                         document.head.appendChild(e); // 
@@ -1196,27 +1198,27 @@ labelNoCheck:
         const saved = this.SaveContext();
         try {
             if (varName != null) { /* A regular iteration */
-                const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true);
                 let prevName = atts.get('previous');
                 if (prevName == '') prevName = 'previous';
                 let nextName = atts.get('next');
                 if (nextName == '') nextName = 'next';
-
-                const bReactive = CBool(atts.get('updateable') ?? atts.get('reactive'));
-                const getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates');
+                
+                const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true),
+                    bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')),
+                    getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates'),
             
                 // Voeg de loop-variabele toe aan de context
-                const initVar = this.NewVar(varName);
+                    initVar = this.NewVar(varName),
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
-                const initIndex = this.NewVar(indexName);
-                const initPrevious = this.NewVar(prevName);
-                const initNext = this.NewVar(nextName);
+                    initIndex = this.NewVar(indexName),
+                    initPrevious = this.NewVar(prevName),
+                    initNext = this.NewVar(nextName),
 
-                const getKey = this.CompAttrExpr<Key>(atts, 'key');
-                const getHash = this.CompAttrExpr<Hash>(atts, 'hash');
+                    getKey = this.CompAttrExpr<Key>(atts, 'key'),
+                    getHash = this.CompAttrExpr<Hash>(atts, 'hash'),
 
                 // Compileer alle childNodes
-                const bodyBuilder = this.CompChildNodes(srcElm);
+                    bodyBuilder = this.CompChildNodes(srcElm);
                 
                 //srcParent.removeChild(srcElm);
 
@@ -1230,10 +1232,10 @@ labelNoCheck:
                         const keyMap: Map<Key, Range> = range.value ||= new Map(),
                         // Map of the newly obtained data
                             newMap: Map<Key, {item:Item, hash:Hash, index: number}> = new Map(),
-                            setVar = initVar(env);
+                            setVar = initVar(env),
 
-                        const iterator = getRange(env);
-                        const setIndex = initIndex(env);
+                            iterator = getRange(env),
+                            setIndex = initIndex(env);
                         if (iterator) {
                             if (!(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterator}) is not iterable`;
@@ -1266,13 +1268,13 @@ labelNoCheck:
                             }
                         }
 
-                        const setPrevious = initPrevious(env);
-                        const setNext = initNext(env);
+                        const setPrevious = initPrevious(env),
+                            setNext = initNext(env),
+                            nextIterator = nextName ? newMap.values() : null;
 
                         let prevItem: Item = null, nextItem: Item
-                            , prevRange: Range = null;
-                        const nextIterator = nextName ? newMap.values() : null;
-                        let childArea: Area;
+                            , prevRange: Range = null,
+                            childArea: Area;
                         subArea.parentR = range;
 
                         if (nextIterator) nextIterator.next();
@@ -1349,12 +1351,20 @@ labelNoCheck:
                                     && (childRange.hash = hash, true)
                             ) {
                                 // Environment instellen
-                                let rvar: Item =
-                                    ( getUpdatesTo ? this.RVAR_Light(item as object, [getUpdatesTo(env)])
-                                    : bReactive ? this.RVAR_Light(item as object)
-                                    : item
-                                    );
-                                setVar(rvar);
+                                let rvar: RVAR_Light<Item>;
+
+                                if (bReactive) {
+                                    if (item === childRange.rvar)
+                                        rvar = item;
+                                    else {
+                                        rvar = this.RVAR_Light(item as object, getUpdatesTo && [getUpdatesTo(env)])
+                                        if (childRange.rvar)
+                                            rvar._Subscribers = childRange.rvar._Subscribers 
+                                        childRange.rvar = rvar
+                                    }
+                                }
+                                
+                                setVar(rvar || item);
                                 setIndex(index);
                                 setPrevious(prevItem);
                                 if (nextIterator)
@@ -1363,8 +1373,8 @@ labelNoCheck:
                                 // Body berekenen
                                 await bodyBuilder.call(this, childArea);
 
-                                if (bReactive && bInit)
-                                    (rvar as _RVAR<Item>).Subscribe(
+                                if (bReactive)
+                                    rvar.Subscribe(
                                         this.Subscriber(childArea, bodyBuilder, childRange.child)
                                     );
                             }
@@ -1426,7 +1436,7 @@ labelNoCheck:
                     { name: m[2]
                     , pDefault: 
                         attr.value != '' 
-                        ? (m[1] == '#' ? this.CompJavaScript(attr.value) :  this.CompInterpStr(attr.value))
+                        ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompInterpStr(attr.value, attr.name))
                         : m[3] ? (_) => undefined
                         : null 
                     }
@@ -1681,24 +1691,24 @@ labelNoCheck:
                         modType: ModifType[attName], 
                         name: m[0], 
                         depValue: this.CompJavaScript<Handler>(
-                            `function ${attName}(){${attValue}\n}`)
+                            `function ${attName}(){${attValue}\n}`, attName)
                     });
                 else if (m = /^on(.*)$/i.exec(attName))               // Events
                     preModifiers.push({
                         modType: ModifType.Event, 
                         name: CapitalizeProp(m[0]), 
                         depValue: this.CompJavaScript<Handler>(
-                            `function ${attName}(event){${attValue}\n}`)
+                            `function ${attName}(event){${attValue}\n}`, attName)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Class, name: m[1],
-                        depValue: this.CompJavaScript<boolean>(attValue)
+                        depValue: this.CompJavaScript<boolean>(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompJavaScript<unknown>(attValue)
+                        depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     preModifiers.push({
@@ -1708,25 +1718,25 @@ labelNoCheck:
                 else if (attName == '+style')
                     preModifiers.push({
                         modType: ModifType.AddToStyle, name: null,
-                        depValue: this.CompJavaScript<object>(attValue)
+                        depValue: this.CompJavaScript<object>(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Prop, name: CapitalizeProp(m[1]),
-                        depValue: this.CompJavaScript<unknown>(attValue)
+                        depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (attName == "+class")
                     preModifiers.push({
                         modType: ModifType.AddToClassList, name: null,
-                        depValue: this.CompJavaScript<object>(attValue)
+                        depValue: this.CompJavaScript<object>(attValue, attName)
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) { // *, **, @, @@
                     const propName = CapitalizeProp(m[3]);                    
                     try {
                         const setter = this.CompJavaScript<Handler>(
-                            `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`);
+                            `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         if (m[1] == '@')
-                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue) });
+                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) });
                         else
                             postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
                         preModifiers.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
@@ -1770,7 +1780,7 @@ labelNoCheck:
             if (fixed)
                 generators.push( last = fixed.replace(/\\([${}\\])/g, '$1') );  // Replace '\{' etc by '{'
             if (m[1]) {
-                generators.push( this.CompJavaScript<string>(m[1], '{}') );
+                generators.push( this.CompJavaScript<string>(m[1], name, '{}') );
                 isTrivial = false;
                 last = '';
             }
@@ -1833,18 +1843,18 @@ labelNoCheck:
         const value = atts.get(attName);
         return (
             value == null ? this.CompAttrExpr(atts, attName, bRequired)
-            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`)
-            : this.CompInterpStr(value)
+            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`, attName)
+            : this.CompInterpStr(value, attName)
         );
     }
     private CompAttrExpr<T>(atts: Atts, attName: string, bRequired?: boolean) {
-        return this.CompJavaScript<T>(atts.get(attName, bRequired, true));
+        return this.CompJavaScript<T>(atts.get(attName, bRequired, true),attName);
     }
 
     private CompJavaScript<T>(
-        expr: string,           // Expression to transform into a function
-        delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
+        expr: string           // Expression to transform into a function
         , descript?: string             // To be inserted in an errormessage
+        , delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dependent<T> {
         if (expr == null) return null;
 
@@ -1875,6 +1885,10 @@ labelNoCheck:
         const i = this.ContextMap.get(name);
         if (i === undefined) throw `Unknown name '${name}'`;
         return env => env[i];
+    }
+    private compAttrExprList<T>(atts: Atts, attName: string, bRequired?: boolean) {
+        const list = atts.get(attName, bRequired, true);
+        return list ? list.split(',').map(expr => this.CompJavaScript<T>(expr, attName)) : [];
     }
 }
 
