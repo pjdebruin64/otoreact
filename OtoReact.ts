@@ -117,6 +117,7 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         subArea: Area = {parent, env, range: null, }
         , bInit = !range;
     if (bInit) {
+        subArea.source = area.source;
         if (srcElm) text = `${srcElm.localName}${text?' ':''}${text}`;
         
         UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
@@ -1320,6 +1321,7 @@ labelNoCheck:
                                                     fragm.appendChild(node);
                                                 
                                                 nextChild = nextChild.next;
+                                                RemoveStaleItems();
                                                 continue;
                                             }
 
@@ -2011,7 +2013,7 @@ function CheckValidIdentifier(name: string) {
 // In this way, we don't have to list all words that occur as property name final words.
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
 + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
-+ '|outline|overflow|owner|padding|parent|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
++ '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalizeProp(lcName: string) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
