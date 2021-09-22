@@ -44,7 +44,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     get isConnected(): boolean;
 }
 declare type Environment = Array<unknown> & {
-    constructDefs: Map<string, ConstructDef>;
+    constructs: Map<string, ConstructDef>;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
@@ -77,11 +77,12 @@ declare class RCompiler {
     instanceNum: number;
     private ContextMap;
     private context;
-    private Constructs;
+    private CSignatures;
     private StyleRoot;
     private StyleBefore;
     private AddedHeaderElements;
     FilePath: string;
+    RootElm: ParentNode;
     constructor(clone?: RCompiler);
     private get MainC();
     private restoreActions;
@@ -134,12 +135,14 @@ declare class RCompiler {
     private CompJavaScript;
     private CompName;
     private compAttrExprList;
+    private GetURL;
+    FetchText(src: string): Promise<string>;
 }
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-declare class _RVAR<T = unknown> {
+export declare class _RVAR<T = unknown> {
     private MainC;
     private store?;
     private storeName?;

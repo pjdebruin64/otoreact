@@ -100,7 +100,7 @@ type Context = Map<string, number>;
 // together with concrete definitions for all visible constructs
 type Environment = 
     Array<unknown> 
-    & { constructDefs: Map<string, ConstructDef> };
+    & { constructs: Map<string, ConstructDef> };
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T using an environment for that context.
 // It may carry an indicator that the routine might need a value for 'this'.
@@ -220,6 +220,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
 
         const R = RHTML;
         R.FilePath = location.origin + RootPath
+        R.RootElm = elm;
         R.Compile(elm, settings, true);
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
@@ -235,12 +236,12 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
 type SavedContext = number;
 function NewEnv(): Environment { 
     const env = [] as Environment;
-    env.constructDefs = new Map();
+    env.constructs = new Map();
     return env;
 }
 function CloneEnv(env: Environment): Environment {
     const clone = env.slice() as Environment;
-    clone.constructDefs = new Map(env.constructDefs.entries());
+    clone.constructs = new Map(env.constructs.entries());
     return clone;
 }
 
@@ -382,8 +383,7 @@ function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], env: Environmen
     }
 }
 
-type Module = {Signatures: Map<string, Signature>, ConstructDefs: Map<string, ConstructDef>};
-const Modules = new Map<string, Promise<Module>>();
+const RModules = new Map<string, Promise<DOMBuilder>>();
 
 const envActions: Array<() => void> = [];
 type SavedEnv = number;
@@ -394,6 +394,12 @@ function RestoreEnv(savedEnv: SavedEnv) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
+function DefConstruct(env: Environment, name: string, construct: ConstructDef) {
+    const {constructs: constructDefs} = env, prevDef = constructDefs.get(name);
+    constructDefs.set(name, construct);
+    envActions.push(() => {constructDefs.set(name, prevDef)})
+}
+
 class RCompiler {
 
     static iNum=0;
@@ -402,11 +408,12 @@ class RCompiler {
     private ContextMap: Context;
     private context: string; 
 
-    private Constructs: Map<string, Signature>;
+    private CSignatures: Map<string, Signature>;
     private StyleRoot: Node;
     private StyleBefore: ChildNode;
     private AddedHeaderElements: Array<HTMLElement>;
     public FilePath: string;
+    public RootElm: ParentNode;
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(
@@ -414,7 +421,7 @@ class RCompiler {
     ) { 
         this.context    = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
-        this.Constructs = clone ? new Map(clone.Constructs) : new Map();
+        this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
         this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.StyleRoot  = clone?.StyleRoot || document.head;
@@ -467,10 +474,10 @@ class RCompiler {
 
     private AddConstruct(C: Signature) {
         const Cnm = C.name,
-            savedConstr = this.Constructs.get(Cnm);
-        this.Constructs.set(Cnm, C);
+            savedConstr = this.CSignatures.get(Cnm);
+        this.CSignatures.set(Cnm, C);
         this.restoreActions.push(
-            () => this.Constructs.set(Cnm, savedConstr)
+            () => this.CSignatures.set(Cnm, savedConstr)
         );
     }
 
@@ -725,7 +732,7 @@ class RCompiler {
 labelNoCheck:
         try {
             // See if this node is a user-defined construct (component or slot) instance
-            const construct = this.Constructs.get(srcElm.localName);
+            const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
                 builder = this.CompInstance(srcParent, srcElm, atts, construct);
             else {
@@ -893,7 +900,7 @@ labelNoCheck:
                         C.FilePath = GetPath(src, this.FilePath);
                         
                         const task = (async () => {
-                            const textContent = await FetchText(src);
+                            const textContent = await this.FetchText(src);
                             // Parse the contents of the file
                             const parser = new DOMParser();
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
@@ -915,73 +922,48 @@ labelNoCheck:
 
                     case 'import': {
                         const src = atts.get('src', true);
-                        const listImports = new Array<[Signature, ConstructDef]>();
-                        const dummyEnv = NewEnv();
+                        const listImports = new Array<Signature>();
                         
                         for (const child of srcElm.children) {
-                            const signature = this.ParseSignature(child);
-                            async function holdOn(this: RCompiler, area, args, mSlotTemplates, slotEnv) {
-                                const t0 = performance.now();
-                                await task;
-                                this.buildStart += performance.now() - t0;
-                                area.env = placeholder.constructEnv;
-                                for (const builder of placeholder.templates)
-                                    await builder.call(this, area, args, mSlotTemplates, slotEnv);
-                            }
-                            const placeholder: ConstructDef = {templates: [holdOn], constructEnv: dummyEnv} ;
-
-                            listImports.push([signature, placeholder]);
-                            
-                            this.AddConstruct(signature);
+                            const sign = this.ParseSignature(child);
+                            listImports.push(sign);
+                            this.AddConstruct(sign);
                         }
+                            
                         const C = new RCompiler();
                         C.FilePath = GetPath(src, this.FilePath);
                         C.Settings.bRunScripts = true;
-                        
-                        const task =
-                            (async () => {
-                                let promiseModule = Modules.get(src);
-                                if (!promiseModule) {
-                                    promiseModule = FetchText(src)
-                                    .then(async textContent => {
-                                        // Parse the contents of the file
-                                        const parser = new DOMParser(),
-                                            parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
-                                            builder = C.CompChildNodes(parsedContent.body, undefined, true),
-                                            env = NewEnv();
+                
+                        let promiseModule = RModules.get(src);
+                        if (!promiseModule) {
+                            promiseModule = this.FetchText(src)
+                            .then(textContent => {
+                                // Parse the contents of the file
+                                const parser = new DOMParser(),
+                                    parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
+                                    builder = C.CompChildNodes(parsedContent.body, undefined, true);
 
-                                        await builder.call(this, {parent: parsedContent.body, start: null, bInit: true, env});
-                                        return {Signatures: C.Constructs, ConstructDefs: env.constructDefs};
-                                    });
-                                    Modules.set(src, promiseModule);
-                                }
-                                const module = await promiseModule;
-                                
-                                for (const [clientSig, placeholder] of listImports) {
-                                    const {name} = clientSig,
-                                        signature = module.Signatures.get(name);
+                                for (const clientSig of listImports) {
+                                    const signature = C.CSignatures.get(clientSig.name);
                                     if (!signature)
-                                        throw `<${name}> is missing in '${src}'`;
+                                        throw `<${clientSig.name}> is missing in '${src}'`;
                                     if (!clientSig.IsCompatible(signature))
                                         throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
-                                    
-                                    const constructdef = module.ConstructDefs.get(name);
-                                    placeholder.templates = constructdef.templates;
-                                    placeholder.constructEnv = constructdef.constructEnv;
                                 }
-                            })();
-
+                                return builder
+                            });
+                            RModules.set(src, promiseModule);
+                        }
+                        
                         builder = async function IMPORT({env}: Area) {
-                            for (const [{name}, constructDef] of listImports.values()) {
-                                const prevDef = env.constructDefs.get(name);
-                                env.constructDefs.set(name, constructDef);
-                                envActions.push(
-                                    () => { env.constructDefs.set(name,  prevDef); }
-                                );
-                            }
+                            const builder = await promiseModule, mEnv = NewEnv();
+                            await builder.call(C, {parent: document.createDocumentFragment(), start: null, bInit: true, env: mEnv});
+
+                            for (const {name} of listImports)
+                                DefConstruct(env, name, mEnv.constructs.get(name));
                         }
 
-                    } break
+                    } break;
 
                     case 'react': {
                         this.MainC.bHasReacts = true;
@@ -1134,7 +1116,7 @@ labelNoCheck:
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        const bModule = atts.get('type') == 'module', bNoModule = atts.get('nomodule') != null;
+        const bModule = atts.get('type')?.toLowerCase() == 'module', bNoModule = atts.get('nomodule') != null;
         let src = atts.get('src');
         let builder: DOMBuilder;
 
@@ -1160,12 +1142,12 @@ labelNoCheck:
                     // Execute the script now
                     if (!exports) {
                         if (src) 
-                            exports = await import(src);
+                            exports = await import(this.GetURL(src));
                         else
                             try {
                                 script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
                                 // Thanks https://stackoverflow.com/a/67359410/2061591
-                                src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
+                                const src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
                                 exports = await import(src);
                             }
                             finally { URL.revokeObjectURL(src); }
@@ -1179,7 +1161,7 @@ labelNoCheck:
                 else  {
                     if (!exports) {
                         if (src)
-                            script = await FetchText(src);
+                            script = await this.FetchText(src);
                         exports = gEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
                     }
                     let i=0;
@@ -1205,8 +1187,8 @@ labelNoCheck:
                 if (nextName == '') nextName = 'next';
                 
                 const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true),
-                    bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')),
-                    getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates'),
+                getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates'),
+                bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
                     initVar = this.NewVar(varName),
@@ -1393,7 +1375,7 @@ labelNoCheck:
             else { 
                 /* Iterate over multiple slot instances */
                 const slotName = atts.get('of', true, true).toLowerCase();
-                const slot = this.Constructs.get(slotName)
+                const slot = this.CSignatures.get(slotName)
                 if (!slot)
                     throw `Missing attribute [let]`;
 
@@ -1405,18 +1387,18 @@ labelNoCheck:
                     const {subArea} = PrepareArea(srcElm, area);
                     const env = subArea.env;
                     const saved= SaveEnv();
-                    const slotDef = env.constructDefs.get(slotName);
+                    const slotDef = env.constructs.get(slotName);
                     try {
                         const setIndex = initIndex(area.env);
                         let index = 0;
                         for (const slotBuilder of slotDef.templates) {
                             setIndex(index++);
-                            env.constructDefs.set(slotName, {templates: [slotBuilder], constructEnv: slotDef.constructEnv});
+                            env.constructs.set(slotName, {templates: [slotBuilder], constructEnv: slotDef.constructEnv});
                             await bodyBuilder.call(this, subArea);
                         }
                     }
                     finally {
-                        env.constructDefs.set(slotName, slotDef);
+                        env.constructs.set(slotName, slotDef);
                         RestoreEnv(saved);
                     }
                 }
@@ -1508,14 +1490,11 @@ labelNoCheck:
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
+
                 const construct: ConstructDef = {templates, constructEnv: undefined as Environment},
-                    {env} = area,
-                    prevDef = env.constructDefs.get(name);
-                env.constructDefs.set(name, construct);
+                    {env} = area;
+                DefConstruct(env, name, construct);
                 construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
-                envActions.push(
-                    () => { env.constructDefs.set(name,  prevDef) }
-                );
             } );
     }
 
@@ -1548,13 +1527,9 @@ labelNoCheck:
                 const saved = SaveEnv(),
                     {env} = area;
                 try {
-                    for (const [slotName, instanceBuilders] of mSlotTemplates) {
-                        const savedDef = env.constructDefs.get(slotName);
-                        envActions.push(
-                            () => { env.constructDefs.set(slotName, savedDef) }
-                        );
-                        env.constructDefs.set(slotName, {templates: instanceBuilders, constructEnv: slotEnv});
-                    }
+                    for (const [slotName, instanceBuilders] of mSlotTemplates)
+                        DefConstruct(env, slotName, {templates: instanceBuilders, constructEnv: slotEnv});
+                    
                     let i = 0;
                     for (const lvar of lvars){
                         let arg = args[i], dflt: Dependent<unknown>;
@@ -1628,7 +1603,7 @@ labelNoCheck:
             const {subArea} = PrepareArea(srcElm, area),
                 {env} = area,
                 // The construct-template(s) will be executed in this construct-env
-                {templates: instanceBuilders, constructEnv} =  env.constructDefs.get(name),
+                {templates: instanceBuilders, constructEnv} =  env.constructs.get(name),
 
                 args: unknown[] = [];
             for ( const getArg of getArgs)
@@ -1641,12 +1616,10 @@ labelNoCheck:
                 
                 args.push(rest);
             }
-            
-            const slotEnv = signature.Slots.size ? CloneEnv(env) : null;
 
             subArea.env = constructEnv
             for (const parBuilder of instanceBuilders) 
-                await parBuilder.call(this, subArea, args, slotBuilders, slotEnv);
+                await parBuilder.call(this, subArea, args, slotBuilders, env);
         }
     }
 
@@ -1693,14 +1666,14 @@ labelNoCheck:
                         modType: ModifType[attName], 
                         name: m[0], 
                         depValue: this.CompJavaScript<Handler>(
-                            `function ${attName}(){${attValue}\n}`, attName)
+                            `async function ${attName}(){${attValue}\n}`, attName)
                     });
                 else if (m = /^on(.*)$/i.exec(attName))               // Events
                     preModifiers.push({
                         modType: ModifType.Event, 
                         name: CapitalizeProp(m[0]), 
                         depValue: this.CompJavaScript<Handler>(
-                            `function ${attName}(event){${attValue}\n}`, attName)
+                            `async function ${attName}(event){${attValue}\n}`, attName)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
                     preModifiers.push({
@@ -1845,7 +1818,7 @@ labelNoCheck:
         const value = atts.get(attName);
         return (
             value == null ? this.CompAttrExpr(atts, attName, bRequired)
-            : /^on/.test(attName) ? this.CompJavaScript(`function ${attName}(event){${value}\n}`, attName)
+            : /^on/.test(attName) ? this.CompJavaScript(`async function ${attName}(event){${value}\n}`, attName)
             : this.CompInterpStr(value, attName)
         );
     }
@@ -1892,6 +1865,18 @@ labelNoCheck:
         const list = atts.get(attName, bRequired, true);
         return list ? list.split(',').map(expr => this.CompJavaScript<T>(expr, attName)) : [];
     }
+
+    private GetURL(src: string) {
+        return src.replace(/^\.\/|^(\.\.\/)/, `${this.FilePath}$1`);
+    }
+
+    async FetchText(src: string): Promise<string> {
+        const url = this.GetURL(src),
+            response = await gFetch(url);
+        if (!response.ok)
+            throw `GET '${url}' returned ${response.status} ${response.statusText}`;
+        return await response.text();
+    }
 }
 
 
@@ -1903,7 +1888,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-class _RVAR<T = unknown>{
+export class _RVAR<T = unknown>{
     constructor(
         private MainC: RCompiler,
         globalName?: string, 
@@ -2054,13 +2039,6 @@ function createErrorNode(message: string) {
     node.style.fontSize = '10pt';
     node.innerText = message;
     return node;
-}
-
-async function FetchText(url: string): Promise<string> {
-    const response = await gFetch(url);
-    if (!response.ok)
-        throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-    return await response.text();
 }
 
 export let RHTML = new RCompiler();
