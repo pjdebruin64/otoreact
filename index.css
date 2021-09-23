@@ -14,7 +14,7 @@
 @media screen {
     section             { content-visibility: auto; }
     section:nth-of-type() {min-height: 7000px;}
-    section:nth-of-type(2) {min-height: 6900px;}
+    section:nth-of-type(2) {min-height: 5000px;}
     section:nth-of-type(3) {min-height: 6939px;}
     section:nth-of-type(4) {min-height: 1165px;}
 }

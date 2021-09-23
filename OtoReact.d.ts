@@ -39,6 +39,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
+    updated?: number;
     get First(): ChildNode;
     Nodes(): Generator<ChildNode>;
     get isConnected(): boolean;
@@ -107,7 +108,7 @@ declare class RCompiler {
     private bUpdate;
     private handleUpdate;
     RUpdate(): void;
-    private buildStart;
+    private start;
     DoUpdate(): Promise<void>;
     RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
@@ -128,10 +129,11 @@ declare class RCompiler {
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
-    private CompInterpStr;
+    private CompString;
     private CompPattern;
     private CompParameter;
     private CompAttrExpr;
+    private CompHandler;
     private CompJavaScript;
     private CompName;
     private compAttrExprList;

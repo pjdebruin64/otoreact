@@ -104,6 +104,104 @@ const sampleServerData =
   </table.>
 </div>`;
 
+const sampleServerData2=
+`<script nomodule 
+defines="ColorTable,toHex,handle,rh,StartStop" >
+// Here we store the data. Columns are:
+// name:string, red:number, green:number, blue:number.
+const ColorTable = RVAR();
+
+/* Fetch the data! */
+(async ()=>{
+let response = await fetch("webColors.json");
+if (response.ok)
+  ColorTable.V = await response.json();
+})();
+
+/* Utility for 2-digit hex code */
+function toHex(n){ 
+return n.toString(16).toUpperCase().padStart(2,'0');
+}
+
+/* Rotation */
+let handle=RVAR('', 0),
+// Relative height of first row 
+rh=RVAR('',100);
+
+async function StartStop() {
+if (handle.V) {
+  clearInterval(handle.V); handle.V=0;
+  ColorTable.U.push(ColorTable.V.shift());
+}
+else
+  handle.V = setInterval(() => {
+          // Modify the data model, triggering a DOM update:
+          ColorTable.U.push(ColorTable.V.shift());
+  }, 330);
+}
+</script>
+
+<!-- Styling -->
+<style>
+table.colorTable td {
+padding: 0px 4px;
+text-align: center;
+max-width: 8em; overflow:hidden;
+}
+
+@keyframes rotate {
+from {line-height: 100%}
+to   {line-height: 0%}
+}
+
+tr.rotating {
+animation: rotate 300ms linear 20ms
+}
+</style>
+
+<div style="height:50ex; overflow-y:scroll;">
+<!-- Now we build our table! 
+The dots are needed because HTML does not allow <FOR> as a
+child of <TABLE>. OtoReact removes these dots. -->
+<table. class=colorTable>
+
+<!-- Table caption -->
+<caption.>Web Colors 
+<button onclick="StartStop();" reacton=handle
+    style="float:right; width:5em">
+    {handle.V ? 'Stop' : 'Rotate'}
+</button>
+</caption.>
+
+<!-- Column headers -->
+<tr.>
+<th.>Name</th.>
+<th.>R</th.> <th.>G</th.> <th.>B</th.>
+<th.>Hex</th.>
+</tr.>
+
+<!-- Detail records -->
+<FOR let=C of="ColorTable.V" index=i
+key=C reacton="ColorTable,handle">
+<tr. 
+  style.backgroundColor= "rgb({C.red},{C.green},{C.blue})" 
+  #style.color      = "C.green<148 ? 'white' : 'black'"
+  #class:rotating = "i==0 && handle.V"
+>
+  <react hash=C> <!-- Optimization -->
+    <td.>{C.name}</td.>
+    <td.>{C.red}</td.>
+    <td.>{C.green}</td.>
+    <td.>{C.blue}</td.>
+    <td.>
+      #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+    </td.>
+  </react>
+</tr.>
+</FOR>
+</table.>
+</div>`;
+
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check this }
 <br>

@@ -55,10 +55,13 @@ class Range<NodeType extends ChildNode = ChildNode> {
     value?: any;
     errorNode?: ChildNode;
 
-    // Alleen voor FOR-iteraties
+    // Only for FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
+
+    // For reactive elements
+    updated?: number;
 
     public get First(): ChildNode {
         let f: ChildNode
@@ -124,7 +127,7 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         range.result = result;
 
         if (bMark)
-            before = range.endMark = parent.insertBefore<Comment>(
+            before = range.endMark ||= parent.insertBefore<Comment>(
                 document.createComment('/'+text), before);
     }
     else {
@@ -164,7 +167,7 @@ function UpdatePrevArea(area: Area, range: Range) {
     area.prevR = range;
 }
 
-function PrepareElement<T>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeName): 
+function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeName): 
     {elmRange: Range<HTMLElement> & T, childArea: Area, bInit: boolean} {
     let elmRange = area.range as Range<HTMLElement> & T, bInit = !elmRange;
     if (bInit) {
@@ -173,7 +176,7 @@ function PrepareElement<T>(srcElm: HTMLElement, area: Area, nodeName = srcElm.no
             ? (srcElm.innerHTML = "", srcElm)
             : area.parent.insertBefore<HTMLElement>(document.createElement(nodeName), area.before)
             );
-        elmRange = new Range<HTMLElement>(elm) as Range<HTMLElement> & T;
+        elmRange = new Range(elm) as Range<HTMLElement> & T;
         UpdatePrevArea(area, elmRange);
     }
     else {
@@ -336,7 +339,15 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 delete elm[name];
             break;
         case ModifType.Event:
-            if (val) elm[name] = val; break;
+            let m: RegExpMatchArray;
+            if (val)
+                if(m = /^on(input|change)$/.exec(name)) {
+                    elm.addEventListener(m[1], val as EventListener);
+                    (elm as any).handlers.push({evType: m[1], listener: val})
+                }
+                else
+                    elm[name] = val; 
+            break;
         case ModifType.Class:
             if (val)
                 elm.classList.add(name);
@@ -461,12 +472,12 @@ class RCompiler {
                     }
                 );
             }
-            init = function InitVar(env: Environment) {
+            init = ((env: Environment) => {
                 const prev = env[i], j=i;
                 envActions.push( () => {env[j] = prev } );
                 
                 return (value: unknown) => {env[j] = value };
-            }.bind(this) as LVar;
+            }) as LVar;
         }
         init.varName = name;
         return init;        
@@ -511,7 +522,8 @@ class RCompiler {
             env = area.env && CloneEnv(area.env);
         return { before,
             notify: async () => {
-                await builder.call(this, {range, parent, before, env, bNoChildBuilding})
+                (this as RCompiler).builtNodeCount++;
+                await builder.call(this, {range, parent, before, env, bNoChildBuilding});
             }
         };
     }
@@ -519,6 +531,7 @@ class RCompiler {
     public async InitialBuild(area: Area) {
         const savedRCompiler = RHTML, {parentR} = area;
         RHTML = this;
+        this.builtNodeCount++;
         await this.Builder(area);
 
         this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
@@ -554,7 +567,7 @@ class RCompiler {
             }, 2);
     };
 
-    private buildStart: number;
+    private start: number;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) { 
             this.bUpdate = true;
@@ -567,11 +580,11 @@ class RCompiler {
             let savedRCompiler = RHTML;
             try {
                 if (this.ToBuild.length) {
-                    this.buildStart = performance.now();
+                    this.start = performance.now();
                     this.builtNodeCount = 0;
                     for (const area of this.ToBuild)
                         await this.InitialBuild(area);
-                    console.log(`Built ${this.builtNodeCount} nodes in ${(performance.now() - this.buildStart).toFixed(1)} ms`);
+                    console.log(`Built ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                     this.ToBuild = [];
                 }
                 else {
@@ -585,7 +598,7 @@ class RCompiler {
                     
                     if (this.DirtySubs.size) {
                         if (!this.clone) RHTML = this;
-                        this.buildStart = performance.now();
+                        this.start = performance.now();
                         this.builtNodeCount = 0;
                         const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
@@ -599,7 +612,7 @@ class RCompiler {
                                 window.alert(msg);
                             }
                         }
-                        console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.buildStart).toFixed(1)} ms`);
+                        console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                     }
                 }
             }
@@ -629,7 +642,7 @@ class RCompiler {
             const R: RCompiler = this.MainC;
             Object.defineProperty(t, 'U',
                 {get:
-                    function() {
+                    () => {
                         for (const sub of t._Subscribers)
                             R.AddDirty(sub);
                         if (t._UpdatesTo?.length)
@@ -641,7 +654,7 @@ class RCompiler {
                     }
                 }
             );
-            t.Subscribe = function(sub: Subscriber) { t._Subscribers.push(sub) } ;
+            t.Subscribe = (sub: Subscriber) => { t._Subscribers.push(sub) } ;
         }
         return t;
     }
@@ -681,18 +694,18 @@ class RCompiler {
                         if (this.whiteSpc != WhiteSpace.preserve)
                             str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                         
-                        const getText = this.CompInterpStr( str ), fixed = getText.fixed;
+                        const getText = this.CompString( str ), fixed = getText.fixed;
                         if (fixed !== '') {
                             if (fixed == undefined)
                                 builders.push( [ 
-                                    async function IText(area: Area) {
+                                    async (area: Area) => {
                                         PrepareText(area, getText(area.env))
                                     }, srcNode] );
                             else {
                                 const isBlank = /^[ \t\r\n]*$/.test(fixed);
                                 if (!(this.whiteSpc==WhiteSpace.trim && isBlank))
                                     builders.push( [ 
-                                        async function FText(area: Area) {
+                                        async (area: Area) => {
                                             PrepareText(area, fixed)
                                         }, srcNode, isBlank ] );
                             }
@@ -914,7 +927,7 @@ labelNoCheck:
                             async function INCLUDE(this: RCompiler, area) {
                                 const t0 = performance.now();
                                 await task;
-                                this.buildStart += performance.now() - t0;
+                                this.start += performance.now() - t0;
                                 await C.Builder(area);
                                 this.builtNodeCount += C.builtNodeCount;
                             };
@@ -1073,9 +1086,12 @@ labelNoCheck:
             );
 
         return async function REACT(this: RCompiler, area) {
-            const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true);
-            
+            const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true)
+            //    , {start} = this.MainC;
+            // Avoid double updates
+            //if (bInit || range.updated != start)
             await builder.call(this, subArea);
+            
 
             if (bInit) {
                 const subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
@@ -1086,6 +1102,7 @@ labelNoCheck:
                     rvar.Subscribe(subscriber);
                 }
             }
+            //else range.updated = start;
         }
     }
 
@@ -1217,42 +1234,32 @@ labelNoCheck:
                             newMap: Map<Key, {item:Item, hash:Hash, index: number}> = new Map(),
                             setVar = initVar(env),
 
-                            iterator = getRange(env),
+                            iterable = getRange(env),
                             setIndex = initIndex(env);
-                        if (iterator) {
-                            if (!(iterator[Symbol.iterator] || iterator[Symbol.asyncIterator]))
-                                throw `[of]: Value (${iterator}) is not iterable`;
-                            let index=0;
-                            for await (const item of iterator) {
+                        if (iterable) {
+                            if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
+                                throw `[of]: Value (${iterable}) is not iterable`;
+                            let idx=0;
+                            for await (const item of iterable) {
                                 setVar(item);
-                                setIndex(index);
+                                setIndex(idx);
                                 const hash = getHash && getHash(env);
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, {item, hash, index});
-                                index++;
+                                newMap.set(key ?? {}, {item, hash, index: idx});
+                                idx++;
                             }
                         }
 
                         let nextChild = range.child;
 
                         function RemoveStaleItems() {
-                            let key: Key;
-                            while (nextChild && !newMap.has(key = nextChild.key)) {
-                                if (key != null)
-                                    keyMap.delete(key);
-                                try {
-                                    for (const node of nextChild.Nodes())
-                                        parent.removeChild(node);
-                                } catch {}
-                                nextChild.prev = null;
-                                nextChild = nextChild.next;
-                            }
                         }
 
                         const setPrevious = initPrevious(env),
                             setNext = initNext(env),
+                            iterator = newMap.entries(),
                             nextIterator = nextName ? newMap.values() : null;
 
                         let prevItem: Item = null, nextItem: Item
@@ -1261,10 +1268,24 @@ labelNoCheck:
                         subArea.parentR = range;
 
                         if (nextIterator) nextIterator.next();
-                        RemoveStaleItems();
 
-                        // Voor elke waarde in de range
-                        for (const [key, {item, hash, index}] of newMap) {
+                        while(true) {
+                            let k: Key;
+                            while (nextChild && !newMap.has(k = nextChild.key)) {
+                                if (k != null)
+                                    keyMap.delete(k);
+                                try {
+                                    for (const node of nextChild.Nodes())
+                                        parent.removeChild(node);
+                                } catch {}
+                                nextChild.prev = null;
+                                nextChild = nextChild.next;
+                            }
+
+                            const {value} = iterator.next();
+                            if (!value) break;
+                            const [key, {item, hash, index}] = value;
+
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
 
@@ -1364,8 +1385,6 @@ labelNoCheck:
                             }
 
                             prevItem = item;
-                            
-                            RemoveStaleItems();
                         }
                         if (prevRange) prevRange.next = null; else range.child = null;
                     }
@@ -1420,7 +1439,7 @@ labelNoCheck:
                     { name: m[2]
                     , pDefault: 
                         attr.value != '' 
-                        ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompInterpStr(attr.value, attr.name))
+                        ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
                         : m[3] ? (_) => undefined
                         : null 
                     }
@@ -1647,6 +1666,11 @@ labelNoCheck:
                 await childnodesBuilder.call(this, childArea);
 
             node.removeAttribute('class');
+            if ((node as any).handlers) {
+                for (const {evType, listener} of (node as any).handlers)
+                    node.removeEventListener(evType, listener);
+                }
+            (node as any).handlers = [];
             ApplyModifiers(node, preModifiers, area.env);
             ApplyModifiers(node, postModifiers, area.env, bInit)
         };
@@ -1665,15 +1689,13 @@ labelNoCheck:
                     postModifiers.push({
                         modType: ModifType[attName], 
                         name: m[0], 
-                        depValue: this.CompJavaScript<Handler>(
-                            `async function ${attName}(){${attValue}\n}`, attName)
+                        depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^on(.*)$/i.exec(attName))               // Events
                     preModifiers.push({
                         modType: ModifType.Event, 
                         name: CapitalizeProp(m[0]), 
-                        depValue: this.CompJavaScript<Handler>(
-                            `async function ${attName}(event){${attValue}\n}`, attName)
+                        depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
                     preModifiers.push({
@@ -1688,7 +1710,7 @@ labelNoCheck:
                 else if (m = /^style\.(.*)$/.exec(attName))
                     preModifiers.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
-                        depValue: this.CompInterpStr(attValue)
+                        depValue: this.CompString(attValue)
                     });
                 else if (attName == '+style')
                     preModifiers.push({
@@ -1728,7 +1750,7 @@ labelNoCheck:
                 else
                     preModifiers.push({
                         modType: ModifType.Attr, name: attName,
-                        depValue: this.CompInterpStr(attValue)
+                        depValue: this.CompString(attValue)
                     });
             }
             catch (err) {
@@ -1744,10 +1766,10 @@ labelNoCheck:
         this.AddedHeaderElements.push(srcStyle);
     }
 
-    private CompInterpStr(data: string, name?: string): Dependent<string> & {fixed?: string; last?: string} {
+    private CompString(data: string, name?: string): Dependent<string> & {fixed?: string; last?: string} {
         const generators: Array< string | Dependent<unknown> > = []
             , regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
-        let isTrivial = true, last = '';
+        let isTrivial = true, last = '', bThis = false;
 
         while (regIS.lastIndex < data.length) {
             const lastIndex = regIS.lastIndex, m = regIS.exec(data)
@@ -1755,9 +1777,11 @@ labelNoCheck:
             if (fixed)
                 generators.push( last = fixed.replace(/\\([${}\\])/g, '$1') );  // Replace '\{' etc by '{'
             if (m[1]) {
-                generators.push( this.CompJavaScript<string>(m[1], name, '{}') );
+                const getS = this.CompJavaScript<string>(m[1], name, '{}');
+                generators.push( getS );
                 isTrivial = false;
                 last = '';
+                bThis ||= getS.bThis;
             }
         }
         
@@ -1767,16 +1791,26 @@ labelNoCheck:
             dep = () => result;
             dep.fixed = result
         } else
-            dep = (env: Environment) => {
+            dep = true ?
+                function(this: HTMLElement, env: Environment) {
                     try {
                         let result = "";
                         for (const gen of generators)
-                            result += ( typeof gen == 'string' ? gen : gen(env) ?? '');
+                            result += typeof gen == 'string' ? gen : gen.call(this,env) ?? '';
                         return result;
                     }
                     catch (err) { throw name ? `[${name}]: ${err}` : err }
-                };
-        dep.bThis = false;
+                }
+            :   (env: Environment) => {
+                try {
+                    let result = "";
+                    for (const gen of generators)
+                        result += typeof gen == 'string' ? gen : gen(env) ?? '';
+                    return result;
+                }
+                catch (err) { throw name ? `[${name}]: ${err}` : err }
+            };
+        dep.bThis = bThis;
         dep.last = last;
         return dep;
     }
@@ -1818,14 +1852,17 @@ labelNoCheck:
         const value = atts.get(attName);
         return (
             value == null ? this.CompAttrExpr(atts, attName, bRequired)
-            : /^on/.test(attName) ? this.CompJavaScript(`async function ${attName}(event){${value}\n}`, attName)
-            : this.CompInterpStr(value, attName)
+            : /^on/.test(attName) ? this.CompHandler(attName, value)
+            : this.CompString(value, attName)
         );
     }
     private CompAttrExpr<T>(atts: Atts, attName: string, bRequired?: boolean) {
         return this.CompJavaScript<T>(atts.get(attName, bRequired, true),attName);
     }
 
+    private CompHandler(name: string, text: string) {
+        return this.CompJavaScript<Handler>(`async function ${name}(event){${text}\n}`, name)
+    }
     private CompJavaScript<T>(
         expr: string           // Expression to transform into a function
         , descript?: string             // To be inserted in an errormessage
@@ -2005,7 +2042,7 @@ function CapitalizeProp(lcName: string) {
 }
 
 function OuterOpenTag(elm: HTMLElement, maxLength?: number): string {
-    return Abbreviate(/<.*?(?=>)/.exec(elm.outerHTML)[0], maxLength-1) + '>';
+    return Abbreviate(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLength-1) + '>';
 }
 function Abbreviate(s: string, maxLength: number) {
     return (maxLength && s.length > maxLength
