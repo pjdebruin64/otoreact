@@ -194,23 +194,27 @@ var ModifType;
 (function (ModifType) {
     ModifType[ModifType["Attr"] = 0] = "Attr";
     ModifType[ModifType["Prop"] = 1] = "Prop";
-    ModifType[ModifType["Class"] = 2] = "Class";
-    ModifType[ModifType["Style"] = 3] = "Style";
-    ModifType[ModifType["Event"] = 4] = "Event";
-    ModifType[ModifType["AddToStyle"] = 5] = "AddToStyle";
-    ModifType[ModifType["AddToClassList"] = 6] = "AddToClassList";
-    ModifType[ModifType["RestArgument"] = 7] = "RestArgument";
-    ModifType[ModifType["oncreate"] = 8] = "oncreate";
-    ModifType[ModifType["onupdate"] = 9] = "onupdate";
+    ModifType[ModifType["Src"] = 2] = "Src";
+    ModifType[ModifType["Class"] = 3] = "Class";
+    ModifType[ModifType["Style"] = 4] = "Style";
+    ModifType[ModifType["Event"] = 5] = "Event";
+    ModifType[ModifType["AddToStyle"] = 6] = "AddToStyle";
+    ModifType[ModifType["AddToClassList"] = 7] = "AddToClassList";
+    ModifType[ModifType["RestArgument"] = 8] = "RestArgument";
+    ModifType[ModifType["oncreate"] = 9] = "oncreate";
+    ModifType[ModifType["onupdate"] = 10] = "onupdate";
 })(ModifType || (ModifType = {}));
 let bReadOnly = false;
 function ApplyModifier(elm, modType, name, val, bCreate) {
     switch (modType) {
         case ModifType.Attr:
-            elm.setAttribute(name, val || '');
+            elm.setAttribute(name, val);
+            break;
+        case ModifType.Src:
+            elm.setAttribute('src', new URL(val, name).href);
             break;
         case ModifType.Prop:
-            if (val != null && val != elm[name])
+            if (val != null)
                 elm[name] = val;
             else
                 delete elm[name];
@@ -230,7 +234,7 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                 elm.classList.add(name);
             break;
         case ModifType.Style:
-            if (val !== undefined)
+            if (val !== undefined && val !== false)
                 elm.style[name] = val || '';
             break;
         case ModifType.AddToStyle:
@@ -687,7 +691,7 @@ class RCompiler {
                         {
                             const src = atts.get('src', true);
                             let C = new RCompiler(this);
-                            C.FilePath = GetPath(src, this.FilePath);
+                            C.FilePath = this.GetPath(src);
                             const task = (async () => {
                                 const textContent = await this.FetchText(src);
                                 const parser = new DOMParser();
@@ -706,7 +710,7 @@ class RCompiler {
                         break;
                     case 'import':
                         {
-                            const src = atts.get('src', true);
+                            const src = this.GetURL(atts.get('src', true));
                             const listImports = new Array();
                             for (const child of srcElm.children) {
                                 const sign = this.ParseSignature(child);
@@ -714,13 +718,13 @@ class RCompiler {
                                 this.AddConstruct(sign);
                             }
                             const C = new RCompiler();
-                            C.FilePath = GetPath(src, this.FilePath);
+                            C.FilePath = this.GetPath(src);
                             C.Settings.bRunScripts = true;
                             let promiseModule = RModules.get(src);
                             if (!promiseModule) {
                                 promiseModule = this.FetchText(src)
                                     .then(textContent => {
-                                    const parser = new DOMParser(), parsedContent = parser.parseFromString(textContent, 'text/html'), builder = C.CompChildNodes(parsedContent.body, undefined, true);
+                                    const parser = new DOMParser(), parsedDoc = parser.parseFromString(textContent, 'text/html'), builder = C.CompChildNodes(null, concIterable(parsedDoc.head.children, parsedDoc.body.children), true);
                                     for (const clientSig of listImports) {
                                         const signature = C.CSignatures.get(clientSig.name);
                                         if (!signature)
@@ -891,7 +895,7 @@ class RCompiler {
                             exports = await import(this.GetURL(src));
                         else
                             try {
-                                script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
+                                script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
                                 const src = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
                                 exports = await import(src);
                             }
@@ -1123,7 +1127,7 @@ class RCompiler {
         return signature;
     }
     CompComponent(srcParent, srcElm, atts) {
-        const builders = [], bEncapsulate = CBool(atts.get('encapsulate')), styles = [], saveWS = this.whiteSpc;
+        const builders = [], bEncaps = CBool(atts.get('encapsulate')), styles = [], saveWS = this.whiteSpc;
         let signature, elmTemplate;
         for (const srcChild of Array.from(srcElm.children)) {
             const childAtts = new Atts(srcChild);
@@ -1133,7 +1137,7 @@ class RCompiler {
                     builder = this.CompScript(srcElm, srcChild, childAtts);
                     break;
                 case 'STYLE':
-                    if (bEncapsulate)
+                    if (bEncaps)
                         styles.push(srcChild);
                     else
                         this.CompStyle(srcChild);
@@ -1156,11 +1160,11 @@ class RCompiler {
             throw `Missing signature`;
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
-        if (bEncapsulate && !signature.RestParam)
+        if (bEncaps && !signature.RestParam)
             signature.RestParam = { name: null, pDefault: null };
         this.AddConstruct(signature);
         const { name } = signature, templates = [
-            this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncapsulate, styles)
+            this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.whiteSpc = saveWS;
         return (async function COMPONENT(area) {
@@ -1324,7 +1328,8 @@ class RCompiler {
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     preModifiers.push({
-                        modType: ModifType.Prop, name: CapitalizeProp(m[1]),
+                        modType: ModifType.Prop,
+                        name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (attName == "+class")
@@ -1354,9 +1359,16 @@ class RCompiler {
                         depValue: this.CompName(m[1])
                     });
                 }
+                else if (attName == 'src')
+                    preModifiers.push({
+                        modType: ModifType.Src,
+                        name: this.FilePath,
+                        depValue: this.CompString(attValue),
+                    });
                 else
                     preModifiers.push({
-                        modType: ModifType.Attr, name: attName,
+                        modType: ModifType.Attr,
+                        name: attName,
                         depValue: this.CompString(attValue)
                     });
             }
@@ -1498,7 +1510,10 @@ class RCompiler {
         return list ? list.split(',').map(expr => this.CompJavaScript(expr, attName)) : [];
     }
     GetURL(src) {
-        return src.replace(/^\.\/|^(\.\.\/)/, `${this.FilePath}$1`);
+        return new URL(src, this.FilePath).href;
+    }
+    GetPath(src) {
+        return this.GetURL(src).replace(/[^/]*$/, '');
     }
     async FetchText(src) {
         const url = this.GetURL(src), response = await gFetch(url);
@@ -1625,6 +1640,12 @@ function CBool(s, valOnEmpty = true) {
         }
     return s;
 }
+function* concIterable(R, S) {
+    for (const x of R)
+        yield x;
+    for (const x of S)
+        yield x;
+}
 function createErrorNode(message) {
     const node = document.createElement('div');
     node.style.color = 'crimson';
@@ -1649,10 +1670,6 @@ const _range = globalThis.range = function* range(from, upto, step = 1) {
         yield i;
 };
 export { _range as range };
-function GetPath(url, base) {
-    const U = new URL(url, base);
-    return U.origin + U.pathname.replace(/[^/]*$/, '');
-}
 export const docLocation = RVAR('docLocation', location);
 function SetLocation() {
     const subpath = location.pathname.substr(RootPath.length);

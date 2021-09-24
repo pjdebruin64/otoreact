@@ -138,6 +138,7 @@ declare class RCompiler {
     private CompName;
     private compAttrExprList;
     private GetURL;
+    private GetPath;
     FetchText(src: string): Promise<string>;
 }
 interface Store {

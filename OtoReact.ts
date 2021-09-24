@@ -316,7 +316,7 @@ interface Item {}  // Three unknown but distinct types, used by the <FOR> constr
 interface Key {}
 interface Hash {}
 
-enum ModifType {Attr, Prop, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
+enum ModifType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
 }
 type Modifier = {
@@ -330,10 +330,13 @@ let bReadOnly: boolean = false;
 function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: unknown, bCreate: boolean) {    
     switch (modType) {
         case ModifType.Attr:
-            elm.setAttribute(name, val as string || ''); 
+            elm.setAttribute(name, val as string); 
+            break;
+        case ModifType.Src:
+            elm.setAttribute('src',  new URL(val as string, name).href);
             break;
         case ModifType.Prop:
-            if (val != null && val != elm[name])
+            if (val != null)
                 elm[name] = val;
             else
                 delete elm[name];
@@ -353,7 +356,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 elm.classList.add(name);
             break;
         case ModifType.Style:
-            if (val !== undefined)
+            if (val !== undefined && val!==false)
                 elm.style[name] = val || '';
             break;
         case ModifType.AddToStyle:
@@ -910,7 +913,7 @@ labelNoCheck:
                         const src = atts.get('src', true);
                         // Placeholder that will contain a Template when the file has been received
                         let C: RCompiler = new RCompiler(this);
-                        C.FilePath = GetPath(src, this.FilePath);
+                        C.FilePath = this.GetPath(src);
                         
                         const task = (async () => {
                             const textContent = await this.FetchText(src);
@@ -934,7 +937,7 @@ labelNoCheck:
                     } break;
 
                     case 'import': {
-                        const src = atts.get('src', true);
+                        const src = this.GetURL(atts.get('src', true))
                         const listImports = new Array<Signature>();
                         
                         for (const child of srcElm.children) {
@@ -944,7 +947,7 @@ labelNoCheck:
                         }
                             
                         const C = new RCompiler();
-                        C.FilePath = GetPath(src, this.FilePath);
+                        C.FilePath = this.GetPath(src);
                         C.Settings.bRunScripts = true;
                 
                         let promiseModule = RModules.get(src);
@@ -953,8 +956,10 @@ labelNoCheck:
                             .then(textContent => {
                                 // Parse the contents of the file
                                 const parser = new DOMParser(),
-                                    parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
-                                    builder = C.CompChildNodes(parsedContent.body, undefined, true);
+                                    parsedDoc = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
+                                    builder = C.CompChildNodes(null, 
+                                        concIterable(parsedDoc.head.children, parsedDoc.body.children),
+                                        true);
 
                                 for (const clientSig of listImports) {
                                     const signature = C.CSignatures.get(clientSig.name);
@@ -1162,7 +1167,7 @@ labelNoCheck:
                             exports = await import(this.GetURL(src));
                         else
                             try {
-                                script = script.replace(/(\sfrom\s*['"])(\.\.?\/)/g, `$1${this.FilePath}$2`);
+                                script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
                                 // Thanks https://stackoverflow.com/a/67359410/2061591
                                 const src = URL.createObjectURL(new Blob([script], {type: 'application/javascript'}));
                                 exports = await import(src);
@@ -1454,7 +1459,7 @@ labelNoCheck:
         //srcParent.removeChild(srcElm);
 
         const builders: [DOMBuilder, ChildNode][] = [],
-            bEncapsulate = CBool(atts.get('encapsulate')),
+            bEncaps = CBool(atts.get('encapsulate')),
             styles: Node[] = [],
             saveWS = this.whiteSpc;
         let signature: Signature, elmTemplate: HTMLTemplateElement;
@@ -1467,7 +1472,7 @@ labelNoCheck:
                     builder = this.CompScript(srcElm, srcChild as HTMLScriptElement, childAtts);
                     break;
                 case 'STYLE':
-                    if (bEncapsulate)
+                    if (bEncaps)
                         styles.push(srcChild);
                     else
                         this.CompStyle(srcChild);
@@ -1487,7 +1492,7 @@ labelNoCheck:
         if (!signature) throw `Missing signature`;
         if (!elmTemplate) throw 'Missing <TEMPLATE>';
 
-        if (bEncapsulate && !signature.RestParam)
+        if (bEncaps && !signature.RestParam)
             signature.RestParam = {name: null, pDefault: null}
         this.AddConstruct(signature);
         
@@ -1496,7 +1501,7 @@ labelNoCheck:
         // Deze builder bouwt de component-instances op
             templates = [
                 this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
-                    false, bEncapsulate, styles)
+                    false, bEncaps, styles)
             ];
 
         this.whiteSpc = saveWS;
@@ -1542,7 +1547,9 @@ labelNoCheck:
                 builder = this.CompChildNodes(contentNode),
                 customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
-            return async function TEMPLATE(this: RCompiler, area: Area, args: unknown[], mSlotTemplates, slotEnv) {
+            return async function TEMPLATE(this: RCompiler
+                , area: Area, args: unknown[], mSlotTemplates, slotEnv
+                ) {
                 const saved = SaveEnv(),
                     {env} = area;
                 try {
@@ -1573,7 +1580,8 @@ labelNoCheck:
                     }
                     await builder.call(this, area); 
                 }
-                finally { RestoreEnv(saved) }}
+                finally { RestoreEnv(saved) }
+            }
         }
         catch (err) {throw `${OuterOpenTag(srcElm)} template: ${err}` }
         finally { this.RestoreContext(saved) }
@@ -1719,7 +1727,8 @@ labelNoCheck:
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     preModifiers.push({
-                        modType: ModifType.Prop, name: CapitalizeProp(m[1]),
+                        modType: ModifType.Prop, 
+                        name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (attName == "+class")
@@ -1747,9 +1756,16 @@ labelNoCheck:
                         depValue: this.CompName(m[1])
                     });
                 }
+                else if (attName == 'src')
+                    preModifiers.push({
+                        modType: ModifType.Src,
+                        name: this.FilePath,
+                        depValue: this.CompString(attValue),
+                    });
                 else
                     preModifiers.push({
-                        modType: ModifType.Attr, name: attName,
+                        modType: ModifType.Attr,
+                        name: attName,
                         depValue: this.CompString(attValue)
                     });
             }
@@ -1904,7 +1920,10 @@ labelNoCheck:
     }
 
     private GetURL(src: string) {
-        return src.replace(/^\.\/|^(\.\.\/)/, `${this.FilePath}$1`);
+        return new URL(src, this.FilePath).href
+    }
+    private GetPath(src: string) {
+        return this.GetURL(src).replace(/[^/]*$/, '');
     }
 
     async FetchText(src: string): Promise<string> {
@@ -2067,6 +2086,11 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     return s;
 }
 
+function* concIterable<T>(R: Iterable<T>, S:Iterable<T>)  {
+    for (const x of R) yield x;
+    for (const x of S) yield x;
+}
+
 //function thrower(err: string = 'Internal error'): never { throw err }
 
 function createErrorNode(message: string) {
@@ -2100,11 +2124,6 @@ const _range = globalThis.range = function* range(from: number, upto?: number, s
 		yield i;
 }
 export {_range as range};
-
-function GetPath(url: string, base?: string) {
-    const U = new URL(url, base);
-    return U.origin + U.pathname.replace(/[^/]*$/, '');
-}
 
 export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', location);
 function SetLocation() {
