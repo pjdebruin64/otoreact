@@ -5,7 +5,7 @@ const defaultSettings = {
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bRunScripts:    false,
     bBuild:         true,
-    rootPattern:    null as string,
+    rootPattern:    '/|^' as string,
 }
 
 
@@ -207,24 +207,20 @@ type Settings = Partial<FullSettings>;
 const location = document.location;
 let RootPath: string = null;
 
-export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {    
+export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
+    const R = RHTML;   
     try {
-        let {rootPattern} = settings = {...defaultSettings, ...settings},
-            url = `${location.origin}${location.pathname}`;
-        if (rootPattern) {
-            const m = url.match(`^.*(${rootPattern})`);
-            if (!m)
-                throw `Root pattern '${rootPattern}' does not match URL '${url}'`;
-            url = m[0]; // (new URL(m[0])).pathname;
-        }
-        RootPath = (new URL(url)).pathname.replace(/[^/]*$/, '');
-        globalThis.RootPath = RootPath;
+        const {rootPattern} = R.Settings = {...defaultSettings, ...settings},
+            m = location.href.match(`^.*(${rootPattern})`);
+        if (!m)
+            throw `Root pattern '${rootPattern}' does not match URL '${location.href}'`;
+        R.FilePath = location.origin + (
+            globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, '')
+        )
         SetLocation();
 
-        const R = RHTML;
-        R.FilePath = location.origin + RootPath
         R.RootElm = elm;
-        R.Compile(elm, settings, true);
+        R.Compile(elm, {}, true);
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
@@ -232,7 +228,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
             : null);
     }
     catch (err) {
-        window.alert(`Re-Act error: ${err}`);
+        window.alert(`OtoReact error: ${err}`);
     }
 }
 
@@ -248,7 +244,7 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 
-type Subscriber = {before: Node; notify: () => Promise<void>;};
+type Subscriber = {before: Node; updater: () => Promise<void>;};
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -336,8 +332,9 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
             elm.setAttribute('src',  new URL(val as string, name).href);
             break;
         case ModifType.Prop:
-            if (val != null)
-                elm[name] = val;
+            if (val != null) {
+                if (val !== elm[name]) elm[name] = val;
+            }
             else
                 delete elm[name];
             break;
@@ -524,7 +521,7 @@ class RCompiler {
             {parent, before, bNoChildBuilding} = area,
             env = area.env && CloneEnv(area.env);
         return { before,
-            notify: async () => {
+            updater: async () => {
                 (this as RCompiler).builtNodeCount++;
                 await builder.call(this, {range, parent, before, env, bNoChildBuilding});
             }
@@ -607,7 +604,7 @@ class RCompiler {
                         this.DirtySubs = new Map();
                         for (const sub of subs.values()) {
                             try { 
-                                await sub.notify(); 
+                                await sub.updater(); 
                             }
                             catch (err) {
                                 const msg = `ERROR: ${err}`;
@@ -990,7 +987,7 @@ labelNoCheck:
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
                         
-                        builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
+                        builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
 
                         if (getHash) {
                             const b = builder;
@@ -1079,14 +1076,19 @@ labelNoCheck:
         return null;
     }
 
-    private GetREACT(srcElm: HTMLElement, attName: string, builder: DOMBuilder, rvars: Array<Dependent<_RVAR>>): DOMBuilder{
+    private GetREACT(srcElm: HTMLElement, attName: string, builder: DOMBuilder, rvars: Array<Dependent<_RVAR>>, bRenew=false): DOMBuilder{
         this.MainC.bHasReacts = true;
-        const  updateBuilder = 
-            ( attName == 'thisreactson'
-            ? async function reacton(this: RCompiler, area: Area) {
-                area.bNoChildBuilding = true;
-                await builder.call(this, area);
-            }
+        const  updateBuilder: DOMBuilder = 
+            ( bRenew
+                ? async function renew(this: RCompiler, subArea: Area) {
+                    const {subArea: subsubArea} = PrepareArea(srcElm, subArea, 'renew', 2);
+                    await builder.call(this, subsubArea);
+                }
+            : attName == 'thisreactson'
+                ? async function reacton(this: RCompiler, subArea: Area) {
+                    subArea.bNoChildBuilding = true;
+                    await builder.call(this, subArea);
+                }
             : builder
             );
 
@@ -1095,11 +1097,16 @@ labelNoCheck:
             //    , {start} = this.MainC;
             // Avoid double updates
             //if (bInit || range.updated != start)
-            await builder.call(this, subArea);
+            if (bRenew) {
+                const {subArea: subsubArea} = PrepareArea(srcElm, subArea, 'renew', true);
+                await builder.call(this, subsubArea);
+            }
+            else
+                await builder.call(this, subArea);
             
 
             if (bInit) {
-                const subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
+                const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child, );
         
                 // Subscribe bij de gegeven variabelen
                 for (const getRvar of rvars) {
@@ -1107,7 +1114,14 @@ labelNoCheck:
                     rvar.Subscribe(subscriber);
                 }
             }
-            //else range.updated = start;
+            else {
+                const {parent, before, bNoChildBuilding} = subArea,
+                    env = subArea.env && CloneEnv(subArea.env);
+                (range.value as Subscriber).updater = async () => {
+                    (this as RCompiler).builtNodeCount++;
+                    await updateBuilder.call(this, {range: range.child, parent, before, env, bNoChildBuilding});
+                };
+            }
         }
     }
 
@@ -1138,13 +1152,14 @@ labelNoCheck:
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        const bModule = atts.get('type')?.toLowerCase() == 'module', bNoModule = atts.get('nomodule') != null;
+        const bModule = atts.get('type')?.toLowerCase() == 'module'
+            , bNoModule = atts.get('nomodule') != null
+            , defines = atts.get('defines');
         let src = atts.get('src');
         let builder: DOMBuilder;
 
         if ( bNoModule || this.Settings.bRunScripts) {
             let script = srcElm.text+'\n';
-            const defines = atts.get('defines');
             const lvars: Array<{name: string,init: LVar}> = [];
             if (defines) 
                 for (const name of defines.split(','))
@@ -1192,6 +1207,8 @@ labelNoCheck:
                 }
             };
         }
+        else if (defines)
+            throw `You must add 'nomodule' if this script has to define OtoReact variables`;
         atts.clear();
         return builder;
     }

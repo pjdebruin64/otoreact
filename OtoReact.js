@@ -3,7 +3,7 @@ const defaultSettings = {
     bShowErrors: true,
     bRunScripts: false,
     bBuild: true,
-    rootPattern: null,
+    rootPattern: '/|^',
 };
 var WhiteSpace;
 (function (WhiteSpace) {
@@ -127,28 +127,22 @@ function PrepareText(area, content) {
 const location = document.location;
 let RootPath = null;
 export function RCompile(elm, settings) {
+    const R = RHTML;
     try {
-        let { rootPattern } = settings = { ...defaultSettings, ...settings }, url = `${location.origin}${location.pathname}`;
-        if (rootPattern) {
-            const m = url.match(`^.*(${rootPattern})`);
-            if (!m)
-                throw `Root pattern '${rootPattern}' does not match URL '${url}'`;
-            url = m[0];
-        }
-        RootPath = (new URL(url)).pathname.replace(/[^/]*$/, '');
-        globalThis.RootPath = RootPath;
+        const { rootPattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${rootPattern})`);
+        if (!m)
+            throw `Root pattern '${rootPattern}' does not match URL '${location.href}'`;
+        R.FilePath = location.origin + (globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, ''));
         SetLocation();
-        const R = RHTML;
-        R.FilePath = location.origin + RootPath;
         R.RootElm = elm;
-        R.Compile(elm, settings, true);
+        R.Compile(elm, {}, true);
         R.ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
         return (R.Settings.bBuild
             ? R.DoUpdate().then(() => { elm.hidden = false; })
             : null);
     }
     catch (err) {
-        window.alert(`Re-Act error: ${err}`);
+        window.alert(`OtoReact error: ${err}`);
     }
 }
 function NewEnv() {
@@ -214,8 +208,10 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             elm.setAttribute('src', new URL(val, name).href);
             break;
         case ModifType.Prop:
-            if (val != null)
-                elm[name] = val;
+            if (val != null) {
+                if (val !== elm[name])
+                    elm[name] = val;
+            }
             else
                 delete elm[name];
             break;
@@ -377,7 +373,7 @@ class RCompiler {
     }
     Subscriber(area, builder, range) {
         const { parent, before, bNoChildBuilding } = area, env = area.env && CloneEnv(area.env);
-        return { before, notify: async () => {
+        return { before, updater: async () => {
                 this.builtNodeCount++;
                 await builder.call(this, { range, parent, before, env, bNoChildBuilding });
             }
@@ -437,7 +433,7 @@ class RCompiler {
                         this.DirtySubs = new Map();
                         for (const sub of subs.values()) {
                             try {
-                                await sub.notify();
+                                await sub.updater();
                             }
                             catch (err) {
                                 const msg = `ERROR: ${err}`;
@@ -750,7 +746,7 @@ class RCompiler {
                             const getRvars = this.compAttrExprList(atts, 'on', false);
                             const getHash = this.CompAttrExpr(atts, 'hash');
                             const bodyBuilder = this.CompChildNodes(srcElm);
-                            builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars);
+                            builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
                             if (getHash) {
                                 const b = builder;
                                 builder = async function HASH(area) {
@@ -827,23 +823,40 @@ class RCompiler {
             return [builder, srcElm];
         return null;
     }
-    GetREACT(srcElm, attName, builder, rvars) {
+    GetREACT(srcElm, attName, builder, rvars, bRenew = false) {
         this.MainC.bHasReacts = true;
-        const updateBuilder = (attName == 'thisreactson'
-            ? async function reacton(area) {
-                area.bNoChildBuilding = true;
-                await builder.call(this, area);
+        const updateBuilder = (bRenew
+            ? async function renew(subArea) {
+                const { subArea: subsubArea } = PrepareArea(srcElm, subArea, 'renew', 2);
+                await builder.call(this, subsubArea);
             }
-            : builder);
+            : attName == 'thisreactson'
+                ? async function reacton(subArea) {
+                    subArea.bNoChildBuilding = true;
+                    await builder.call(this, subArea);
+                }
+                : builder);
         return async function REACT(area) {
             const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
-            await builder.call(this, subArea);
+            if (bRenew) {
+                const { subArea: subsubArea } = PrepareArea(srcElm, subArea, 'renew', true);
+                await builder.call(this, subsubArea);
+            }
+            else
+                await builder.call(this, subArea);
             if (bInit) {
-                const subscriber = this.Subscriber(subArea, updateBuilder, range.child);
+                const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child);
                 for (const getRvar of rvars) {
                     const rvar = getRvar(area.env);
                     rvar.Subscribe(subscriber);
                 }
+            }
+            else {
+                const { parent, before, bNoChildBuilding } = subArea, env = subArea.env && CloneEnv(subArea.env);
+                range.value.updater = async () => {
+                    this.builtNodeCount++;
+                    await updateBuilder.call(this, { range: range.child, parent, before, env, bNoChildBuilding });
+                };
             }
         };
     }
@@ -869,12 +882,11 @@ class RCompiler {
         }
     }
     CompScript(srcParent, srcElm, atts) {
-        const bModule = atts.get('type')?.toLowerCase() == 'module', bNoModule = atts.get('nomodule') != null;
+        const bModule = atts.get('type')?.toLowerCase() == 'module', bNoModule = atts.get('nomodule') != null, defines = atts.get('defines');
         let src = atts.get('src');
         let builder;
         if (bNoModule || this.Settings.bRunScripts) {
             let script = srcElm.text + '\n';
-            const defines = atts.get('defines');
             const lvars = [];
             if (defines)
                 for (const name of defines.split(','))
@@ -921,6 +933,8 @@ class RCompiler {
                 }
             };
         }
+        else if (defines)
+            throw `You must add 'nomodule' if this script has to define OtoReact variables`;
         atts.clear();
         return builder;
     }

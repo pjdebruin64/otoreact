@@ -52,7 +52,7 @@ declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber = {
     before: Node;
-    notify: () => Promise<void>;
+    updater: () => Promise<void>;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {

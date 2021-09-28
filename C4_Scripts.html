@@ -1,16 +1,35 @@
 <h1>Other Subjects</h1>
 
-<h2>URL Routing</h2>
+<h2 id=URLRouting>URL Routing</h2>
 "URL routing" in a single-page application is about routing different URLs to seemingly different pages <i>without requesting them from the server</i>.
 <br>
-<a href="{RootPath}routing" #onclick=reroute>This routed page</a> tells you all about it.
-<p>Here a summary of all routing features:</p>
+<a href="routing" #onclick=reroute>This routed page</a> tells you all about it.
+<p>Here a summary of the OtoReact routing features:</p>
 <dl>
-    <dt><elm>A href #onclick=reroute</elm></dt>
-    <dt><code>reroute(href)</code></dt>
     <dt><code>RootPath</code></dt>
+    <dd>
+        Global variable containing the <i>root path</i> of the current application.
+        <br>All relative URL's within an OtoReact aplication are considered relative to this root path, and it is used to determine the current subpath.
+    </dd>
+    <dt><code>\{rootPattern: &hellip;\}</code></dt>
+    <dd>
+        Compiler option, containg a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the root path.
+        <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the root path.
+        <br>The default rootPattern is '/|^'.
+        <br>E.g., if an OtoReact application is loaded from URL "{docLocation.V.origin}{RootPath}routing" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "{RootPath}routing" up to and including the last slash, which is "{RootPath}".
+    </dd>
+    <dt><elm>A href #onclick=reroute</elm></dt>
+    <dd>
+        When 
+    </dd>
+    <dt><code>reroute(href)</code></dt>
     <dt><code>docLocation</code></dt>
     <dt><code>docLocation.subpath</code></dt>
+    <dd>
+        Part of the current pathname after the root path.
+        <br>So for URL "{docLocation.V.origin}{RootPath}routing", it is "routing".
+        <br>An application can use <a href="#Case">case analysis</a> on this value to show the correct page.
+    </dd>
 </dl>
 
 
@@ -20,7 +39,8 @@ The HTML parser does not allow string interpolation inside <elm>STYLE</elm>, but
 <ul>
     <li>Braces inside <elm>STYLE.</elm> that are part of the style sheet and do not delimit an embedded string must be escaped: <code>\\{ \\}</code>.</li>
     <li>
-        <elm>STYLE.</elm> style sheet templates have global effect just like <elm>STYLE</elm>, so you must avoid having multiple possibly conflicting instances of the same style sheet.
+        <elm>STYLE.</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
+        <br>Hence they cannot be moved to the document header, so you must avoid having multiple possibly conflicting instances of the same style sheet.
         <br>E.g., don't put them inside a <elm>FOR</elm> loop.
     </li>
     <li>
