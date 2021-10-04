@@ -244,7 +244,11 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 
-type Subscriber = {before: Node; updater: () => Promise<void>;};
+type Subscriber = {
+    updater: () => Promise<void>;
+    ref?: {isConnected: boolean};
+    sArea?: Area;
+};
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -516,15 +520,19 @@ class RCompiler {
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
     }
         
-    Subscriber(area: Area, builder: DOMBuilder, range: Range ): Subscriber {
-        const
-            {parent, before, bNoChildBuilding} = area,
-            env = area.env && CloneEnv(area.env);
-        return { before,
+    Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range ): Subscriber {
+        const sArea = {
+            parent, before, bNoChildBuilding,
+            env: CloneEnv(env), 
+            range,
+        };
+        return { 
+            ref: before,
             updater: async () => {
                 (this as RCompiler).builtNodeCount++;
-                await builder.call(this, {range, parent, before, env, bNoChildBuilding});
-            }
+                await builder.call(this, {...sArea});
+            },
+            sArea: sArea,
         };
     }
 
@@ -548,9 +556,9 @@ class RCompiler {
     private bHasReacts = false;
 
     public DirtyVars = new Set<_RVAR>();
-    private DirtySubs = new Map<Node, Subscriber>();
+    private DirtySubs = new Map<{isConnected: boolean}, Subscriber>();
     public AddDirty(sub: Subscriber) {
-        this.MainC.DirtySubs.set(sub.before, sub)
+        this.MainC.DirtySubs.set(sub.ref, sub)
     }
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
@@ -1076,7 +1084,12 @@ labelNoCheck:
         return null;
     }
 
-    private GetREACT(srcElm: HTMLElement, attName: string, builder: DOMBuilder, rvars: Array<Dependent<_RVAR>>, bRenew=false): DOMBuilder{
+    private GetREACT(
+        srcElm: HTMLElement, attName: string, 
+        builder: DOMBuilder, 
+        getRvars: Array<Dependent<_RVAR>>, 
+        bRenew=false
+    ): DOMBuilder{
         this.MainC.bHasReacts = true;
         const  updateBuilder: DOMBuilder = 
             ( bRenew
@@ -1098,30 +1111,24 @@ labelNoCheck:
             // Avoid double updates
             //if (bInit || range.updated != start)
             if (bRenew) {
-                const {subArea: subsubArea} = PrepareArea(srcElm, subArea, 'renew', true);
+                const subsubArea = PrepareArea(srcElm, subArea, 'renew', true).subArea;
                 await builder.call(this, subsubArea);
             }
             else
-                await builder.call(this, subArea);
-            
+                await builder.call(this, subArea);            
 
             if (bInit) {
                 const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child, );
         
                 // Subscribe bij de gegeven variabelen
-                for (const getRvar of rvars) {
+                for (const getRvar of getRvars) {
                     const rvar = getRvar(area.env);
-                    rvar.Subscribe(subscriber);
+                    try { rvar.Subscribe(subscriber); }
+                    catch { throw "This is not an RVAR"; }
                 }
             }
-            else {
-                const {parent, before, bNoChildBuilding} = subArea,
-                    env = subArea.env && CloneEnv(subArea.env);
-                (range.value as Subscriber).updater = async () => {
-                    (this as RCompiler).builtNodeCount++;
-                    await updateBuilder.call(this, {range: range.child, parent, before, env, bNoChildBuilding});
-                };
-            }
+            else
+                (range.value as Subscriber).sArea.env = CloneEnv(subArea.env);
         }
     }
 
@@ -1500,7 +1507,7 @@ labelNoCheck:
                     elmTemplate = srcChild as HTMLTemplateElement;
                     break;
                 default:
-                    if (signature) throw 'Double signature';
+                    if (signature) throw `Illegal component element <${srcChild.nodeName}>`;
                     signature = this.ParseSignature(srcChild);
                     break;
             }
@@ -1524,19 +1531,17 @@ labelNoCheck:
         this.whiteSpc = saveWS;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        return ( 
-            async function COMPONENT(this: RCompiler, area: Area) {
+        return async function COMPONENT(this: RCompiler, area: Area) {
                 for (const [bldr, srcNode] of builders)
                     await this.CallWithErrorHandling(bldr, srcNode, area);
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
 
-                const construct: ConstructDef = {templates, constructEnv: undefined as Environment},
-                    {env} = area;
-                DefConstruct(env, name, construct);
-                construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
-            } );
+                const construct: ConstructDef = {templates, constructEnv: undefined as Environment};
+                DefConstruct(area.env, name, construct);
+                construct.constructEnv = CloneEnv(area.env);     // Contains circular reference to construct
+            };
     }
 
     private CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
@@ -1894,7 +1899,7 @@ labelNoCheck:
     }
 
     private CompHandler(name: string, text: string) {
-        return this.CompJavaScript<Handler>(`async function ${name}(event){${text}\n}`, name)
+        return this.CompJavaScript<Handler>(`function ${name}(event){${text}\n}`, name)
     }
     private CompJavaScript<T>(
         expr: string           // Expression to transform into a function
@@ -1989,6 +1994,8 @@ export class _RVAR<T = unknown>{
     Subscribers: Set<Subscriber> = new Set();
 
     Subscribe(s: Subscriber) {
+        if (!s.ref)
+            s.ref = {isConnected: true};
         this.Subscribers.add(s);
     }
 
@@ -2014,7 +2021,7 @@ export class _RVAR<T = unknown>{
         if (this.store)
             this.MainC.DirtyVars.add(this);
         for (const sub of this.Subscribers)
-            if (sub.before.isConnected)
+            if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);

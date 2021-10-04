@@ -371,12 +371,19 @@ class RCompiler {
         const t1 = performance.now();
         console.log(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
     }
-    Subscriber(area, builder, range) {
-        const { parent, before, bNoChildBuilding } = area, env = area.env && CloneEnv(area.env);
-        return { before, updater: async () => {
+    Subscriber({ parent, before, bNoChildBuilding, env }, builder, range) {
+        const sArea = {
+            parent, before, bNoChildBuilding,
+            env: CloneEnv(env),
+            range,
+        };
+        return {
+            ref: before,
+            updater: async () => {
                 this.builtNodeCount++;
-                await builder.call(this, { range, parent, before, env, bNoChildBuilding });
-            }
+                await builder.call(this, { ...sArea });
+            },
+            sArea: sArea,
         };
     }
     async InitialBuild(area) {
@@ -388,7 +395,7 @@ class RCompiler {
         RHTML = savedRCompiler;
     }
     AddDirty(sub) {
-        this.MainC.DirtySubs.set(sub.before, sub);
+        this.MainC.DirtySubs.set(sub.ref, sub);
     }
     RUpdate() {
         this.MainC.bUpdate = true;
@@ -823,7 +830,7 @@ class RCompiler {
             return [builder, srcElm];
         return null;
     }
-    GetREACT(srcElm, attName, builder, rvars, bRenew = false) {
+    GetREACT(srcElm, attName, builder, getRvars, bRenew = false) {
         this.MainC.bHasReacts = true;
         const updateBuilder = (bRenew
             ? async function renew(subArea) {
@@ -839,25 +846,25 @@ class RCompiler {
         return async function REACT(area) {
             const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
             if (bRenew) {
-                const { subArea: subsubArea } = PrepareArea(srcElm, subArea, 'renew', true);
+                const subsubArea = PrepareArea(srcElm, subArea, 'renew', true).subArea;
                 await builder.call(this, subsubArea);
             }
             else
                 await builder.call(this, subArea);
             if (bInit) {
                 const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child);
-                for (const getRvar of rvars) {
+                for (const getRvar of getRvars) {
                     const rvar = getRvar(area.env);
-                    rvar.Subscribe(subscriber);
+                    try {
+                        rvar.Subscribe(subscriber);
+                    }
+                    catch {
+                        throw "This is not an RVAR";
+                    }
                 }
             }
-            else {
-                const { parent, before, bNoChildBuilding } = subArea, env = subArea.env && CloneEnv(subArea.env);
-                range.value.updater = async () => {
-                    this.builtNodeCount++;
-                    await updateBuilder.call(this, { range: range.child, parent, before, env, bNoChildBuilding });
-                };
-            }
+            else
+                range.value.sArea.env = CloneEnv(subArea.env);
         };
     }
     async CallWithErrorHandling(builder, srcNode, area) {
@@ -1163,7 +1170,7 @@ class RCompiler {
                     break;
                 default:
                     if (signature)
-                        throw 'Double signature';
+                        throw `Illegal component element <${srcChild.nodeName}>`;
                     signature = this.ParseSignature(srcChild);
                     break;
             }
@@ -1181,13 +1188,13 @@ class RCompiler {
             this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.whiteSpc = saveWS;
-        return (async function COMPONENT(area) {
+        return async function COMPONENT(area) {
             for (const [bldr, srcNode] of builders)
                 await this.CallWithErrorHandling(bldr, srcNode, area);
-            const construct = { templates, constructEnv: undefined }, { env } = area;
-            DefConstruct(env, name, construct);
-            construct.constructEnv = CloneEnv(env);
-        });
+            const construct = { templates, constructEnv: undefined };
+            DefConstruct(area.env, name, construct);
+            construct.constructEnv = CloneEnv(area.env);
+        };
     }
     CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
         const names = [], saved = this.SaveContext(), bCheckAtts = !atts;
@@ -1480,7 +1487,7 @@ class RCompiler {
         return this.CompJavaScript(atts.get(attName, bRequired, true), attName);
     }
     CompHandler(name, text) {
-        return this.CompJavaScript(`async function ${name}(event){${text}\n}`, name);
+        return this.CompJavaScript(`function ${name}(event){${text}\n}`, name);
     }
     CompJavaScript(expr, descript, delims = '""') {
         if (expr == null)
@@ -1561,6 +1568,8 @@ export class _RVAR {
         this.storeName ||= globalName;
     }
     Subscribe(s) {
+        if (!s.ref)
+            s.ref = { isConnected: true };
         this.Subscribers.add(s);
     }
     get V() { return this._Value; }
@@ -1580,7 +1589,7 @@ export class _RVAR {
         if (this.store)
             this.MainC.DirtyVars.add(this);
         for (const sub of this.Subscribers)
-            if (sub.before.isConnected)
+            if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);

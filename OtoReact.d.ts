@@ -51,8 +51,11 @@ declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber = {
-    before: Node;
     updater: () => Promise<void>;
+    ref?: {
+        isConnected: boolean;
+    };
+    sArea?: Area;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
@@ -92,7 +95,7 @@ declare class RCompiler {
     private NewVar;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
-    Subscriber(area: Area, builder: DOMBuilder, range: Range): Subscriber;
+    Subscriber({ parent, before, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     ToBuild: Area[];
