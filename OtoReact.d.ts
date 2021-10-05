@@ -5,8 +5,8 @@ declare const defaultSettings: {
     bBuild: boolean;
     rootPattern: string;
 };
-declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    whitespace?: WhiteSpace;
+declare type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {
+    ws?: WhiteSpace;
 };
 declare enum WhiteSpace {
     preserve = 0,
@@ -118,8 +118,8 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompChildNodes;
-    private PreCompElement;
-    static preMods: string[];
+    private CompIterator;
+    static genAtts: string[];
     private CompElement;
     private GetREACT;
     private CallWithErrorHandling;

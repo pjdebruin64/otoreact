@@ -11,7 +11,7 @@ const defaultSettings = {
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area) => Promise<void>) & {whitespace?: WhiteSpace};
+type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {ws?: WhiteSpace};
 enum WhiteSpace {preserve, keep, trim}
 
 // An AREA is the (runtime) place to build or update, with all required information
@@ -317,7 +317,7 @@ interface Key {}
 interface Hash {}
 
 enum ModifType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
-    oncreate, onupdate
+    oncreate //, onupdate
 }
 type Modifier = {
     modType: ModifType,
@@ -378,9 +378,6 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
         case ModifType.oncreate:
             if (bCreate)
                 (val as ()=>void).call(elm); 
-            break;
-        case ModifType.onupdate:
-            (val as ()=>void).call(elm); 
             break;
     }
 }
@@ -610,16 +607,16 @@ class RCompiler {
                         this.builtNodeCount = 0;
                         const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const sub of subs.values()) {
-                            try { 
-                                await sub.updater(); 
-                            }
-                            catch (err) {
-                                const msg = `ERROR: ${err}`;
-                                console.log(msg);
-                                window.alert(msg);
-                            }
-                        }
+                        for (const sub of subs.values()) 
+                            if (!sub.ref || sub.ref.isConnected)
+                                try { await sub.updater(); }
+                                catch (err) {
+                                    const msg = `ERROR: ${err}`;
+                                    console.log(msg);
+                                    window.alert(msg);
+                                }
+
+                        
                         console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                     }
                 }
@@ -673,94 +670,91 @@ class RCompiler {
     private CompChildNodes(
         srcParent: ParentNode,
         childNodes: Iterable<ChildNode> = srcParent.childNodes,
-        bNorestore?: boolean
     ): DOMBuilder {
-        const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >,
-            saved = this.SaveContext();
+        const saved = this.SaveContext();
         try {
-            /*
-            for (const srcNode of childNodes)
-                if (srcNode.nodeType == Node.ELEMENT_NODE)
-                    srcNode['nodeComp'] = this.PreCompElement(srcParent, srcNode as HTMLElement);
-*/
-            for (const srcNode of childNodes) {
-                switch (srcNode.nodeType) {
-                    
-                    case Node.ELEMENT_NODE:
-                        this.sourceNodeCount ++;
-                        const nodeComp = null, // srcNode['nodeComp'],
-                            builderElm = nodeComp ? nodeComp() : this.CompElement(srcParent, srcNode as HTMLElement);
+            const builder = this.CompIterator(srcParent, childNodes);
+            return builder ?
+                 async function ChildNodes(this: RCompiler, area) {
+                    const savedEnv = SaveEnv();
+                    try { await builder.call(this, area); }
+                    finally { RestoreEnv(savedEnv); }
+                }
+                : async ()=>{};
+        }
+        finally { this.RestoreContext(saved); }
+    }
 
-                        if (builderElm) {                        
-                            if (builderElm[0].whitespace==WhiteSpace.trim) {
-                                let i = builders.length - 1;
-                                while (i>=0 && builders[i][2]) {
-                                    builders.pop();
-                                    i--;
-                                }
+    private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
+        const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
+        
+        for (const srcNode of iter) {
+            switch (srcNode.nodeType) {
+                
+                case Node.ELEMENT_NODE:
+                    this.sourceNodeCount ++;
+                    const builderElm = this.CompElement(srcParent, srcNode as HTMLElement);
+
+                    if (builderElm) {                        
+                        if (builderElm[0].ws==WhiteSpace.trim) {
+                            let i = builders.length - 1;
+                            while (i>=0 && builders[i][2]) {
+                                builders.pop();
+                                i--;
                             }
-                            builders.push(builderElm);
                         }
-                        break;
+                        builders.push(builderElm);
+                    }
+                    break;
 
-                    case Node.TEXT_NODE:
-                        this.sourceNodeCount ++;
-                        let str = srcNode.nodeValue;
-                        if (this.whiteSpc != WhiteSpace.preserve)
-                            str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
-                        
-                        const getText = this.CompString( str ), fixed = getText.fixed;
-                        if (fixed !== '') {
-                            if (fixed == undefined)
+                case Node.TEXT_NODE:
+                    this.sourceNodeCount ++;
+                    let str = srcNode.nodeValue;
+                    if (this.whiteSpc != WhiteSpace.preserve)
+                        str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
+                    
+                    const getText = this.CompString( str ), fixed = getText.fixed;
+                    if (fixed !== '') {
+                        if (fixed == undefined)
+                            builders.push( [ 
+                                async (area: Area) => {
+                                    PrepareText(area, getText(area.env))
+                                }, srcNode] );
+                        else {
+                            const isBlank = /^[ \t\r\n]*$/.test(fixed);
+                            if (!(this.whiteSpc==WhiteSpace.trim && isBlank))
                                 builders.push( [ 
                                     async (area: Area) => {
-                                        PrepareText(area, getText(area.env))
-                                    }, srcNode] );
-                            else {
-                                const isBlank = /^[ \t\r\n]*$/.test(fixed);
-                                if (!(this.whiteSpc==WhiteSpace.trim && isBlank))
-                                    builders.push( [ 
-                                        async (area: Area) => {
-                                            PrepareText(area, fixed)
-                                        }, srcNode, isBlank ] );
-                            }
-                            if (this.whiteSpc!=WhiteSpace.preserve)
-                                this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
-                            }
-                        break;
-                }
+                                        PrepareText(area, fixed)
+                                    }, srcNode, isBlank ] );
+                        }
+                        if (this.whiteSpc!=WhiteSpace.preserve)
+                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
+                        }
+                    break;
             }
         }
-        finally {
-            if (!bNorestore) this.RestoreContext(saved);
-        }
-        return builders.length == 0 ? async ()=>{} :
-             async function ChildNodes(this: RCompiler, area) {
-                const savedEnv = SaveEnv();
-                try {
-                    for (const [builder, node] of builders)
-                        await this.CallWithErrorHandling(builder, node, area);
-                    this.builtNodeCount += builders.length;
-                }
-                finally {
-                    if (!bNorestore) RestoreEnv(savedEnv);
-                }
+        return builders.length == 0 ? null :
+            async function Iter(this: RCompiler, area) {
+                for (const [builder, node] of builders)
+                    await this.CallWithErrorHandling(builder, node, area);
+                this.builtNodeCount += builders.length;
             };
     }
 
-    private PreCompElement(srcParent: ParentNode, srcElm: HTMLElement): () => [DOMBuilder, ChildNode] {
-        return null;
-    }
-
-    static preMods = ['reacton','reactson','thisreactson'];
+    static genAtts = ['reacton','reactson','thisreactson','oncreate','onupdate'];
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
-            mapReacts: Array<{attName: string, rvars: Dependent<_RVAR[]>}> = [];
+            reacts: Array<{attName: string, rvars: Dependent<_RVAR[]>}> = [],
+            genMods: Array<{attName: string, handler: Dependent<Handler>}> = [];
+        for (const attName of RCompiler.genAtts)
+            if (atts.has(attName))
+                if (/^on/.test(attName))
+                    genMods.push({attName, handler: this.CompHandler(attName, atts.get(attName))});
+                else
+                    reacts.push({attName, rvars: this.compAttrExprList<_RVAR>(atts, attName)});
+        
         let builder: DOMBuilder = null;
-        for (const attName of RCompiler.preMods) {
-            const rvars = this.compAttrExprList<_RVAR>(atts, attName);
-            if (rvars) mapReacts.push({attName, rvars});
-        }
 labelNoCheck:
         try {
             // See if this node is a user-defined construct (component or slot) instance
@@ -973,9 +967,9 @@ labelNoCheck:
                                 // Parse the contents of the file
                                 const parser = new DOMParser(),
                                     parsedDoc = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
-                                    builder = C.CompChildNodes(null, 
-                                        concIterable(parsedDoc.head.children, parsedDoc.body.children),
-                                        true);
+                                    builder = C.CompIterator(null, 
+                                        concIterable(parsedDoc.head.children, parsedDoc.body.children)
+                                    );
 
                                 for (const clientSig of listImports) {
                                     const signature = C.CSignatures.get(clientSig.name);
@@ -1027,8 +1021,8 @@ labelNoCheck:
                         const bodyBuilder = this.CompChildNodes(srcElm);
                         //srcParent.removeChild(srcElm);
 
-                        const imports = this.CompAttrExpr(atts, 'imports');
-                        const {preModifiers} = this.CompAttributes(atts);
+                        //const imports = this.CompAttrExpr(atts, 'imports');
+                        const modifs = this.CompAttributes(atts);
 
                         builder = async function RHTML(this: RCompiler, area) {
                             const tempElm = document.createElement('rhtml');
@@ -1037,7 +1031,7 @@ labelNoCheck:
                             
                             const {elmRange, bInit} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
                                 elm = elmRange.node;
-                            ApplyModifiers(elm, preModifiers, area.env, bInit);
+                            ApplyModifiers(elm, modifs, area.env, bInit);
 
                             if (area.prevR || result != elmRange.result) {
                                 elmRange.result = result;
@@ -1087,8 +1081,18 @@ labelNoCheck:
         catch (err) { 
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
+        if (genMods.length) {
+            const b = builder;
+            builder = async function ON(this: RCompiler, area: Area) {
+                const bInit = !area.range, handlers = genMods.map(({attName, handler}) => ({attName, handler: handler(area.env)}));
+                const node = await b.call(this, area);
+                for (const {attName, handler} of handlers)
+                    if (bInit || attName=='onupdate')
+                        handler.call(node);
+            }
+        }
 
-        for (const {attName, rvars} of mapReacts)
+        for (const {attName, rvars} of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
         
         if (builder)
@@ -1654,7 +1658,7 @@ labelNoCheck:
                 this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
             );
 
-        const preModifiers = signature.RestParam ? this.CompAttributes(atts).preModifiers: null;
+        const modifs = signature.RestParam ? this.CompAttributes(atts): null;
 
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpace.keep;
@@ -1671,7 +1675,7 @@ labelNoCheck:
             
             if (signature.RestParam) {
                 const rest: RestParameter = [];
-                for (const {modType, name, depValue} of preModifiers)
+                for (const {modType, name, depValue} of modifs)
                     rest.push({modType, name, value: depValue(env)})
                 
                 args.push(rest);
@@ -1683,14 +1687,14 @@ labelNoCheck:
         }
     }
 
-    static regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
+    static regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
         const ws: WhiteSpace = name == 'pre' ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
 
         // We turn each given attribute into a modifier on created elements
-        const {preModifiers, postModifiers} = this.CompAttributes(atts);
+        const modifs = this.CompAttributes(atts);
 
         if (ws != WhiteSpace.keep) this.whiteSpc = ws;
         // Compile the given childnodes into a routine that builds the actual childnodes
@@ -1699,7 +1703,7 @@ labelNoCheck:
         else if (ws == WhiteSpace.preserve && saveWs!=WhiteSpace.preserve) this.whiteSpc = WhiteSpace.keep;
 
         // Now the runtime action
-        const builder = async function ELEMENT(this: RCompiler, area: Area) {
+        const builder: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
             const {elmRange: {node}, childArea, bInit} = PrepareElement(srcElm, area, name);
             
             if (!area.bNoChildBuilding)
@@ -1712,8 +1716,8 @@ labelNoCheck:
                     node.removeEventListener(evType, listener);
                 }
             (node as any).handlers = [];
-            ApplyModifiers(node, preModifiers, area.env);
-            ApplyModifiers(node, postModifiers, area.env, bInit)
+            ApplyModifiers(node, modifs, area.env, bInit);
+            return node;
         };
 
         builder.ws = ws;
@@ -1721,51 +1725,45 @@ labelNoCheck:
     }
 
     private CompAttributes(atts: Atts) { 
-        const preModifiers: Array<Modifier> = [], postModifiers: Array<Modifier> = [];
+        const modifs: Array<Modifier> = [];
 
         for (const [attName, attValue] of atts) {
             let m: RegExpExecArray;
             try {
-                if (m = /^on(create|update)$/i.exec(attName))
-                    postModifiers.push({
-                        modType: ModifType[attName], 
-                        name: m[0], 
-                        depValue: this.CompHandler(attName, attValue)
-                    });
-                else if (m = /^on(.*)$/i.exec(attName))               // Events
-                    preModifiers.push({
+                if (m = /^on(.*)$/i.exec(attName))               // Events
+                    modifs.push({
                         modType: ModifType.Event, 
                         name: CapitalizeProp(m[0]), 
                         depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Class, name: m[1],
                         depValue: this.CompJavaScript<boolean>(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
                         depValue: this.CompString(attValue)
                     });
                 else if (attName == '+style')
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.AddToStyle, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Prop, 
                         name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (attName == "+class")
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.AddToClassList, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
@@ -1774,29 +1772,29 @@ labelNoCheck:
                     try {
                         const setter = this.CompJavaScript<Handler>(
                             `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
-                        if (m[1] == '@')
-                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) });
-                        else
-                            postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        preModifiers.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
+                        modifs.push(
+                            m[1] == '@'
+                            ? { modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) }
+                            : { modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
+                        modifs.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue) throw `Rest parameter cannot have a value`;
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.RestArgument, name: null,
                         depValue: this.CompName(m[1])
                     });
                 }
                 else if (attName == 'src')
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Src,
                         name: this.FilePath,
                         depValue: this.CompString(attValue),
                     });
                 else
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Attr,
                         name: attName,
                         depValue: this.CompString(attValue)
@@ -1807,7 +1805,7 @@ labelNoCheck:
             }
         }
         atts.clear();
-        return {preModifiers, postModifiers};
+        return modifs;
     }
 
     private CompStyle(srcStyle: HTMLElement)  {

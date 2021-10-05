@@ -196,7 +196,6 @@ var ModifType;
     ModifType[ModifType["AddToClassList"] = 7] = "AddToClassList";
     ModifType[ModifType["RestArgument"] = 8] = "RestArgument";
     ModifType[ModifType["oncreate"] = 9] = "oncreate";
-    ModifType[ModifType["onupdate"] = 10] = "onupdate";
 })(ModifType || (ModifType = {}));
 let bReadOnly = false;
 function ApplyModifier(elm, modType, name, val, bCreate) {
@@ -253,9 +252,6 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
         case ModifType.oncreate:
             if (bCreate)
                 val.call(elm);
-            break;
-        case ModifType.onupdate:
-            val.call(elm);
             break;
     }
 }
@@ -438,16 +434,16 @@ class RCompiler {
                         this.builtNodeCount = 0;
                         const subs = this.DirtySubs;
                         this.DirtySubs = new Map();
-                        for (const sub of subs.values()) {
-                            try {
-                                await sub.updater();
-                            }
-                            catch (err) {
-                                const msg = `ERROR: ${err}`;
-                                console.log(msg);
-                                window.alert(msg);
-                            }
-                        }
+                        for (const sub of subs.values())
+                            if (!sub.ref || sub.ref.isConnected)
+                                try {
+                                    await sub.updater();
+                                }
+                                catch (err) {
+                                    const msg = `ERROR: ${err}`;
+                                    console.log(msg);
+                                    window.alert(msg);
+                                }
                         console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                     }
                 }
@@ -484,85 +480,90 @@ class RCompiler {
         }
         return t;
     }
-    CompChildNodes(srcParent, childNodes = srcParent.childNodes, bNorestore) {
-        const builders = [], saved = this.SaveContext();
+    CompChildNodes(srcParent, childNodes = srcParent.childNodes) {
+        const saved = this.SaveContext();
         try {
-            for (const srcNode of childNodes) {
-                switch (srcNode.nodeType) {
-                    case Node.ELEMENT_NODE:
-                        this.sourceNodeCount++;
-                        const nodeComp = null, builderElm = nodeComp ? nodeComp() : this.CompElement(srcParent, srcNode);
-                        if (builderElm) {
-                            if (builderElm[0].whitespace == WhiteSpace.trim) {
-                                let i = builders.length - 1;
-                                while (i >= 0 && builders[i][2]) {
-                                    builders.pop();
-                                    i--;
-                                }
-                            }
-                            builders.push(builderElm);
-                        }
-                        break;
-                    case Node.TEXT_NODE:
-                        this.sourceNodeCount++;
-                        let str = srcNode.nodeValue;
-                        if (this.whiteSpc != WhiteSpace.preserve)
-                            str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
-                        const getText = this.CompString(str), fixed = getText.fixed;
-                        if (fixed !== '') {
-                            if (fixed == undefined)
-                                builders.push([
-                                    async (area) => {
-                                        PrepareText(area, getText(area.env));
-                                    },
-                                    srcNode
-                                ]);
-                            else {
-                                const isBlank = /^[ \t\r\n]*$/.test(fixed);
-                                if (!(this.whiteSpc == WhiteSpace.trim && isBlank))
-                                    builders.push([
-                                        async (area) => {
-                                            PrepareText(area, fixed);
-                                        },
-                                        srcNode, isBlank
-                                    ]);
-                            }
-                            if (this.whiteSpc != WhiteSpace.preserve)
-                                this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
-                        }
-                        break;
+            const builder = this.CompIterator(srcParent, childNodes);
+            return builder ?
+                async function ChildNodes(area) {
+                    const savedEnv = SaveEnv();
+                    try {
+                        await builder.call(this, area);
+                    }
+                    finally {
+                        RestoreEnv(savedEnv);
+                    }
                 }
-            }
+                : async () => { };
         }
         finally {
-            if (!bNorestore)
-                this.RestoreContext(saved);
+            this.RestoreContext(saved);
         }
-        return builders.length == 0 ? async () => { } :
-            async function ChildNodes(area) {
-                const savedEnv = SaveEnv();
-                try {
-                    for (const [builder, node] of builders)
-                        await this.CallWithErrorHandling(builder, node, area);
-                    this.builtNodeCount += builders.length;
-                }
-                finally {
-                    if (!bNorestore)
-                        RestoreEnv(savedEnv);
-                }
+    }
+    CompIterator(srcParent, iter) {
+        const builders = [];
+        for (const srcNode of iter) {
+            switch (srcNode.nodeType) {
+                case Node.ELEMENT_NODE:
+                    this.sourceNodeCount++;
+                    const builderElm = this.CompElement(srcParent, srcNode);
+                    if (builderElm) {
+                        if (builderElm[0].ws == WhiteSpace.trim) {
+                            let i = builders.length - 1;
+                            while (i >= 0 && builders[i][2]) {
+                                builders.pop();
+                                i--;
+                            }
+                        }
+                        builders.push(builderElm);
+                    }
+                    break;
+                case Node.TEXT_NODE:
+                    this.sourceNodeCount++;
+                    let str = srcNode.nodeValue;
+                    if (this.whiteSpc != WhiteSpace.preserve)
+                        str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
+                    const getText = this.CompString(str), fixed = getText.fixed;
+                    if (fixed !== '') {
+                        if (fixed == undefined)
+                            builders.push([
+                                async (area) => {
+                                    PrepareText(area, getText(area.env));
+                                },
+                                srcNode
+                            ]);
+                        else {
+                            const isBlank = /^[ \t\r\n]*$/.test(fixed);
+                            if (!(this.whiteSpc == WhiteSpace.trim && isBlank))
+                                builders.push([
+                                    async (area) => {
+                                        PrepareText(area, fixed);
+                                    },
+                                    srcNode, isBlank
+                                ]);
+                        }
+                        if (this.whiteSpc != WhiteSpace.preserve)
+                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
+                    }
+                    break;
+            }
+        }
+        return builders.length == 0 ? null :
+            async function Iter(area) {
+                for (const [builder, node] of builders)
+                    await this.CallWithErrorHandling(builder, node, area);
+                this.builtNodeCount += builders.length;
             };
     }
-    PreCompElement(srcParent, srcElm) {
-        return null;
-    }
     CompElement(srcParent, srcElm) {
-        const atts = new Atts(srcElm), mapReacts = [];
+        const atts = new Atts(srcElm), reacts = [], genMods = [];
+        for (const attName of RCompiler.genAtts)
+            if (atts.has(attName))
+                if (/^on/.test(attName))
+                    genMods.push({ attName, handler: this.CompHandler(attName, atts.get(attName)) });
+                else
+                    reacts.push({ attName, rvars: this.compAttrExprList(atts, attName) });
         let builder = null;
-        for (const attName of RCompiler.preMods) {
-            const rvars = this.compAttrExprList(atts, attName);
-            if (rvars)
-                mapReacts.push({ attName, rvars });
-        }
         labelNoCheck: try {
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -730,7 +731,7 @@ class RCompiler {
                             if (!promiseModule) {
                                 promiseModule = this.FetchText(src)
                                     .then(textContent => {
-                                    const parser = new DOMParser(), parsedDoc = parser.parseFromString(textContent, 'text/html'), builder = C.CompChildNodes(null, concIterable(parsedDoc.head.children, parsedDoc.body.children), true);
+                                    const parser = new DOMParser(), parsedDoc = parser.parseFromString(textContent, 'text/html'), builder = C.CompIterator(null, concIterable(parsedDoc.head.children, parsedDoc.body.children));
                                     for (const clientSig of listImports) {
                                         const signature = C.CSignatures.get(clientSig.name);
                                         if (!signature)
@@ -774,14 +775,13 @@ class RCompiler {
                         {
                             this.whiteSpc = WhiteSpace.trim;
                             const bodyBuilder = this.CompChildNodes(srcElm);
-                            const imports = this.CompAttrExpr(atts, 'imports');
-                            const { preModifiers } = this.CompAttributes(atts);
+                            const modifs = this.CompAttributes(atts);
                             builder = async function RHTML(area) {
                                 const tempElm = document.createElement('rhtml');
                                 await bodyBuilder.call(this, { parent: tempElm, env: area.env, range: null });
                                 const result = tempElm.innerText;
                                 const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), elm = elmRange.node;
-                                ApplyModifiers(elm, preModifiers, area.env, bInit);
+                                ApplyModifiers(elm, modifs, area.env, bInit);
                                 if (area.prevR || result != elmRange.result) {
                                     elmRange.result = result;
                                     const shadowRoot = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
@@ -827,7 +827,17 @@ class RCompiler {
         catch (err) {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
-        for (const { attName, rvars } of mapReacts)
+        if (genMods.length) {
+            const b = builder;
+            builder = async function ON(area) {
+                const bInit = !area.range, handlers = genMods.map(({ attName, handler }) => ({ attName, handler: handler(area.env) }));
+                const node = await b.call(this, area);
+                for (const { attName, handler } of handlers)
+                    if (bInit || attName == 'onupdate')
+                        handler.call(node);
+            };
+        }
+        for (const { attName, rvars } of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
         if (builder)
             return [builder, srcElm];
@@ -1267,7 +1277,7 @@ class RCompiler {
         const contentSlot = signature.Slots.get('content');
         if (contentSlot)
             slotBuilders.get('content').push(this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
-        const preModifiers = signature.RestParam ? this.CompAttributes(atts).preModifiers : null;
+        const modifs = signature.RestParam ? this.CompAttributes(atts) : null;
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpace.keep;
         return async function INSTANCE(area) {
@@ -1276,7 +1286,7 @@ class RCompiler {
                 args.push(getArg ? getArg(env) : undefined);
             if (signature.RestParam) {
                 const rest = [];
-                for (const { modType, name, depValue } of preModifiers)
+                for (const { modType, name, depValue } of modifs)
                     rest.push({ modType, name, value: depValue(env) });
                 args.push(rest);
             }
@@ -1288,7 +1298,7 @@ class RCompiler {
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
         const ws = name == 'pre' ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
-        const { preModifiers, postModifiers } = this.CompAttributes(atts);
+        const modifs = this.CompAttributes(atts);
         if (ws != WhiteSpace.keep)
             this.whiteSpc = ws;
         const childnodesBuilder = this.CompChildNodes(srcElm);
@@ -1306,57 +1316,51 @@ class RCompiler {
                     node.removeEventListener(evType, listener);
             }
             node.handlers = [];
-            ApplyModifiers(node, preModifiers, area.env);
-            ApplyModifiers(node, postModifiers, area.env, bInit);
+            ApplyModifiers(node, modifs, area.env, bInit);
+            return node;
         };
         builder.ws = ws;
         return builder;
     }
     CompAttributes(atts) {
-        const preModifiers = [], postModifiers = [];
+        const modifs = [];
         for (const [attName, attValue] of atts) {
             let m;
             try {
-                if (m = /^on(create|update)$/i.exec(attName))
-                    postModifiers.push({
-                        modType: ModifType[attName],
-                        name: m[0],
-                        depValue: this.CompHandler(attName, attValue)
-                    });
-                else if (m = /^on(.*)$/i.exec(attName))
-                    preModifiers.push({
+                if (m = /^on(.*)$/i.exec(attName))
+                    modifs.push({
                         modType: ModifType.Event,
                         name: CapitalizeProp(m[0]),
                         depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^#class:(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Class, name: m[1],
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Style, name: CapitalizeProp(m[1]),
                         depValue: this.CompString(attValue)
                     });
                 else if (attName == '+style')
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.AddToStyle, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Prop,
                         name: CapitalizeProp(m[1]),
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (attName == "+class")
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.AddToClassList, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
@@ -1364,11 +1368,10 @@ class RCompiler {
                     const propName = CapitalizeProp(m[3]);
                     try {
                         const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
-                        if (m[1] == '@')
-                            preModifiers.push({ modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) });
-                        else
-                            postModifiers.push({ modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        preModifiers.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
+                        modifs.push(m[1] == '@'
+                            ? { modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) }
+                            : { modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
+                        modifs.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
                     }
                     catch (err) {
                         throw `Invalid left-hand side '${attValue}'`;
@@ -1377,19 +1380,19 @@ class RCompiler {
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue)
                         throw `Rest parameter cannot have a value`;
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.RestArgument, name: null,
                         depValue: this.CompName(m[1])
                     });
                 }
                 else if (attName == 'src')
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Src,
                         name: this.FilePath,
                         depValue: this.CompString(attValue),
                     });
                 else
-                    preModifiers.push({
+                    modifs.push({
                         modType: ModifType.Attr,
                         name: attName,
                         depValue: this.CompString(attValue)
@@ -1400,7 +1403,7 @@ class RCompiler {
             }
         }
         atts.clear();
-        return { preModifiers, postModifiers };
+        return modifs;
     }
     CompStyle(srcStyle) {
         this.StyleRoot.appendChild(srcStyle);
@@ -1546,8 +1549,8 @@ class RCompiler {
     }
 }
 RCompiler.iNum = 0;
-RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
-RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
+RCompiler.genAtts = ['reacton', 'reactson', 'thisreactson', 'oncreate', 'onupdate'];
+RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
