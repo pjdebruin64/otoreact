@@ -491,7 +491,7 @@ class RCompiler {
                 switch (srcNode.nodeType) {
                     case Node.ELEMENT_NODE:
                         this.sourceNodeCount++;
-                        const builderElm = this.CompElement(srcParent, srcNode);
+                        const nodeComp = null, builderElm = nodeComp ? nodeComp() : this.CompElement(srcParent, srcNode);
                         if (builderElm) {
                             if (builderElm[0].whitespace == WhiteSpace.trim) {
                                 let i = builders.length - 1;
@@ -552,13 +552,16 @@ class RCompiler {
                 }
             };
     }
-    CompElement(srcParent, srcElm, whiteSpace) {
+    PreCompElement(srcParent, srcElm) {
+        return null;
+    }
+    CompElement(srcParent, srcElm) {
         const atts = new Atts(srcElm), mapReacts = [];
         let builder = null;
         for (const attName of RCompiler.preMods) {
-            const val = atts.get(attName);
-            if (val)
-                mapReacts.push({ attName, rvars: val.split(',').map(expr => this.CompJavaScript(expr, attName)) });
+            const rvars = this.compAttrExprList(atts, attName);
+            if (rvars)
+                mapReacts.push({ attName, rvars });
         }
         labelNoCheck: try {
             const construct = this.CSignatures.get(srcElm.localName);
@@ -750,17 +753,17 @@ class RCompiler {
                     case 'react':
                         {
                             this.MainC.bHasReacts = true;
-                            const getRvars = this.compAttrExprList(atts, 'on', false);
-                            const getHash = this.CompAttrExpr(atts, 'hash');
+                            const getRvars = this.compAttrExprList(atts, 'on');
+                            const getHashes = this.compAttrExprList(atts, 'hash');
                             const bodyBuilder = this.CompChildNodes(srcElm);
                             builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
-                            if (getHash) {
+                            if (getHashes) {
                                 const b = builder;
                                 builder = async function HASH(area) {
-                                    const hash = getHash(area.env);
                                     const { subArea, range } = PrepareArea(srcElm, area, 'hash');
-                                    if (hash !== range.value) {
-                                        range.value = hash;
+                                    const hashes = getHashes(area.env);
+                                    if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
+                                        range.value = hashes;
                                         await b.call(this, subArea);
                                     }
                                 };
@@ -834,7 +837,7 @@ class RCompiler {
         this.MainC.bHasReacts = true;
         const updateBuilder = (bRenew
             ? async function renew(subArea) {
-                const { subArea: subsubArea } = PrepareArea(srcElm, subArea, 'renew', 2);
+                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             : attName == 'thisreactson'
@@ -846,25 +849,24 @@ class RCompiler {
         return async function REACT(area) {
             const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
             if (bRenew) {
-                const subsubArea = PrepareArea(srcElm, subArea, 'renew', true).subArea;
+                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             else
                 await builder.call(this, subArea);
-            if (bInit) {
-                const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child);
-                for (const getRvar of getRvars) {
-                    const rvar = getRvar(area.env);
-                    try {
-                        rvar.Subscribe(subscriber);
-                    }
-                    catch {
-                        throw "This is not an RVAR";
-                    }
+            if (getRvars)
+                if (bInit) {
+                    const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child);
+                    for (const rvar of getRvars(area.env))
+                        try {
+                            rvar.Subscribe(subscriber);
+                        }
+                        catch {
+                            throw "This is not an RVAR";
+                        }
                 }
-            }
-            else
-                range.value.sArea.env = CloneEnv(subArea.env);
+                else
+                    range.value.sArea.env = CloneEnv(subArea.env);
         };
     }
     async CallWithErrorHandling(builder, srcNode, area) {
@@ -1031,7 +1033,7 @@ class RCompiler {
                                         if (nextChild == childRange)
                                             nextChild = nextChild.next;
                                         else {
-                                            const nextIndex = newMap.get(nextChild.key).index;
+                                            const nextIndex = newMap.get(nextChild.key)?.index;
                                             if (nextIndex > index + 2) {
                                                 const fragm = nextChild.fragm = document.createDocumentFragment();
                                                 for (const node of nextChild.Nodes())
@@ -1528,7 +1530,7 @@ class RCompiler {
     }
     compAttrExprList(atts, attName, bRequired) {
         const list = atts.get(attName, bRequired, true);
-        return list ? list.split(',').map(expr => this.CompJavaScript(expr, attName)) : [];
+        return list ? this.CompJavaScript(`[${list}\n]`, attName) : null;
     }
     GetURL(src) {
         return new URL(src, this.FilePath).href;

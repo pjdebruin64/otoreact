@@ -118,6 +118,7 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompChildNodes;
+    private PreCompElement;
     static preMods: string[];
     private CompElement;
     private GetREACT;

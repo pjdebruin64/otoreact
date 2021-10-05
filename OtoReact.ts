@@ -678,12 +678,19 @@ class RCompiler {
         const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >,
             saved = this.SaveContext();
         try {
+            /*
+            for (const srcNode of childNodes)
+                if (srcNode.nodeType == Node.ELEMENT_NODE)
+                    srcNode['nodeComp'] = this.PreCompElement(srcParent, srcNode as HTMLElement);
+*/
             for (const srcNode of childNodes) {
                 switch (srcNode.nodeType) {
                     
                     case Node.ELEMENT_NODE:
                         this.sourceNodeCount ++;
-                        const builderElm = this.CompElement(srcParent, srcNode as HTMLElement);
+                        const nodeComp = null, // srcNode['nodeComp'],
+                            builderElm = nodeComp ? nodeComp() : this.CompElement(srcParent, srcNode as HTMLElement);
+
                         if (builderElm) {                        
                             if (builderElm[0].whitespace==WhiteSpace.trim) {
                                 let i = builders.length - 1;
@@ -741,14 +748,18 @@ class RCompiler {
             };
     }
 
+    private PreCompElement(srcParent: ParentNode, srcElm: HTMLElement): () => [DOMBuilder, ChildNode] {
+        return null;
+    }
+
     static preMods = ['reacton','reactson','thisreactson'];
-    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, whiteSpace?: WhiteSpace): [DOMBuilder, ChildNode] {
+    private CompElement(srcParent: ParentNode, srcElm: HTMLElement): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
-            mapReacts: Array<{attName: string, rvars: Dependent<_RVAR>[]}> = [];
+            mapReacts: Array<{attName: string, rvars: Dependent<_RVAR[]>}> = [];
         let builder: DOMBuilder = null;
         for (const attName of RCompiler.preMods) {
-            const val = atts.get(attName);
-            if (val) mapReacts.push({attName, rvars: val.split(',').map( expr => this.CompJavaScript<_RVAR>(expr, attName) )});
+            const rvars = this.compAttrExprList<_RVAR>(atts, attName);
+            if (rvars) mapReacts.push({attName, rvars});
         }
 labelNoCheck:
         try {
@@ -990,20 +1001,21 @@ labelNoCheck:
 
                     case 'react': {
                         this.MainC.bHasReacts = true;
-                        const getRvars = this.compAttrExprList<_RVAR>(atts, 'on', false);
-                        const getHash = this.CompAttrExpr(atts, 'hash');
+                        const getRvars = this.compAttrExprList<_RVAR>(atts, 'on');
+                        const getHashes = this.compAttrExprList<unknown>(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
                         
                         builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
 
-                        if (getHash) {
+                        if (getHashes) {
                             const b = builder;
                             builder = async function HASH(this: RCompiler, area: Area) {
-                                const hash = getHash(area.env);
                                 const {subArea, range} = PrepareArea(srcElm, area, 'hash');
-                                if (hash !== range.value) {
-                                    range.value = hash;
+                                const hashes = getHashes(area.env);
+
+                                if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
+                                    range.value = hashes;
                                     await b.call(this, subArea);
                                 }
                             }
@@ -1087,14 +1099,14 @@ labelNoCheck:
     private GetREACT(
         srcElm: HTMLElement, attName: string, 
         builder: DOMBuilder, 
-        getRvars: Array<Dependent<_RVAR>>, 
+        getRvars: Dependent<_RVAR[]>, 
         bRenew=false
     ): DOMBuilder{
         this.MainC.bHasReacts = true;
         const  updateBuilder: DOMBuilder = 
             ( bRenew
                 ? async function renew(this: RCompiler, subArea: Area) {
-                    const {subArea: subsubArea} = PrepareArea(srcElm, subArea, 'renew', 2);
+                    const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
                     await builder.call(this, subsubArea);
                 }
             : attName == 'thisreactson'
@@ -1111,24 +1123,23 @@ labelNoCheck:
             // Avoid double updates
             //if (bInit || range.updated != start)
             if (bRenew) {
-                const subsubArea = PrepareArea(srcElm, subArea, 'renew', true).subArea;
+                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             else
                 await builder.call(this, subArea);            
 
-            if (bInit) {
-                const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child, );
-        
-                // Subscribe bij de gegeven variabelen
-                for (const getRvar of getRvars) {
-                    const rvar = getRvar(area.env);
-                    try { rvar.Subscribe(subscriber); }
-                    catch { throw "This is not an RVAR"; }
+            if (getRvars)
+                if (bInit) {
+                    const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child, );
+            
+                    // Subscribe bij de gegeven variabelen
+                    for (const rvar of getRvars(area.env))
+                        try { rvar.Subscribe(subscriber); }
+                        catch { throw "This is not an RVAR"; }
                 }
-            }
-            else
-                (range.value as Subscriber).sArea.env = CloneEnv(subArea.env);
+                else
+                    (range.value as Subscriber).sArea.env = CloneEnv(subArea.env);
         }
     }
 
@@ -1346,7 +1357,7 @@ labelNoCheck:
                                             nextChild = nextChild.next;
                                         else {
                                             // Item has to be moved
-                                            const nextIndex = newMap.get(nextChild.key).index;
+                                            const nextIndex = newMap.get(nextChild.key)?.index;
                                             if (nextIndex > index + 2) {
                                                 const fragm = nextChild.fragm = document.createDocumentFragment();
                                                 for (const node of nextChild.Nodes())
@@ -1936,9 +1947,9 @@ labelNoCheck:
         if (i === undefined) throw `Unknown name '${name}'`;
         return env => env[i];
     }
-    private compAttrExprList<T>(atts: Atts, attName: string, bRequired?: boolean) {
+    private compAttrExprList<T>(atts: Atts, attName: string, bRequired?: boolean): Dependent<T[]> {
         const list = atts.get(attName, bRequired, true);
-        return list ? list.split(',').map(expr => this.CompJavaScript<T>(expr, attName)) : [];
+        return list ? this.CompJavaScript<T[]>(`[${list}\n]`, attName) : null;
     }
 
     private GetURL(src: string) {
