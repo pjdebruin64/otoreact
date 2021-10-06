@@ -1,3 +1,8 @@
+
+    if (location.hash)
+    setTimeout(() => document.getElementById(location.hash.substr(1)).scrollIntoView()
+        , 10);
+        
 const sampleGreeting=
 `<define rvar='yourName' store=sessionStorage></define>
 <p>

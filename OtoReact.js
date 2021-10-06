@@ -12,14 +12,27 @@ var WhiteSpace;
     WhiteSpace[WhiteSpace["trim"] = 2] = "trim";
 })(WhiteSpace || (WhiteSpace = {}));
 class Range {
+    node;
+    text;
+    child;
+    next = null;
+    endMark;
     constructor(node, text) {
         this.node = node;
         this.text = text;
-        this.next = null;
         if (!node)
             this.child = null;
     }
     toString() { return this.text || this.node?.nodeName; }
+    result;
+    value;
+    errorNode;
+    hash;
+    key;
+    prev;
+    fragm;
+    rvar;
+    updated;
     get First() {
         let f;
         if (f = this.node)
@@ -156,13 +169,15 @@ function CloneEnv(env) {
     return clone;
 }
 class Signature {
+    srcElm;
     constructor(srcElm) {
         this.srcElm = srcElm;
-        this.Parameters = [];
-        this.RestParam = null;
-        this.Slots = new Map();
         this.name = srcElm.localName;
     }
+    name;
+    Parameters = [];
+    RestParam = null;
+    Slots = new Map();
     IsCompatible(sig) {
         if (!sig)
             return false;
@@ -287,22 +302,19 @@ function DefConstruct(env, name, construct) {
     envActions.push(() => { constructDefs.set(name, prevDef); });
 }
 class RCompiler {
+    clone;
+    static iNum = 0;
+    instanceNum = RCompiler.iNum++;
+    ContextMap;
+    context;
+    CSignatures;
+    StyleRoot;
+    StyleBefore;
+    AddedHeaderElements;
+    FilePath;
+    RootElm;
     constructor(clone) {
         this.clone = clone;
-        this.instanceNum = RCompiler.iNum++;
-        this.restoreActions = [];
-        this.ToBuild = [];
-        this.AllAreas = [];
-        this.whiteSpc = WhiteSpace.keep;
-        this.bCompiled = false;
-        this.bHasReacts = false;
-        this.DirtyVars = new Set();
-        this.DirtySubs = new Map();
-        this.bUpdating = false;
-        this.bUpdate = false;
-        this.handleUpdate = null;
-        this.sourceNodeCount = 0;
-        this.builtNodeCount = 0;
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
@@ -313,6 +325,7 @@ class RCompiler {
         this.FilePath = clone?.FilePath || location.origin + RootPath;
     }
     get MainC() { return this.clone || this; }
+    restoreActions = [];
     SaveContext() {
         return this.restoreActions.length;
     }
@@ -394,9 +407,21 @@ class RCompiler {
         this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
         RHTML = savedRCompiler;
     }
+    Settings;
+    ToBuild = [];
+    AllAreas = [];
+    Builder;
+    whiteSpc = WhiteSpace.keep;
+    bCompiled = false;
+    bHasReacts = false;
+    DirtyVars = new Set();
+    DirtySubs = new Map();
     AddDirty(sub) {
         this.MainC.DirtySubs.set(sub.ref, sub);
     }
+    bUpdating = false;
+    bUpdate = false;
+    handleUpdate = null;
     RUpdate() {
         this.MainC.bUpdate = true;
         if (!this.clone && !this.bUpdating && !this.handleUpdate)
@@ -406,6 +431,7 @@ class RCompiler {
             }, 2);
     }
     ;
+    start;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) {
             this.bUpdate = true;
@@ -484,6 +510,8 @@ class RCompiler {
         }
         return t;
     }
+    sourceNodeCount = 0;
+    builtNodeCount = 0;
     CompChildNodes(srcParent, childNodes = srcParent.childNodes, bNorestore) {
         const builders = [], saved = this.SaveContext();
         try {
@@ -514,8 +542,7 @@ class RCompiler {
                                 builders.push([
                                     async (area) => {
                                         PrepareText(area, getText(area.env));
-                                    },
-                                    srcNode
+                                    }, srcNode
                                 ]);
                             else {
                                 const isBlank = /^[ \t\r\n]*$/.test(fixed);
@@ -523,8 +550,7 @@ class RCompiler {
                                     builders.push([
                                         async (area) => {
                                             PrepareText(area, fixed);
-                                        },
-                                        srcNode, isBlank
+                                        }, srcNode, isBlank
                                     ]);
                             }
                             if (this.whiteSpc != WhiteSpace.preserve)
@@ -555,6 +581,7 @@ class RCompiler {
     PreCompElement(srcParent, srcElm) {
         return null;
     }
+    static preMods = ['reacton', 'reactson', 'thisreactson'];
     CompElement(srcParent, srcElm) {
         const atts = new Atts(srcElm), mapReacts = [];
         let builder = null;
@@ -1285,6 +1312,7 @@ class RCompiler {
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
         };
     }
+    static regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
         const ws = name == 'pre' ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
@@ -1545,18 +1573,17 @@ class RCompiler {
         return await response.text();
     }
 }
-RCompiler.iNum = 0;
-RCompiler.preMods = ['reacton', 'reactson', 'thisreactson'];
-RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul)$/;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 export class _RVAR {
+    MainC;
+    store;
+    storeName;
     constructor(MainC, globalName, initialValue, store, storeName) {
         this.MainC = MainC;
         this.store = store;
         this.storeName = storeName;
-        this.Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         let s;
@@ -1569,6 +1596,8 @@ export class _RVAR {
         this._Value = initialValue;
         this.storeName ||= globalName;
     }
+    _Value;
+    Subscribers = new Set();
     Subscribe(s) {
         if (!s.ref)
             s.ref = { isConnected: true };

@@ -66,7 +66,6 @@
                 <section><include src="C2_HtmlElements.html"></include></section>
                 <section><include src="C3_Constructs.html"></include></section>
                 <section><include src="C4_Scripts.html"></include></section>
-
             </pageLayout>
         </when>
         <when match="routing">
@@ -76,5 +75,9 @@
             <include src="download.html">
         </when>        
     </case>
-
+    <script nomodule>
+        if (location.hash)
+            setTimeout(() => document.getElementById(location.hash.substr(1)).scrollIntoView()
+                , 0);
+    </script>
 </body>
