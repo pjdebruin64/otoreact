@@ -204,7 +204,6 @@ function PrepareText(area: Area, content: string) {
 
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
-const location = document.location;
 let RootPath: string = null;
 
 export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
@@ -222,7 +221,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
-            ? R.DoUpdate().then(() => {elm.hidden = false} )
+            ? R.DoUpdate().then(() => {elm.hidden = false; SetLocation()} )
             : null);
     }
     catch (err) {
@@ -2158,16 +2157,24 @@ export {_range as range};
 
 export const docLocation: _RVAR<string> & {subpath?: string; search?: string} = RVAR<string>('docLocation', location.href);
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(RootPath.length)});
+
 function SetLocation() {
     docLocation.V = location.href;
+    //docLocation.subpath = location.pathname.substr(RootPath.length);
+    if (location.hash)
+        document.getElementById(location.hash.substr(1))?.scrollIntoView();
 }
+window.addEventListener('popstate', SetLocation );
+
 docLocation.Subscribe({updater: async () => {
     if (docLocation.V != location.href)
         history.pushState(null, null, docLocation.V);
 }})
 
-window.addEventListener('popstate', SetLocation );
-export const reroute = globalThis.reroute = (arg: Event | string) => {
-    docLocation.V = typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href;
+export const reroute = globalThis.reroute = 
+(arg: Event | string) => {
+    docLocation.V = 
+        typeof arg=='string' ? arg 
+        : (arg.target as HTMLAnchorElement).href;
     return false;
 }

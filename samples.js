@@ -1,8 +1,3 @@
-
-    if (location.hash)
-    setTimeout(() => document.getElementById(location.hash.substr(1)).scrollIntoView()
-        , 10);
-        
 const sampleGreeting=
 `<define rvar='yourName' store=sessionStorage></define>
 <p>
@@ -29,6 +24,9 @@ const ColorTable = RVAR();
   if (response.ok)
     ColorTable.V = await response.json();
 })();
+/* Too bad JavaScript has no async blocks, like:
+  async { ... await ... }
+*/
 
 /* Utility for 2-digit hex code */
 function toHex(n){ 
@@ -36,20 +34,17 @@ function toHex(n){
 }
 
 /* Rotation */
-let handle=RVAR('', 0), bRotated=RVAR('', false);
+let handle=RVAR(), bRotated=RVAR();
 
 async function StartStop() {
   if (handle.V) {
     clearInterval(handle.V); handle.V=0;
-    ColorTable.U.push(ColorTable.V.shift());
-  }
-  else {
+  } else
     handle.V = setInterval(() => {
       // Modify the data model, triggering a DOM update:
       ColorTable.U.push(ColorTable.V.shift());
-    }, 390);
-    bRotated.V = true;
-  }
+    }, 330);
+  bRotated.V = true;
 }
 </script>
 
@@ -61,13 +56,13 @@ async function StartStop() {
     max-width: 8em; overflow:hidden;
   }
 
-  @keyframes ROTATE {
+  @keyframes Disappearing {
     from {line-height: 100%}
     to   {line-height: 0%}
   }
   
   tbody.rotated > tr:first-child {
-    animation: ROTATE 300ms linear 90ms forwards
+    animation: Disappearing 300ms linear 30ms forwards
   }
 </style>
 
@@ -96,8 +91,8 @@ child of <TABLE>. OtoReact removes these dots. -->
     <!-- Detail records -->
     <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
       <tr. 
-        style.backgroundColor= "rgb({C.red},{C.green},{C.blue})" 
-        #style.color      = "C.green<148 ? 'white' : 'black'"
+        style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+        #style.color = "C.green<148 ? 'white' : 'black'"
       >
         <td.>{C.name}</td.>
         <td.>{C.red}</td.>
