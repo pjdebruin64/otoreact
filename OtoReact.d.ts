@@ -50,8 +50,7 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-declare type Subscriber = {
-    updater: () => Promise<void>;
+declare type Subscriber = (() => (void | Promise<void>)) & {
     ref?: {
         isConnected: boolean;
     };
@@ -175,6 +174,6 @@ declare const _range: (from: number, upto?: number, step?: number) => Generator<
 export { _range as range };
 export declare const docLocation: _RVAR<string> & {
     subpath?: string;
-    search?: string;
+    searchParams?: URLSearchParams;
 };
-export declare const reroute: (arg: Event | string) => boolean;
+export declare const reroute: (arg: MouseEvent | string) => void;

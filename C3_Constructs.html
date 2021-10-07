@@ -75,8 +75,8 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#thisreactson"><code>thisreactson</code></a>).
     </li>
 </ul>
-<h3><{}CASE> with pattern matching</h3>
-Furthermore, <elm>CASE</elm> can select an alternative based on pattern matching against a given string value.
+<h3 id=PatternMatching>Pattern Matching</h3>
+Furthermore, <elm>CASE</elm> can select an alternative based on <i>pattern matching</i> against a given string value.
 <p>Substrings of the value can be captured into local variables.
 <p>There are three variants of patterns:
 </p>
@@ -207,7 +207,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     <dd>
         The loop variable <i>name</i> is immutable, but events may modify its properties. If you need the DOM subtree to react on property changes, then you can add attribute <code>reactive</code> to make <i>name</i> reactive.
         <p>
-            When <code>reactive</code> is present, then <i>name</i> gets a property <code><i>name</i>.U</code>, which yields the value of <i>name</i> and marks it as dirty, just as with <a href="#ReactiveVariables">reactive variables</a>.
+            When <code>reactive</code> is present, then <i>name</i> gets a property <code><i>name</i>.U</code>, which yields the value of <i>name</i> and marks it as dirty, just as with <a href="#RVAR">reactive variables</a>.
             <br><i>Name</i> does not become a full RVAR: one cannot get or set <code><i>name</i>.V</code>. One could call it an RVAR-light.
         </p>
         <p>

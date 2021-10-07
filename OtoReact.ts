@@ -221,7 +221,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
-            ? R.DoUpdate().then(() => {elm.hidden = false; SetLocation()} )
+            ? R.DoUpdate().then(() => {elm.hidden = false; ScrollToHash();} )
             : null);
     }
     catch (err) {
@@ -241,11 +241,10 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 
-type Subscriber = {
-    updater: () => Promise<void>;
-    ref?: {isConnected: boolean};
+type Subscriber = (() => (void|Promise<void>)) &
+    { ref?: {isConnected: boolean};
     sArea?: Area;
-};
+    };
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -516,18 +515,17 @@ class RCompiler {
         
     Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range ): Subscriber {
         const sArea = {
-            parent, before, bNoChildBuilding,
-            env: CloneEnv(env), 
-            range,
-        };
-        return { 
-            ref: before,
-            updater: async () => {
-                (this as RCompiler).builtNodeCount++;
-                await builder.call(this, {...sArea});
+                parent, before, bNoChildBuilding,
+                env: CloneEnv(env), 
+                range,
             },
-            sArea: sArea,
-        };
+            subscriber: Subscriber = () => {
+                (this as RCompiler).builtNodeCount++;
+                return builder.call(this, {...sArea});
+            };
+        subscriber.sArea = sArea;
+        subscriber.ref = before;
+        return subscriber;
     }
 
     public async InitialBuild(area: Area) {
@@ -606,7 +604,7 @@ class RCompiler {
                         this.DirtySubs = new Map();
                         for (const sub of subs.values()) 
                             if (!sub.ref || sub.ref.isConnected)
-                                try { await sub.updater(); }
+                                try { await sub(); }
                                 catch (err) {
                                     const msg = `ERROR: ${err}`;
                                     console.log(msg);
@@ -804,8 +802,9 @@ labelNoCheck:
                     case 'case': {
                         const bHiding = CBool(atts.get('hiding')),
                             caseList: Array<{
-                                cond: Dependent<unknown>,
-                                patt: {lvars: LVar[], regex: RegExp, url?: boolean},
+                                cond?: Dependent<unknown>,
+                                not?: boolean,
+                                patt?: {lvars: LVar[], regex: RegExp, url?: boolean},
                                 builder: DOMBuilder, 
                                 childElm: HTMLElement,
                             }> = [],
@@ -821,11 +820,12 @@ labelNoCheck:
                                     saved = this.SaveContext();
                                 this.whiteSpc = bTrimLeft;
                                 try {
-                                    let cond: Dependent<unknown>;
+                                    let cond: Dependent<unknown>, not: boolean = false;
                                     let patt:  {lvars: LVar[], regex: RegExp, url?: boolean};
                                     switch (child.nodeName) {
                                         case 'WHEN':                                
                                             cond = this.CompAttrExpr<unknown>(atts, 'cond');
+                                            not = CBool(atts.get('not')) || false;
                                             let pattern: string;
                                             patt =
                                                 (pattern = atts.get('match')) != null
@@ -847,7 +847,7 @@ labelNoCheck:
                                         case 'ELSE':
 
                                             const builder = this.CompChildNodes(childElm);
-                                            caseList.push({cond, patt, builder, childElm});
+                                            caseList.push({cond, not, patt, builder, childElm});
                                             atts.CheckNoAttsLeft();
                                             continue;
                                     }
@@ -859,7 +859,7 @@ labelNoCheck:
                         }
                         if (getCond)
                             caseList.unshift({
-                                cond: getCond, patt: null,
+                                cond: getCond, not: false,
                                 builder: this.CompChildNodes(srcElm, bodyNodes),
                                 childElm: srcElm
                             });
@@ -872,10 +872,10 @@ labelNoCheck:
                                 let matchResult: RegExpExecArray;
                                 for (const alt of caseList)
                                     try {
-                                        if (
+                                        if ( !(
                                             (!alt.cond || alt.cond(env)) 
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
-                                            )
+                                            ) == alt.not)
                                         { choosenAlt = alt; break }
                                     } catch (err) { throw OuterOpenTag(alt.childElm) + err }
                                 if (bHiding) {
@@ -2155,26 +2155,28 @@ const _range = globalThis.range = function* range(from: number, upto?: number, s
 }
 export {_range as range};
 
-export const docLocation: _RVAR<string> & {subpath?: string; search?: string} = RVAR<string>('docLocation', location.href);
+export const docLocation: _RVAR<string> & {subpath?: string; searchParams?: URLSearchParams}
+    = RVAR<string>('docLocation', location.href);
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(RootPath.length)});
 
-function SetLocation() {
-    docLocation.V = location.href;
-    //docLocation.subpath = location.pathname.substr(RootPath.length);
-    if (location.hash)
-        document.getElementById(location.hash.substr(1))?.scrollIntoView();
-}
-window.addEventListener('popstate', SetLocation );
+window.addEventListener('popstate', () => {docLocation.V = location.href;} );
 
-docLocation.Subscribe({updater: async () => {
+function ScrollToHash() {
+    if (location.hash)
+        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 5);
+}
+docLocation.Subscribe( () => {
     if (docLocation.V != location.href)
         history.pushState(null, null, docLocation.V);
-}})
+    ScrollToHash();;
+});
 
 export const reroute = globalThis.reroute = 
-(arg: Event | string) => {
-    docLocation.V = 
-        typeof arg=='string' ? arg 
-        : (arg.target as HTMLAnchorElement).href;
-    return false;
+(arg: MouseEvent | string) => {
+    if (typeof arg=='string')
+        docLocation.V = arg;
+    else if (!arg.ctrlKey) {
+        docLocation.V = (arg.target as HTMLAnchorElement).href;
+        arg.preventDefault();
+    }
 }

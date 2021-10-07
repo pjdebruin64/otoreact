@@ -184,7 +184,7 @@ The question marks indicate optional arguments.
 <h2 id=Variables>Local and global variables</h2>
 
 
-<h2 id=ReactiveVariables>RVAR: Reactive VARiable's</h2>
+<h2 id=RVAR>RVAR: Reactive VARiable's</h2>
 <p>
     Reactive variables (RVAR's) are objects containing variable data on which RHTML elements may react.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
@@ -200,19 +200,28 @@ The question marks indicate optional arguments.
     &hellip;</pre>
     , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
 </p>
-<p>
-    A reactive variable is an object, distinct from the value of the variable.
-    <br>To get or set the value of an RVAR <code>x</code>, one writes <code class=sourcecode>x.V</code>. When <code>x.V</code> is set, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
-</p>
-<p>
-    When you are modifying, not the value of a variable, but properties of the value, the variable has to be marked as dirty as well.
-    <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
-    <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array.
-</p>
-<p>
-    You may inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <elm>REACT</elm> element or the <code>react</code> attribute, see below.
-    <br>If you do not, then the full trunk of compiled RHTML will react on all RVAR's.
-</p>
+<p>A reactive variable is an object, distinct from the value of the variable.</p>
+<ul>
+    <li>
+        To get or set the value of an RVAR <code>x</code>, one writes <code class=sourcecode>x.V</code>. When <code>x.V</code> is set, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
+    </li>
+    <li>
+        When you are modifying, not the value of a variable, but properties of the value, the variable has to be marked as dirty as well.
+        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
+        <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array.
+    </li>
+    <li>
+        You may inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <elm>REACT</elm> element or the <code>react</code> attribute, see below.
+        <br>If you do not, then the full trunk of compiled RHTML will react on all RVAR's.
+    </li>
+    <li>
+        JavaScript code can be notified of changes to the RVAR, by calling <code class=sourcecode>x.Subscribe(<i>handler</i>)</code>.
+        <br>The handler will be called whenever the RVAR is modified or otherwise set dirty.
+    </li>
+    <li>
+        An RVAR can be marked as dirty without modifying it, by calling <code>x.SetDirty()</code>.
+    </li>
+</ul>
 
 <h3 id=Persistence>Persistence</h3>
 When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
@@ -309,7 +318,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
 <{}table>
     <{}tr> &hellip; \{x\}&hellip; <{}/tr>
 <{}/table></pre>
-                , and may give a misleading error about <code>x</code> being undefined.
+                , and will give a misleading error about <code>x</code> being undefined.
                 <br>To get the loop right, OtoReact allows you to put one (or more) dots after any tag name, so the parser won't interfere:
 <pre><{}table.>
     <{}for let=x #of=&hellip;>
@@ -321,7 +330,8 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
                 <br>Thus, if you write
-                <pre><{}p> &hellip; <{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
+<pre><{}p> &hellip; 
+<{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
                 , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
 <pre><{}p> &hellip; <{}if &hellip;><{}/if><{}/p>
 <{}ul> &hellip; <{}/ul></pre>

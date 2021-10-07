@@ -11,24 +11,35 @@
         Global variable containing the <i>root path</i> of the current application.
         <br>All relative URL's within an OtoReact aplication are considered relative to this root path, and it is used to determine the current subpath.
     </dd>
-    <dt><code>\{rootPattern: &hellip;\}</code></dt>
-    <dd>
-        Compiler option, containg a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the root path.
-        <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the root path.
-        <br>The default rootPattern is '/|^'.
-        <br>E.g., if an OtoReact application is loaded from URL "{document.location.origin}{RootPath}routing" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "{RootPath}routing" up to and including the last slash, which is "{RootPath}".
-    </dd>
-    <dt><elm>A href #onclick=reroute</elm></dt>
-    <dd>
-        When 
-    </dd>
-    <dt><code>reroute(href)</code></dt>
     <dt><code>docLocation</code></dt>
+    <dd reacton=docLocation>
+        Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
+        <br>So its value is always equal to <code>location.href</code> (currently "{docLocation.V}").
+        <p>It allows applications to react on changes in the URL.
+    </dd>
     <dt><code>docLocation.subpath</code></dt>
     <dd>
         Part of the current pathname after the root path.
-        <br>So for URL "{docLocation.V.origin}{RootPath}routing", it is "routing".
-        <br>An application can use <a href="#Case">case analysis</a> on this value to show the correct page.
+        <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+RootPath).href}", it is "routing".
+        <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
+    </dd>
+    <dt><code>reroute</code></dt>
+    <dd>
+        Handler for the click-event for internal links, like <elm>a href="<i>href</i>" #onclick=reroute</elm>.
+        <br>It causes clicks on the link to be intercepted, so that the application can change its state instead of sending a page request to the server.
+    </dd>
+    <dt><code>reroute(<i>href</i>)</code></dt>
+    <dd>
+        Command to navigate the application to <i>href</i>. It is the same as <code>docLocation.V = <i>href</i></code>.
+        <br>This is useful for <elm>BUTTON onclick</elm> handlers.
+    </dd>
+    <dt><code>\{rootPattern: &hellip;\}</code></dt>
+    <dd>
+        Compiler option, specifying a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the root path.
+        <br>This is only needed for applications that want to use subpathes containing slashes.
+        <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the root path.
+        <p>The default rootPattern is '/|^'.
+        <br>E.g., if an OtoReact application is loaded from URL "{document.location.origin}{RootPath}routing" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "{RootPath}routing" up to and including the last slash, which is "{RootPath}".
     </dd>
 </dl>
 

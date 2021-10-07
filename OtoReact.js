@@ -136,7 +136,7 @@ export function RCompile(elm, settings) {
         R.Compile(elm, {}, true);
         R.ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
         return (R.Settings.bBuild
-            ? R.DoUpdate().then(() => { elm.hidden = false; SetLocation(); })
+            ? R.DoUpdate().then(() => { elm.hidden = false; ScrollToHash(); })
             : null);
     }
     catch (err) {
@@ -370,15 +370,13 @@ class RCompiler {
             parent, before, bNoChildBuilding,
             env: CloneEnv(env),
             range,
+        }, subscriber = () => {
+            this.builtNodeCount++;
+            return builder.call(this, { ...sArea });
         };
-        return {
-            ref: before,
-            updater: async () => {
-                this.builtNodeCount++;
-                await builder.call(this, { ...sArea });
-            },
-            sArea: sArea,
-        };
+        subscriber.sArea = sArea;
+        subscriber.ref = before;
+        return subscriber;
     }
     async InitialBuild(area) {
         const savedRCompiler = RHTML, { parentR } = area;
@@ -435,7 +433,7 @@ class RCompiler {
                         for (const sub of subs.values())
                             if (!sub.ref || sub.ref.isConnected)
                                 try {
-                                    await sub.updater();
+                                    await sub();
                                 }
                                 catch (err) {
                                     const msg = `ERROR: ${err}`;
@@ -600,11 +598,12 @@ class RCompiler {
                                     const childElm = child, atts = new Atts(childElm), saved = this.SaveContext();
                                     this.whiteSpc = bTrimLeft;
                                     try {
-                                        let cond;
+                                        let cond, not = false;
                                         let patt;
                                         switch (child.nodeName) {
                                             case 'WHEN':
                                                 cond = this.CompAttrExpr(atts, 'cond');
+                                                not = CBool(atts.get('not')) || false;
                                                 let pattern;
                                                 patt =
                                                     (pattern = atts.get('match')) != null
@@ -622,7 +621,7 @@ class RCompiler {
                                                     throw `Match requested but no 'value' specified.`;
                                             case 'ELSE':
                                                 const builder = this.CompChildNodes(childElm);
-                                                caseList.push({ cond, patt, builder, childElm });
+                                                caseList.push({ cond, not, patt, builder, childElm });
                                                 atts.CheckNoAttsLeft();
                                                 continue;
                                         }
@@ -638,7 +637,7 @@ class RCompiler {
                             }
                             if (getCond)
                                 caseList.unshift({
-                                    cond: getCond, patt: null,
+                                    cond: getCond, not: false,
                                     builder: this.CompChildNodes(srcElm, bodyNodes),
                                     childElm: srcElm
                                 });
@@ -649,8 +648,8 @@ class RCompiler {
                                     let matchResult;
                                     for (const alt of caseList)
                                         try {
-                                            if ((!alt.cond || alt.cond(env))
-                                                && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))) {
+                                            if (!((!alt.cond || alt.cond(env))
+                                                && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))) == alt.not) {
                                                 choosenAlt = alt;
                                                 break;
                                             }
@@ -1698,20 +1697,23 @@ const _range = globalThis.range = function* range(from, upto, step = 1) {
 export { _range as range };
 export const docLocation = RVAR('docLocation', location.href);
 Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substr(RootPath.length) });
-function SetLocation() {
-    docLocation.V = location.href;
+window.addEventListener('popstate', () => { docLocation.V = location.href; });
+function ScrollToHash() {
     if (location.hash)
-        document.getElementById(location.hash.substr(1))?.scrollIntoView();
+        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 5);
 }
-window.addEventListener('popstate', SetLocation);
-docLocation.Subscribe({ updater: async () => {
-        if (docLocation.V != location.href)
-            history.pushState(null, null, docLocation.V);
-    } });
+docLocation.Subscribe(() => {
+    if (docLocation.V != location.href)
+        history.pushState(null, null, docLocation.V);
+    ScrollToHash();
+    ;
+});
 export const reroute = globalThis.reroute =
     (arg) => {
-        docLocation.V =
-            typeof arg == 'string' ? arg
-                : arg.target.href;
-        return false;
+        if (typeof arg == 'string')
+            docLocation.V = arg;
+        else if (!arg.ctrlKey) {
+            docLocation.V = arg.target.href;
+            arg.preventDefault();
+        }
     };
