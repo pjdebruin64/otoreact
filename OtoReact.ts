@@ -217,8 +217,6 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         R.FilePath = location.origin + (
             globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, '')
         )
-        SetLocation();
-
         R.RootElm = elm;
         R.Compile(elm, {}, true);
         R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
@@ -569,7 +567,7 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 2);
+            }, 5);
     };
 
     private start: number;
@@ -812,8 +810,8 @@ labelNoCheck:
                                 builder: DOMBuilder, 
                                 childElm: HTMLElement,
                             }> = [],
-                            getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', true),
-                            getVal = this.CompAttrExpr<string>(atts, 'value');
+                            getVal = this.CompAttrExpr<string>(atts, 'value'),
+                            getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', !getVal);
                         atts.CheckNoAttsLeft();
                         const bodyNodes: ChildNode[] = [],
                             bTrimLeft = this.whiteSpc;
@@ -2158,17 +2156,18 @@ const _range = globalThis.range = function* range(from: number, upto?: number, s
 }
 export {_range as range};
 
-export const docLocation: _RVAR<Location> & {subpath?: string} = RVAR<Location>('docLocation', location);
+export const docLocation: _RVAR<string> & {subpath?: string; search?: string} = RVAR<string>('docLocation', location.href);
+Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(RootPath.length)});
 function SetLocation() {
-    const subpath = location.pathname.substr(RootPath.length);
-    if (docLocation.subpath != null && subpath != docLocation.subpath)
-        docLocation.SetDirty();
-    docLocation.subpath = subpath;
+    docLocation.V = location.href;
 }
+docLocation.Subscribe({updater: async () => {
+    if (docLocation.V != location.href)
+        history.pushState(null, null, docLocation.V);
+}})
 
 window.addEventListener('popstate', SetLocation );
 export const reroute = globalThis.reroute = (arg: Event | string) => {
-    history.pushState(null, null, typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href );
-    SetLocation();
+    docLocation.V = typeof arg=='string' ? arg : (arg.target as HTMLAnchorElement).href;
     return false;
 }

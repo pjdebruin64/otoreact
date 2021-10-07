@@ -133,7 +133,6 @@ export function RCompile(elm, settings) {
         if (!m)
             throw `Root pattern '${rootPattern}' does not match URL '${location.href}'`;
         R.FilePath = location.origin + (globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, ''));
-        SetLocation();
         R.RootElm = elm;
         R.Compile(elm, {}, true);
         R.ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
@@ -399,7 +398,7 @@ class RCompiler {
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
-            }, 2);
+            }, 5);
     }
     ;
     async DoUpdate() {
@@ -594,7 +593,7 @@ class RCompiler {
                     case 'if':
                     case 'case':
                         {
-                            const bHiding = CBool(atts.get('hiding')), caseList = [], getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr(atts, 'cond', true), getVal = this.CompAttrExpr(atts, 'value');
+                            const bHiding = CBool(atts.get('hiding')), caseList = [], getVal = this.CompAttrExpr(atts, 'value'), getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr(atts, 'cond', !getVal);
                             atts.CheckNoAttsLeft();
                             const bodyNodes = [], bTrimLeft = this.whiteSpc;
                             for (const child of srcElm.childNodes) {
@@ -1698,16 +1697,17 @@ const _range = globalThis.range = function* range(from, upto, step = 1) {
         yield i;
 };
 export { _range as range };
-export const docLocation = RVAR('docLocation', location);
+export const docLocation = RVAR('docLocation', location.href);
+Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substr(RootPath.length) });
 function SetLocation() {
-    const subpath = location.pathname.substr(RootPath.length);
-    if (docLocation.subpath != null && subpath != docLocation.subpath)
-        docLocation.SetDirty();
-    docLocation.subpath = subpath;
+    docLocation.V = location.href;
 }
+docLocation.Subscribe({ updater: async () => {
+        if (docLocation.V != location.href)
+            history.pushState(null, null, docLocation.V);
+    } });
 window.addEventListener('popstate', SetLocation);
 export const reroute = globalThis.reroute = (arg) => {
-    history.pushState(null, null, typeof arg == 'string' ? arg : arg.target.href);
-    SetLocation();
+    docLocation.V = typeof arg == 'string' ? arg : arg.target.href;
     return false;
 };

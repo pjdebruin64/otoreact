@@ -16,7 +16,7 @@
         Compiler option, containg a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the root path.
         <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the root path.
         <br>The default rootPattern is '/|^'.
-        <br>E.g., if an OtoReact application is loaded from URL "{docLocation.V.origin}{RootPath}routing" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "{RootPath}routing" up to and including the last slash, which is "{RootPath}".
+        <br>E.g., if an OtoReact application is loaded from URL "{document.location.origin}{RootPath}routing" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "{RootPath}routing" up to and including the last slash, which is "{RootPath}".
     </dd>
     <dt><elm>A href #onclick=reroute</elm></dt>
     <dd>

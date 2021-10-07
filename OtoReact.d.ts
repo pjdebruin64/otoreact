@@ -173,7 +173,8 @@ export declare let RHTML: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
 declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };
-export declare const docLocation: _RVAR<Location> & {
+export declare const docLocation: _RVAR<string> & {
     subpath?: string;
+    search?: string;
 };
 export declare const reroute: (arg: Event | string) => boolean;
