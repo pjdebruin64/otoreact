@@ -15,7 +15,7 @@
     <dd reacton=docLocation>
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
         <br>So its value is always equal to <code>location.href</code> (currently "{docLocation.V}").
-        <p>It allows applications to react on changes in the URL.
+        <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.
     </dd>
     <dt><code>docLocation.subpath</code></dt>
     <dd>
@@ -27,6 +27,9 @@
     <dd>
         Handler for the click-event for internal links, like <elm>a href="<i>href</i>" #onclick=reroute</elm>.
         <br>It causes clicks on the link to be intercepted, so that the application can change its state instead of sending a page request to the server.
+        <p>
+            Control-clicks are not intercepted and will open in a new browser tab.
+        </p>
     </dd>
     <dt><code>reroute(<i>href</i>)</code></dt>
     <dd>

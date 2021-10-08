@@ -55,6 +55,7 @@ declare type Subscriber = (() => (void | Promise<void>)) & {
         isConnected: boolean;
     };
     sArea?: Area;
+    bImm?: boolean;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
@@ -64,7 +65,7 @@ declare type ConstructDef = {
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>;
-    _UpdatesTo?: Array<_RVAR>;
+    _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
     readonly U?: T;
 };
@@ -103,7 +104,7 @@ declare class RCompiler {
     private whiteSpc;
     private bCompiled;
     private bHasReacts;
-    DirtyVars: Set<_RVAR<unknown>>;
+    DirtyVars: Set<RVAR<unknown>>;
     private DirtySubs;
     AddDirty(sub: Subscriber): void;
     private bUpdating;
@@ -148,14 +149,14 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-export declare class _RVAR<T = unknown> {
+declare class _RVAR<T = unknown> {
     private MainC;
     private store?;
     private storeName?;
     constructor(MainC: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
     Subscribers: Set<Subscriber>;
-    Subscribe(s: Subscriber): void;
+    Subscribe(s: Subscriber, bImmediate?: boolean): void;
     get V(): T;
     set V(t: T);
     get U(): T;
@@ -163,16 +164,18 @@ export declare class _RVAR<T = unknown> {
     SetDirty(): void;
     Save(): void;
 }
+export interface RVAR<T = unknown> extends _RVAR<T> {
+}
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
     get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
     CheckNoAttsLeft(): void;
 }
 export declare let RHTML: RCompiler;
-export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, RUpdate: () => void;
+export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, RUpdate: () => void;
 declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };
-export declare const docLocation: _RVAR<string> & {
+export declare const docLocation: RVAR<string> & {
     subpath?: string;
     searchParams?: URLSearchParams;
 };

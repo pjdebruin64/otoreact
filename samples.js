@@ -428,7 +428,7 @@ const sampleRHTML =
 </RHTML>`;
 
 const sampleStyleTemplate =
-`<def rvar=Hue #value=0></def>
+`<def rvar=Hue #value="Math.random()*360"></def>
 
 <style. reacton=Hue>
   h2 \\{ color: hsl( {Hue.V}, 100%, 50%) \\}
@@ -436,11 +436,9 @@ const sampleStyleTemplate =
 
 <h2>Section 1</h2>
 Content
-<h2>Section 2<h2>
+<h2>Section 2</h2>
 
-<button onclick="
-    Hue.V = Math.random()*360
-">
+<button onclick="Hue.V = Math.random()*360">
   Random color
 </button>`;
 

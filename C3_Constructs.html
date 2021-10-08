@@ -290,26 +290,31 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <br>These are always skipped by the browser, and always executed by OtoReact.
     </dd>
 </dl>
-<!--
-<p>
-    To waylay hackers of this website, <code>fetch</code>, <code>XMLHttpRequest</code>, <code>import</code>, <elm>include</elm>, and <elm>import</elm> are not available in scripts within the editable demo's on this page.
-    <br><code>eval</code> is redefined to access the global environment only.
-</p>
--->
 
-<h2 id=ReactOn><{}REACT on>, reacton, thisreactson</h2>
-One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct to specify that the nodes produced by this RHTML node, <i>with all their children</i>, should <i>react on</i> changes to any of the listed RVAR's.
+<h2 id=ReactOn><{}REACT on? hash? renew?></h2>
+<pre class=sourcecode>
+<elm>REACT on=<i>RVARlist</i></elm>
+    <i>Content</i>
+<elm>/REACT</elm></pre>
+specifies that the given content should <i>react on</i> changes to any of the listed RVAR's. So whenever one or more of the RVAR's have changed, the content will be updated.
+
 <p>
-    Construct <code class=sourcecode><elm>REACT on="<i>RVARlist</i>"</elm> &hellip; <elm>/REACT</elm></code> does the same, except that one can insert <i>multiple</i> nodes rather than a single source element
+    With attribute <elm class=sourcecode>hash="<i>expressionlist</i>"</elm>, the given content will <i>only</i> be updated when an update is requested <i>and</i> the value of some expression(s) in the list has changed. This can improve performance.
 </p>
+
+<p>
+    With attribute <code class=sourcecode>renew</code>, the content will not be updated but removed and rebuilt on everyupdate request.
+    <br>This is useful when the content creates new RVAR's on every update. Without renewing, any <elm>REACT on</elm> within the content would react only on the original RVAR's, not on the newly created ones.
+</p>
+
+<h2>reacton, thisreactson</h2>
+One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct. This is the same as including the element within <elm>REACT on=<i>RVARlist</i></elm>.
 <p id=thisreactson>
     RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.
 </p>
 
 <div id=TicTacToe></div>
 <demo #bShow=false #content=sampleTicTacToe></demo>
-
-<h2><{}REACT hash></h2>
 
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
 <p>
@@ -352,14 +357,14 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> are <i>optional</i> parameters.
                     <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>null</code> when there is no default..
                     <p>
-                        An empty <i>string</i> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
+                        An empty <i>string</i>: <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
                         <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
                     </p>
                     <p>The default default value is <code>undefined</code>.</p>
                 </li>
                 <li>
                     An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
-                    <br>All instance attributes that do not match a normal parameter are collected into this rest parameter, which can (only) be passed on to an HTML element.
+                    <br>All instance attributes that do not match a normal parameter are collected into this rest parameter, which can be passed on to an HTML element.
                 </li>
             </ul>
         </li>
@@ -538,7 +543,7 @@ Here is a component which allows one to define tables column by column:
 imports a number of components defined in an external file, called a <i>module</i>.
 <ul>
 <li>
-    The component signatures must be repeated in the main file, because the file is fetched asynchronously while compiling should continue synchronously.
+    The component signatures must be repeated in the main file, because the file is fetched asynchronously while compiling continues synchronously.
 </li>
 <li>
     Components from the same module may be imported at multiple places and will be fetched and compiled only once.

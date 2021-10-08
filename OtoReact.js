@@ -227,21 +227,30 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                 elm.classList.add(name);
             break;
         case ModifType.Style:
-            if (val !== undefined && val !== false)
-                elm.style[name] = val || '';
+            elm.style[name] = val || (val === 0 ? '0' : null);
             break;
         case ModifType.AddToStyle:
             if (val)
-                Object.assign(elm.style, val);
+                for (const [name, v] of Object.entries(val))
+                    elm.style[name] = v || (v === 0 ? '0' : null);
             break;
         case ModifType.AddToClassList:
-            if (Array.isArray(val))
-                for (const className of val)
-                    elm.classList.add(className);
-            else
-                for (const [className, bln] of Object.entries(val))
-                    if (bln)
-                        elm.classList.add(className);
+            switch (typeof val) {
+                case 'string':
+                    elm.classList.add(val);
+                    break;
+                case 'object':
+                    if (val)
+                        if (Array.isArray(val))
+                            for (const name of val)
+                                elm.classList.add(name);
+                        else
+                            for (const [name, bln] of Object.entries(val))
+                                if (bln)
+                                    elm.classList.add(name);
+                    break;
+                default: throw `Invalid '+class' value`;
+            }
             break;
         case ModifType.RestArgument:
             for (const { modType, name, value } of val)
@@ -1330,7 +1339,7 @@ class RCompiler {
                         name: CapitalizeProp(m[0]),
                         depValue: this.CompHandler(attName, attValue)
                     });
-                else if (m = /^#class:(.*)$/.exec(attName))
+                else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
                         modType: ModifType.Class, name: m[1],
                         depValue: this.CompJavaScript(attValue, attName)
@@ -1551,7 +1560,7 @@ RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
-export class _RVAR {
+class _RVAR {
     constructor(MainC, globalName, initialValue, store, storeName) {
         this.MainC = MainC;
         this.store = store;
@@ -1569,7 +1578,8 @@ export class _RVAR {
         this._Value = initialValue;
         this.storeName ||= globalName;
     }
-    Subscribe(s) {
+    Subscribe(s, bImmediate) {
+        s.bImm = bImmediate;
         if (!s.ref)
             s.ref = { isConnected: true };
         this.Subscribers.add(s);
@@ -1591,7 +1601,9 @@ export class _RVAR {
         if (this.store)
             this.MainC.DirtyVars.add(this);
         for (const sub of this.Subscribers)
-            if (sub.ref.isConnected)
+            if (sub.bImm)
+                sub();
+            else if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);
@@ -1700,14 +1712,14 @@ Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.sub
 window.addEventListener('popstate', () => { docLocation.V = location.href; });
 function ScrollToHash() {
     if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 5);
+        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 6);
 }
 docLocation.Subscribe(() => {
     if (docLocation.V != location.href)
         history.pushState(null, null, docLocation.V);
     ScrollToHash();
     ;
-});
+}, true);
 export const reroute = globalThis.reroute =
     (arg) => {
         if (typeof arg == 'string')

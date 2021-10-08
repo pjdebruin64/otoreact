@@ -242,8 +242,9 @@ function CloneEnv(env: Environment): Environment {
 }
 
 type Subscriber = (() => (void|Promise<void>)) &
-    { ref?: {isConnected: boolean};
-    sArea?: Area;
+    {   ref?: {isConnected: boolean};
+        sArea?: Area;
+        bImm?: boolean
     };
 
 type ParentNode = HTMLElement|DocumentFragment;
@@ -301,7 +302,7 @@ type Template =
 
 export type RVAR_Light<T> = T & {
     _Subscribers?: Array<Subscriber>;
-    _UpdatesTo?: Array<_RVAR>;
+    _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub:Subscriber) => void;
     readonly U?: T;
 };
@@ -353,19 +354,27 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 elm.classList.add(name);
             break;
         case ModifType.Style:
-            if (val !== undefined && val!==false)
-                elm.style[name] = val || '';
+            elm.style[name] = val || (val === 0 ? '0' : null);
             break;
         case ModifType.AddToStyle:
-            if (val) Object.assign(elm.style, val); break
+            if (val) 
+                for (const [name,v] of Object.entries(val as Object))
+                    elm.style[name] = v || (v === 0 ? '0' : null);
+            break
         case ModifType.AddToClassList:
-            if (Array.isArray(val))
-                for (const className of val as string[])
-                    elm.classList.add(className);
-            else
-                for (const [className, bln] of Object.entries<boolean>(val as {}))
-                    if (bln)
-                        elm.classList.add(className);
+            switch (typeof val) {
+                case 'string': elm.classList.add(val); break;
+                case 'object':
+                    if (val)
+                        if (Array.isArray(val))
+                            for (const name of val)
+                                elm.classList.add(name);
+                        else
+                            for (const [name, bln] of Object.entries(val as Object))
+                                if (bln) elm.classList.add(name);
+                    break;
+                default: throw `Invalid '+class' value`;
+            }
             break;
         case ModifType.RestArgument:
             for (const {modType, name, value} of val as RestParameter)
@@ -547,7 +556,7 @@ class RCompiler {
     private bCompiled = false;
     private bHasReacts = false;
 
-    public DirtyVars = new Set<_RVAR>();
+    public DirtyVars = new Set<RVAR>();
     private DirtySubs = new Map<{isConnected: boolean}, Subscriber>();
     public AddDirty(sub: Subscriber) {
         this.MainC.DirtySubs.set(sub.ref, sub)
@@ -630,11 +639,11 @@ class RCompiler {
         store?: Store
     ) {
         return new _RVAR<T>(this.MainC, name, initialValue, store, name);
-    }; // as <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>;
+    }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
-        updatesTo?: Array<_RVAR>,
+        updatesTo?: Array<RVAR>,
     ): RVAR_Light<T> {
         if (!t._Subscribers) {
             t._Subscribers = []; //subscribers;
@@ -740,14 +749,14 @@ class RCompiler {
     static genAtts = ['reacton','reactson','thisreactson','oncreate','onupdate'];
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
-            reacts: Array<{attName: string, rvars: Dependent<_RVAR[]>}> = [],
+            reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, handler: Dependent<Handler>}> = [];
         for (const attName of RCompiler.genAtts)
             if (atts.has(attName))
                 if (/^on/.test(attName))
                     genMods.push({attName, handler: this.CompHandler(attName, atts.get(attName))});
                 else
-                    reacts.push({attName, rvars: this.compAttrExprList<_RVAR>(atts, attName)});
+                    reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName)});
         
         let builder: DOMBuilder = null;
 labelNoCheck:
@@ -785,7 +794,7 @@ labelNoCheck:
                                 await subBuilder.call(this, subArea);
                                 /*
                                 if (bInit && rvar) {
-                                //    (range.value as _RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
+                                //    (range.value as RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
                                     const a = area;
                                     envActions.push(() => {
                                         if (rvar.Subscribers.size == 0)
@@ -992,7 +1001,7 @@ labelNoCheck:
 
                     case 'react': {
                         this.MainC.bHasReacts = true;
-                        const getRvars = this.compAttrExprList<_RVAR>(atts, 'on');
+                        const getRvars = this.compAttrExprList<RVAR>(atts, 'on');
                         const getHashes = this.compAttrExprList<unknown>(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
@@ -1100,7 +1109,7 @@ labelNoCheck:
     private GetREACT(
         srcElm: HTMLElement, attName: string, 
         builder: DOMBuilder, 
-        getRvars: Dependent<_RVAR[]>, 
+        getRvars: Dependent<RVAR[]>, 
         bRenew=false
     ): DOMBuilder{
         this.MainC.bHasReacts = true;
@@ -1245,7 +1254,7 @@ labelNoCheck:
                 if (nextName == '') nextName = 'next';
                 
                 const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true),
-                getUpdatesTo = this.CompAttrExpr<_RVAR>(atts, 'updates'),
+                getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
                 bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
@@ -1733,7 +1742,7 @@ labelNoCheck:
                         name: CapitalizeProp(m[0]), 
                         depValue: this.CompHandler(attName, attValue)
                     });
-                else if (m = /^#class:(.*)$/.exec(attName))
+                else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
                         modType: ModifType.Class, name: m[1],
                         depValue: this.CompJavaScript<boolean>(attValue, attName)
@@ -1972,7 +1981,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-export class _RVAR<T = unknown>{
+class _RVAR<T = unknown>{
     constructor(
         private MainC: RCompiler,
         globalName?: string, 
@@ -1999,7 +2008,8 @@ export class _RVAR<T = unknown>{
     // .Content is de routine die een nieuwe waarde uitrekent
     Subscribers: Set<Subscriber> = new Set();
 
-    Subscribe(s: Subscriber) {
+    Subscribe(s: Subscriber, bImmediate?: boolean) {
+        s.bImm = bImmediate;
         if (!s.ref)
             s.ref = {isConnected: true};
         this.Subscribers.add(s);
@@ -2027,7 +2037,9 @@ export class _RVAR<T = unknown>{
         if (this.store)
             this.MainC.DirtyVars.add(this);
         for (const sub of this.Subscribers)
-            if (sub.ref.isConnected)
+            if (sub.bImm)
+                sub();
+            else if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
                 this.Subscribers.delete(sub);
@@ -2038,6 +2050,7 @@ export class _RVAR<T = unknown>{
         this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));
     }
 }
+export interface RVAR<T = unknown> extends _RVAR<T> {}
 
 class Atts extends Map<string,string> {
     constructor(elm: HTMLElement) {
@@ -2142,7 +2155,7 @@ Object.defineProperties(
 );
 globalThis.RCompile = RCompile;
 export const 
-    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T, store?: Store) => _RVAR<T>, 
+    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, 
     RUpdate = globalThis.RUpdate as () => void;
 
 const _range = globalThis.range = function* range(from: number, upto?: number, step: number = 1) {
@@ -2155,7 +2168,7 @@ const _range = globalThis.range = function* range(from: number, upto?: number, s
 }
 export {_range as range};
 
-export const docLocation: _RVAR<string> & {subpath?: string; searchParams?: URLSearchParams}
+export const docLocation: RVAR<string> & {subpath?: string; searchParams?: URLSearchParams}
     = RVAR<string>('docLocation', location.href);
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(RootPath.length)});
 
@@ -2163,13 +2176,13 @@ window.addEventListener('popstate', () => {docLocation.V = location.href;} );
 
 function ScrollToHash() {
     if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 5);
+        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 6);
 }
 docLocation.Subscribe( () => {
     if (docLocation.V != location.href)
         history.pushState(null, null, docLocation.V);
     ScrollToHash();;
-});
+}, true);
 
 export const reroute = globalThis.reroute = 
 (arg: MouseEvent | string) => {
