@@ -599,57 +599,70 @@ class RCompiler {
                     case 'if':
                     case 'case':
                         {
-                            const bHiding = CBool(atts.get('hiding')), caseList = [], getVal = this.CompAttrExpr(atts, 'value'), getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr(atts, 'cond', !getVal);
-                            atts.CheckNoAttsLeft();
-                            const bodyNodes = [], bTrimLeft = this.whiteSpc;
-                            for (const child of srcElm.childNodes) {
-                                if (child.nodeType == Node.ELEMENT_NODE) {
-                                    const childElm = child, atts = new Atts(childElm), saved = this.SaveContext();
-                                    this.whiteSpc = bTrimLeft;
-                                    try {
-                                        let cond, not = false;
-                                        let patt;
-                                        switch (child.nodeName) {
-                                            case 'WHEN':
-                                                cond = this.CompAttrExpr(atts, 'cond');
-                                                not = CBool(atts.get('not')) || false;
-                                                let pattern;
-                                                patt =
-                                                    (pattern = atts.get('match')) != null
-                                                        ? this.CompPattern(pattern)
-                                                        : (pattern = atts.get('urlmatch')) != null
-                                                            ? this.CompPattern(pattern, true)
-                                                            : (pattern = atts.get('regmatch')) != null
-                                                                ? { regex: new RegExp(pattern, 'i'),
-                                                                    lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
-                                                                }
-                                                                : null;
-                                                if (bHiding && patt?.lvars.length)
-                                                    throw `Pattern capturing cannot be combined with hiding`;
-                                                if (patt && !getVal)
-                                                    throw `Match requested but no 'value' specified.`;
-                                            case 'ELSE':
-                                                const builder = this.CompChildNodes(childElm);
-                                                caseList.push({ cond, not, patt, builder, childElm });
-                                                atts.CheckNoAttsLeft();
-                                                continue;
-                                        }
+                            const bHiding = CBool(atts.get('hiding')), getVal = this.CompAttrExpr(atts, 'value'), caseNodes = [], body = [];
+                            let bThen = false;
+                            for (const node of srcElm.childNodes) {
+                                if (node.nodeType == Node.ELEMENT_NODE)
+                                    switch (node.nodeName) {
+                                        case 'THEN':
+                                            bThen = true;
+                                            new Atts(node).CheckNoAttsLeft();
+                                            caseNodes.push({ node: node, atts, body: node.childNodes });
+                                            continue;
+                                        case 'ELSE':
+                                        case 'WHEN':
+                                            caseNodes.push({ node: node, atts: new Atts(node), body: node.childNodes });
+                                            continue;
                                     }
-                                    catch (err) {
-                                        throw OuterOpenTag(childElm) + err;
-                                    }
-                                    finally {
-                                        this.RestoreContext(saved);
+                                body.push(node);
+                            }
+                            if (!bThen)
+                                if (srcElm.nodeName == 'IF')
+                                    caseNodes.unshift({ node: srcElm, atts, body });
+                                else
+                                    atts.CheckNoAttsLeft();
+                            const caseList = [], bTrimLeft = this.whiteSpc;
+                            for (let { node, atts, body } of caseNodes) {
+                                const saved = this.SaveContext();
+                                this.whiteSpc = bTrimLeft;
+                                try {
+                                    let cond = null, not = false;
+                                    let patt = null;
+                                    switch (node.nodeName) {
+                                        case 'WHEN':
+                                        case 'IF':
+                                        case 'THEN':
+                                            cond = this.CompAttrExpr(atts, 'cond');
+                                            not = CBool(atts.get('not')) || false;
+                                            let pattern;
+                                            patt =
+                                                (pattern = atts.get('match')) != null
+                                                    ? this.CompPattern(pattern)
+                                                    : (pattern = atts.get('urlmatch')) != null
+                                                        ? this.CompPattern(pattern, true)
+                                                        : (pattern = atts.get('regmatch')) != null
+                                                            ? { regex: new RegExp(pattern, 'i'),
+                                                                lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
+                                                            }
+                                                            : null;
+                                            if (bHiding && patt?.lvars.length)
+                                                throw `Pattern capturing cannot be combined with hiding`;
+                                            if (patt && !getVal)
+                                                throw `Match requested but no 'value' specified.`;
+                                        case 'ELSE':
+                                            const builder = this.CompChildNodes(node, body);
+                                            caseList.push({ cond, not, patt, builder, node });
+                                            atts.CheckNoAttsLeft();
+                                            continue;
                                     }
                                 }
-                                bodyNodes.push(child);
+                                catch (err) {
+                                    throw OuterOpenTag(node) + err;
+                                }
+                                finally {
+                                    this.RestoreContext(saved);
+                                }
                             }
-                            if (getCond)
-                                caseList.unshift({
-                                    cond: getCond, not: false,
-                                    builder: this.CompChildNodes(srcElm, bodyNodes),
-                                    childElm: srcElm
-                                });
                             builder =
                                 async function CASE(area) {
                                     const { env } = area, value = getVal && getVal(env);
@@ -664,14 +677,14 @@ class RCompiler {
                                             }
                                         }
                                         catch (err) {
-                                            throw OuterOpenTag(alt.childElm) + err;
+                                            throw OuterOpenTag(alt.node) + err;
                                         }
                                     if (bHiding) {
                                         for (const alt of caseList) {
-                                            const { elmRange, childArea, bInit } = PrepareElement(alt.childElm, area);
+                                            const { elmRange, childArea, bInit } = PrepareElement(alt.node, area);
                                             const bHidden = elmRange.node.hidden = alt != choosenAlt;
                                             if ((!bHidden || bInit) && !area.bNoChildBuilding)
-                                                await this.CallWithErrorHandling(alt.builder, alt.childElm, childArea);
+                                                await this.CallWithErrorHandling(alt.builder, alt.node, childArea);
                                         }
                                     }
                                     else {
@@ -684,7 +697,7 @@ class RCompiler {
                                                     for (const lvar of choosenAlt.patt.lvars)
                                                         lvar(env)((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[i++]));
                                                 }
-                                                await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subArea);
+                                                await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.node, subArea);
                                             }
                                             finally {
                                                 RestoreEnv(saved);
@@ -822,6 +835,25 @@ class RCompiler {
                         break;
                     case 'component':
                         builder = this.CompComponent(srcParent, srcElm, atts);
+                        break;
+                    case 'document':
+                        {
+                            const newVar = this.NewVar(atts.get('name', true)), docBuilder = this.CompChildNodes(srcElm), RC = this, docDef = (env) => {
+                                env = CloneEnv(env);
+                                return {
+                                    open: async (windowFeatures) => {
+                                        const W = window.open('', null, windowFeatures);
+                                        await docBuilder.call(RC, { parent: W.document.body, env });
+                                    },
+                                    print: async () => {
+                                    }
+                                };
+                            };
+                            builder = async function DOCUMENT({ env }) {
+                                newVar(env)(docDef(env));
+                            };
+                        }
+                        ;
                         break;
                     default:
                         builder = this.CompHTMLElement(srcElm, atts);
@@ -1579,7 +1611,10 @@ class _RVAR {
         this.storeName ||= globalName;
     }
     Subscribe(s, bImmediate) {
-        s.bImm = bImmediate;
+        if (bImmediate) {
+            s();
+            s.bImm = bImmediate;
+        }
         if (!s.ref)
             s.ref = { isConnected: true };
         this.Subscribers.add(s);
@@ -1596,7 +1631,7 @@ class _RVAR {
             this.SetDirty();
         return this._Value;
     }
-    set U(t) { this.V = t; }
+    set U(t) { this._Value = t; this.SetDirty(); }
     SetDirty() {
         if (this.store)
             this.MainC.DirtyVars.add(this);

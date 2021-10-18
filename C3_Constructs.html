@@ -118,15 +118,30 @@ All three variants are case-insensitive, and all can be combined with a simple c
 </dl>
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
-<h2 id=If><{}IF cond> <{}ELSE></h2>
+
+<h2 id=If><{}IF cond> <{}THEN> <{}ELSE></h2>
 <pre class=sourcecode>
 <{}IF cond="<i>expr</i>">
     <i>ThenPart</i>
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/IF>
-</pre> is really the same as <elm>CASE</elm><elm>WHEN</elm> with a single <elm>WHEN</elm>, where <elm>CASE</elm> and  <elm>WHEN</elm> are combined into <elm>IF</elm>.
+</pre>
+or
+<pre class=sourcecode>
+<{}IF cond="<i>expr</i>">
+    <{}THEN> <i>ThenPart</i> <{}/THEN>
+    [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
+<{}/IF>
+</pre>
+is the same as:
+<pre class=sourcecode>
+<{}CASE>
+    <{}WHEN cond="<i>expr</i>"> <i>ThenPart</i> <{}/WHEN>
+    [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
+<{}/IF>
+</pre>
 <p>
-    All features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+    The hiding and pattern-matching features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
 </p>
 
 

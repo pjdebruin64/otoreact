@@ -809,69 +809,87 @@ labelNoCheck:
 
                     case 'if':
                     case 'case': {
-                        const bHiding = CBool(atts.get('hiding')),
+                        const bHiding = CBool(atts.get('hiding')),                         
+                            getVal = this.CompAttrExpr<string>(atts, 'value'),
+                            caseNodes: Array<{
+                                node: HTMLElement,
+                                atts: Atts,
+                                body: Iterable<ChildNode>,
+                            }> = [],
+                            body: ChildNode[] = [];
+                        let bThen = false;
+                        
+                        for (const node of srcElm.childNodes) {
+                            if (node.nodeType == Node.ELEMENT_NODE) 
+                                switch (node.nodeName) {
+                                    case 'THEN':
+                                        bThen = true;
+                                        new Atts(node as HTMLElement).CheckNoAttsLeft();
+                                        caseNodes.push({node: node as HTMLElement, atts, body: node.childNodes});
+                                        continue;
+                                    case 'ELSE':
+                                    case 'WHEN':
+                                        caseNodes.push({node: node as HTMLElement, atts: new Atts(node as HTMLElement), body: node.childNodes});
+                                        continue;
+                                }
+                            body.push(node);
+                        }
+                        if (!bThen)
+                            if (srcElm.nodeName == 'IF')
+                                caseNodes.unshift({node: srcElm, atts, body});
+                            else
+                                atts.CheckNoAttsLeft();
+
+                        const 
                             caseList: Array<{
                                 cond?: Dependent<unknown>,
                                 not?: boolean,
                                 patt?: {lvars: LVar[], regex: RegExp, url?: boolean},
                                 builder: DOMBuilder, 
-                                childElm: HTMLElement,
+                                node: HTMLElement,
                             }> = [],
-                            getVal = this.CompAttrExpr<string>(atts, 'value'),
-                            getCond = (srcElm.nodeName == 'IF') && this.CompAttrExpr<boolean>(atts, 'cond', !getVal);
-                        atts.CheckNoAttsLeft();
-                        const bodyNodes: ChildNode[] = [],
                             bTrimLeft = this.whiteSpc;
-                        for (const child of srcElm.childNodes) {
-                            if (child.nodeType == Node.ELEMENT_NODE) {
-                                const childElm = child as HTMLElement,
-                                    atts = new Atts(childElm),
-                                    saved = this.SaveContext();
-                                this.whiteSpc = bTrimLeft;
-                                try {
-                                    let cond: Dependent<unknown>, not: boolean = false;
-                                    let patt:  {lvars: LVar[], regex: RegExp, url?: boolean};
-                                    switch (child.nodeName) {
-                                        case 'WHEN':                                
-                                            cond = this.CompAttrExpr<unknown>(atts, 'cond');
-                                            not = CBool(atts.get('not')) || false;
-                                            let pattern: string;
-                                            patt =
-                                                (pattern = atts.get('match')) != null
-                                                    ? this.CompPattern(pattern)
-                                                : (pattern = atts.get('urlmatch')) != null
-                                                    ? this.CompPattern(pattern, true)
-                                                : (pattern = atts.get('regmatch')) != null
-                                                    ?  {regex: new RegExp(pattern, 'i'), 
-                                                    lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
-                                                    }
-                                                : null;
+                        
+                        for (let {node, atts, body} of caseNodes) {
+                            const saved = this.SaveContext();
+                            this.whiteSpc = bTrimLeft;
+                            try {
+                                let cond: Dependent<unknown> = null, not: boolean = false;
+                                let patt:  {lvars: LVar[], regex: RegExp, url?: boolean} = null;
+                                switch (node.nodeName) {
+                                    case 'WHEN':
+                                    case 'IF':
+                                    case 'THEN':
+                                        cond = this.CompAttrExpr<unknown>(atts, 'cond');
+                                        not = CBool(atts.get('not')) || false;
+                                        let pattern: string;
+                                        patt =
+                                            (pattern = atts.get('match')) != null
+                                                ? this.CompPattern(pattern)
+                                            : (pattern = atts.get('urlmatch')) != null
+                                                ? this.CompPattern(pattern, true)
+                                            : (pattern = atts.get('regmatch')) != null
+                                                ?  {regex: new RegExp(pattern, 'i'), 
+                                                lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
+                                                }
+                                            : null;
 
-                                            if (bHiding && patt?.lvars.length)
-                                                throw `Pattern capturing cannot be combined with hiding`;
-                                            if (patt && !getVal)
-                                                throw `Match requested but no 'value' specified.`;
+                                        if (bHiding && patt?.lvars.length)
+                                            throw `Pattern capturing cannot be combined with hiding`;
+                                        if (patt && !getVal)
+                                            throw `Match requested but no 'value' specified.`;
 
-                                        // Fall through!
-                                        case 'ELSE':
-
-                                            const builder = this.CompChildNodes(childElm);
-                                            caseList.push({cond, not, patt, builder, childElm});
-                                            atts.CheckNoAttsLeft();
-                                            continue;
-                                    }
-                                } 
-                                catch (err) { throw OuterOpenTag(childElm)+ err  }
-                                finally { this.RestoreContext(saved) }
-                            }
-                            bodyNodes.push(child);
+                                    // Fall through!
+                                    case 'ELSE':
+                                        const builder = this.CompChildNodes(node, body);
+                                        caseList.push({cond, not, patt, builder, node});
+                                        atts.CheckNoAttsLeft();
+                                        continue;
+                                }
+                            } 
+                            catch (err) { throw OuterOpenTag(node)+ err  }
+                            finally { this.RestoreContext(saved) }
                         }
-                        if (getCond)
-                            caseList.unshift({
-                                cond: getCond, not: false,
-                                builder: this.CompChildNodes(srcElm, bodyNodes),
-                                childElm: srcElm
-                            });
 
                         builder = 
                             async function CASE(this: RCompiler, area: Area) {
@@ -886,15 +904,15 @@ labelNoCheck:
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             ) == alt.not)
                                         { choosenAlt = alt; break }
-                                    } catch (err) { throw OuterOpenTag(alt.childElm) + err }
+                                    } catch (err) { throw OuterOpenTag(alt.node) + err }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
                                     for (const alt of caseList) {
-                                        const {elmRange, childArea, bInit} = PrepareElement(alt.childElm, area);
+                                        const {elmRange, childArea, bInit} = PrepareElement(alt.node, area);
                                         const bHidden = elmRange.node.hidden = alt != choosenAlt;
                                         if ((!bHidden || bInit) && !area.bNoChildBuilding)
-                                            await this.CallWithErrorHandling(alt.builder, alt.childElm, 
+                                            await this.CallWithErrorHandling(alt.builder, alt.node, 
                                                 childArea );
                                     }
                                 }
@@ -912,7 +930,7 @@ labelNoCheck:
                                                         (matchResult[i++])
                                                     );
                                             }
-                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.childElm, subArea );
+                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.node, subArea );
                                         } finally { RestoreEnv(saved) }
                                     }
                                 }
@@ -1075,6 +1093,28 @@ labelNoCheck:
 
                     case 'component': 
                         builder = this.CompComponent(srcParent, srcElm, atts); break;
+
+                    case 'document': {
+                        const newVar = this.NewVar(atts.get('name', true)),
+                            docBuilder = this.CompChildNodes(srcElm),
+                            RC = this,
+                            docDef = (env: Environment) => {
+                                env = CloneEnv(env);
+                                return {
+                                    open: async (windowFeatures: string) => {
+                                        const W = window.open('', null, windowFeatures);
+                                        await docBuilder.call(RC,
+                                            {parent: W.document.body, env});
+                                    },
+                                    print: async () => {
+
+                                    }
+                                };
+                            };
+                        builder = async function DOCUMENT(this: RCompiler, {env}) {
+                            newVar(env)(docDef(env));
+                        }
+                    }; break;
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -2009,7 +2049,10 @@ class _RVAR<T = unknown>{
     Subscribers: Set<Subscriber> = new Set();
 
     Subscribe(s: Subscriber, bImmediate?: boolean) {
-        s.bImm = bImmediate;
+        if (bImmediate) {
+            s();
+            s.bImm = bImmediate;
+        }
         if (!s.ref)
             s.ref = {isConnected: true};
         this.Subscribers.add(s);
@@ -2031,7 +2074,7 @@ class _RVAR<T = unknown>{
     get U() { 
         if (!bReadOnly) this.SetDirty();  
         return this._Value }
-    set U(t: T) { this.V = t }
+    set U(t: T) { this._Value = t; this.SetDirty(); }
 
     public SetDirty() {
         if (this.store)
