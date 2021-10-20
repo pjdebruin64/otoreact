@@ -226,7 +226,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
             <br><i>Name</i> does not become a full RVAR: one cannot get or set <code><i>name</i>.V</code>. One could call it an RVAR-light.
         </p>
         <p>
-            Note that just <i>name</i> is marked dirty, not the source (array) of the iteration. If you need elements of your application <i>outside</i> the local subtree to react on changes, then you can use the <code>updates</code> attribute describe below.
+            Note that just <i>name</i> is marked dirty, not the source (array) of the iteration. If you need elements of your application <i>outside</i> the local subtree to react on changes, then you can use the <code>updates</code> attribute described below.
         </p>
     </dd>
     <dt><code>updates="<i>rvarList</i>"</code></dt>
@@ -234,7 +234,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         If you want changes to properties of <i>name</i> to have reactions outside the local subtree, then you can use <code>updates="<i>rvarList</i>"</code>.
         <br><i>rvarList</i> must be a comma-separated list of zero or more RVAR's.
         <p>
-            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to <code><i>name</i>. U</code>), then all RVAR's in the list will be marked dirty too.
+            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to <code><i>name</i>.U</code>), then all RVAR's in the list will be marked dirty too.
         </p>
         <p>You can find an example of this in the todo-list below: whenever an item is (un)marked as done, then both lists that depend on <code>TODO</code> are updated.</p>
     </dd>
@@ -243,6 +243,9 @@ Further on, <elm>FOR</elm> can have the following attributes:
 <h2 id=Scripts><{}SCRIPT defines?></h2>
 <p>
     Scripts can be included almost anywhere in your application, either embedded or through an external <code>src</code> reference.
+</p>
+<p>
+    External scripts may be written in <a href="https://www.typescriptlang.org/">TypeScript</a>, of course.
 </p>
 <p>
     You have to be aware that scripts included in the main document, except those tagged with <code>nomodule</code>, are automatically executed by the browser before OtoReact has had any opportunity to intervene.
@@ -582,15 +585,21 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 
 
 <h2 id=Document><{}DOCUMENT></h2>
-<elm>DOCUMENT name=&hellip;</elm> (to be implemented) allows you to define a separate document or form:
-<ul>
-    <li>
-        That can be shown in a separate browser window,
-    </li>
-    <li>
-        Or printed without opening a separate window,
-    </li>
-    <li>
-        While remaining part of the same RHTML application instance, i.e. sharing the same RVARs etc.
-    </li>
-</ul>
+<elm>DOCUMENT name=<i>docName</i></elm> allows you to define a separate document or form, that remains part of the same RHTML application.
+
+<p>
+    The content is not immediately rendered, but <code><i>docName</i></code> is defined as a local variable, bound to an object with the following methods:
+</p>
+<dl>
+    <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>)</code></dt>
+    <dd>
+        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}docs/Web/API/Window/open"><code>Window.open()</code></a>.
+    </dd>
+    <dt><code><i>docName</i>.print()</code></dt>
+    <dd>
+        The construct content is rendered in an invisible browser window, and its browser print dialog is opened.
+        <br>After the user has closed the print dialog, the invisible window is closed as well.
+    </dd>
+</dl>
+
+<h2><{}HEAD.></h2>

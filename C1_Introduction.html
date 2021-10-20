@@ -111,7 +111,7 @@ That's all!
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>.
 <p>
-    The expressions are evaluated, converted to string, and inserted <i>as text</i>, there is no risk of <a href="{wiki}Code_injection">code injection</a> &mdash; except when you use <a href="#RHTML"><elm>RHTML</elm></a>, which performs code injection <i>by design</i>.
+    The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is no risk of <a href="{wiki}Code_injection">code injection</a> &mdash; except when you use <a href="#RHTML"><elm>RHTML</elm></a>, which performs code injection <i>by design</i>.
 </p>
 <p>
     To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
@@ -120,12 +120,13 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
 </p>
 <demo #content="sampleBraces"></demo>
-If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = \${1 + 1}</code>.
-
 <p>
     You can modify the snippet of source code above and see the result immediately.
     <br> (This interactive demo is itself defined as an RHTML component.)
 </p>
+<p>If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = \${1 + 1}</code>.</p>
+
+<p>If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.</p>
 
 <h2>RHTML Constructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>

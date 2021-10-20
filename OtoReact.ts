@@ -1,13 +1,16 @@
 // Global settings
 const defaultSettings = {
+    bTiming:        false,
     bAbortOnError:  false,  // Abort processing on runtime errors,
                             // When false, only the element producing the error will be skipped
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bRunScripts:    false,
     bBuild:         true,
     rootPattern:    '/|^' as string,
+    preformatted:   [],
+    bNoGlobals:     false,
+    bDollarRequired: false,
 }
-
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
@@ -19,7 +22,7 @@ type Area = {
     range?: Range,              // Existing piece of DOM
     parent: Node;               // DOM parent node
     env: Environment;
-    before?: ChildNode
+    before?: Comment;
 
     /* When !range: */
     source?: ChildNode;         // Optional source node to be replaced by the range 
@@ -33,19 +36,18 @@ type Area = {
 // A RANGE is a piece of constructed DOM, in relation to the source RHTML.
 // It can either be a single DOM node or a linked list of subranges,
 class Range<NodeType extends ChildNode = ChildNode> {
-    /* Either: */
-    //    node: NodeType;
-    /* Or: */
-        child: Range;       // Linked list of children (null=empty)
-    /* Or neither */
     
-    next: Range = null;        // Next item in linked list
+    child: Range;           // Linked list of children (null=empty)
+    next: Range = null;     // Next item in linked list
+
+    /* For a range corresponding to a DOM node, the child ranges will correspond to child nodes of the DOM node.
+    */
 
     endMark?: Comment;
 
     constructor(
-        public node?: NodeType,
-        public text?: string
+        public node?: NodeType,     // Corresponding DOM node, if any
+        public text?: string,       // Description, used only for comments
     ) {
         if (!node) this.child = null;
     }
@@ -74,6 +76,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
         return this.endMark || null;
     }
 
+    // Enumerate all DOM nodes within this range, not including their children
     Nodes(): Generator<ChildNode> { 
         return (function* Nodes(r: Range) {
             if (r.node)
@@ -127,7 +130,7 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         range.result = result;
 
         if (bMark)
-            before = range.endMark ||= parent.insertBefore<Comment>(
+            before ||= range.endMark = parent.insertBefore<Comment>(
                 document.createComment('/'+text), before);
     }
     else {
@@ -205,6 +208,7 @@ function PrepareText(area: Area, content: string) {
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
 let RootPath: string = null;
+let ToBuild: Area[] = [];
 
 export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
     const R = RHTML;   
@@ -218,15 +222,25 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         )
         R.RootElm = elm;
         R.Compile(elm, {}, true);
-        R.ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
+        ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
-            ? R.DoUpdate().then(() => {elm.hidden = false; ScrollToHash();} )
+            ? RBuild().then(() => {elm.hidden = false; ScrollToHash();} )
             : null);
     }
     catch (err) {
         window.alert(`OtoReact error: ${err}`);
     }
+}
+
+export async function RBuild() {
+    const R = RHTML;   
+    R.start = performance.now();
+    R.builtNodeCount = 0;
+    for (const area of ToBuild)
+        await R.InitialBuild(area);
+    R.logTime(`Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+    ToBuild = [];
 }
 
 type SavedContext = number;
@@ -426,7 +440,7 @@ class RCompiler {
     private context: string; 
 
     private CSignatures: Map<string, Signature>;
-    private StyleRoot: Node;
+    private head: Node;
     private StyleBefore: ChildNode;
     private AddedHeaderElements: Array<HTMLElement>;
     public FilePath: string;
@@ -441,7 +455,7 @@ class RCompiler {
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
         this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
-        this.StyleRoot  = clone?.StyleRoot || document.head;
+        this.head  = clone?.head || document.head;
         this.StyleBefore = clone?.StyleBefore
         this.FilePath   = clone?.FilePath || location.origin + RootPath;
     }
@@ -504,8 +518,10 @@ class RCompiler {
         settings: Settings = {},
         bIncludeSelf: boolean = false,  // Compile the element itself, or just its childnodes
     ) {
-        Object.assign(this.Settings, settings);
         const t0 = performance.now();
+        Object.assign(this.Settings, settings);
+        for (const tag of this.Settings.preformatted)
+            this.mPreformatted.set(tag.toLowerCase(), null);
         const savedR = RHTML; 
         try {
             if (!this.clone) RHTML = this;
@@ -519,8 +535,15 @@ class RCompiler {
             RHTML = savedR;
         }
         const t1 = performance.now();
-        console.log(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
+        this.logTime(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
     }
+
+    logTime(msg: string) {
+        if (this.Settings.bTiming)
+            console.log(msg);
+    }
+
+    private mPreformatted = new Map<string,void>([['pre', null]]);
         
     Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range ): Subscriber {
         const sArea = {
@@ -548,7 +571,6 @@ class RCompiler {
     }
 
     public Settings: FullSettings;
-    public ToBuild: Area[] = [];
     private AllAreas: Subscriber[] = [];
     private Builder: DOMBuilder;
     private whiteSpc = WhiteSpace.keep;
@@ -576,7 +598,7 @@ class RCompiler {
             }, 5);
     };
 
-    private start: number;
+    public start: number;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) { 
             this.bUpdate = true;
@@ -588,41 +610,31 @@ class RCompiler {
             this.bUpdating = true;
             let savedRCompiler = RHTML;
             try {
-                if (this.ToBuild.length) {
+                if (!this.MainC.bHasReacts)
+                    for (const s of this.AllAreas)
+                        this.AddDirty(s);
+
+                for (const rvar of this.DirtyVars)
+                    rvar.Save();
+                this.DirtyVars.clear();
+                
+                if (this.DirtySubs.size) {
+                    if (!this.clone) RHTML = this;
                     this.start = performance.now();
                     this.builtNodeCount = 0;
-                    for (const area of this.ToBuild)
-                        await this.InitialBuild(area);
-                    console.log(`Built ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
-                    this.ToBuild = [];
-                }
-                else {
-                    if (!this.MainC.bHasReacts)
-                        for (const s of this.AllAreas)
-                            this.AddDirty(s);
+                    const subs = this.DirtySubs;
+                    this.DirtySubs = new Map();
+                    for (const sub of subs.values()) 
+                        if (!sub.ref || sub.ref.isConnected)
+                            try { await sub(); }
+                            catch (err) {
+                                const msg = `ERROR: ${err}`;
+                                console.log(msg);
+                                window.alert(msg);
+                            }
 
-                    for (const rvar of this.DirtyVars)
-                        rvar.Save();
-                    this.DirtyVars.clear();
                     
-                    if (this.DirtySubs.size) {
-                        if (!this.clone) RHTML = this;
-                        this.start = performance.now();
-                        this.builtNodeCount = 0;
-                        const subs = this.DirtySubs;
-                        this.DirtySubs = new Map();
-                        for (const sub of subs.values()) 
-                            if (!sub.ref || sub.ref.isConnected)
-                                try { await sub(); }
-                                catch (err) {
-                                    const msg = `ERROR: ${err}`;
-                                    console.log(msg);
-                                    window.alert(msg);
-                                }
-
-                        
-                        console.log(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
-                    }
+                    this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
             }
             finally { 
@@ -772,9 +784,10 @@ labelNoCheck:
                         //srcParent.removeChild(srcElm);
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('name') || atts.get('var', true),
-                            getValue    = this.CompParameter(atts, 'value'),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
+                            bAsync      = rvarName && CBool(atts.get('async')),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
+                            getValue    = this.CompParameter(atts, 'value'),
                             newVar      = this.NewVar(varName),
                             subBuilder  = this.CompChildNodes(srcElm);
 
@@ -782,12 +795,18 @@ labelNoCheck:
                                 const {range, subArea, bInit} = PrepareArea(srcElm, area);
                                 if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
-                                    if (rvarName)
+                                    if (rvarName) {
+                                        const VV = bAsync ? undefined : value;
                                         if (bInit)
-                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(area.env), rvarName);
+                                            range.value = new _RVAR(this.MainC, null, VV, getStore && getStore(area.env), rvarName);
                                         else
-                                            range.value.V = value;
-                                    else
+                                            range.value.V = VV;
+
+                                        if (bAsync) {
+                                            const rvar = range.value as RVAR;
+                                            (value as Promise<unknown>).then(v => rvar.V = v);
+                                        }
+                                    } else
                                         range.value = value;
                                 }
                                 newVar(area.env)(range.value);
@@ -1068,8 +1087,8 @@ labelNoCheck:
                                         elmRange.hdrElms = null;
                                     }
                                     const R = new RCompiler();;
-                                    (R.StyleRoot = shadowRoot).innerHTML = '';
-                                    R.Compile(tempElm, {bRunScripts: true }, false);
+                                    (R.head = shadowRoot).innerHTML = '';
+                                    R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
                                     elmRange.hdrElms = R.AddedHeaderElements;
                                     
                                     const subArea: Area = 
@@ -1096,23 +1115,45 @@ labelNoCheck:
 
                     case 'document': {
                         const newVar = this.NewVar(atts.get('name', true)),
-                            docBuilder = this.CompChildNodes(srcElm),
-                            RC = this,
+                            RC = this; //new RCompiler(this);
+                        const
+                            docBuilder = RC.CompChildNodes(srcElm),
                             docDef = (env: Environment) => {
                                 env = CloneEnv(env);
                                 return {
-                                    open: async (windowFeatures: string) => {
-                                        const W = window.open('', null, windowFeatures);
-                                        await docBuilder.call(RC,
-                                            {parent: W.document.body, env});
+                                    render(parent: HTMLElement) {
+                                        parent.innerHTML = '';
+                                        return docBuilder.call(RC, {parent, env}); 
                                     },
-                                    print: async () => {
-
+                                    async open(...args: string[]) {
+                                        const W = window.open('', ...args);
+                                        // Copy all style sheet rules
+                                        copyStyleSheets(document, W.document);
+                                        await this.render(W.document.body);
+                                        return W;
+                                    },
+                                    async print() {
+                                        const iframe = document.createElement('iframe');
+                                        iframe.setAttribute('style','display:none');
+                                        document.body.appendChild(iframe);
+                                        copyStyleSheets(document, iframe.contentDocument);
+                                        await docBuilder.call(RC, {parent: iframe.contentDocument.body, env});
+                                        iframe.contentWindow.print();
+                                        iframe.remove();
                                     }
                                 };
                             };
                         builder = async function DOCUMENT(this: RCompiler, {env}) {
                             newVar(env)(docDef(env));
+                        }
+                    }; break;
+
+                    case 'head.': {
+                        const childBuilder = this.CompChildNodes(srcElm);
+                        
+                        builder = async function HEAD(this: RCompiler, {parent, env}) {
+                            const head = parent.ownerDocument.head;
+                            await childBuilder.call(this, {parent: head, env})
                         }
                     }; break;
 
@@ -1282,7 +1323,7 @@ labelNoCheck:
     }
 
     public CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
-        const varName = atts.get('let');
+        const varName = atts.get('let') ?? atts.get('var');
         let indexName = atts.get('index');
         if (indexName == '') indexName = 'index';
         const saved = this.SaveContext();
@@ -1384,7 +1425,7 @@ labelNoCheck:
                                 // Item has to be newly created
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
-                                subArea.before = nextChild?.First || range.endMark;
+                                subArea.before = nextChild?.First as Comment || range.endMark;
                                 ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
                                 if (key != null) {
                                     if (keyMap.has(key))
@@ -1737,7 +1778,8 @@ labelNoCheck:
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
-        const ws: WhiteSpace = name == 'pre' ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
+        const ws: WhiteSpace = 
+            this.mPreformatted.has(name) ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
 
         // We turn each given attribute into a modifier on created elements
         const modifs = this.CompAttributes(atts);
@@ -1855,14 +1897,23 @@ labelNoCheck:
     }
 
     private CompStyle(srcStyle: HTMLElement)  {
-        this.StyleRoot.appendChild(srcStyle);
+        this.head.appendChild(srcStyle);
         this.AddedHeaderElements.push(srcStyle);
     }
 
+    private regIS: RegExp;
     private CompString(data: string, name?: string): Dependent<string> & {fixed?: string; last?: string} {
-        const generators: Array< string | Dependent<unknown> > = []
-            , regIS = /(?<![\\$])\$?\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/gs;
+        const 
+            regIS = this.regIS ||= 
+                new RegExp(
+                    /(?<![\\$])/.source
+                    + (this.Settings.bDollarRequired ? '\\$' : '\\$?')
+                    + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/.source
+                    , 'gs'
+                ),
+            generators: Array< string | Dependent<unknown> > = [];
         let isTrivial = true, last = '', bThis = false;
+        regIS.lastIndex = 0;
 
         while (regIS.lastIndex < data.length) {
             const lastIndex = regIS.lastIndex, m = regIS.exec(data)
@@ -2188,6 +2239,14 @@ function createErrorNode(message: string) {
     return node;
 }
 
+function copyStyleSheets(S: Document, D: Document) {
+    for (const SSheet of S.styleSheets) {
+        const DSheet = D.head.appendChild(D.createElement('style')).sheet;
+        for (const rule of SSheet.cssRules) 
+            DSheet.insertRule(rule.cssText);
+    }
+}
+
 export let RHTML = new RCompiler();
 
 Object.defineProperties(
@@ -2197,6 +2256,7 @@ Object.defineProperties(
     }
 );
 globalThis.RCompile = RCompile;
+globalThis.RBuild = RBuild;
 export const 
     RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, 
     RUpdate = globalThis.RUpdate as () => void;

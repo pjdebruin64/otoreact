@@ -1,9 +1,13 @@
 declare const defaultSettings: {
+    bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
     rootPattern: string;
+    preformatted: any[];
+    bNoGlobals: boolean;
+    bDollarRequired: boolean;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {
     ws?: WhiteSpace;
@@ -17,7 +21,7 @@ declare type Area = {
     range?: Range;
     parent: Node;
     env: Environment;
-    before?: ChildNode;
+    before?: Comment;
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
@@ -50,6 +54,7 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
+export declare function RBuild(): Promise<void>;
 declare type Subscriber = (() => (void | Promise<void>)) & {
     ref?: {
         isConnected: boolean;
@@ -82,7 +87,7 @@ declare class RCompiler {
     private ContextMap;
     private context;
     private CSignatures;
-    private StyleRoot;
+    private head;
     private StyleBefore;
     private AddedHeaderElements;
     FilePath: string;
@@ -95,10 +100,11 @@ declare class RCompiler {
     private NewVar;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
+    logTime(msg: string): void;
+    private mPreformatted;
     Subscriber({ parent, before, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
-    ToBuild: Area[];
     private AllAreas;
     private Builder;
     private whiteSpc;
@@ -111,7 +117,7 @@ declare class RCompiler {
     private bUpdate;
     private handleUpdate;
     RUpdate(): void;
-    private start;
+    start: number;
     DoUpdate(): Promise<void>;
     RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
     private RVAR_Light;
@@ -133,6 +139,7 @@ declare class RCompiler {
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
+    private regIS;
     private CompString;
     private CompPattern;
     private CompParameter;

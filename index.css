@@ -2,6 +2,7 @@
 :root { 
     --OtoRed: rgb(226, 0, 0);
     --RedBorder: solid 2px var(--OtoRed);
+    --Code: 'Lucida Console',monospace 92.5%;
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
     font-size: 12pt;
@@ -13,7 +14,7 @@
 }
 @media screen {
     section             { content-visibility: auto; }
-    section:nth-of-type() {min-height: 7000px;}
+    section:nth-of-type(1) {min-height: 7000px;}
     section:nth-of-type(2) {min-height: 2500px;}
     section:nth-of-type(3) {min-height: 6939px;}
     section:nth-of-type(4) {min-height: 1165px;}
@@ -40,10 +41,9 @@ pre {
     white-space: pre-wrap;
 }
 pre, code, elm {
+    font: var(--Code);
     color: darkblue;
     background-color: rgb(236, 236, 236);
-    font-family: 'Lucida Console', monospace;
-    font-size: 92.5%;
 }
 elm::before { content: "<"; }
 elm::after  { content: ">"; }

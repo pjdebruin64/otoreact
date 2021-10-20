@@ -23,7 +23,7 @@
     <script src="samples.js" defer></script>
     <script type=module>
         import {RCompile} from './OtoReact.js';        
-        RCompile(document.body, {rootPattern: '.*/'});
+        RCompile(document.body, {bTiming:true});
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
@@ -31,7 +31,6 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-
     gtag('config', 'G-T23W7PMPX4');
     </script>
   <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>

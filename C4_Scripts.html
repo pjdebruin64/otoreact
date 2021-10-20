@@ -76,12 +76,89 @@ OtoReact does not (yet) have extra formatting functionality for numbers and date
 
 <demo #content=sampleFormatting></demo>
 
-<h2 id=Options>Options ...</h2>
+<h2 id=Options>Options</h2>
+When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</code> object may contain the following settings.
+<style>
+    table#tblOptions {
+        margin: 1em 2em;
+        border-collapse: collapse;
+    }
+    table#tblOptions tr > * {
+        border: solid 1px var(--OtoRed);
+        padding: 4px;
+    }
+    table#tblOptions th {
+        font-weight: normal;
+        font-style: oblique;
+    }
+    table#tblOptions > tbody  td:nth-child(1) {
+        font-weight: bold;
+    }
+    table#tblOptions > tbody  td:nth-child(2) {
+        font: var(--Code); color: darkblue; background-color: rgb(236, 236, 236);
+        text-align: center;
+    }
+</style>
+<table id=tblOptions>
+    <thead><tr>
+        <th>Name</th><th>Default</th><th>Description</th>
+    </tr></thead>
+    <tbody>
+        <tr>
+            <td>bTiming</td><td>false</td>
+            <td>When true, OtoReact will write timing information to the JavaScript console for each compile, build or update action.</td>
+        </tr>
+        <tr>
+            <td>bAbortOnError</td><td>false</td>
+            <td>
+                When true, building or updating the DOM will be aborted when any error occurs.
+                <br>An error message will be written to the console and shown in an alert box.
+                <br>Compile errors will always cause an abort, except within <elm>RHTML</elm> text.
+            </td>
+        </tr>
+        <tr>
+            <td>bShowErrors</td><td>true</td>
+            <td>
+                When true, errors while building or updating the DOM will be included in the DOM output, besides being written to the console.
+            </td>
+        </tr>
+        <tr>
+            <td>bBuild</td><td>true</td>
+            <td>
+                When true, <code>RCompile</code> will build the DOM output immediately upon compiling.
+                <br>When false, building will be postponed and you must call <code>RBuild()</code> to perform the initial build.
+                <br>This might be useful when you want to compile immediately but postpone all building until external data has been fetched.
+            </td>
+        </tr>
+        <tr>
+            <td>bDollarRequired</td><td>false</td>
+            <td>
+                When true, a dollar sign is required for <a href="#StringInterpolation">string interpolation</a>.
+            </td>
+        </tr>
+        <tr>
+            <td>rootPattern</td><td>'/|^'</td>
+            <td>
+                Pattern to identify the part of the URL that constitutes the <i>root path</i>.
+                <br>Relevant only for applications that use <a href=#URLRouting>URL routing</a>.
+            </td>
+        </tr>
+        <tr>
+            <td>preformatted</td><td>[ ]</td>
+            <td>
+                By default, OtoReact will omit text nodes containing only white space when it reckons the node is irrelevant for the visual appearance of the page. Only text within the preformatted <elm>pre</elm> element is always preserved.
+                <br>With the 'preformatted' option, you can specify other (case insensitive) element names that should have all white space preserved in the DOM.
+                <br>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
+            </td>
+        </tr>
+    </tbody>
+</table>
+Example: <code>RCompile(document.body, \{bTiming: true, preformatted: ['quote'], } );</code>
 
 <h2>Playground(s)</h2>
 Here you have a playground to enter your own Reactive HTML.
 <p>
-    All code you enter will be saved by your local browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
+    All code you enter will be saved by your browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
 </p>
 
 <def rvar=playCount #value=1 store=localStorage></def>
