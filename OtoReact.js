@@ -71,7 +71,7 @@ function PrepareArea(srcElm, area, text = '', bMark, result) {
         subArea.range = range.child;
         area.range = range.next;
         if (bMark) {
-            before = range.endMark;
+            before ||= range.endMark;
             if (bMark == 1 && result != range.result || bMark == 2) {
                 range.result = result;
                 let node = range.First || before;
