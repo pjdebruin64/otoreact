@@ -300,7 +300,7 @@ class Signature {
         // When the import has a rest parameter, then the module must have it too      
         result &&= !this.RestParam || this.RestParam.name == sig.RestParam?.name;
 
-        // All slots in the import must be present in the module and compatible with the import
+        // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
         for (let [slotname, slotSig] of this.Slots)
             result &&= sig.Slots.get(slotname)?.IsCompatible(slotSig);
         
@@ -809,7 +809,7 @@ labelNoCheck:
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
-                builder = this.CompInstance(srcParent, srcElm, atts, construct);
+                builder = this.CompInstance(srcElm, atts, construct);
             else {
                 switch (srcElm.localName) {
                     case 'def':
@@ -1429,7 +1429,7 @@ labelNoCheck:
                             iterator = newMap.entries(),
                             nextIterator = nextName ? newMap.values() : null;
 
-                        let prevItem: Item = null, nextItem: Item
+                        let prevItem: Item, nextItem: Item
                             , prevRange: Range = null,
                             childArea: Area;
                         subArea.parentR = range;
@@ -1607,7 +1607,7 @@ labelNoCheck:
                     , pDefault: 
                         attr.value != '' 
                         ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
-                        : m[3] ? (_) => undefined
+                        : m[3] ? (_) => undefined   // Unspecified default
                         : null 
                     }
                 );
@@ -1749,7 +1749,7 @@ labelNoCheck:
 
 
     private CompInstance(
-        srcParent: ParentNode, srcElm: HTMLElement, atts: Atts,
+        srcElm: HTMLElement, atts: Atts,
         signature: Signature
     ) {
         //srcParent.removeChild(srcElm);

@@ -26,11 +26,15 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
 </p>
 <p>When you add an attribute <code>updating</code> or <code>reacting</code> (without value), then the expression is re-evaluated at every update.</p>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value="<i>expression</i>" store?=<i>storage</i></elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> async?</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>)"</elm><elm>/DEFINE</elm></code>.
-    <br>When <code>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
+    <br>When <code class=sourcecode>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
+</p>
+<p>
+    When <code class=sourcecode>async</code> is specified, then <i>expression</i> must yield a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
+    The value of the rvar wil initially be <code>undefined</code>, and when the promise resolves to a value, then the rvar will be set to that value.
 </p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
@@ -174,7 +178,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 
     <dt><code>previous=<i>prevName</i></code></dt>
     <dd>
-        When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>null</code> for the first item.
+        When present, <i>prevName</i> becomes a local variable bound to the <i>preceeding</i> item in the iteration, or <code>undefined</code> for the first item.
         <br>This allows one to easily check for changing properties within the iteration.
         <br>When <i>prevName</i> is omitted, then <code>'previous'</code> is assumed.
     </dd>
@@ -373,7 +377,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             <ul>
                 <li>
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> are <i>optional</i> parameters.
-                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>null</code> when there is no default..
+                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default..
                     <p>
                         An empty <i>string</i>: <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
                         <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.

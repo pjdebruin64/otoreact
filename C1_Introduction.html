@@ -32,7 +32,7 @@
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
-    <li>Reactive HTML has a powerful component system, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, pretty much everything you need.
+    <li>Reactive HTML has a powerful component system, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, et cetera.
 </ul>
 <p>
     The tiny example above is the result of the following piece of Reactive HTML:
@@ -172,14 +172,22 @@ The OtoReact module makes the following functions available for import. They are
         <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
     </li>
     <li>
+        <code>RBuid()</code> builds any previously compiled HTMLElements, in case the option 'bNoBuild' was used with <code>RCompile</code>.
+    </li>
+    <li>
         <code>RVAR(name?, initialValue?, store?)</code> creates a reactive variable
     </li>
     <li id=rangeFunction>
         <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range type</a>. You can use this with <elm>FOR</elm>.
     </li>
+    <li>
+        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>
+    </li>
 </ul>
 The question marks indicate optional arguments.
-<br>Note: JavaScript function and variable names are case dependent.
+<p>
+    All of these are exported by the OtoReact module. TypeScript type declarations are available on the <a href="download" #onclick=reroute>download page</a>.
+</p>
 
 
 <h2 id=Variables>Local and global variables</h2>
@@ -231,7 +239,6 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
     <li><code>localStorage</code>, meaning that the value will be preserved in local browser storage and restored when the user returns to the same site in the same browser on the same machine</li>
     <li>Any other object that supports the <code>setItem</code> and <elm>getItem</elm> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
-        <br>You could use this to save data into a database.
     </li>
 </ul>
 <p>The variable must have a unique name.</p>
