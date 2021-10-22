@@ -10,9 +10,9 @@ declare const defaultSettings: {
     bDollarRequired: boolean;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {
-    ws?: WhiteSpace;
+    ws?: WhiteSpc;
 };
-declare enum WhiteSpace {
+declare enum WhiteSpc {
     preserve = 0,
     keep = 1,
     trim = 2
@@ -102,7 +102,7 @@ declare class RCompiler {
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
     logTime(msg: string): void;
     private mPreformatted;
-    Subscriber({ parent, before, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range): Subscriber;
+    Subscriber({ parent, before, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     private AllAreas;
@@ -124,6 +124,8 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompChildNodes;
+    private CreatedRvars;
+    private RvarsToCheck;
     private CompIterator;
     static genAtts: string[];
     private CompElement;

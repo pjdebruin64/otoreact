@@ -9,12 +9,12 @@ const defaultSettings = {
     bNoGlobals: false,
     bDollarRequired: false,
 };
-var WhiteSpace;
-(function (WhiteSpace) {
-    WhiteSpace[WhiteSpace["preserve"] = 0] = "preserve";
-    WhiteSpace[WhiteSpace["keep"] = 1] = "keep";
-    WhiteSpace[WhiteSpace["trim"] = 2] = "trim";
-})(WhiteSpace || (WhiteSpace = {}));
+var WhiteSpc;
+(function (WhiteSpc) {
+    WhiteSpc[WhiteSpc["preserve"] = 0] = "preserve";
+    WhiteSpc[WhiteSpc["keep"] = 1] = "keep";
+    WhiteSpc[WhiteSpc["trim"] = 2] = "trim";
+})(WhiteSpc || (WhiteSpc = {}));
 class Range {
     constructor(node, text) {
         this.node = node;
@@ -65,13 +65,14 @@ function PrepareArea(srcElm, area, text = '', bMark, result) {
         UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
         range.result = result;
         if (bMark)
-            before ||= range.endMark = parent.insertBefore(document.createComment('/' + text), before);
+            before =
+                range.endMark = parent.insertBefore(document.createComment('/' + text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
         if (bMark) {
-            before ||= range.endMark;
+            before = range.endMark;
             if (bMark == 1 && result != range.result || bMark == 2) {
                 range.result = result;
                 let node = range.First || before;
@@ -141,7 +142,7 @@ export function RCompile(elm, settings) {
         R.Compile(elm, {}, true);
         ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
         return (R.Settings.bBuild
-            ? RBuild().then(() => { elm.hidden = false; ScrollToHash(); })
+            ? RBuild().then(() => { ScrollToHash(); })
             : null);
     }
     catch (err) {
@@ -196,29 +197,29 @@ class Signature {
     }
 }
 const gEval = eval, gFetch = fetch;
-var ModifType;
-(function (ModifType) {
-    ModifType[ModifType["Attr"] = 0] = "Attr";
-    ModifType[ModifType["Prop"] = 1] = "Prop";
-    ModifType[ModifType["Src"] = 2] = "Src";
-    ModifType[ModifType["Class"] = 3] = "Class";
-    ModifType[ModifType["Style"] = 4] = "Style";
-    ModifType[ModifType["Event"] = 5] = "Event";
-    ModifType[ModifType["AddToStyle"] = 6] = "AddToStyle";
-    ModifType[ModifType["AddToClassList"] = 7] = "AddToClassList";
-    ModifType[ModifType["RestArgument"] = 8] = "RestArgument";
-    ModifType[ModifType["oncreate"] = 9] = "oncreate";
-})(ModifType || (ModifType = {}));
+var ModType;
+(function (ModType) {
+    ModType[ModType["Attr"] = 0] = "Attr";
+    ModType[ModType["Prop"] = 1] = "Prop";
+    ModType[ModType["Src"] = 2] = "Src";
+    ModType[ModType["Class"] = 3] = "Class";
+    ModType[ModType["Style"] = 4] = "Style";
+    ModType[ModType["Event"] = 5] = "Event";
+    ModType[ModType["AddToStyle"] = 6] = "AddToStyle";
+    ModType[ModType["AddToClassList"] = 7] = "AddToClassList";
+    ModType[ModType["RestArgument"] = 8] = "RestArgument";
+    ModType[ModType["oncreate"] = 9] = "oncreate";
+})(ModType || (ModType = {}));
 let bReadOnly = false;
 function ApplyModifier(elm, modType, name, val, bCreate) {
     switch (modType) {
-        case ModifType.Attr:
+        case ModType.Attr:
             elm.setAttribute(name, val);
             break;
-        case ModifType.Src:
+        case ModType.Src:
             elm.setAttribute('src', new URL(val, name).href);
             break;
-        case ModifType.Prop:
+        case ModType.Prop:
             if (val != null) {
                 if (val !== elm[name])
                     elm[name] = val;
@@ -226,7 +227,7 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             else
                 delete elm[name];
             break;
-        case ModifType.Event:
+        case ModType.Event:
             let m;
             if (val)
                 if (m = /^on(input|change)$/.exec(name)) {
@@ -236,19 +237,19 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                 else
                     elm[name] = val;
             break;
-        case ModifType.Class:
+        case ModType.Class:
             if (val)
                 elm.classList.add(name);
             break;
-        case ModifType.Style:
+        case ModType.Style:
             elm.style[name] = val || (val === 0 ? '0' : null);
             break;
-        case ModifType.AddToStyle:
+        case ModType.AddToStyle:
             if (val)
                 for (const [name, v] of Object.entries(val))
                     elm.style[name] = v || (v === 0 ? '0' : null);
             break;
-        case ModifType.AddToClassList:
+        case ModType.AddToClassList:
             switch (typeof val) {
                 case 'string':
                     elm.classList.add(val);
@@ -266,11 +267,11 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                 default: throw `Invalid '+class' value`;
             }
             break;
-        case ModifType.RestArgument:
+        case ModType.RestArgument:
             for (const { modType, name, value } of val)
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
-        case ModifType.oncreate:
+        case ModType.oncreate:
             if (bCreate)
                 val.call(elm);
             break;
@@ -310,7 +311,7 @@ class RCompiler {
         this.restoreActions = [];
         this.mPreformatted = new Map([['pre', null]]);
         this.AllAreas = [];
-        this.whiteSpc = WhiteSpace.keep;
+        this.whiteSpc = WhiteSpc.keep;
         this.bCompiled = false;
         this.bHasReacts = false;
         this.DirtyVars = new Set();
@@ -320,6 +321,8 @@ class RCompiler {
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
+        this.CreatedRvars = [];
+        this.RvarsToCheck = [];
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
@@ -380,7 +383,7 @@ class RCompiler {
                 RHTML = this;
             this.Builder =
                 bIncludeSelf
-                    ? this.CompElement(elm.parentElement, elm)[0]
+                    ? this.CompElement(elm.parentElement, elm, true)[0]
                     : this.CompChildNodes(elm);
             this.bCompiled = true;
         }
@@ -394,14 +397,14 @@ class RCompiler {
         if (this.Settings.bTiming)
             console.log(msg);
     }
-    Subscriber({ parent, before, bNoChildBuilding, env }, builder, range) {
+    Subscriber({ parent, before, bNoChildBuilding, env }, builder, range, ...args) {
         const sArea = {
             parent, before, bNoChildBuilding,
             env: CloneEnv(env),
             range,
         }, subscriber = () => {
             this.builtNodeCount++;
-            return builder.call(this, { ...sArea });
+            return builder.call(this, { ...sArea }, 0, ...args);
         };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -472,7 +475,8 @@ class RCompiler {
         }
     }
     RVAR(name, initialValue, store) {
-        return new _RVAR(this.MainC, name, initialValue, store, name);
+        const r = new _RVAR(this.MainC, name, initialValue, store, name);
+        return r;
     }
     ;
     RVAR_Light(t, updatesTo) {
@@ -523,7 +527,7 @@ class RCompiler {
                     this.sourceNodeCount++;
                     const builderElm = this.CompElement(srcParent, srcNode);
                     if (builderElm) {
-                        if (builderElm[0].ws == WhiteSpace.trim) {
+                        if (builderElm[0].ws == WhiteSpc.trim) {
                             let i = builders.length - 1;
                             while (i >= 0 && builders[i][2]) {
                                 builders.pop();
@@ -536,7 +540,7 @@ class RCompiler {
                 case Node.TEXT_NODE:
                     this.sourceNodeCount++;
                     let str = srcNode.nodeValue;
-                    if (this.whiteSpc != WhiteSpace.preserve)
+                    if (this.whiteSpc != WhiteSpc.preserve)
                         str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                     const getText = this.CompString(str), fixed = getText.fixed;
                     if (fixed !== '') {
@@ -549,7 +553,7 @@ class RCompiler {
                             ]);
                         else {
                             const isBlank = /^[ \t\r\n]*$/.test(fixed);
-                            if (!(this.whiteSpc == WhiteSpace.trim && isBlank))
+                            if (!(this.whiteSpc == WhiteSpc.trim && isBlank))
                                 builders.push([
                                     async (area) => {
                                         PrepareText(area, fixed);
@@ -557,21 +561,24 @@ class RCompiler {
                                     srcNode, isBlank
                                 ]);
                         }
-                        if (this.whiteSpc != WhiteSpace.preserve)
-                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
+                        if (this.whiteSpc != WhiteSpc.preserve)
+                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpc.trim : WhiteSpc.keep;
                     }
                     break;
             }
         }
         return builders.length == 0 ? null :
             async function Iter(area) {
-                for (const [builder, node] of builders)
+                for (const [builder, node] of builders) {
                     await this.CallWithErrorHandling(builder, node, area);
+                }
                 this.builtNodeCount += builders.length;
             };
     }
-    CompElement(srcParent, srcElm) {
+    CompElement(srcParent, srcElm, bUnhide) {
         const atts = new Atts(srcElm), reacts = [], genMods = [];
+        if (bUnhide)
+            atts.set('#hidden', 'false');
         for (const attName of RCompiler.genAtts)
             if (atts.has(attName))
                 if (/^on/.test(attName))
@@ -588,7 +595,7 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('name') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName), subBuilder = this.CompChildNodes(srcElm);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName), subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEF(area) {
                                 const { range, subArea, bInit } = PrepareArea(srcElm, area);
                                 if (bInit || bReact) {
@@ -721,8 +728,8 @@ class RCompiler {
                                         }
                                     }
                                 };
-                            if (this.whiteSpc == WhiteSpace.trim)
-                                this.whiteSpc = WhiteSpace.keep;
+                            if (this.whiteSpc == WhiteSpc.trim)
+                                this.whiteSpc = WhiteSpc.keep;
                         }
                         break;
                     case 'for':
@@ -808,7 +815,7 @@ class RCompiler {
                         break;
                     case 'rhtml':
                         {
-                            this.whiteSpc = WhiteSpace.trim;
+                            this.whiteSpc = WhiteSpc.trim;
                             const bodyBuilder = this.CompChildNodes(srcElm);
                             const modifs = this.CompAttributes(atts);
                             builder = async function RHTML(area) {
@@ -854,8 +861,7 @@ class RCompiler {
                         break;
                     case 'document':
                         {
-                            const newVar = this.NewVar(atts.get('name', true)), RC = this;
-                            const docBuilder = RC.CompChildNodes(srcElm), docDef = (env) => {
+                            const newVar = this.NewVar(atts.get('name', true)), bEncaps = CBool(atts.get('encapsulate')), params = atts.get('params'), RC = this, docBuilder = RC.CompChildNodes(srcElm), docDef = (env) => {
                                 env = CloneEnv(env);
                                 return {
                                     render(parent) {
@@ -864,7 +870,8 @@ class RCompiler {
                                     },
                                     async open(...args) {
                                         const W = window.open('', ...args);
-                                        copyStyleSheets(document, W.document);
+                                        if (!bEncaps)
+                                            copyStyleSheets(document, W.document);
                                         await this.render(W.document.body);
                                         return W;
                                     },
@@ -872,7 +879,8 @@ class RCompiler {
                                         const iframe = document.createElement('iframe');
                                         iframe.setAttribute('style', 'display:none');
                                         document.body.appendChild(iframe);
-                                        copyStyleSheets(document, iframe.contentDocument);
+                                        if (!bEncaps)
+                                            copyStyleSheets(document, iframe.contentDocument);
                                         await docBuilder.call(RC, { parent: iframe.contentDocument.body, env });
                                         iframe.contentWindow.print();
                                         iframe.remove();
@@ -1320,7 +1328,7 @@ class RCompiler {
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
                         if (args[i])
-                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
+                            ApplyModifier(elm, ModType.RestArgument, null, args[i], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1357,9 +1365,12 @@ class RCompiler {
             slotBuilders.get('content').push(this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
         const modifs = signature.RestParam ? this.CompAttributes(atts) : null;
         atts.CheckNoAttsLeft();
-        this.whiteSpc = WhiteSpace.keep;
+        this.whiteSpc = WhiteSpc.keep;
         return async function INSTANCE(area) {
-            const { subArea } = PrepareArea(srcElm, area), { env } = area, { templates: instanceBuilders, constructEnv } = env.constructs.get(name), args = [];
+            const { env } = area, cdef = env.constructs.get(name);
+            if (!cdef)
+                return;
+            const { subArea } = PrepareArea(srcElm, area), args = [];
             for (const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
             if (signature.RestParam) {
@@ -1368,22 +1379,22 @@ class RCompiler {
                     rest.push({ modType, name, value: depValue(env) });
                 args.push(rest);
             }
-            subArea.env = constructEnv;
-            for (const parBuilder of instanceBuilders)
+            subArea.env = cdef.constructEnv;
+            for (const parBuilder of cdef.templates)
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
         };
     }
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
-        const ws = this.mPreformatted.has(name) ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
+        const ws = this.mPreformatted.has(name) ? WhiteSpc.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpc.trim : WhiteSpc.keep;
         const modifs = this.CompAttributes(atts);
-        if (ws != WhiteSpace.keep)
+        if (ws != WhiteSpc.keep)
             this.whiteSpc = ws;
         const childnodesBuilder = this.CompChildNodes(srcElm);
-        if (ws == WhiteSpace.trim)
+        if (ws == WhiteSpc.trim)
             this.whiteSpc = ws;
-        else if (ws == WhiteSpace.preserve && saveWs != WhiteSpace.preserve)
-            this.whiteSpc = WhiteSpace.keep;
+        else if (ws == WhiteSpc.preserve && saveWs != WhiteSpc.preserve)
+            this.whiteSpc = WhiteSpc.keep;
         const builder = async function ELEMENT(area) {
             const { elmRange: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
             if (!area.bNoChildBuilding)
@@ -1407,49 +1418,49 @@ class RCompiler {
             try {
                 if (m = /^on(.*)$/i.exec(attName))
                     modifs.push({
-                        modType: ModifType.Event,
-                        name: CapitalizeProp(m[0]),
+                        modType: ModType.Event,
+                        name: CapitalProp(m[0]),
                         depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Class, name: m[1],
+                        modType: ModType.Class, name: m[1],
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Style, name: CapitalizeProp(m[1]),
+                        modType: ModType.Style, name: CapitalProp(m[1]),
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Style, name: CapitalizeProp(m[1]),
+                        modType: ModType.Style, name: CapitalProp(m[1]),
                         depValue: this.CompString(attValue)
                     });
                 else if (attName == '+style')
                     modifs.push({
-                        modType: ModifType.AddToStyle, name: null,
+                        modType: ModType.AddToStyle, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Prop,
-                        name: CapitalizeProp(m[1]),
+                        modType: ModType.Prop,
+                        name: CapitalProp(m[1]),
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (attName == "+class")
                     modifs.push({
-                        modType: ModifType.AddToClassList, name: null,
+                        modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) {
-                    const propName = CapitalizeProp(m[3]);
+                    const propName = CapitalProp(m[3]);
                     try {
                         const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         modifs.push(m[1] == '@'
-                            ? { modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) }
-                            : { modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        modifs.push({ modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
+                            ? { modType: ModType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) }
+                            : { modType: ModType.oncreate, name: 'oncreate', depValue: setter });
+                        modifs.push({ modType: ModType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
                     }
                     catch (err) {
                         throw `Invalid left-hand side '${attValue}'`;
@@ -1459,19 +1470,19 @@ class RCompiler {
                     if (attValue)
                         throw `Rest parameter cannot have a value`;
                     modifs.push({
-                        modType: ModifType.RestArgument, name: null,
+                        modType: ModType.RestArgument, name: null,
                         depValue: this.CompName(m[1])
                     });
                 }
                 else if (attName == 'src')
                     modifs.push({
-                        modType: ModifType.Src,
+                        modType: ModType.Src,
                         name: this.FilePath,
                         depValue: this.CompString(attValue),
                     });
                 else
                     modifs.push({
-                        modType: ModifType.Attr,
+                        modType: ModType.Attr,
                         name: attName,
                         depValue: this.CompString(attValue)
                     });
@@ -1729,7 +1740,7 @@ const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bound
     + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
     + '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
-function CapitalizeProp(lcName) {
+function CapitalProp(lcName) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
 }
 function OuterOpenTag(elm, maxLength) {

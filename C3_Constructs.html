@@ -585,7 +585,7 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 
 
 <h2 id=Document><{}DOCUMENT></h2>
-<elm>DOCUMENT name=<i>docName</i></elm> allows you to define a separate document or form, that remains part of the same RHTML application.
+<elm>DOCUMENT name=<i>docName</i> encapsulate?</elm> allows you to define a separate document or form, that remains part of the same RHTML application.
 
 <p>
     The content is not immediately rendered, but <code><i>docName</i></code> is defined as a local variable, bound to an object with the following methods:
@@ -593,7 +593,7 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 <dl>
     <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>)</code></dt>
     <dd>
-        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}docs/Web/API/Window/open"><code>Window.open()</code></a>.
+        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>.
     </dd>
     <dt><code><i>docName</i>.print()</code></dt>
     <dd>
@@ -602,4 +602,11 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
     </dd>
 </dl>
 
+By default, all styling rules attached to the parent document are copied to the new document, but with the option <code>encapsulate</code> no rules are copied.
+<br>You can use <elm>style</elm> to insert styling information, or <elm>HEAD.</elm><elm>LINK &hellip;</elm><elm>/HEAD.</elm> to link an external style sheet.
+
 <h2><{}HEAD.></h2>
+Any child elements of <elm>HEAD.</elm> are inserted into the current document header.
+<p>
+    You can use this e.g. to set a dynamic document title.
+</p>

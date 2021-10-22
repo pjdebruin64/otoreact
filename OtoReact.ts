@@ -14,8 +14,8 @@ const defaultSettings = {
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {ws?: WhiteSpace};
-enum WhiteSpace {preserve, keep, trim}
+type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {ws?: WhiteSpc};
+enum WhiteSpc {preserve, keep, trim}
 
 // An AREA is the (runtime) place to build or update, with all required information
 type Area = {
@@ -130,15 +130,17 @@ function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
         range.result = result;
 
         if (bMark)
-            before ||= range.endMark = parent.insertBefore<Comment>(
-                document.createComment('/'+text), before);
+            before =
+            //before ||= 
+                range.endMark = parent.insertBefore<Comment>(
+                    document.createComment('/'+text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
 
         if (bMark) {
-            before ||= range.endMark;
+            before = range.endMark;
             if (bMark==1 && result != range.result || bMark==2) {
                 range.result = result;
                 let node = range.First || before;
@@ -225,7 +227,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
-            ? RBuild().then(() => {elm.hidden = false; ScrollToHash();} )
+            ? RBuild().then(() => {ScrollToHash();} )
             : null);
     }
     catch (err) {
@@ -327,33 +329,33 @@ interface Item {}  // Three unknown but distinct types, used by the <FOR> constr
 interface Key {}
 interface Hash {}
 
-enum ModifType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
+enum ModType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate //, onupdate
 }
 type Modifier = {
-    modType: ModifType,
+    modType: ModType,
     name: string,
     depValue: Dependent<unknown>,
 }
-type RestParameter = Array<{modType: ModifType, name: string, value: unknown}>;
+type RestParameter = Array<{modType: ModType, name: string, value: unknown}>;
 let bReadOnly: boolean = false;
 
-function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: unknown, bCreate: boolean) {    
+function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: unknown, bCreate: boolean) {    
     switch (modType) {
-        case ModifType.Attr:
+        case ModType.Attr:
             elm.setAttribute(name, val as string); 
             break;
-        case ModifType.Src:
+        case ModType.Src:
             elm.setAttribute('src',  new URL(val as string, name).href);
             break;
-        case ModifType.Prop:
+        case ModType.Prop:
             if (val != null) {
                 if (val !== elm[name]) elm[name] = val;
             }
             else
                 delete elm[name];
             break;
-        case ModifType.Event:
+        case ModType.Event:
             let m: RegExpMatchArray;
             if (val)
                 if(m = /^on(input|change)$/.exec(name)) {
@@ -363,19 +365,19 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 else
                     elm[name] = val; 
             break;
-        case ModifType.Class:
+        case ModType.Class:
             if (val)
                 elm.classList.add(name);
             break;
-        case ModifType.Style:
+        case ModType.Style:
             elm.style[name] = val || (val === 0 ? '0' : null);
             break;
-        case ModifType.AddToStyle:
+        case ModType.AddToStyle:
             if (val) 
                 for (const [name,v] of Object.entries(val as Object))
                     elm.style[name] = v || (v === 0 ? '0' : null);
             break
-        case ModifType.AddToClassList:
+        case ModType.AddToClassList:
             switch (typeof val) {
                 case 'string': elm.classList.add(val); break;
                 case 'object':
@@ -390,11 +392,11 @@ function ApplyModifier(elm: HTMLElement, modType: ModifType, name: string, val: 
                 default: throw `Invalid '+class' value`;
             }
             break;
-        case ModifType.RestArgument:
+        case ModType.RestArgument:
             for (const {modType, name, value} of val as RestParameter)
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
-        case ModifType.oncreate:
+        case ModType.oncreate:
             if (bCreate)
                 (val as ()=>void).call(elm); 
             break;
@@ -527,7 +529,7 @@ class RCompiler {
             if (!this.clone) RHTML = this;
             this.Builder =
                 bIncludeSelf
-                ? this.CompElement(elm.parentElement, elm as HTMLElement)[0]
+                ? this.CompElement(elm.parentElement, elm as HTMLElement, true)[0]
                 : this.CompChildNodes(elm);
             this.bCompiled = true;
         }
@@ -545,7 +547,7 @@ class RCompiler {
 
     private mPreformatted = new Map<string,void>([['pre', null]]);
         
-    Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range ): Subscriber {
+    Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range, ...args ): Subscriber {
         const sArea = {
                 parent, before, bNoChildBuilding,
                 env: CloneEnv(env), 
@@ -553,7 +555,7 @@ class RCompiler {
             },
             subscriber: Subscriber = () => {
                 (this as RCompiler).builtNodeCount++;
-                return builder.call(this, {...sArea});
+                return builder.call(this, {...sArea}, 0, ...args);
             };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -573,7 +575,7 @@ class RCompiler {
     public Settings: FullSettings;
     private AllAreas: Subscriber[] = [];
     private Builder: DOMBuilder;
-    private whiteSpc = WhiteSpace.keep;
+    private whiteSpc = WhiteSpc.keep;
 
     private bCompiled = false;
     private bHasReacts = false;
@@ -650,7 +652,9 @@ class RCompiler {
         initialValue?: T, 
         store?: Store
     ) {
-        return new _RVAR<T>(this.MainC, name, initialValue, store, name);
+        const r = new _RVAR<T>(this.MainC, name, initialValue, store, name);
+        //this.CreatedRvars.push(r);
+        return r;
     }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
     private RVAR_Light<T>(
@@ -701,6 +705,13 @@ class RCompiler {
         finally { this.RestoreContext(saved); }
     }
 
+    private CreatedRvars: RVAR[] = [];
+    private RvarsToCheck: Array<{
+        rvar: RVAR, 
+        builder: (this: RCompiler, area: Area, start: number) => Promise<void>;
+        i: number;
+    }> = [];
+
     private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
         const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
         
@@ -712,7 +723,7 @@ class RCompiler {
                     const builderElm = this.CompElement(srcParent, srcNode as HTMLElement);
 
                     if (builderElm) {                        
-                        if (builderElm[0].ws==WhiteSpace.trim) {
+                        if (builderElm[0].ws==WhiteSpc.trim) {
                             let i = builders.length - 1;
                             while (i>=0 && builders[i][2]) {
                                 builders.pop();
@@ -726,7 +737,7 @@ class RCompiler {
                 case Node.TEXT_NODE:
                     this.sourceNodeCount ++;
                     let str = srcNode.nodeValue;
-                    if (this.whiteSpc != WhiteSpace.preserve)
+                    if (this.whiteSpc != WhiteSpc.preserve)
                         str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                     
                     const getText = this.CompString( str ), fixed = getText.fixed;
@@ -738,31 +749,53 @@ class RCompiler {
                                 }, srcNode] );
                         else {
                             const isBlank = /^[ \t\r\n]*$/.test(fixed);
-                            if (!(this.whiteSpc==WhiteSpace.trim && isBlank))
+                            if (!(this.whiteSpc==WhiteSpc.trim && isBlank))
                                 builders.push( [ 
                                     async (area: Area) => {
                                         PrepareText(area, fixed)
                                     }, srcNode, isBlank ] );
                         }
-                        if (this.whiteSpc!=WhiteSpace.preserve)
-                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpace.trim : WhiteSpace.keep;
+                        if (this.whiteSpc!=WhiteSpc.preserve)
+                            this.whiteSpc = /[ \t\r\n]$/.test(getText.last) ? WhiteSpc.trim : WhiteSpc.keep;
                         }
                     break;
             }
         }
         return builders.length == 0 ? null :
-            async function Iter(this: RCompiler, area) {
-                for (const [builder, node] of builders)
+            async function Iter(this: RCompiler, area: Area //, start: number = 0
+                ) {
+                /*
+                const bInit = !area.range,
+                 saveRvars = this.CreatedRvars.length;
+                const iter = builders.values();
+                let i = 0, ran;
+                while (i < start) {
+                    iter.next();
+                    i++;
+                }  */
+                for (const [builder, node] of builders) {
                     await this.CallWithErrorHandling(builder, node, area);
+                    /*
+                    i++;
+                    if (bInit)
+                        while (this.CreatedRvars.length > saveRvars) {
+                            const rvar = this.CreatedRvars.pop();
+                            if (!rvar.Subscribers.size)
+                                rvar.Subscribe(this.Subscriber(area, builder, , i))
+                        }  */
+                }
                 this.builtNodeCount += builders.length;
             };
+        //return builder;
     }
 
     static genAtts = ['reacton','reactson','thisreactson','oncreate','onupdate'];
-    private CompElement(srcParent: ParentNode, srcElm: HTMLElement): [DOMBuilder, ChildNode] {
+    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, handler: Dependent<Handler>}> = [];
+        if (bUnhide)
+            atts.set('#hidden', 'false');
         for (const attName of RCompiler.genAtts)
             if (atts.has(attName))
                 if (/^on/.test(attName))
@@ -783,7 +816,7 @@ labelNoCheck:
                     case 'define': { // 'LET' staat de parser niet toe.
                         //srcParent.removeChild(srcElm);
                         const rvarName  = atts.get('rvar'),
-                            varName     = rvarName || atts.get('name') || atts.get('var', true),
+                            varName     = rvarName || atts.get('let') || atts.get('var', true),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
                             bAsync      = rvarName && CBool(atts.get('async')),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
@@ -954,7 +987,7 @@ labelNoCheck:
                                     }
                                 }
                         }
-                        if (this.whiteSpc==WhiteSpace.trim) this.whiteSpc=WhiteSpace.keep
+                        if (this.whiteSpc==WhiteSpc.trim) this.whiteSpc=WhiteSpc.keep
                     } break;
                             
                     case 'for':
@@ -1060,7 +1093,7 @@ labelNoCheck:
                     } break;
 
                     case 'rhtml': {
-                        this.whiteSpc=WhiteSpace.trim;
+                        this.whiteSpc=WhiteSpc.trim;
                         const bodyBuilder = this.CompChildNodes(srcElm);
                         //srcParent.removeChild(srcElm);
 
@@ -1115,8 +1148,9 @@ labelNoCheck:
 
                     case 'document': {
                         const newVar = this.NewVar(atts.get('name', true)),
-                            RC = this; //new RCompiler(this);
-                        const
+                            bEncaps = CBool(atts.get('encapsulate')),
+                            params=atts.get('params'),
+                            RC = this,
                             docBuilder = RC.CompChildNodes(srcElm),
                             docDef = (env: Environment) => {
                                 env = CloneEnv(env);
@@ -1128,7 +1162,8 @@ labelNoCheck:
                                     async open(...args: string[]) {
                                         const W = window.open('', ...args);
                                         // Copy all style sheet rules
-                                        copyStyleSheets(document, W.document);
+                                        if (!bEncaps)
+                                            copyStyleSheets(document, W.document);
                                         await this.render(W.document.body);
                                         return W;
                                     },
@@ -1136,7 +1171,8 @@ labelNoCheck:
                                         const iframe = document.createElement('iframe');
                                         iframe.setAttribute('style','display:none');
                                         document.body.appendChild(iframe);
-                                        copyStyleSheets(document, iframe.contentDocument);
+                                        if (!bEncaps)
+                                            copyStyleSheets(document, iframe.contentDocument);
                                         await docBuilder.call(RC, {parent: iframe.contentDocument.body, env});
                                         iframe.contentWindow.print();
                                         iframe.remove();
@@ -1698,7 +1734,7 @@ labelNoCheck:
                                 shadow.appendChild(style.cloneNode(true));
                         
                         if (args[i])
-                            ApplyModifier(elm, ModifType.RestArgument, null, args[i], bInit);
+                            ApplyModifier(elm, ModType.RestArgument, null, args[i], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1748,14 +1784,14 @@ labelNoCheck:
         const modifs = signature.RestParam ? this.CompAttributes(atts): null;
 
         atts.CheckNoAttsLeft();
-        this.whiteSpc = WhiteSpace.keep;
+        this.whiteSpc = WhiteSpc.keep;
 
         return async function INSTANCE(this: RCompiler, area: Area) {
-            const {subArea} = PrepareArea(srcElm, area),
-                {env} = area,
-                // The construct-template(s) will be executed in this construct-env
-                {templates: instanceBuilders, constructEnv} =  env.constructs.get(name),
+            const {env} = area,
+                cdef = env.constructs.get(name);
+            if (!cdef) return;
 
+            const {subArea} = PrepareArea(srcElm, area),
                 args: unknown[] = [];
             for ( const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
@@ -1768,8 +1804,8 @@ labelNoCheck:
                 args.push(rest);
             }
 
-            subArea.env = constructEnv
-            for (const parBuilder of instanceBuilders) 
+            subArea.env = cdef.constructEnv;
+            for (const parBuilder of cdef.templates) 
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
         }
     }
@@ -1778,17 +1814,17 @@ labelNoCheck:
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, ''), saveWs = this.whiteSpc;
-        const ws: WhiteSpace = 
-            this.mPreformatted.has(name) ? WhiteSpace.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpace.trim : WhiteSpace.keep;
+        const ws: WhiteSpc = 
+            this.mPreformatted.has(name) ? WhiteSpc.preserve : RCompiler.regTrimmable.test(name) ? WhiteSpc.trim : WhiteSpc.keep;
 
         // We turn each given attribute into a modifier on created elements
         const modifs = this.CompAttributes(atts);
 
-        if (ws != WhiteSpace.keep) this.whiteSpc = ws;
+        if (ws != WhiteSpc.keep) this.whiteSpc = ws;
         // Compile the given childnodes into a routine that builds the actual childnodes
         const childnodesBuilder = this.CompChildNodes(srcElm);
-        if (ws == WhiteSpace.trim) this.whiteSpc = ws;
-        else if (ws == WhiteSpace.preserve && saveWs!=WhiteSpace.preserve) this.whiteSpc = WhiteSpace.keep;
+        if (ws == WhiteSpc.trim) this.whiteSpc = ws;
+        else if (ws == WhiteSpc.preserve && saveWs!=WhiteSpc.preserve) this.whiteSpc = WhiteSpc.keep;
 
         // Now the runtime action
         const builder: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
@@ -1820,70 +1856,70 @@ labelNoCheck:
             try {
                 if (m = /^on(.*)$/i.exec(attName))               // Events
                     modifs.push({
-                        modType: ModifType.Event, 
-                        name: CapitalizeProp(m[0]), 
+                        modType: ModType.Event, 
+                        name: CapitalProp(m[0]), 
                         depValue: this.CompHandler(attName, attValue)
                     });
                 else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Class, name: m[1],
+                        modType: ModType.Class, name: m[1],
                         depValue: this.CompJavaScript<boolean>(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Style, name: CapitalizeProp(m[1]),
+                        modType: ModType.Style, name: CapitalProp(m[1]),
                         depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Style, name: CapitalizeProp(m[1]),
+                        modType: ModType.Style, name: CapitalProp(m[1]),
                         depValue: this.CompString(attValue)
                     });
                 else if (attName == '+style')
                     modifs.push({
-                        modType: ModifType.AddToStyle, name: null,
+                        modType: ModType.AddToStyle, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
                 else if (m = /^#(.*)/.exec(attName))
                     modifs.push({
-                        modType: ModifType.Prop, 
-                        name: CapitalizeProp(m[1]),
+                        modType: ModType.Prop, 
+                        name: CapitalProp(m[1]),
                         depValue: this.CompJavaScript<unknown>(attValue, attName)
                     });
                 else if (attName == "+class")
                     modifs.push({
-                        modType: ModifType.AddToClassList, name: null,
+                        modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) { // *, **, @, @@
-                    const propName = CapitalizeProp(m[3]);                    
+                    const propName = CapitalProp(m[3]);                    
                     try {
                         const setter = this.CompJavaScript<Handler>(
                             `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         modifs.push(
                             m[1] == '@'
-                            ? { modType: ModifType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) }
-                            : { modType: ModifType.oncreate, name: 'oncreate', depValue: setter });
-                        modifs.push({modType: ModifType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
+                            ? { modType: ModType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) }
+                            : { modType: ModType.oncreate, name: 'oncreate', depValue: setter });
+                        modifs.push({modType: ModType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue) throw `Rest parameter cannot have a value`;
                     modifs.push({
-                        modType: ModifType.RestArgument, name: null,
+                        modType: ModType.RestArgument, name: null,
                         depValue: this.CompName(m[1])
                     });
                 }
                 else if (attName == 'src')
                     modifs.push({
-                        modType: ModifType.Src,
+                        modType: ModType.Src,
                         name: this.FilePath,
                         depValue: this.CompString(attValue),
                     });
                 else
                     modifs.push({
-                        modType: ModifType.Attr,
+                        modType: ModType.Attr,
                         name: attName,
                         depValue: this.CompString(attValue)
                     });
@@ -2193,7 +2229,7 @@ const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bound
 + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
 + '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
-function CapitalizeProp(lcName: string) {
+function CapitalProp(lcName: string) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
 }
 
