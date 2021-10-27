@@ -1,23 +1,20 @@
 <h1>Introduction</h1>
 
-<div style="display: grid; grid-template-columns: 1fr auto ; align-items: center; margin-top:-1em">
+<div style="display: grid; grid-template-columns: 1fr 1fr ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
     <div class=sample 
         style="min-width: 325px; min-height: 110px;" 
         id=sampleGreeting>
         <RHTML>{sampleGreeting}</RHTML>
     </div>
-    <div style="height: fit-content; width: fit-content; justify-self: right;">
+    <div style="height: fit-content; width: fit-content;">
         <RHTML>{sampleTicTacToe}</RHTML>
     </div>
 </div>
 
 <p>
-    '<i>Reactive web applications</i>', or '<a href="{wiki}Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or server data requested by the application, instead of waiting for the web server to generate and send a new HTML page.
-    <br>A tiny example you see above; please enter some data.
-</p>
-<p>
-    When some server data is needed, then the application requests just the data and updates the shown page, instead of sending all input fields to the server and having the server create and send a new page.
+    '<i>Reactive web applications</i>', or '<a href="{wiki}Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or the receival of server data requested by the application, instead of having the web server generate and send a new HTML page.
     <br>This results in both a much better user experience and much less server load.
+    <br>Two tiny examples you see above; please enter some data.
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
@@ -35,7 +32,7 @@
     <li>Reactive HTML has a powerful component system, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, pretty much everything you need.
 </ul>
 <p>
-    The tiny example above is the result of the following piece of Reactive HTML:
+    The tiny example above on the left is the result of the following piece of Reactive HTML:
 </p>
 <pre class=sourcecode #innerText=sampleGreeting></pre>
 

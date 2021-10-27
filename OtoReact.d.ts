@@ -166,6 +166,7 @@ declare class _RVAR<T = unknown> {
     private _Value;
     Subscribers: Set<Subscriber>;
     Subscribe(s: Subscriber, bImmediate?: boolean): void;
+    Unsubscribe(s: Subscriber): void;
     get V(): T;
     set V(t: T);
     get U(): T;

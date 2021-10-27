@@ -56,7 +56,7 @@ class Range {
         return f && f.isConnected;
     }
 }
-function PrepareArea(srcElm, area, text = '', bMark, result) {
+function PrepArea(srcElm, area, text = '', bMark, result) {
     let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
     if (bInit) {
         subArea.source = area.source;
@@ -300,9 +300,9 @@ function RestoreEnv(savedEnv) {
         envActions.pop()();
 }
 function DefConstruct(env, name, construct) {
-    const { constructs: constructDefs } = env, prevDef = constructDefs.get(name);
-    constructDefs.set(name, construct);
-    envActions.push(() => { constructDefs.set(name, prevDef); });
+    const { constructs } = env, prevDef = constructs.get(name);
+    constructs.set(name, construct);
+    envActions.push(() => { constructs.set(name, prevDef); });
 }
 class RCompiler {
     constructor(clone) {
@@ -569,8 +569,8 @@ class RCompiler {
         }
         return builders.length == 0 ? null :
             async function Iter(area) {
-                for (const [builder, node] of builders) {
-                    await this.CallWithErrorHandling(builder, node, area);
+                for (const [builder] of builders) {
+                    await builder.call(this, area);
                 }
                 this.builtNodeCount += builders.length;
             };
@@ -597,7 +597,7 @@ class RCompiler {
                         {
                             const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName), subBuilder = this.CompChildNodes(srcElm);
                             builder = async function DEF(area) {
-                                const { range, subArea, bInit } = PrepareArea(srcElm, area);
+                                const { range, subArea, bInit } = PrepArea(srcElm, area);
                                 if (bInit || bReact) {
                                     const value = getValue && getValue(area.env);
                                     if (rvarName) {
@@ -680,7 +680,7 @@ class RCompiler {
                                     }
                                 }
                                 catch (err) {
-                                    throw OuterOpenTag(node) + err;
+                                    throw (node.nodeName == 'IF' ? '' : OuterOpenTag(node)) + err;
                                 }
                                 finally {
                                     this.RestoreContext(saved);
@@ -711,7 +711,7 @@ class RCompiler {
                                         }
                                     }
                                     else {
-                                        const { subArea, bInit } = PrepareArea(srcElm, area, '', 1, choosenAlt);
+                                        const { subArea, bInit } = PrepArea(srcElm, area, '', 1, choosenAlt);
                                         if (choosenAlt && (bInit || !area.bNoChildBuilding)) {
                                             const saved = SaveEnv();
                                             try {
@@ -803,7 +803,7 @@ class RCompiler {
                             if (getHashes) {
                                 const b = builder;
                                 builder = async function HASH(area) {
-                                    const { subArea, range } = PrepareArea(srcElm, area, 'hash');
+                                    const { subArea, range } = PrepArea(srcElm, area, 'hash');
                                     const hashes = getHashes(area.env);
                                     if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
                                         range.value = hashes;
@@ -913,6 +913,8 @@ class RCompiler {
         catch (err) {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
+        if (!builder)
+            return null;
         if (genMods.length) {
             const b = builder;
             builder = async function ON(area) {
@@ -925,15 +927,18 @@ class RCompiler {
         }
         for (const { attName, rvars } of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
-        if (builder)
-            return [builder, srcElm];
-        return null;
+        return [
+            function Elm(area) {
+                return this.CallWithErrorHandling(builder, srcElm, area);
+            },
+            srcElm
+        ];
     }
     GetREACT(srcElm, attName, builder, getRvars, bRenew = false) {
         this.MainC.bHasReacts = true;
         const updateBuilder = (bRenew
             ? async function renew(subArea) {
-                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
+                const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             : attName == 'thisreactson'
@@ -943,26 +948,39 @@ class RCompiler {
                 }
                 : builder);
         return async function REACT(area) {
-            const { range, subArea, bInit } = PrepareArea(srcElm, area, attName, true);
+            const { range, subArea, bInit } = PrepArea(srcElm, area, attName, true);
             if (bRenew) {
-                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
+                const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             else
                 await builder.call(this, subArea);
-            if (getRvars)
-                if (bInit) {
-                    const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child);
-                    for (const rvar of getRvars(area.env))
-                        try {
-                            rvar.Subscribe(subscriber);
-                        }
-                        catch {
-                            throw "This is not an RVAR";
-                        }
+            if (getRvars) {
+                const rvars = getRvars(area.env);
+                let subscriber, pVars;
+                if (bInit)
+                    subscriber = this.Subscriber(subArea, updateBuilder, range.child);
+                else {
+                    ({ subscriber, rvars: pVars } = range.value);
+                    subscriber.sArea.env = CloneEnv(subArea.env);
                 }
-                else
-                    range.value.sArea.env = CloneEnv(subArea.env);
+                range.value = { rvars, subscriber };
+                let i = 0;
+                for (const rvar of rvars) {
+                    if (pVars) {
+                        const pvar = pVars[i++];
+                        if (rvar == pvar)
+                            continue;
+                        pvar.Unsubscribe(subscriber);
+                    }
+                    try {
+                        rvar.Subscribe(subscriber);
+                    }
+                    catch {
+                        throw "This is not an RVAR";
+                    }
+                }
+            }
         };
     }
     async CallWithErrorHandling(builder, srcNode, area) {
@@ -1059,7 +1077,7 @@ class RCompiler {
                     nextName = 'next';
                 const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOR(area) {
-                    const { range, subArea } = PrepareArea(srcElm, area, '', true), { parent, env } = subArea, savedEnv = SaveEnv();
+                    const { range, subArea } = PrepArea(srcElm, area, '', true), { parent, env } = subArea, savedEnv = SaveEnv();
                     try {
                         const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env), iterable = getRange(env), setIndex = initIndex(env);
                         if (iterable) {
@@ -1073,13 +1091,11 @@ class RCompiler {
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, { item, hash, index: idx });
+                                newMap.set(key ?? {}, { item, hash, idx });
                                 idx++;
                             }
                         }
                         let nextChild = range.child;
-                        function RemoveStaleItems() {
-                        }
                         const setPrevious = initPrevious(env), setNext = initNext(env), iterator = newMap.entries(), nextIterator = nextName ? newMap.values() : null;
                         let prevItem = null, nextItem, prevRange = null, childArea;
                         subArea.parentR = range;
@@ -1101,7 +1117,7 @@ class RCompiler {
                             const { value } = iterator.next();
                             if (!value)
                                 break;
-                            const [key, { item, hash, index }] = value;
+                            const [key, { item, hash, idx }] = value;
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
                             let childRange = keyMap.get(key), bInit = !childRange;
@@ -1110,7 +1126,7 @@ class RCompiler {
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.First || range.endMark;
                                 ;
-                                ({ range: childRange, subArea: childArea } = PrepareArea(null, subArea, `${varName}(${index})`, true));
+                                ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`, true));
                                 if (key != null) {
                                     if (keyMap.has(key))
                                         throw `Duplicate key '${key}'`;
@@ -1129,13 +1145,12 @@ class RCompiler {
                                         if (nextChild == childRange)
                                             nextChild = nextChild.next;
                                         else {
-                                            const nextIndex = newMap.get(nextChild.key)?.index;
-                                            if (nextIndex > index + 2) {
+                                            const nextIndex = newMap.get(nextChild.key)?.idx;
+                                            if (nextIndex > idx + 2) {
                                                 const fragm = nextChild.fragm = document.createDocumentFragment();
                                                 for (const node of nextChild.Nodes())
                                                     fragm.appendChild(node);
                                                 nextChild = nextChild.next;
-                                                RemoveStaleItems();
                                                 continue;
                                             }
                                             childRange.prev.next = childRange.next;
@@ -1147,13 +1162,13 @@ class RCompiler {
                                         }
                                         break;
                                     }
-                                childRange.text = `${varName}(${index})`;
+                                childRange.text = `${varName}(${idx})`;
                                 if (prevRange)
                                     prevRange.next = childRange;
                                 else
                                     range.child = childRange;
                                 subArea.range = childRange;
-                                childArea = PrepareArea(null, subArea, '', true).subArea;
+                                childArea = PrepArea(null, subArea, '', true).subArea;
                                 subArea.parentR = null;
                             }
                             childRange.prev = prevRange;
@@ -1169,17 +1184,17 @@ class RCompiler {
                                         rvar = this.RVAR_Light(item, getUpdatesTo && [getUpdatesTo(env)]);
                                         if (childRange.rvar)
                                             rvar._Subscribers = childRange.rvar._Subscribers;
-                                        childRange.rvar = rvar;
                                     }
                                 }
                                 setVar(rvar || item);
-                                setIndex(index);
+                                setIndex(idx);
                                 setPrevious(prevItem);
                                 if (nextIterator)
                                     setNext(nextItem);
                                 await bodyBuilder.call(this, childArea);
-                                if (bReactive)
+                                if (rvar && !childRange.rvar)
                                     rvar.Subscribe(this.Subscriber(childArea, bodyBuilder, childRange.child));
+                                childRange.rvar = rvar;
                             }
                             prevItem = item;
                         }
@@ -1201,7 +1216,7 @@ class RCompiler {
                 const initIndex = this.NewVar(indexName);
                 const bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOREACH_Slot(area) {
-                    const { subArea } = PrepareArea(srcElm, area);
+                    const { subArea } = PrepArea(srcElm, area);
                     const env = subArea.env;
                     const saved = SaveEnv();
                     const slotDef = env.constructs.get(slotName);
@@ -1367,10 +1382,9 @@ class RCompiler {
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpc.keep;
         return async function INSTANCE(area) {
-            const { env } = area, cdef = env.constructs.get(name);
+            const { env } = area, cdef = env.constructs.get(name), { subArea } = PrepArea(srcElm, area), args = [];
             if (!cdef)
                 return;
-            const { subArea } = PrepareArea(srcElm, area), args = [];
             for (const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
             if (signature.RestParam) {
@@ -1673,6 +1687,9 @@ class _RVAR {
         if (!s.ref)
             s.ref = { isConnected: true };
         this.Subscribers.add(s);
+    }
+    Unsubscribe(s) {
+        this.Subscribers.delete(s);
     }
     get V() { return this._Value; }
     set V(t) {

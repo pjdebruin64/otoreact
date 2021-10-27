@@ -321,8 +321,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
 </p>
 
 <p>
-    With attribute <code class=sourcecode>renew</code>, the content will not be updated but removed and rebuilt on everyupdate request.
-    <br>This is useful when the content creates new RVAR's on every update. Without renewing, any <elm>REACT on</elm> within the content would react only on the original RVAR's, not on the newly created ones.
+    With attribute <code class=sourcecode>renew</code>, the content will not be updated but removed and rebuilt on every update request.
 </p>
 
 <h2>reacton, thisreactson</h2>
@@ -527,7 +526,7 @@ Here is a to-do application, which splits the collection of items into those don
 <h2 id=FORoverSlots><{}FOR of> over component slots</h2>
 When a custom construct (a component or a slot) has a slot <i>slot</i>, then instances of the construct may provide multiple templates for that slot.
 <br>Now, inside the construct template, one can write:
-<pre>
+<pre class=sourcecode>
 <{}FOR of=<i>slot</i>>
     <i>Body</i>
 <{}/FOR>
@@ -540,7 +539,7 @@ Here is a component which allows one to define tables column by column:
 
 
 <h2 id=Include><{}INCLUDE src></h2>
-<elm>INCLUDE src="<i>URL</i>"</elm><elm>/INCLUDE</elm> allows you to include another RHTML file as if it were inserted into the main file.
+<code class=sourcecode><elm>INCLUDE src="<i>URL</i>"</elm><elm>/INCLUDE</elm></code> allows you to include another RHTML file as if it were inserted into the main file.
 <br>The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the included file is being fetched.
 
 <p>
@@ -553,7 +552,7 @@ Here is a component which allows one to define tables column by column:
 
 
 <h2 id=Import><{}IMPORT src>, modules</h2>
-<pre>
+<pre class=sourcecode>
 <{}IMPORT src="<i>URL</i>">
     <i>Signatures</i>
 <{}/IMPORT>
@@ -573,7 +572,7 @@ imports a number of components defined in an external file, called a <i>module</
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
 <h2 id=RHTML><{}RHTML></h2>
-<code><elm>RHTML</elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
+<code class=sourcecode><elm>RHTML</elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
 <p>After each build or update, when the resulting <u>text content</u> of the element has changed, then this text content is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
@@ -585,7 +584,7 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 
 
 <h2 id=Document><{}DOCUMENT></h2>
-<elm>DOCUMENT name=<i>docName</i> encapsulate?</elm> allows you to define a separate document or form, that remains part of the same RHTML application.
+<elm class=sourcecode>DOCUMENT name=<i>docName</i> encapsulate?</elm> allows you to define a separate document or form, that remains part of the same RHTML application.
 
 <p>
     The content is not immediately rendered, but <code><i>docName</i></code> is defined as a local variable, bound to an object with the following methods:
@@ -606,7 +605,7 @@ By default, all styling rules attached to the parent document are copied to the 
 <br>You can use <elm>style</elm> to insert styling information, or <elm>HEAD.</elm><elm>LINK &hellip;</elm><elm>/HEAD.</elm> to link an external style sheet.
 
 <h2><{}HEAD.></h2>
-Any child elements of <elm>HEAD.</elm> are inserted into the current document header.
+Any child elements of <elm class=sourcecode>HEAD.</elm> are inserted into the current document header.
 <p>
-    You can use this e.g. to set a dynamic document title.
+    You can use this e.g. to set a dynamic document title or to add dynamic links.
 </p>

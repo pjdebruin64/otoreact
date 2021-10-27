@@ -114,7 +114,7 @@ type Environment =
 type Dependent<T> = ((env: Environment) => T) & {bThis?: boolean};
 
 
-function PrepareArea(srcElm: HTMLElement, area: Area, text: string = '',
+function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     bMark?: boolean|1|2,  // true=mark area, no wiping; 1=wipe when result has changed; 2=wipe always
     result?: any,
 ) : {range: Range, subArea:Area, bInit: boolean}
@@ -428,9 +428,9 @@ function RestoreEnv(savedEnv: SavedEnv) {
         envActions.pop()();
 }
 function DefConstruct(env: Environment, name: string, construct: ConstructDef) {
-    const {constructs: constructDefs} = env, prevDef = constructDefs.get(name);
-    constructDefs.set(name, construct);
-    envActions.push(() => {constructDefs.set(name, prevDef)})
+    const {constructs} = env, prevDef = constructs.get(name);
+    constructs.set(name, construct);
+    envActions.push(() => {constructs.set(name, prevDef)})
 }
 
 class RCompiler {
@@ -773,8 +773,8 @@ class RCompiler {
                     iter.next();
                     i++;
                 }  */
-                for (const [builder, node] of builders) {
-                    await this.CallWithErrorHandling(builder, node, area);
+                for (const [builder] of builders) {
+                    await builder.call(this, area);
                     /*
                     i++;
                     if (bInit)
@@ -825,7 +825,7 @@ labelNoCheck:
                             subBuilder  = this.CompChildNodes(srcElm);
 
                         builder = async function DEF(this: RCompiler, area) {
-                                const {range, subArea, bInit} = PrepareArea(srcElm, area);
+                                const {range, subArea, bInit} = PrepArea(srcElm, area);
                                 if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
                                     if (rvarName) {
@@ -939,7 +939,7 @@ labelNoCheck:
                                         continue;
                                 }
                             } 
-                            catch (err) { throw OuterOpenTag(node)+ err  }
+                            catch (err) { throw (node.nodeName=='IF' ? '' : OuterOpenTag(node)) + err; }
                             finally { this.RestoreContext(saved) }
                         }
 
@@ -970,7 +970,7 @@ labelNoCheck:
                                 }
                                 else {
                                     // This is the regular CASE                                
-                                    const {subArea, bInit} = PrepareArea(srcElm, area, '', 1, choosenAlt);
+                                    const {subArea, bInit} = PrepArea(srcElm, area, '', 1, choosenAlt);
                                     if (choosenAlt && (bInit || !area.bNoChildBuilding)) {
                                         const saved = SaveEnv();
                                         try {
@@ -1081,7 +1081,7 @@ labelNoCheck:
                         if (getHashes) {
                             const b = builder;
                             builder = async function HASH(this: RCompiler, area: Area) {
-                                const {subArea, range} = PrepareArea(srcElm, area, 'hash');
+                                const {subArea, range} = PrepArea(srcElm, area, 'hash');
                                 const hashes = getHashes(area.env);
 
                                 if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
@@ -1204,6 +1204,7 @@ labelNoCheck:
         catch (err) { 
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
+        if (!builder) return null;
         if (genMods.length) {
             const b = builder;
             builder = async function ON(this: RCompiler, area: Area) {
@@ -1218,9 +1219,11 @@ labelNoCheck:
         for (const {attName, rvars} of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
         
-        if (builder)
-            return [builder, srcElm];
-        return null;
+        return [
+            function Elm(this: RCompiler, area: Area) {
+                return this.CallWithErrorHandling(builder, srcElm, area);
+            }
+            , srcElm];
     }
 
     private GetREACT(
@@ -1233,7 +1236,7 @@ labelNoCheck:
         const  updateBuilder: DOMBuilder = 
             ( bRenew
                 ? async function renew(this: RCompiler, subArea: Area) {
-                    const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
+                    const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                     await builder.call(this, subsubArea);
                 }
             : attName == 'thisreactson'
@@ -1245,28 +1248,39 @@ labelNoCheck:
             );
 
         return async function REACT(this: RCompiler, area) {
-            const {range, subArea, bInit} = PrepareArea(srcElm, area, attName, true)
+            const {range, subArea, bInit} = PrepArea(srcElm, area, attName, true)
             //    , {start} = this.MainC;
             // Avoid double updates
             //if (bInit || range.updated != start)
             if (bRenew) {
-                const subsubArea = PrepareArea(srcElm, subArea, 'renew', 2).subArea;
+                const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
             }
             else
                 await builder.call(this, subArea);            
 
-            if (getRvars)
-                if (bInit) {
-                    const subscriber = range.value = this.Subscriber(subArea, updateBuilder, range.child, );
-            
-                    // Subscribe bij de gegeven variabelen
-                    for (const rvar of getRvars(area.env))
-                        try { rvar.Subscribe(subscriber); }
-                        catch { throw "This is not an RVAR"; }
+            if (getRvars) {
+                const rvars = getRvars(area.env);
+                let subscriber: Subscriber, pVars: RVAR[];
+                if (bInit)
+                    subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
+                else {
+                    ({subscriber, rvars: pVars} = range.value);
+                    subscriber.sArea.env = CloneEnv(subArea.env);
                 }
-                else
-                    (range.value as Subscriber).sArea.env = CloneEnv(subArea.env);
+                range.value = {rvars, subscriber};
+                let i=0;
+                for (const rvar of rvars) {
+                    if (pVars) {
+                        const pvar = pVars[i++];
+                        if (rvar==pvar)
+                            continue;
+                        pvar.Unsubscribe(subscriber);
+                    }
+                    try { rvar.Subscribe(subscriber); }
+                    catch { throw "This is not an RVAR"; }
+                }
+            }
         }
     }
 
@@ -1391,14 +1405,14 @@ labelNoCheck:
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
-                    const {range, subArea} = PrepareArea(srcElm, area, '', true),
+                    const {range, subArea} = PrepArea(srcElm, area, '', true),
                         {parent, env} = subArea,
                         savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
                         const keyMap: Map<Key, Range> = range.value ||= new Map(),
                         // Map of the newly obtained data
-                            newMap: Map<Key, {item:Item, hash:Hash, index: number}> = new Map(),
+                            newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map(),
                             setVar = initVar(env),
 
                             iterable = getRange(env),
@@ -1414,15 +1428,12 @@ labelNoCheck:
                                 const key = getKey ? getKey(env) : hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, {item, hash, index: idx});
+                                newMap.set(key ?? {}, {item, hash, idx});
                                 idx++;
                             }
                         }
 
                         let nextChild = range.child;
-
-                        function RemoveStaleItems() {
-                        }
 
                         const setPrevious = initPrevious(env),
                             setNext = initNext(env),
@@ -1451,7 +1462,7 @@ labelNoCheck:
 
                             const {value} = iterator.next();
                             if (!value) break;
-                            const [key, {item, hash, index}] = value;
+                            const [key, {item, hash, idx}] = value;
 
                             if (nextIterator)
                                 nextItem = nextIterator.next().value?.item;
@@ -1462,7 +1473,7 @@ labelNoCheck:
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.First as Comment || range.endMark;
-                                ;({range: childRange, subArea: childArea} = PrepareArea(null, subArea, `${varName}(${index})`, true));
+                                ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`, true));
                                 if (key != null) {
                                     if (keyMap.has(key))
                                         throw `Duplicate key '${key}'`;
@@ -1484,14 +1495,13 @@ labelNoCheck:
                                             nextChild = nextChild.next;
                                         else {
                                             // Item has to be moved
-                                            const nextIndex = newMap.get(nextChild.key)?.index;
-                                            if (nextIndex > index + 2) {
+                                            const nextIndex = newMap.get(nextChild.key)?.idx;
+                                            if (nextIndex > idx + 2) {
                                                 const fragm = nextChild.fragm = document.createDocumentFragment();
                                                 for (const node of nextChild.Nodes())
                                                     fragm.appendChild(node);
                                                 
                                                 nextChild = nextChild.next;
-                                                RemoveStaleItems();
                                                 continue;
                                             }
 
@@ -1505,14 +1515,14 @@ labelNoCheck:
                                         break;
                                     }
 
-                                childRange.text = `${varName}(${index})`;
+                                childRange.text = `${varName}(${idx})`;
 
                                 if (prevRange) 
                                     prevRange.next = childRange;
                                 else
                                     range.child = childRange;
                                 subArea.range = childRange;
-                                childArea = PrepareArea(null, subArea, '', true).subArea;
+                                childArea = PrepArea(null, subArea, '', true).subArea;
                                 subArea.parentR = null;
                             }
                             childRange.prev = prevRange;
@@ -1532,12 +1542,11 @@ labelNoCheck:
                                         rvar = this.RVAR_Light(item as object, getUpdatesTo && [getUpdatesTo(env)])
                                         if (childRange.rvar)
                                             rvar._Subscribers = childRange.rvar._Subscribers 
-                                        childRange.rvar = rvar
                                     }
                                 }
                                 
                                 setVar(rvar || item);
-                                setIndex(index);
+                                setIndex(idx);
                                 setPrevious(prevItem);
                                 if (nextIterator)
                                     setNext(nextItem)
@@ -1545,10 +1554,11 @@ labelNoCheck:
                                 // Body berekenen
                                 await bodyBuilder.call(this, childArea);
 
-                                if (bReactive)
+                                if (rvar && !childRange.rvar)
                                     rvar.Subscribe(
                                         this.Subscriber(childArea, bodyBuilder, childRange.child)
                                     );
+                                childRange.rvar = rvar
                             }
 
                             prevItem = item;
@@ -1570,7 +1580,7 @@ labelNoCheck:
                 //srcParent.removeChild(srcElm);
 
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
-                    const {subArea} = PrepareArea(srcElm, area);
+                    const {subArea} = PrepArea(srcElm, area);
                     const env = subArea.env;
                     const saved= SaveEnv();
                     const slotDef = env.constructs.get(slotName);
@@ -1788,11 +1798,10 @@ labelNoCheck:
 
         return async function INSTANCE(this: RCompiler, area: Area) {
             const {env} = area,
-                cdef = env.constructs.get(name);
-            if (!cdef) return;
-
-            const {subArea} = PrepareArea(srcElm, area),
+                cdef = env.constructs.get(name),
+                {subArea} = PrepArea(srcElm, area),
                 args: unknown[] = [];
+            if (!cdef) return;
             for ( const getArg of getArgs)
                 args.push(getArg ? getArg(env) : undefined);
             
@@ -2143,6 +2152,9 @@ class _RVAR<T = unknown>{
         if (!s.ref)
             s.ref = {isConnected: true};
         this.Subscribers.add(s);
+    }
+    Unsubscribe(s: Subscriber) {
+        this.Subscribers.delete(s);
     }
 
     // Use var.V to get or set its value
