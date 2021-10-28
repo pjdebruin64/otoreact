@@ -25,7 +25,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
 </p>
-<p>When you add an attribute <code>updating</code> or <code>reacting</code> (without value), then the expression is re-evaluated at every update.</p>
+<p>When you add an attribute <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> (without value), then the expression is re-evaluated at every update.</p>
 <pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> async?</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
@@ -37,7 +37,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     The value of the rvar wil initially be <code>undefined</code>, and when the promise resolves to a value, then the rvar will be set to that value.
 </p>
 <p>
-    <elm>DEFINE</elm> may be abbreviated to <elm>DEF</elm>.
+    <elm>DEFINE</elm> may be abbreviated to <elm class=sourcecode>DEF</elm>.
 </p>
 <p>
     Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
@@ -75,7 +75,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
     <li>
-        When <code>hiding</code> is present, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden">hidden</a>.
+        When <code class=sourcecode>hiding</code> is specified, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden">hidden</a>.
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#thisreactson"><code>thisreactson</code></a>).
     </li>
 </ul>
@@ -101,8 +101,13 @@ All three variants are case-insensitive, and all can be combined with a simple c
         <ul>
             <li><code>?</code> matches any single character</li>
             <li><code>*</code> matches any string of characters</li>
-            <li><code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">all usual rules</a> apply</li>
-            <li><code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and the matched string will be captured in <a href=#Variables>local variable</a> <i>varName</i></li>
+            <li><code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where all <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">rules for JavaScript character classes</a> apply</li>
+            <li>
+                <code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and 
+                <ul><li>
+                    The matched string will be captured in <a href=#Variables>local variable</a> <i>varName</i>
+                </li></ul>
+            </li>
             <li><code>\</code> followed by any character matches just that character</li>
         </ul>
         The whole value has to match, not just a substring.
@@ -116,7 +121,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
     <dt><code>regmatch="<i>regExp</i>" captures?="<i>nameList</i>"</code></dt>
     <dd>
         <i>regExp</i> can be any JavaScript <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">regular expression pattern</a> ().
-        <p>The match succeeds when any substring of the string value matches against the <i>regExp</i>.</p>
+        <p>The match succeeds when any substring of the string value matches against <i>regExp</i>.</p>
         <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</a> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
     </dd>
 </dl>
@@ -138,14 +143,14 @@ or
 <{}/IF>
 </pre>
 is the same as:
-<pre class=sourcecode>
+<pre>
 <{}CASE>
     <{}WHEN cond="<i>expr</i>"> <i>ThenPart</i> <{}/WHEN>
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/IF>
 </pre>
 <p>
-    The hiding and pattern-matching features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
+    All hiding and pattern-matching features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
 </p>
 
 
@@ -162,7 +167,7 @@ is the same as:
     The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
 </p>
 <p>
-    Attribute <code>let=<i>name</i></code> is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
+    Attribute <code>let=<i>name</i></code> or <code>var</code> is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
 </p>
 
 <demo #content="sampleParticipants">
@@ -209,12 +214,12 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </p>
     </dd>
 
-    <dt><code>hash="<i>hashExpression</i>"</code></dt>
+    <dt><code>hash="<i>hashExpressionList</i>"</code></dt>
     <dd>
-        Processing can be further speeded up by specifying a <i>hashExpression</i>.
+        Processing can be further speeded up by specifying a <i>hashExpressionList</i>.
         <br>OtoReact cannot quickly detect whether some property (deep) inside an object has changed, so it will by default update all subtrees when updating the FOR-construct, meaning it will recompute all properties, conditions, et cetera.
         <p>
-            If, however, you specify a <i>hashExpression</i>, then OtoReact will assume an item (identified by its key) has not changed when the value of <i>hashExpression</i> hasn't changed, and it won't spend time on updating its DOM subtree.
+            If, however, you specify a <i>hashExpressionList</i>, then OtoReact will assume an item (identified by its key) has not changed when the value of all expressions in <i>hashExpressionList</i> hasn't changed, and it won't spend time on updating its DOM subtree.
         </p>
         <p>
             The hash expression need not be a real <a href="{wiki}Hash_function">hash function</a>; it could be a possibly long string.
@@ -499,7 +504,7 @@ The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
         </p>
     </li>
 </ul>
-Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but quite a different syntax.
+Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a quite different syntax.
 
 
 <h4>More examples</h4>
@@ -575,9 +580,9 @@ imports a number of components defined in an external file, called a <i>module</
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
-<h2 id=RHTML><{}RHTML></h2>
-<code class=sourcecode><elm>RHTML</elm>\{textContent}<elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
-<p>After each build or update, when the resulting <u>text content</u> of the element has changed, then this text content is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
+<h2 id=RHTML><{}RHTML #srctext></h2>
+<code class=sourcecode><elm>RHTML #srctext="<i>sourceText</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
+<p>After each build or update, when the resulting <i>sourceText</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 <demo #content=sampleRHTML></demo>
@@ -591,7 +596,7 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 <elm class=sourcecode>DOCUMENT name=<i>docName</i> encapsulate?</elm> allows you to define a separate document or form, that remains part of the same RHTML application.
 
 <p>
-    The content is not immediately rendered, but <code><i>docName</i></code> is defined as a local variable, bound to an object with the following methods:
+    The content is not rendered immediately, but <i>docName</i> is defined as a local variable, bound to an object with the following methods:
 </p>
 <dl>
     <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>)</code></dt>

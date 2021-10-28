@@ -6,10 +6,11 @@ const defaultSettings = {
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bRunScripts:    false,
     bBuild:         true,
-    rootPattern:    '/|^' as string,
+    rootPattern:    '/',
     preformatted:   [],
     bNoGlobals:     false,
     bDollarRequired: false,
+    bSetPointer:    true,
 }
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
@@ -112,7 +113,7 @@ type Environment =
 // It may carry an indicator that the routine might need a value for 'this'.
 // This will be the semantics, the meaning, of e.g. a JavaScript expression.
 type Dependent<T> = ((env: Environment) => T) & {bThis?: boolean};
-
+const DUndef: Dependent<any> = (_) => undefined;
 
 function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     bMark?: boolean|1|2,  // true=mark area, no wiping; 1=wipe when result has changed; 2=wipe always
@@ -213,14 +214,11 @@ let RootPath: string = null;
 let ToBuild: Area[] = [];
 
 export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
-    const R = RHTML;   
     try {
         const {rootPattern} = R.Settings = {...defaultSettings, ...settings},
             m = location.href.match(`^.*(${rootPattern})`);
-        if (!m)
-            throw `Root pattern '${rootPattern}' does not match URL '${location.href}'`;
         R.FilePath = location.origin + (
-            globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, '')
+            globalThis.RootPath = RootPath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
         )
         R.RootElm = elm;
         R.Compile(elm, {}, true);
@@ -236,7 +234,6 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
 }
 
 export async function RBuild() {
-    const R = RHTML;   
     R.start = performance.now();
     R.builtNodeCount = 0;
     for (const area of ToBuild)
@@ -269,7 +266,7 @@ type ParentNode = HTMLElement|DocumentFragment;
 type Handler = (ev:Event) => any;
 type LVar = ((env: Environment) => (value: unknown) => void) & {varName: string};
 
-// A SIGNATURE describes an RHTML user construct (a component or a slot)
+// A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signature {
     constructor(public srcElm: Element){ 
         this.name = srcElm.localName;
@@ -317,13 +314,13 @@ type Template =
     => Promise<void>;
 
 export type RVAR_Light<T> = T & {
-    _Subscribers?: Array<Subscriber>;
+    _Subscribers?: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub:Subscriber) => void;
     readonly U?: T;
 };
 
-const gEval = eval, gFetch = fetch;
+const gEval = eval;
 
 interface Item {}  // Three unknown but distinct types, used by the <FOR> construct
 interface Key {}
@@ -362,8 +359,11 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
                     elm.addEventListener(m[1], val as EventListener);
                     (elm as any).handlers.push({evType: m[1], listener: val})
                 }
-                else
+                else {
+                    if (R.Settings.bSetPointer && /^on(dbl)?click$/.test(name))
+                        elm.style.cursor = val ? 'pointer' : null;
                     elm[name] = val; 
+                }
             break;
         case ModType.Class:
             if (val)
@@ -393,7 +393,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
             }
             break;
         case ModType.RestArgument:
-            for (const {modType, name, value} of val as RestParameter)
+            for (const {modType, name, value} of val as RestParameter || [])
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
         case ModType.oncreate:
@@ -524,9 +524,9 @@ class RCompiler {
         Object.assign(this.Settings, settings);
         for (const tag of this.Settings.preformatted)
             this.mPreformatted.set(tag.toLowerCase(), null);
-        const savedR = RHTML; 
+        const savedR = R; 
         try {
-            if (!this.clone) RHTML = this;
+            if (!this.clone) R = this;
             this.Builder =
                 bIncludeSelf
                 ? this.CompElement(elm.parentElement, elm as HTMLElement, true)[0]
@@ -534,7 +534,7 @@ class RCompiler {
             this.bCompiled = true;
         }
         finally {
-            RHTML = savedR;
+            R = savedR;
         }
         const t1 = performance.now();
         this.logTime(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
@@ -563,13 +563,13 @@ class RCompiler {
     }
 
     public async InitialBuild(area: Area) {
-        const savedRCompiler = RHTML, {parentR} = area;
-        RHTML = this;
+        const savedRCompiler = R, {parentR} = area;
+        R = this;
         this.builtNodeCount++;
         await this.Builder(area);
 
         this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
-        RHTML = savedRCompiler;
+        R = savedRCompiler;
     }
 
     public Settings: FullSettings;
@@ -610,7 +610,7 @@ class RCompiler {
         for (let i=0;i<2;i++) {
             this.bUpdate = false;
             this.bUpdating = true;
-            let savedRCompiler = RHTML;
+            let savedRCompiler = R;
             try {
                 if (!this.MainC.bHasReacts)
                     for (const s of this.AllAreas)
@@ -621,7 +621,7 @@ class RCompiler {
                 this.DirtyVars.clear();
                 
                 if (this.DirtySubs.size) {
-                    if (!this.clone) RHTML = this;
+                    if (!this.clone) R = this;
                     this.start = performance.now();
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
@@ -640,7 +640,7 @@ class RCompiler {
                 }
             }
             finally { 
-                RHTML = savedRCompiler;this.bUpdating = false;
+                R = savedRCompiler;this.bUpdating = false;
             }
             if (!this.bUpdate) break;
         } 
@@ -662,7 +662,7 @@ class RCompiler {
         updatesTo?: Array<RVAR>,
     ): RVAR_Light<T> {
         if (!t._Subscribers) {
-            t._Subscribers = []; //subscribers;
+            t._Subscribers = new Set();
             t._UpdatesTo = updatesTo;
             const R: RCompiler = this.MainC;
             Object.defineProperty(t, 'U',
@@ -679,7 +679,7 @@ class RCompiler {
                     }
                 }
             );
-            t.Subscribe = (sub: Subscriber) => { t._Subscribers.push(sub) } ;
+            t.Subscribe = (sub: Subscriber) => { t._Subscribers.add(sub) } ;
         }
         return t;
     }
@@ -1094,27 +1094,25 @@ labelNoCheck:
 
                     case 'rhtml': {
                         this.whiteSpc=WhiteSpc.trim;
-                        const bodyBuilder = this.CompChildNodes(srcElm);
-                        //srcParent.removeChild(srcElm);
+                        const getSrctext = this.CompParameter(atts, 'srctext', true) as Dependent<string>;
 
                         //const imports = this.CompAttrExpr(atts, 'imports');
                         const modifs = this.CompAttributes(atts);
 
                         builder = async function RHTML(this: RCompiler, area) {
-                            const tempElm = document.createElement('rhtml');
-                            await bodyBuilder.call(this, {parent: tempElm, env: area.env, range: null});
-                            const result = tempElm.innerText
+                            const srctext = getSrctext(area.env);
                             
                             const {elmRange, bInit} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
                                 elm = elmRange.node;
                             ApplyModifiers(elm, modifs, area.env, bInit);
 
-                            if (area.prevR || result != elmRange.result) {
-                                elmRange.result = result;
-                                const shadowRoot = elm.shadowRoot || elm.attachShadow({mode: 'open'});
+                            if (area.prevR || srctext != elmRange.result) {
+                                elmRange.result = srctext;
+                                const shadowRoot = elm.shadowRoot || elm.attachShadow({mode: 'open'}),
+                                    tempElm = document.createElement('rhtml');
 
                                 try {
-                                    tempElm.innerHTML = result;
+                                    tempElm.innerHTML = srctext;
                                     if (elmRange.hdrElms) {
                                         for (const elm of elmRange.hdrElms) elm.remove();
                                         elmRange.hdrElms = null;
@@ -1275,7 +1273,7 @@ labelNoCheck:
                         const pvar = pVars[i++];
                         if (rvar==pvar)
                             continue;
-                        pvar.Unsubscribe(subscriber);
+                        pvar._Subscribers.delete(subscriber);
                     }
                     try { rvar.Subscribe(subscriber); }
                     catch { throw "This is not an RVAR"; }
@@ -1610,14 +1608,14 @@ labelNoCheck:
                 throw `Rest parameter must be the last`;
             const m = /^(#|\.\.\.)?(.*?)(\?)?$/.exec(attr.name);
             if (m[1] == '...')
-                signature.RestParam = {name: m[2], pDefault: undefined};
+                signature.RestParam = {name: m[2], pDefault: DUndef};
             else
                 signature.Parameters.push(
                     { name: m[2]
                     , pDefault: 
                         attr.value != '' 
                         ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
-                        : m[3] ? (_) => undefined   // Unspecified default
+                        : m[3] ? DUndef   // Unspecified default
                         : null 
                     }
                 );
@@ -1729,7 +1727,7 @@ labelNoCheck:
                     let i = 0;
                     for (const lvar of lvars){
                         let arg = args[i], dflt: Dependent<unknown>;
-                        if (arg===undefined && (dflt = signat.Parameters[i].pDefault))
+                        if (arg===undefined && (dflt = signat.Parameters[i]?.pDefault))
                             arg = dflt(env);
                         lvar(env)(arg);
                         i++;
@@ -1980,7 +1978,7 @@ labelNoCheck:
             dep = () => result;
             dep.fixed = result
         } else
-            dep = true ?
+            dep = bThis ?
                 function(this: HTMLElement, env: Environment) {
                     try {
                         let result = "";
@@ -2100,12 +2098,17 @@ labelNoCheck:
     }
 
     async FetchText(src: string): Promise<string> {
-        const url = this.GetURL(src),
-            response = await gFetch(url);
-        if (!response.ok)
-            throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-        return await response.text();
+        const url = this.GetURL(src);
+        return await (await RFetch(url)).text();
     }
+}
+
+const gFetch=fetch;
+async function RFetch(input: RequestInfo, init?: RequestInit) {
+    const r = await gFetch(input, init);
+    if (!r.ok)
+        throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
+    return r;
 }
 
 
@@ -2142,7 +2145,7 @@ class _RVAR<T = unknown>{
     // The subscribers
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
-    Subscribers: Set<Subscriber> = new Set();
+    _Subscribers: Set<Subscriber> = new Set();
 
     Subscribe(s: Subscriber, bImmediate?: boolean) {
         if (bImmediate) {
@@ -2151,10 +2154,10 @@ class _RVAR<T = unknown>{
         }
         if (!s.ref)
             s.ref = {isConnected: true};
-        this.Subscribers.add(s);
+        this._Subscribers.add(s);
     }
     Unsubscribe(s: Subscriber) {
-        this.Subscribers.delete(s);
+        this._Subscribers.delete(s);
     }
 
     // Use var.V to get or set its value
@@ -2178,13 +2181,13 @@ class _RVAR<T = unknown>{
     public SetDirty() {
         if (this.store)
             this.MainC.DirtyVars.add(this);
-        for (const sub of this.Subscribers)
+        for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub();
             else if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
-                this.Subscribers.delete(sub);
+                this._Subscribers.delete(sub);
         this.MainC.RUpdate();
     }
 
@@ -2238,7 +2241,7 @@ function CheckValidIdentifier(name: string) {
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-+ '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
++ '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|^max|^min|node|offset|outer'
 + '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalProp(lcName: string) {
@@ -2295,12 +2298,12 @@ function copyStyleSheets(S: Document, D: Document) {
     }
 }
 
-export let RHTML = new RCompiler();
+export let R = new RCompiler();
 
 Object.defineProperties(
     globalThis, {
-        RVAR:       {get: () => RHTML.RVAR.bind(RHTML)},
-        RUpdate:    {get: () => RHTML.RUpdate.bind(RHTML)},
+        RVAR:       {get: () => R.RVAR.bind(R)},
+        RUpdate:    {get: () => R.RUpdate.bind(R)},
     }
 );
 globalThis.RCompile = RCompile;

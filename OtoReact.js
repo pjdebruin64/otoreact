@@ -4,10 +4,11 @@ const defaultSettings = {
     bShowErrors: true,
     bRunScripts: false,
     bBuild: true,
-    rootPattern: '/|^',
+    rootPattern: '/',
     preformatted: [],
     bNoGlobals: false,
     bDollarRequired: false,
+    bSetPointer: true,
 };
 var WhiteSpc;
 (function (WhiteSpc) {
@@ -56,6 +57,7 @@ class Range {
         return f && f.isConnected;
     }
 }
+const DUndef = (_) => undefined;
 function PrepArea(srcElm, area, text = '', bMark, result) {
     let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
     if (bInit) {
@@ -132,12 +134,9 @@ function PrepareText(area, content) {
 let RootPath = null;
 let ToBuild = [];
 export function RCompile(elm, settings) {
-    const R = RHTML;
     try {
         const { rootPattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${rootPattern})`);
-        if (!m)
-            throw `Root pattern '${rootPattern}' does not match URL '${location.href}'`;
-        R.FilePath = location.origin + (globalThis.RootPath = RootPath = (new URL(m[0])).pathname.replace(/[^/]*$/, ''));
+        R.FilePath = location.origin + (globalThis.RootPath = RootPath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         R.RootElm = elm;
         R.Compile(elm, {}, true);
         ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
@@ -150,7 +149,6 @@ export function RCompile(elm, settings) {
     }
 }
 export async function RBuild() {
-    const R = RHTML;
     R.start = performance.now();
     R.builtNodeCount = 0;
     for (const area of ToBuild)
@@ -196,7 +194,7 @@ class Signature {
         return !!result;
     }
 }
-const gEval = eval, gFetch = fetch;
+const gEval = eval;
 var ModType;
 (function (ModType) {
     ModType[ModType["Attr"] = 0] = "Attr";
@@ -234,8 +232,11 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                     elm.addEventListener(m[1], val);
                     elm.handlers.push({ evType: m[1], listener: val });
                 }
-                else
+                else {
+                    if (R.Settings.bSetPointer && /^on(dbl)?click$/.test(name))
+                        elm.style.cursor = val ? 'pointer' : null;
                     elm[name] = val;
+                }
             break;
         case ModType.Class:
             if (val)
@@ -268,7 +269,7 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             }
             break;
         case ModType.RestArgument:
-            for (const { modType, name, value } of val)
+            for (const { modType, name, value } of val || [])
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
         case ModType.oncreate:
@@ -377,10 +378,10 @@ class RCompiler {
         Object.assign(this.Settings, settings);
         for (const tag of this.Settings.preformatted)
             this.mPreformatted.set(tag.toLowerCase(), null);
-        const savedR = RHTML;
+        const savedR = R;
         try {
             if (!this.clone)
-                RHTML = this;
+                R = this;
             this.Builder =
                 bIncludeSelf
                     ? this.CompElement(elm.parentElement, elm, true)[0]
@@ -388,7 +389,7 @@ class RCompiler {
             this.bCompiled = true;
         }
         finally {
-            RHTML = savedR;
+            R = savedR;
         }
         const t1 = performance.now();
         this.logTime(`Compiled ${this.sourceNodeCount} nodes in ${(t1 - t0).toFixed(1)} ms`);
@@ -411,12 +412,12 @@ class RCompiler {
         return subscriber;
     }
     async InitialBuild(area) {
-        const savedRCompiler = RHTML, { parentR } = area;
-        RHTML = this;
+        const savedRCompiler = R, { parentR } = area;
+        R = this;
         this.builtNodeCount++;
         await this.Builder(area);
         this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
-        RHTML = savedRCompiler;
+        R = savedRCompiler;
     }
     AddDirty(sub) {
         this.MainC.DirtySubs.set(sub.ref, sub);
@@ -438,7 +439,7 @@ class RCompiler {
         for (let i = 0; i < 2; i++) {
             this.bUpdate = false;
             this.bUpdating = true;
-            let savedRCompiler = RHTML;
+            let savedRCompiler = R;
             try {
                 if (!this.MainC.bHasReacts)
                     for (const s of this.AllAreas)
@@ -448,7 +449,7 @@ class RCompiler {
                 this.DirtyVars.clear();
                 if (this.DirtySubs.size) {
                     if (!this.clone)
-                        RHTML = this;
+                        R = this;
                     this.start = performance.now();
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
@@ -467,7 +468,7 @@ class RCompiler {
                 }
             }
             finally {
-                RHTML = savedRCompiler;
+                R = savedRCompiler;
                 this.bUpdating = false;
             }
             if (!this.bUpdate)
@@ -481,7 +482,7 @@ class RCompiler {
     ;
     RVAR_Light(t, updatesTo) {
         if (!t._Subscribers) {
-            t._Subscribers = [];
+            t._Subscribers = new Set();
             t._UpdatesTo = updatesTo;
             const R = this.MainC;
             Object.defineProperty(t, 'U', { get: () => {
@@ -495,7 +496,7 @@ class RCompiler {
                     return t;
                 }
             });
-            t.Subscribe = (sub) => { t._Subscribers.push(sub); };
+            t.Subscribe = (sub) => { t._Subscribers.add(sub); };
         }
         return t;
     }
@@ -589,7 +590,7 @@ class RCompiler {
         labelNoCheck: try {
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
-                builder = this.CompInstance(srcParent, srcElm, atts, construct);
+                builder = this.CompInstance(srcElm, atts, construct);
             else {
                 switch (srcElm.localName) {
                     case 'def':
@@ -816,19 +817,17 @@ class RCompiler {
                     case 'rhtml':
                         {
                             this.whiteSpc = WhiteSpc.trim;
-                            const bodyBuilder = this.CompChildNodes(srcElm);
+                            const getSrctext = this.CompParameter(atts, 'srctext', true);
                             const modifs = this.CompAttributes(atts);
                             builder = async function RHTML(area) {
-                                const tempElm = document.createElement('rhtml');
-                                await bodyBuilder.call(this, { parent: tempElm, env: area.env, range: null });
-                                const result = tempElm.innerText;
+                                const srctext = getSrctext(area.env);
                                 const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), elm = elmRange.node;
                                 ApplyModifiers(elm, modifs, area.env, bInit);
-                                if (area.prevR || result != elmRange.result) {
-                                    elmRange.result = result;
-                                    const shadowRoot = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
+                                if (area.prevR || srctext != elmRange.result) {
+                                    elmRange.result = srctext;
+                                    const shadowRoot = elm.shadowRoot || elm.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml');
                                     try {
-                                        tempElm.innerHTML = result;
+                                        tempElm.innerHTML = srctext;
                                         if (elmRange.hdrElms) {
                                             for (const elm of elmRange.hdrElms)
                                                 elm.remove();
@@ -971,7 +970,7 @@ class RCompiler {
                         const pvar = pVars[i++];
                         if (rvar == pvar)
                             continue;
-                        pvar.Unsubscribe(subscriber);
+                        pvar._Subscribers.delete(subscriber);
                     }
                     try {
                         rvar.Subscribe(subscriber);
@@ -1097,7 +1096,7 @@ class RCompiler {
                         }
                         let nextChild = range.child;
                         const setPrevious = initPrevious(env), setNext = initNext(env), iterator = newMap.entries(), nextIterator = nextName ? newMap.values() : null;
-                        let prevItem = null, nextItem, prevRange = null, childArea;
+                        let prevItem, nextItem, prevRange = null, childArea;
                         subArea.parentR = range;
                         if (nextIterator)
                             nextIterator.next();
@@ -1247,12 +1246,12 @@ class RCompiler {
                 throw `Rest parameter must be the last`;
             const m = /^(#|\.\.\.)?(.*?)(\?)?$/.exec(attr.name);
             if (m[1] == '...')
-                signature.RestParam = { name: m[2], pDefault: undefined };
+                signature.RestParam = { name: m[2], pDefault: DUndef };
             else
                 signature.Parameters.push({ name: m[2],
                     pDefault: attr.value != ''
                         ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) : this.CompString(attr.value, attr.name))
-                        : m[3] ? (_) => undefined
+                        : m[3] ? DUndef
                             : null
                 });
         }
@@ -1332,7 +1331,7 @@ class RCompiler {
                     let i = 0;
                     for (const lvar of lvars) {
                         let arg = args[i], dflt;
-                        if (arg === undefined && (dflt = signat.Parameters[i].pDefault))
+                        if (arg === undefined && (dflt = signat.Parameters[i]?.pDefault))
                             arg = dflt(env);
                         lvar(env)(arg);
                         i++;
@@ -1361,7 +1360,7 @@ class RCompiler {
             this.RestoreContext(saved);
         }
     }
-    CompInstance(srcParent, srcElm, atts, signature) {
+    CompInstance(srcElm, atts, signature) {
         const { name } = signature, getArgs = [], slotBuilders = new Map();
         for (const { name, pDefault } of signature.Parameters)
             getArgs.push(this.CompParameter(atts, name, !pDefault));
@@ -1538,7 +1537,7 @@ class RCompiler {
             dep.fixed = result;
         }
         else
-            dep = true ?
+            dep = bThis ?
                 function (env) {
                     try {
                         let result = "";
@@ -1649,15 +1648,20 @@ class RCompiler {
         return this.GetURL(src).replace(/[^/]*$/, '');
     }
     async FetchText(src) {
-        const url = this.GetURL(src), response = await gFetch(url);
-        if (!response.ok)
-            throw `GET '${url}' returned ${response.status} ${response.statusText}`;
-        return await response.text();
+        const url = this.GetURL(src);
+        return await (await RFetch(url)).text();
     }
 }
 RCompiler.iNum = 0;
 RCompiler.genAtts = ['reacton', 'reactson', 'thisreactson', 'oncreate', 'onupdate'];
 RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
+const gFetch = fetch;
+async function RFetch(input, init) {
+    const r = await gFetch(input, init);
+    if (!r.ok)
+        throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
+    return r;
+}
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
@@ -1666,7 +1670,7 @@ class _RVAR {
         this.MainC = MainC;
         this.store = store;
         this.storeName = storeName;
-        this.Subscribers = new Set();
+        this._Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         let s;
@@ -1686,10 +1690,10 @@ class _RVAR {
         }
         if (!s.ref)
             s.ref = { isConnected: true };
-        this.Subscribers.add(s);
+        this._Subscribers.add(s);
     }
     Unsubscribe(s) {
-        this.Subscribers.delete(s);
+        this._Subscribers.delete(s);
     }
     get V() { return this._Value; }
     set V(t) {
@@ -1707,13 +1711,13 @@ class _RVAR {
     SetDirty() {
         if (this.store)
             this.MainC.DirtyVars.add(this);
-        for (const sub of this.Subscribers)
+        for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub();
             else if (sub.ref.isConnected)
                 this.MainC.AddDirty(sub);
             else
-                this.Subscribers.delete(sub);
+                this._Subscribers.delete(sub);
         this.MainC.RUpdate();
     }
     Save() {
@@ -1754,7 +1758,7 @@ function CheckValidIdentifier(name) {
     return name;
 }
 const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-    + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|max|min|node|offset|outer'
+    + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|^max|^min|node|offset|outer'
     + '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalProp(lcName) {
@@ -1805,10 +1809,10 @@ function copyStyleSheets(S, D) {
             DSheet.insertRule(rule.cssText);
     }
 }
-export let RHTML = new RCompiler();
+export let R = new RCompiler();
 Object.defineProperties(globalThis, {
-    RVAR: { get: () => RHTML.RVAR.bind(RHTML) },
-    RUpdate: { get: () => RHTML.RUpdate.bind(RHTML) },
+    RVAR: { get: () => R.RVAR.bind(R) },
+    RUpdate: { get: () => R.RUpdate.bind(R) },
 });
 globalThis.RCompile = RCompile;
 globalThis.RBuild = RBuild;

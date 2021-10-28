@@ -8,6 +8,7 @@ declare const defaultSettings: {
     preformatted: any[];
     bNoGlobals: boolean;
     bDollarRequired: boolean;
+    bSetPointer: boolean;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {
     ws?: WhiteSpc;
@@ -69,7 +70,7 @@ declare type ConstructDef = {
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
-    _Subscribers?: Array<Subscriber>;
+    _Subscribers?: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
     readonly U?: T;
@@ -164,7 +165,7 @@ declare class _RVAR<T = unknown> {
     private storeName?;
     constructor(MainC: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
-    Subscribers: Set<Subscriber>;
+    _Subscribers: Set<Subscriber>;
     Subscribe(s: Subscriber, bImmediate?: boolean): void;
     Unsubscribe(s: Subscriber): void;
     get V(): T;
@@ -181,7 +182,7 @@ declare class Atts extends Map<string, string> {
     get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
     CheckNoAttsLeft(): void;
 }
-export declare let RHTML: RCompiler;
+export declare let R: RCompiler;
 export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, RUpdate: () => void;
 declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };

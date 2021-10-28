@@ -417,15 +417,12 @@ const sampleTicTacToe =
 </div>`;
 
 const sampleRHTML =
-`<define rvar=sourceCode 
-        value="1 + 1 = \\{1+1}"
-        store=sessionStorage
+`<define rvar=sourcecode 
+        value="1 + 1 = <b>\\{1+1}</b>"
 ></define>
-<textarea @value="sourceCode.V" rows=3 cols=30></textarea>
+<textarea @value="sourcecode.V" rows=3 cols=30></textarea>
 <br>
-<RHTML>
-    {sourceCode.V}
-</RHTML>`;
+<RHTML #srctext=sourcecode.V></RHTML>`;
 
 const sampleStyleTemplate =
 `<def rvar=Hue #value="Math.random()*360"></def>

@@ -66,7 +66,7 @@
     </style>
     
     <template>
-        <define var=MyRVAR #value="rvar || RVAR('', content.trim())"></define>
+        <define var=srctext #value="rvar || RVAR('', content.trim())"></define>
         <define rvar=rShow  #value="bshow"></define>
         <table. class=demo>
             <tr.><th.>
@@ -77,8 +77,8 @@
                 <td.>
                     <pre #class:nodisplay="!rShow.V" reactOn=rShow style.margin="0px"
                         #contenteditable="editable.toString()" spellcheck=false 
-                        #innerHTML="ColorCode(MyRVAR.V)" 
-                        *innerText="MyRVAR.V"></pre>
+                        #innerHTML="ColorCode(srctext.V)" 
+                        *innerText="srctext.V"></pre>
                 </td.>
                 <td. class=demo>
                     <script defines=prefix>
@@ -90,9 +90,7 @@
     <template>Usage of <\{}IMPORT> is not allowed in these demo's</template>
 </component>`;
                     </script>                    
-                    <RHTML reacton=MyRVAR>
-                        {MyRVAR.V}
-                    </RHTML>
+                    <RHTML reacton=srctext #srctext=srctext.V></RHTML>
                 </td.>
             </tr.>
         </table.>
@@ -120,7 +118,7 @@
                 for (let i=0; i<=level; i++)
                     if (result||this.numbers[i])
                         result += `${this.numbers[i]}.`;
-                return result.replace(/(?<=\..*)\.$/, '');
+                return result.replace(/\.$/, '');
             }
             contents = RVAR(null, []);
             addContent(level, headElm) {
@@ -272,7 +270,7 @@
                     <!-- Inside the content, the following construsts are available: -->
                     <h1 id>
                         <def var=nr #value="toc.getNr(0)"></def>
-                        <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr} &nbsp;<content></content></h1.>
+                        <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
                     </h1>
                     <h2 id>
                         <def var=nr #value="toc.getNr(1)"></def>
