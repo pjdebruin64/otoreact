@@ -15,7 +15,7 @@ const defaultSettings = {
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {ws?: WhiteSpc};
+type DOMBuilder = ((reg: Area) => Promise<void>) & {ws?: WhiteSpc};
 enum WhiteSpc {preserve, keep, trim}
 
 // An AREA is the (runtime) place to build or update, with all required information
@@ -439,7 +439,8 @@ class RCompiler {
     public instanceNum = RCompiler.iNum++;
 
     private ContextMap: Context;
-    private context: string; 
+    private context: string;
+    private cRvars = new Map<string,boolean>();
 
     private CSignatures: Map<string, Signature>;
     private head: Node;
@@ -555,7 +556,7 @@ class RCompiler {
             },
             subscriber: Subscriber = () => {
                 (this as RCompiler).builtNodeCount++;
-                return builder.call(this, {...sArea}, 0, ...args);
+                return builder.call(this, {...sArea}, ...args);
             };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -578,8 +579,7 @@ class RCompiler {
     private whiteSpc = WhiteSpc.keep;
 
     private bCompiled = false;
-    private bHasReacts = false;
-
+    
     public DirtyVars = new Set<RVAR>();
     private DirtySubs = new Map<{isConnected: boolean}, Subscriber>();
     public AddDirty(sub: Subscriber) {
@@ -612,10 +612,6 @@ class RCompiler {
             this.bUpdating = true;
             let savedRCompiler = R;
             try {
-                if (!this.MainC.bHasReacts)
-                    for (const s of this.AllAreas)
-                        this.AddDirty(s);
-
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
                 this.DirtyVars.clear();
@@ -626,7 +622,7 @@ class RCompiler {
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
                     this.DirtySubs = new Map();
-                    for (const sub of subs.values()) 
+                    for (const sub of subs.values()) {
                         if (!sub.ref || sub.ref.isConnected)
                             try { await sub(); }
                             catch (err) {
@@ -634,7 +630,11 @@ class RCompiler {
                                 console.log(msg);
                                 window.alert(msg);
                             }
-
+                        for (const rvar of this.CreatedRvars)
+                            if (!rvar._Subscribers.size)
+                                for (const subs of this.AllAreas)
+                                    rvar.Subscribe(subs)
+                    }
                     
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
@@ -653,7 +653,7 @@ class RCompiler {
         store?: Store
     ) {
         const r = new _RVAR<T>(this.MainC, name, initialValue, store, name);
-        //this.CreatedRvars.push(r);
+        this.MainC.CreatedRvars.push(r);
         return r;
     }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
@@ -706,11 +706,6 @@ class RCompiler {
     }
 
     private CreatedRvars: RVAR[] = [];
-    private RvarsToCheck: Array<{
-        rvar: RVAR, 
-        builder: (this: RCompiler, area: Area, start: number) => Promise<void>;
-        i: number;
-    }> = [];
 
     private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
         const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
@@ -761,32 +756,30 @@ class RCompiler {
                     break;
             }
         }
-        return builders.length == 0 ? null :
-            async function Iter(this: RCompiler, area: Area //, start: number = 0
+        const Iter = builders.length == 0 ? null :
+            async function Iter(this: RCompiler, area: Area, start: number = 0
                 ) {
-                /*
+                
                 const bInit = !area.range,
-                 saveRvars = this.CreatedRvars.length;
-                const iter = builders.values();
-                let i = 0, ran;
-                while (i < start) {
-                    iter.next();
-                    i++;
-                }  */
-                for (const [builder] of builders) {
-                    await builder.call(this, area);
-                    /*
-                    i++;
-                    if (bInit)
-                        while (this.CreatedRvars.length > saveRvars) {
-                            const rvar = this.CreatedRvars.pop();
-                            if (!rvar.Subscribers.size)
-                                rvar.Subscribe(this.Subscriber(area, builder, , i))
-                        }  */
-                }
+                    toSubscribe: Array<Subscriber> = [];
+                let i = 0;
+                for (const [builder] of builders)
+                    if (i++ >= start) {
+                        await builder.call(this, area);
+                        if (bInit && builder['auto'])
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Nog niet de juiste range
+                            );
+                    }
                 this.builtNodeCount += builders.length;
+                for(const subs of toSubscribe) {
+                    const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
+                    if (!rvar._Subscribers.size) {
+                        sArea.range = range.next;
+                        rvar.Subscribe(subs);
+                    }
+                }
             };
-        //return builder;
+        return Iter;
     }
 
     static genAtts = ['reacton','reactson','thisreactson','oncreate','onupdate'];
@@ -794,16 +787,16 @@ class RCompiler {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, handler: Dependent<Handler>}> = [];
-        if (bUnhide)
-            atts.set('#hidden', 'false');
+        if (bUnhide) atts.set('#hidden', 'false');
         for (const attName of RCompiler.genAtts)
             if (atts.has(attName))
                 if (/^on/.test(attName))
                     genMods.push({attName, handler: this.CompHandler(attName, atts.get(attName))});
-                else
-                    reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName)});
+                else {
+                    reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
+                }
         
-        let builder: DOMBuilder = null;
+        let builder: DOMBuilder, elmBuilder: DOMBuilder;
 labelNoCheck:
         try {
             // See if this node is a user-defined construct (component or slot) instance
@@ -821,41 +814,37 @@ labelNoCheck:
                             bAsync      = rvarName && CBool(atts.get('async')),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
                             getValue    = this.CompParameter(atts, 'value'),
-                            newVar      = this.NewVar(varName),
-                            subBuilder  = this.CompChildNodes(srcElm);
+                            newVar      = this.NewVar(varName);
 
-                        builder = async function DEF(this: RCompiler, area) {
+                        if (rvarName) {
+                            const a = this.cRvars.get(rvarName);
+                            this.cRvars.set(rvarName, true);
+                            this.restoreActions.push(() => {
+                                elmBuilder['auto'] = this.cRvars.get(rvarName)
+                                this.cRvars.set(rvarName, a);
+                            });
+                        }
+                        const
+                            subBuilder  = this.CompChildNodes(srcElm);
+                        
+                        builder = function DEF(this: RCompiler, area) {
                                 const {range, subArea, bInit} = PrepArea(srcElm, area);
                                 if (bInit || bReact){
                                     const value = getValue && getValue(area.env);
                                     if (rvarName) {
-                                        const VV = bAsync ? undefined : value;
+                                        let VV = bAsync ? undefined : value;
                                         if (bInit)
                                             range.value = new _RVAR(this.MainC, null, VV, getStore && getStore(area.env), rvarName);
                                         else
                                             range.value.V = VV;
 
-                                        if (bAsync) {
-                                            const rvar = range.value as RVAR;
-                                            (value as Promise<unknown>).then(v => rvar.V = v);
-                                        }
+                                        if (bAsync)
+                                            (value as Promise<unknown>).then(v => (range.value as RVAR).V = v);
                                     } else
                                         range.value = value;
                                 }
                                 newVar(area.env)(range.value);
-                                await subBuilder.call(this, subArea);
-                                /*
-                                if (bInit && rvar) {
-                                //    (range.value as RVAR).Subscribe(new Subscriber(subArea, subBuilder, range.child));
-                                    const a = area;
-                                    envActions.push(() => {
-                                        if (rvar.Subscribers.size == 0)
-                                        rvar.Subscribe(new Subscriber(
-                                            a, null, range.next
-                                        ))
-                                    })
-                                }
-                                */
+                                return subBuilder.call(this, subArea);
                             };
                     } break;
 
@@ -1070,8 +1059,7 @@ labelNoCheck:
                     } break;
 
                     case 'react': {
-                        this.MainC.bHasReacts = true;
-                        const getRvars = this.compAttrExprList<RVAR>(atts, 'on');
+                        const getRvars = this.compAttrExprList<RVAR>(atts, 'on', true);
                         const getHashes = this.compAttrExprList<unknown>(atts, 'hash');
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
@@ -1185,9 +1173,9 @@ labelNoCheck:
                     case 'head.': {
                         const childBuilder = this.CompChildNodes(srcElm);
                         
-                        builder = async function HEAD(this: RCompiler, {parent, env}) {
+                        builder = function HEAD(this: RCompiler, {parent, env}) {
                             const head = parent.ownerDocument.head;
-                            await childBuilder.call(this, {parent: head, env})
+                            return childBuilder.call(this, {parent: head, env})
                         }
                     }; break;
 
@@ -1207,21 +1195,19 @@ labelNoCheck:
             const b = builder;
             builder = async function ON(this: RCompiler, area: Area) {
                 const bInit = !area.range, handlers = genMods.map(({attName, handler}) => ({attName, handler: handler(area.env)}));
-                const node = await b.call(this, area);
+                await b.call(this, area);
                 for (const {attName, handler} of handlers)
                     if (bInit || attName=='onupdate')
-                        handler.call(node);
+                        handler.call(area.prevR?.node);
             }
         }
 
         for (const {attName, rvars} of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
-        
-        return [
-            function Elm(this: RCompiler, area: Area) {
-                return this.CallWithErrorHandling(builder, srcElm, area);
-            }
-            , srcElm];
+        elmBuilder = function Elm(this: RCompiler, area: Area) {
+            return this.CallWithErrorHandling(builder, srcElm, area);
+        }
+        return [elmBuilder, srcElm];
     }
 
     private GetREACT(
@@ -1230,26 +1216,22 @@ labelNoCheck:
         getRvars: Dependent<RVAR[]>, 
         bRenew=false
     ): DOMBuilder{
-        this.MainC.bHasReacts = true;
         const  updateBuilder: DOMBuilder = 
             ( bRenew
-                ? async function renew(this: RCompiler, subArea: Area) {
+                ? function renew(this: RCompiler, subArea: Area) {
                     const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
-                    await builder.call(this, subsubArea);
+                    return builder.call(this, subsubArea);
                 }
             : attName == 'thisreactson'
-                ? async function reacton(this: RCompiler, subArea: Area) {
+                ? function reacton(this: RCompiler, subArea: Area) {
                     subArea.bNoChildBuilding = true;
-                    await builder.call(this, subArea);
+                    return builder.call(this, subArea);
                 }
             : builder
             );
 
         return async function REACT(this: RCompiler, area) {
             const {range, subArea, bInit} = PrepArea(srcElm, area, attName, true)
-            //    , {start} = this.MainC;
-            // Avoid double updates
-            //if (bInit || range.updated != start)
             if (bRenew) {
                 const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                 await builder.call(this, subsubArea);
@@ -1290,7 +1272,7 @@ labelNoCheck:
         }
         try {
             //await builder(area);
-            await builder.call(this, area);
+            return await builder.call(this, area);
         } 
         catch (err) { 
             const message = 
@@ -1848,7 +1830,6 @@ labelNoCheck:
                 }
             (node as any).handlers = [];
             ApplyModifiers(node, modifs, area.env, bInit);
-            return node;
         };
 
         builder.ws = ws;
@@ -2085,8 +2066,12 @@ labelNoCheck:
         if (i === undefined) throw `Unknown name '${name}'`;
         return env => env[i];
     }
-    private compAttrExprList<T>(atts: Atts, attName: string, bRequired?: boolean): Dependent<T[]> {
-        const list = atts.get(attName, bRequired, true);
+    private compAttrExprList<T>(atts: Atts, attName: string, bReacts?: boolean): Dependent<T[]> {
+        const list = atts.get(attName, false, true);
+        if (!list) return null;
+        if (bReacts)
+            for (const nm of list.split(','))
+                this.cRvars.set(nm.trim(), false);
         return list ? this.CompJavaScript<T[]>(`[${list}\n]`, attName) : null;
     }
 

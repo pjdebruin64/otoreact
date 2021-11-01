@@ -187,7 +187,7 @@ const sampleTODO=
     function AddItem(inputElem) {
         if (inputElem.value) {
             TODO.U.push( [inputElem.value, false] );
-            inputElement.value = '';
+            inputElem.value = '';
         }
     }
 </script>

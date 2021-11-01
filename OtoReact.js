@@ -309,12 +309,12 @@ class RCompiler {
     constructor(clone) {
         this.clone = clone;
         this.instanceNum = RCompiler.iNum++;
+        this.cRvars = new Map();
         this.restoreActions = [];
         this.mPreformatted = new Map([['pre', null]]);
         this.AllAreas = [];
         this.whiteSpc = WhiteSpc.keep;
         this.bCompiled = false;
-        this.bHasReacts = false;
         this.DirtyVars = new Set();
         this.DirtySubs = new Map();
         this.bUpdating = false;
@@ -323,7 +323,6 @@ class RCompiler {
         this.sourceNodeCount = 0;
         this.builtNodeCount = 0;
         this.CreatedRvars = [];
-        this.RvarsToCheck = [];
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
@@ -405,7 +404,7 @@ class RCompiler {
             range,
         }, subscriber = () => {
             this.builtNodeCount++;
-            return builder.call(this, { ...sArea }, 0, ...args);
+            return builder.call(this, { ...sArea }, ...args);
         };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -441,9 +440,6 @@ class RCompiler {
             this.bUpdating = true;
             let savedRCompiler = R;
             try {
-                if (!this.MainC.bHasReacts)
-                    for (const s of this.AllAreas)
-                        this.AddDirty(s);
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
                 this.DirtyVars.clear();
@@ -454,7 +450,7 @@ class RCompiler {
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
                     this.DirtySubs = new Map();
-                    for (const sub of subs.values())
+                    for (const sub of subs.values()) {
                         if (!sub.ref || sub.ref.isConnected)
                             try {
                                 await sub();
@@ -464,6 +460,11 @@ class RCompiler {
                                 console.log(msg);
                                 window.alert(msg);
                             }
+                        for (const rvar of this.CreatedRvars)
+                            if (!rvar._Subscribers.size)
+                                for (const subs of this.AllAreas)
+                                    rvar.Subscribe(subs);
+                    }
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
             }
@@ -477,6 +478,7 @@ class RCompiler {
     }
     RVAR(name, initialValue, store) {
         const r = new _RVAR(this.MainC, name, initialValue, store, name);
+        this.MainC.CreatedRvars.push(r);
         return r;
     }
     ;
@@ -568,13 +570,26 @@ class RCompiler {
                     break;
             }
         }
-        return builders.length == 0 ? null :
-            async function Iter(area) {
-                for (const [builder] of builders) {
-                    await builder.call(this, area);
-                }
+        const Iter = builders.length == 0 ? null :
+            async function Iter(area, start = 0) {
+                const bInit = !area.range, toSubscribe = [];
+                let i = 0;
+                for (const [builder] of builders)
+                    if (i++ >= start) {
+                        await builder.call(this, area);
+                        if (bInit && builder['auto'])
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
+                    }
                 this.builtNodeCount += builders.length;
+                for (const subs of toSubscribe) {
+                    const { sArea } = subs, { range } = sArea, rvar = range.value;
+                    if (!rvar._Subscribers.size) {
+                        sArea.range = range.next;
+                        rvar.Subscribe(subs);
+                    }
+                }
             };
+        return Iter;
     }
     CompElement(srcParent, srcElm, bUnhide) {
         const atts = new Atts(srcElm), reacts = [], genMods = [];
@@ -584,9 +599,10 @@ class RCompiler {
             if (atts.has(attName))
                 if (/^on/.test(attName))
                     genMods.push({ attName, handler: this.CompHandler(attName, atts.get(attName)) });
-                else
-                    reacts.push({ attName, rvars: this.compAttrExprList(atts, attName) });
-        let builder = null;
+                else {
+                    reacts.push({ attName, rvars: this.compAttrExprList(atts, attName, true) });
+                }
+        let builder, elmBuilder;
         labelNoCheck: try {
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -596,27 +612,34 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName), subBuilder = this.CompChildNodes(srcElm);
-                            builder = async function DEF(area) {
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName);
+                            if (rvarName) {
+                                const a = this.cRvars.get(rvarName);
+                                this.cRvars.set(rvarName, true);
+                                this.restoreActions.push(() => {
+                                    elmBuilder['auto'] = this.cRvars.get(rvarName);
+                                    this.cRvars.set(rvarName, a);
+                                });
+                            }
+                            const subBuilder = this.CompChildNodes(srcElm);
+                            builder = function DEF(area) {
                                 const { range, subArea, bInit } = PrepArea(srcElm, area);
                                 if (bInit || bReact) {
                                     const value = getValue && getValue(area.env);
                                     if (rvarName) {
-                                        const VV = bAsync ? undefined : value;
+                                        let VV = bAsync ? undefined : value;
                                         if (bInit)
                                             range.value = new _RVAR(this.MainC, null, VV, getStore && getStore(area.env), rvarName);
                                         else
                                             range.value.V = VV;
-                                        if (bAsync) {
-                                            const rvar = range.value;
-                                            value.then(v => rvar.V = v);
-                                        }
+                                        if (bAsync)
+                                            value.then(v => range.value.V = v);
                                     }
                                     else
                                         range.value = value;
                                 }
                                 newVar(area.env)(range.value);
-                                await subBuilder.call(this, subArea);
+                                return subBuilder.call(this, subArea);
                             };
                         }
                         break;
@@ -796,8 +819,7 @@ class RCompiler {
                         break;
                     case 'react':
                         {
-                            this.MainC.bHasReacts = true;
-                            const getRvars = this.compAttrExprList(atts, 'on');
+                            const getRvars = this.compAttrExprList(atts, 'on', true);
                             const getHashes = this.compAttrExprList(atts, 'hash');
                             const bodyBuilder = this.CompChildNodes(srcElm);
                             builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
@@ -895,9 +917,9 @@ class RCompiler {
                     case 'head.':
                         {
                             const childBuilder = this.CompChildNodes(srcElm);
-                            builder = async function HEAD({ parent, env }) {
+                            builder = function HEAD({ parent, env }) {
                                 const head = parent.ownerDocument.head;
-                                await childBuilder.call(this, { parent: head, env });
+                                return childBuilder.call(this, { parent: head, env });
                             };
                         }
                         ;
@@ -918,32 +940,29 @@ class RCompiler {
             const b = builder;
             builder = async function ON(area) {
                 const bInit = !area.range, handlers = genMods.map(({ attName, handler }) => ({ attName, handler: handler(area.env) }));
-                const node = await b.call(this, area);
+                await b.call(this, area);
                 for (const { attName, handler } of handlers)
                     if (bInit || attName == 'onupdate')
-                        handler.call(node);
+                        handler.call(area.prevR?.node);
             };
         }
         for (const { attName, rvars } of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
-        return [
-            function Elm(area) {
-                return this.CallWithErrorHandling(builder, srcElm, area);
-            },
-            srcElm
-        ];
+        elmBuilder = function Elm(area) {
+            return this.CallWithErrorHandling(builder, srcElm, area);
+        };
+        return [elmBuilder, srcElm];
     }
     GetREACT(srcElm, attName, builder, getRvars, bRenew = false) {
-        this.MainC.bHasReacts = true;
         const updateBuilder = (bRenew
-            ? async function renew(subArea) {
+            ? function renew(subArea) {
                 const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
-                await builder.call(this, subsubArea);
+                return builder.call(this, subsubArea);
             }
             : attName == 'thisreactson'
-                ? async function reacton(subArea) {
+                ? function reacton(subArea) {
                     subArea.bNoChildBuilding = true;
-                    await builder.call(this, subArea);
+                    return builder.call(this, subArea);
                 }
                 : builder);
         return async function REACT(area) {
@@ -989,7 +1008,7 @@ class RCompiler {
             range.errorNode = undefined;
         }
         try {
-            await builder.call(this, area);
+            return await builder.call(this, area);
         }
         catch (err) {
             const message = srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
@@ -1419,7 +1438,6 @@ class RCompiler {
             }
             node.handlers = [];
             ApplyModifiers(node, modifs, area.env, bInit);
-            return node;
         };
         builder.ws = ws;
         return builder;
@@ -1637,8 +1655,13 @@ class RCompiler {
             throw `Unknown name '${name}'`;
         return env => env[i];
     }
-    compAttrExprList(atts, attName, bRequired) {
-        const list = atts.get(attName, bRequired, true);
+    compAttrExprList(atts, attName, bReacts) {
+        const list = atts.get(attName, false, true);
+        if (!list)
+            return null;
+        if (bReacts)
+            for (const nm of list.split(','))
+                this.cRvars.set(nm.trim(), false);
         return list ? this.CompJavaScript(`[${list}\n]`, attName) : null;
     }
     GetURL(src) {

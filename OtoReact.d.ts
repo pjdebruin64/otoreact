@@ -10,7 +10,7 @@ declare const defaultSettings: {
     bDollarRequired: boolean;
     bSetPointer: boolean;
 };
-declare type DOMBuilder = ((reg: Area) => Promise<HTMLElement | void>) & {
+declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
     ws?: WhiteSpc;
 };
 declare enum WhiteSpc {
@@ -87,6 +87,7 @@ declare class RCompiler {
     instanceNum: number;
     private ContextMap;
     private context;
+    private cRvars;
     private CSignatures;
     private head;
     private StyleBefore;
@@ -110,7 +111,6 @@ declare class RCompiler {
     private Builder;
     private whiteSpc;
     private bCompiled;
-    private bHasReacts;
     DirtyVars: Set<RVAR<unknown>>;
     private DirtySubs;
     AddDirty(sub: Subscriber): void;
@@ -126,7 +126,6 @@ declare class RCompiler {
     builtNodeCount: number;
     private CompChildNodes;
     private CreatedRvars;
-    private RvarsToCheck;
     private CompIterator;
     static genAtts: string[];
     private CompElement;

@@ -5,7 +5,7 @@
     </a>
     <template><a. #href="href" ...rest
         #target="!target && /^http/i.test(href) ? '_blank' : target"
-        #style.fontWeight="href == document.location.pathname ? 'bold' : null"
+        #style.fontWeight="href == (docLocation.subpath || '.') ? 'bold' : null"
         ><content></content></a.
     ></template>
 </component>
