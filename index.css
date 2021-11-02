@@ -28,7 +28,7 @@
     background-color: rgb(225, 255, 181); 
 }
 .sourcecode {
-    padding: 4px 8px;
+    padding: 0px 3px 1px 3px;
     margin: 2px;
     border: var(--RedBorder);
     width: fit-content;

@@ -415,7 +415,11 @@ class RCompiler {
         R = this;
         this.builtNodeCount++;
         await this.Builder(area);
-        this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
+        const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
+        this.AllAreas.push(subs);
+        for (const rvar of this.CreatedRvars)
+            if (!rvar._Subscribers.size)
+                rvar.Subscribe(subs);
         R = savedRCompiler;
     }
     AddDirty(sub) {
@@ -577,7 +581,7 @@ class RCompiler {
                 for (const [builder] of builders)
                     if (i++ >= start) {
                         await builder.call(this, area);
-                        if (bInit && builder['auto'])
+                        if (bInit && builder.auto)
                             toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
                     }
                 this.builtNodeCount += builders.length;
@@ -617,29 +621,23 @@ class RCompiler {
                                 const a = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, true);
                                 this.restoreActions.push(() => {
-                                    elmBuilder['auto'] = this.cRvars.get(rvarName);
+                                    elmBuilder.auto = this.cRvars.get(rvarName);
                                     this.cRvars.set(rvarName, a);
                                 });
                             }
-                            const subBuilder = this.CompChildNodes(srcElm);
-                            builder = function DEF(area) {
-                                const { range, subArea, bInit } = PrepArea(srcElm, area);
+                            builder = async function DEF(area) {
+                                const { range, bInit } = PrepArea(srcElm, area), { env } = area;
                                 if (bInit || bReact) {
-                                    const value = getValue && getValue(area.env);
-                                    if (rvarName) {
-                                        let VV = bAsync ? undefined : value;
+                                    const value = getValue && getValue(env);
+                                    if (rvarName)
                                         if (bInit)
-                                            range.value = new _RVAR(this.MainC, null, VV, getStore && getStore(area.env), rvarName);
+                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(env), rvarName);
                                         else
-                                            range.value.V = VV;
-                                        if (bAsync)
-                                            value.then(v => range.value.V = v);
-                                    }
+                                            range.value.SetAsync(value);
                                     else
                                         range.value = value;
                                 }
-                                newVar(area.env)(range.value);
-                                return subBuilder.call(this, subArea);
+                                newVar(env)(range.value);
                             };
                         }
                         break;
@@ -1671,20 +1669,20 @@ class RCompiler {
         return this.GetURL(src).replace(/[^/]*$/, '');
     }
     async FetchText(src) {
-        const url = this.GetURL(src);
-        return await (await RFetch(url)).text();
+        return await (await RFetch(this.GetURL(src))).text();
     }
 }
 RCompiler.iNum = 0;
 RCompiler.genAtts = ['reacton', 'reactson', 'thisreactson', 'oncreate', 'onupdate'];
 RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
 const gFetch = fetch;
-async function RFetch(input, init) {
+export async function RFetch(input, init) {
     const r = await gFetch(input, init);
     if (!r.ok)
         throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
     return r;
 }
+globalThis.RFetch = RFetch;
 function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
@@ -1696,15 +1694,15 @@ class _RVAR {
         this._Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
+        this.storeName ||= globalName;
         let s;
-        if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
+        if ((s = store && store.getItem(`RVAR_${this.storeName}`)) != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
             }
             catch { }
-        this._Value = initialValue;
-        this.storeName ||= globalName;
+        this.SetAsync(initialValue);
     }
     Subscribe(s, bImmediate) {
         if (bImmediate) {
@@ -1725,6 +1723,14 @@ class _RVAR {
             this.SetDirty();
         }
     }
+    SetAsync(t) {
+        if (t instanceof Promise) {
+            this.V == undefined;
+            t.then(v => { this.V = v; });
+        }
+        else
+            this.V = t;
+    }
     get U() {
         if (!bReadOnly)
             this.SetDirty();
@@ -1734,14 +1740,18 @@ class _RVAR {
     SetDirty() {
         if (this.store)
             this.MainC.DirtyVars.add(this);
+        let b;
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub();
-            else if (sub.ref.isConnected)
+            else if (sub.ref.isConnected) {
                 this.MainC.AddDirty(sub);
+                b = true;
+            }
             else
                 this._Subscribers.delete(sub);
-        this.MainC.RUpdate();
+        if (b)
+            this.MainC.RUpdate();
     }
     Save() {
         this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));

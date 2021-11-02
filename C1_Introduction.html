@@ -169,16 +169,19 @@ The OtoReact module makes the following functions available for import. They are
         <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
     </li>
     <li>
-        <code>RBuid()</code> builds any previously compiled HTMLElements, in case the option 'bNoBuild' was used with <code>RCompile</code>.
+        <code>RBuild()</code> builds any previously compiled HTMLElements, in case the option 'bNoBuild' was used with <code>RCompile</code>.
     </li>
     <li>
         <code>RVAR(name?, initialValue?, store?)</code> creates a reactive variable
     </li>
+    <li>
+        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>
+    </li>
     <li id=rangeFunction>
         <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range type</a>. You can use this with <elm>FOR</elm>.
     </li>
-    <li>
-        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>
+    <li id=RFetch>
+        <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
     </li>
 </ul>
 The question marks indicate optional arguments.
@@ -230,7 +233,7 @@ The question marks indicate optional arguments.
 </ul>
 
 <h3 id=Persistence>Persistence</h3>
-When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
+When you provide a <code class=sourcecode>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
 <p><code>store</code> can be:</p>
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>

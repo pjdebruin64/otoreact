@@ -13,20 +13,19 @@ const sampleGreeting=
 
 const sampleServerData2=
 `<script nomodule 
-defines="ColorTable,toHex,handle,StartStop,bRotated" >
+  defines="ColorTable,toHex,handle,StartStop,bAnimate" >
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
-const ColorTable = RVAR();
-
-/* Fetch the data! */
-(async ()=>{
-  let response = await fetch("webColors.json");
-  if (response.ok)
-    ColorTable.V = await response.json();
-})();
-/* Too bad JavaScript has no async blocks, like:
-  async { ... await ... }
-*/
+const ColorTable = RVAR( null,
+  /* Fetch the data! */
+  (async ()=>{
+    let response = await RFetch("webColors.json");
+    return await response.json();
+  })()
+  /* Too bad JavaScript has no async blocks, like:
+    async { ... await ... return await ... }
+  */
+);
 
 /* Utility for 2-digit hex code */
 function toHex(n){ 
@@ -34,7 +33,7 @@ function toHex(n){
 }
 
 /* Rotation */
-let handle=RVAR(), bRotated=RVAR();
+let handle=RVAR(), bAnimate=RVAR();
 
 async function StartStop() {
   if (handle.V) {
@@ -44,7 +43,7 @@ async function StartStop() {
       // Modify the data model, triggering a DOM update:
       ColorTable.U.push(ColorTable.V.shift());
     }, 330);
-  bRotated.V = true;
+  bAnimate.V = true;
 }
 </script>
 
@@ -61,7 +60,7 @@ async function StartStop() {
     to   {line-height: 0%}
   }
   
-  tbody.rotated > tr:first-child {
+  tbody.animated > tr:first-child {
     animation: Disappearing 300ms linear 30ms forwards
   }
 </style>
@@ -87,7 +86,7 @@ child of <TABLE>. OtoReact removes these dots. -->
     <th.>Hex</th.>
   </tr.>
 
-  <tbody. #class:rotated="bRotated.V" thisreactson=bRotated>
+  <tbody. #class:animated="bAnimate.V" thisreactson=bAnimate>
     <!-- Detail records -->
     <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
       <tr. 

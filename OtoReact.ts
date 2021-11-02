@@ -15,7 +15,7 @@ const defaultSettings = {
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area) => Promise<void>) & {ws?: WhiteSpc};
+type DOMBuilder = ((reg: Area) => Promise<void>) & {ws?: WhiteSpc; auto?: boolean};
 enum WhiteSpc {preserve, keep, trim}
 
 // An AREA is the (runtime) place to build or update, with all required information
@@ -568,9 +568,12 @@ class RCompiler {
         R = this;
         this.builtNodeCount++;
         await this.Builder(area);
-
-        this.AllAreas.push(this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR));
-        R = savedRCompiler;
+        const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
+        this.AllAreas.push(subs);
+        for (const rvar of this.CreatedRvars)
+            if (!rvar._Subscribers.size)
+                rvar.Subscribe(subs);
+        R = savedRCompiler;        
     }
 
     public Settings: FullSettings;
@@ -757,23 +760,24 @@ class RCompiler {
             }
         }
         const Iter = builders.length == 0 ? null :
-            async function Iter(this: RCompiler, area: Area, start: number = 0
-                ) {
-                
+            async function Iter(this: RCompiler, area: Area, start: number = 0)
+                // start > 0 is use
+            {                
                 const bInit = !area.range,
                     toSubscribe: Array<Subscriber> = [];
                 let i = 0;
                 for (const [builder] of builders)
                     if (i++ >= start) {
                         await builder.call(this, area);
-                        if (bInit && builder['auto'])
-                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Nog niet de juiste range
+                        if (bInit && builder.auto)  // Auto subscribe?
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Not yet the correct range, we need the next range
                             );
                     }
                 this.builtNodeCount += builders.length;
                 for(const subs of toSubscribe) {
                     const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
-                    if (!rvar._Subscribers.size) {
+                    if (!rvar._Subscribers.size) // No subscribers yet?
+                    {   // Then subscribe with the correct range
                         sArea.range = range.next;
                         rvar.Subscribe(subs);
                     }
@@ -817,34 +821,29 @@ labelNoCheck:
                             newVar      = this.NewVar(varName);
 
                         if (rvarName) {
-                            const a = this.cRvars.get(rvarName);
+                            // Check for compile-time subscribers
+                            const a = this.cRvars.get(rvarName);    // Save previous value
                             this.cRvars.set(rvarName, true);
                             this.restoreActions.push(() => {
-                                elmBuilder['auto'] = this.cRvars.get(rvarName)
+                                // Possibly auto-subscribe when there were no compile-time subscribers
+                                elmBuilder.auto = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, a);
                             });
                         }
-                        const
-                            subBuilder  = this.CompChildNodes(srcElm);
                         
-                        builder = function DEF(this: RCompiler, area) {
-                                const {range, subArea, bInit} = PrepArea(srcElm, area);
+                        builder = async function DEF(this: RCompiler, area) {
+                                const {range, bInit} = PrepArea(srcElm, area), {env}=area;
                                 if (bInit || bReact){
-                                    const value = getValue && getValue(area.env);
-                                    if (rvarName) {
-                                        let VV = bAsync ? undefined : value;
+                                    const value = getValue && getValue(env);
+                                    if (rvarName)
                                         if (bInit)
-                                            range.value = new _RVAR(this.MainC, null, VV, getStore && getStore(area.env), rvarName);
+                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(env), rvarName);
                                         else
-                                            range.value.V = VV;
-
-                                        if (bAsync)
-                                            (value as Promise<unknown>).then(v => (range.value as RVAR).V = v);
-                                    } else
+                                            range.value.SetAsync(value);
+                                    else
                                         range.value = value;
                                 }
-                                newVar(area.env)(range.value);
-                                return subBuilder.call(this, subArea);
+                                newVar(env)(range.value);
                             };
                     } break;
 
@@ -2083,18 +2082,18 @@ labelNoCheck:
     }
 
     async FetchText(src: string): Promise<string> {
-        const url = this.GetURL(src);
-        return await (await RFetch(url)).text();
+        return await (await RFetch(this.GetURL(src))).text();
     }
 }
 
 const gFetch=fetch;
-async function RFetch(input: RequestInfo, init?: RequestInit) {
+export async function RFetch(input: RequestInfo, init?: RequestInit) {
     const r = await gFetch(input, init);
     if (!r.ok)
         throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
     return r;
 }
+globalThis.RFetch = RFetch;
 
 
 function quoteReg(fixed: string) {
@@ -2114,16 +2113,17 @@ class _RVAR<T = unknown>{
         private storeName?: string,
     ) {
         if (globalName) globalThis[globalName] = this;
+        this.storeName ||= globalName;
         
         let s: string;
-        if ((s = store && store.getItem(`RVAR_${storeName}`)) != null)
+        if ((s = store && store.getItem(`RVAR_${this.storeName}`)) != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
             }
             catch{}
-        this._Value = initialValue;
-        this.storeName ||= globalName;
+
+        this.SetAsync(initialValue);
     }
     // The value of the variable
     private _Value: T;
@@ -2154,6 +2154,13 @@ class _RVAR<T = unknown>{
             this.SetDirty();
         }
     }
+    SetAsync(t: T | Promise<T>) {
+        if (t instanceof Promise) {
+            this.V == undefined;
+            t.then(v => {this.V = v})
+        } else
+            this.V = t;
+    }
 
     // Use var.U to get its value for the purpose of updating some part of it.
     // It will be marked dirty.
@@ -2166,14 +2173,16 @@ class _RVAR<T = unknown>{
     public SetDirty() {
         if (this.store)
             this.MainC.DirtyVars.add(this);
+        let b: boolean;
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub();
             else if (sub.ref.isConnected)
-                this.MainC.AddDirty(sub);
+                { this.MainC.AddDirty(sub); b=true}
             else
                 this._Subscribers.delete(sub);
-        this.MainC.RUpdate();
+        if (b)
+            this.MainC.RUpdate();
     }
 
     public Save() {

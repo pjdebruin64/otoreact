@@ -12,6 +12,7 @@ declare const defaultSettings: {
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
     ws?: WhiteSpc;
+    auto?: boolean;
 };
 declare enum WhiteSpc {
     preserve = 0,
@@ -154,6 +155,7 @@ declare class RCompiler {
     private GetPath;
     FetchText(src: string): Promise<string>;
 }
+export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -169,6 +171,7 @@ declare class _RVAR<T = unknown> {
     Unsubscribe(s: Subscriber): void;
     get V(): T;
     set V(t: T);
+    SetAsync(t: T | Promise<T>): void;
     get U(): T;
     set U(t: T);
     SetDirty(): void;
