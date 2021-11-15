@@ -23,23 +23,41 @@ However, utilizing separate URLs has advantages to the user:
 </ol>
 Now, <i>URL routing</i> means routing different URLs to different virtual pages, while in the background remaining in one and the same (single page) application.
 <p>
-    This page itself is presented to you using URL routing. You can quickly move back and forth without anything being fetched from the server, not even from cache.
+    This page itself is presented to you using URL routing. You can quickly move back and forth without anything being fetched from the server, nor being reloaded from cache.
 </p>
 
 <h2>Variants of URL routing</h2>
-An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like "https://otoreact.dev:80/some/path?param1=A&amp;param2=B#someHash", consists of several parts that can be used for routing.
+An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like 
+"<span style="color:deeppink">https://otoreact.dev:80</span><span style="color:slateblue">/some/path</span><span style="color:limegreen">?param1=A&amp;param2=B</span><span style="color:orange">#someHash</span>", consists of several parts that can be used for routing.
 <ul>
     <li>
-        The 'protocol', 'host', and optional 'port', together called the 'origin' "https://otoreact.dev:80", must remain the same for all pages in an application, and cannot be used for routing.
+        The protocol, host, and optional port, together called the 'origin' "<span style="color:deeppink">https://otoreact.dev:80</span>", must remain the same for all pages in an application, and cannot be used for routing.
     </li>
     <li>
-        The 'pathname' "/some/path"
+        The 'pathname' "<span style="color:slateblue">/some/path</span>" is suited for routing:
+        <ul>
+            <li>"https://yourdomain.com/inventory" could be your inventory page</li>
+            <li>"https://yourdomain.com/customers" could be your customers list</li>
+            <li>"https://yourdomain.com/customer/12345" could be the details page for customer 12345</li>
+        </ul>
+        There are two complications (whatever framework you use):
+        <ol>
+            <li>
+                Web servers by default use the pathname to locate the HTML file being served, and will require special configuration to serve the <i>same</i> HTML file on <i>different</i> pathnames.
+                <br>For Microsoft IIS and Apache, this is quite easy: one can put a fixed configuration file in the application directory. Suitable files are included in the OtoReact package download.
+                <br>For other servers, one may have to modify the main configuration file. I have not figured out the details.
+                <br>When you are on a shared hosting server, you may not be allowed to modify the server configuration file. In that case, you have to resort to 'search string' routing.
+            </li>
+            <li>
+                When you want to use pathnames composed of multiple segments separated by a slash, like "/customer/12345", then there is a problem 
+            </li>
+        </ol>
     </li>
     <li>
-        The optional 'search' string "?param1=A&amp;param2=B"
+        The optional 'search string' "<span style="color:limegreen">?param1=A&amp;param2=B</span>"
     </li>
     <li>
-        The optional 'hash' or 'fragment' "#someHash" could be used for routing too.
+        The optional 'hash' or 'fragment' "<span style="color:orange">#someHash</span>" could be used for routing too.
     </li>
 </ul>
 

@@ -14,18 +14,17 @@ const sampleGreeting=
 const sampleServerData2=
 `<script nomodule 
   defines="ColorTable,toHex,handle,StartStop,bAnimate" >
+
+
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
 const ColorTable = RVAR( null,
   /* Fetch the data! */
-  (async ()=>{
-    let response = await RFetch("webColors.json");
-    return await response.json();
-  })()
-  /* Too bad JavaScript has no async blocks, like:
-    async { ... await ... return await ... }
-  */
+  RFetch("webColors.json").then(response => response.json())
 );
+/* Too bad JavaScript has no async blocks, like:
+  async { ... await ... return await ... }
+*/
 
 /* Utility for 2-digit hex code */
 function toHex(n){ 
