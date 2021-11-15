@@ -507,7 +507,7 @@ The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
 Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a quite different syntax.
 
 
-<h4>More examples</h4>
+<h3>More examples</h3>
 Here is a to-do application, which splits the collection of items into those done and not done. We use a component <elm>itemlist</elm> to show such a filtered list.
 <demo #content=sampleTODO>
 </demo>
@@ -593,25 +593,34 @@ When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based)
 
 
 <h2 id=Document><{}DOCUMENT></h2>
-<elm class=sourcecode>DOCUMENT name=<i>docName</i> encapsulate?</elm> allows you to define a separate document or form, that remains part of the same RHTML application.
-
+<pre class=sourcecode>
+    <{}DOCUMENT name=<i>docName</i> params?=<i>nameList</i> encapsulate?>
+        <i>content</i>
+    <{}/DOCUMENT>
+</pre>
+allows you to define a separate document or form, that remains part of the same RHTML application.
 <p>
-    The content is not rendered immediately, but <i>docName</i> is defined as a local variable, bound to an object with the following methods:
+    When <code class=sourcecode>params</code> is specified, then the given parameter names are available within <i>content</i> as JavaScript variables.
+</p>
+<p>
+    <i>content</i> is not rendered immediately, but <i>docName</i> is defined as a local variable, bound to an object with the following methods:
 </p>
 <dl>
-    <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>)</code></dt>
+    <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>, ...args)</code></dt>
     <dd>
-        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>.
+        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given args.
     </dd>
-    <dt><code><i>docName</i>.print()</code></dt>
+    <dt><code><i>docName</i>.print(...args)</code></dt>
     <dd>
-        The construct content is rendered in an invisible browser window, and its browser print dialog is opened.
+        The construct content is rendered in an invisible browser window wtih parameter names bound to the given args, and its browser print dialog is opened.
         <br>After the user has closed the print dialog, the invisible window is closed as well.
     </dd>
 </dl>
 
-By default, all styling rules attached to the parent document are copied to the new document, but with the option <code>encapsulate</code> no rules are copied.
+By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
 <br>You can use <elm>style</elm> to insert styling information, or <elm>HEAD.</elm><elm>LINK &hellip;</elm><elm>/HEAD.</elm> to link an external style sheet.
+
+<demo #content=sampleDocument></demo>
 
 <h2><{}HEAD.></h2>
 Any child elements of <elm class=sourcecode>HEAD.</elm> are inserted into the current document header.

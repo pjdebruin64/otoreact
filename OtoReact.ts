@@ -360,7 +360,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
                     (elm as any).handlers.push({evType: m[1], listener: val})
                 }
                 else {
-                    if (R.Settings.bSetPointer && /^on(dbl)?click$/.test(name))
+                    if (R.Settings.bSetPointer && /^onclick$/.test(name))
                         elm.style.cursor = val ? 'pointer' : null;
                     elm[name] = val; 
                 }
@@ -570,9 +570,12 @@ class RCompiler {
         await this.Builder(area);
         const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
         this.AllAreas.push(subs);
+        /*
         for (const rvar of this.CreatedRvars)
             if (!rvar._Subscribers.size)
                 rvar.Subscribe(subs);
+        this.CreatedRvars.length=0;
+        */
         R = savedRCompiler;        
     }
 
@@ -633,10 +636,13 @@ class RCompiler {
                                 console.log(msg);
                                 window.alert(msg);
                             }
+                        /*
                         for (const rvar of this.CreatedRvars)
                             if (!rvar._Subscribers.size)
                                 for (const subs of this.AllAreas)
                                     rvar.Subscribe(subs)
+                        this.CreatedRvars.length=0;
+                        */
                     }
                     
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
@@ -656,7 +662,7 @@ class RCompiler {
         store?: Store
     ) {
         const r = new _RVAR<T>(this.MainC, name, initialValue, store, name);
-        this.MainC.CreatedRvars.push(r);
+        //this.MainC.CreatedRvars.push(r);
         return r;
     }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
@@ -708,7 +714,7 @@ class RCompiler {
         finally { this.RestoreContext(saved); }
     }
 
-    private CreatedRvars: RVAR[] = [];
+    //private CreatedRvars: RVAR[] = [];
 
     private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
         const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
@@ -768,10 +774,17 @@ class RCompiler {
                 let i = 0;
                 for (const [builder] of builders)
                     if (i++ >= start) {
+                        const {range} = area;
                         await builder.call(this, area);
-                        if (bInit && builder.auto)  // Auto subscribe?
-                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Not yet the correct range, we need the next range
-                            );
+                        if (builder.auto)  // Auto subscribe?
+                            if (bInit)
+                                toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Not yet the correct range, we need the next range
+                                );
+                            else {
+                                const rvar = range.value as RVAR;
+                                if (rvar.auto)
+                                    rvar.auto.sArea.env = CloneEnv(area.env);
+                            }
                     }
                 this.builtNodeCount += builders.length;
                 for(const subs of toSubscribe) {
@@ -779,30 +792,33 @@ class RCompiler {
                     if (!rvar._Subscribers.size) // No subscribers yet?
                     {   // Then subscribe with the correct range
                         sArea.range = range.next;
-                        rvar.Subscribe(subs);
+                        rvar.Subscribe(rvar.auto = subs);
                     }
                 }
             };
         return Iter;
     }
 
-    static genAtts = ['reacton','reactson','thisreactson','oncreate','onupdate'];
+    static genAtts = /^((this)?reacts?on|on((create(!)?)|(update(\*)?)))$/;
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
-            genMods: Array<{attName: string, handler: Dependent<Handler>}> = [];
+            genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
         if (bUnhide) atts.set('#hidden', 'false');
-        for (const attName of RCompiler.genAtts)
-            if (atts.has(attName))
-                if (/^on/.test(attName))
-                    genMods.push({attName, handler: this.CompHandler(attName, atts.get(attName))});
-                else {
-                    reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
-                }
         
         let builder: DOMBuilder, elmBuilder: DOMBuilder;
-labelNoCheck:
         try {
+            let m: RegExpExecArray;
+            for (const attName of atts.keys())
+                if (m = RCompiler.genAtts.exec(attName))
+                    if (m[3])
+                        genMods.push({attName, bCr: !!(m[4] || m[7]) // Exec on create
+                            , bUpd: !!(m[6] || m[5])    // Exec on update
+                            , text: atts.get(attName)});
+                    else {
+                        reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
+                    }
+
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -944,7 +960,7 @@ labelNoCheck:
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             ) == alt.not)
                                         { choosenAlt = alt; break }
-                                    } catch (err) { throw OuterOpenTag(alt.node) + err }
+                                    } catch (err) { throw (alt.node.nodeName=='IF' ? '' : OuterOpenTag(alt.node)) + err }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
@@ -952,8 +968,7 @@ labelNoCheck:
                                         const {elmRange, childArea, bInit} = PrepareElement(alt.node, area);
                                         const bHidden = elmRange.node.hidden = alt != choosenAlt;
                                         if ((!bHidden || bInit) && !area.bNoChildBuilding)
-                                            await this.CallWithErrorHandling(alt.builder, alt.node, 
-                                                childArea );
+                                            await this.CallWithHandling(alt.builder, alt.node, childArea );
                                     }
                                 }
                                 else {
@@ -970,7 +985,7 @@ labelNoCheck:
                                                         (matchResult[i++])
                                                     );
                                             }
-                                            await this.CallWithErrorHandling(choosenAlt.builder, choosenAlt.node, subArea );
+                                            await this.CallWithHandling(choosenAlt.builder, choosenAlt.node, subArea );
                                         } finally { RestoreEnv(saved) }
                                     }
                                 }
@@ -1063,7 +1078,7 @@ labelNoCheck:
 
                         const bodyBuilder = this.CompChildNodes(srcElm);
                         
-                        builder = this.GetREACT(srcElm, '', bodyBuilder, getRvars, CBool(atts.get('renew')));
+                        builder = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, CBool(atts.get('renew')));
 
                         if (getHashes) {
                             const b = builder;
@@ -1136,37 +1151,53 @@ labelNoCheck:
                             bEncaps = CBool(atts.get('encapsulate')),
                             params=atts.get('params'),
                             RC = this,
-                            docBuilder = RC.CompChildNodes(srcElm),
-                            docDef = (env: Environment) => {
-                                env = CloneEnv(env);
-                                return {
-                                    render(parent: HTMLElement) {
-                                        parent.innerHTML = '';
-                                        return docBuilder.call(RC, {parent, env}); 
-                                    },
-                                    async open(...args: string[]) {
-                                        const W = window.open('', ...args);
-                                        // Copy all style sheet rules
-                                        if (!bEncaps)
-                                            copyStyleSheets(document, W.document);
-                                        await this.render(W.document.body);
-                                        return W;
-                                    },
-                                    async print() {
-                                        const iframe = document.createElement('iframe');
-                                        iframe.setAttribute('style','display:none');
-                                        document.body.appendChild(iframe);
-                                        if (!bEncaps)
-                                            copyStyleSheets(document, iframe.contentDocument);
-                                        await docBuilder.call(RC, {parent: iframe.contentDocument.body, env});
-                                        iframe.contentWindow.print();
-                                        iframe.remove();
-                                    }
+                            saved = this.SaveContext(),
+                            setVars = (params?.split(',') || []).map(v => this.NewVar(v));
+                        try {
+                            const
+                                docBuilder = RC.CompChildNodes(srcElm),
+                                docDef = (env: Environment) => {
+                                    env = CloneEnv(env);
+                                    return {
+                                        async render(parent: HTMLElement, args: unknown[]) {
+                                            parent.innerHTML = '';
+                                            const saved = SaveEnv();
+                                            let i=0;
+                                            for (const init of setVars)
+                                                init(env)(args[i++]);
+                                            try {
+                                                await docBuilder.call(RC, {parent, env}); 
+                                            }
+                                            finally {RestoreEnv(saved);}
+                                        },
+                                        open(target?: string, features?: string, ...args: unknown[]) {
+                                            const W = window.open('', target, features);
+                                            W.addEventListener('keydown', 
+                                                function(this: Window,event:KeyboardEvent) {if(event.key=='Escape') this.close();}
+                                            );
+                                            // Copy all style sheet rules
+                                            if (!bEncaps)
+                                                copyStyleSheets(document, W.document);
+                                            this.render(W.document.body, args);
+                                            return W;
+                                        },
+                                        async print(...args: unknown[]) {
+                                            const iframe = document.createElement('iframe');
+                                            iframe.setAttribute('style','display:none');
+                                            document.body.appendChild(iframe);
+                                            if (!bEncaps)
+                                                copyStyleSheets(document, iframe.contentDocument);
+                                            await this.render(iframe.contentDocument.body, args);
+                                            iframe.contentWindow.print();
+                                            iframe.remove();
+                                        }
+                                    };
                                 };
-                            };
-                        builder = async function DOCUMENT(this: RCompiler, {env}) {
-                            newVar(env)(docDef(env));
+                            builder = async function DOCUMENT(this: RCompiler, {env}) {
+                                newVar(env)(docDef(env));
+                            }
                         }
+                        finally { this.RestoreContext(saved); }
                     }; break;
 
                     case 'head.': {
@@ -1181,10 +1212,13 @@ labelNoCheck:
                     default:             
                         /* It's a regular element that should be included in the runtime output */
                         builder = this.CompHTMLElement(srcElm, atts); 
-                        break labelNoCheck;
+                        break;
                 }
                 atts.CheckNoAttsLeft();
             }
+
+            for (const g of genMods)
+                g.handler = this.CompHandler(g.attName, g.text);
         }
         catch (err) { 
             throw `${OuterOpenTag(srcElm)} ${err}`;
@@ -1193,18 +1227,19 @@ labelNoCheck:
         if (genMods.length) {
             const b = builder;
             builder = async function ON(this: RCompiler, area: Area) {
-                const bInit = !area.range, handlers = genMods.map(({attName, handler}) => ({attName, handler: handler(area.env)}));
+                const bInit = !area.range;
                 await b.call(this, area);
-                for (const {attName, handler} of handlers)
-                    if (bInit || attName=='onupdate')
-                        handler.call(area.prevR?.node);
+                for (const g of genMods)
+                    //if (bInit ? g.bCr : g.bUpd)
+                    if (bInit || g.bUpd)
+                        g.handler(area.env).call(area.prevR?.node);
             }
         }
 
         for (const {attName, rvars} of reacts)
             builder = this.GetREACT(srcElm, attName, builder, rvars);
         elmBuilder = function Elm(this: RCompiler, area: Area) {
-            return this.CallWithErrorHandling(builder, srcElm, area);
+            return this.CallWithHandling(builder, srcElm, area);
         }
         return [elmBuilder, srcElm];
     }
@@ -1212,7 +1247,7 @@ labelNoCheck:
     private GetREACT(
         srcElm: HTMLElement, attName: string, 
         builder: DOMBuilder, 
-        getRvars: Dependent<RVAR[]>, 
+        getRvars: Dependent<RVAR[]>,
         bRenew=false
     ): DOMBuilder{
         const  updateBuilder: DOMBuilder = 
@@ -1221,7 +1256,7 @@ labelNoCheck:
                     const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
                     return builder.call(this, subsubArea);
                 }
-            : attName == 'thisreactson'
+            : /^this/.test(attName)
                 ? function reacton(this: RCompiler, subArea: Area) {
                     subArea.bNoChildBuilding = true;
                     return builder.call(this, subArea);
@@ -1257,13 +1292,13 @@ labelNoCheck:
                         pvar._Subscribers.delete(subscriber);
                     }
                     try { rvar.Subscribe(subscriber); }
-                    catch { throw "This is not an RVAR"; }
+                    catch { throw `[${attName}] This is not an RVAR`; }
                 }
             }
         }
     }
 
-    private async CallWithErrorHandling(this: RCompiler, builder: DOMBuilder, srcNode: ChildNode, area: Area){
+    private async CallWithHandling(this: RCompiler, builder: DOMBuilder, srcNode: ChildNode, area: Area){
         let {range} = area;
         if (range && range.errorNode) {
             area.parent.removeChild(range.errorNode);
@@ -1660,7 +1695,7 @@ labelNoCheck:
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
                 for (const [bldr, srcNode] of builders)
-                    await this.CallWithErrorHandling(bldr, srcNode, area);
+                    await this.CallWithHandling(bldr, srcNode, area);
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
@@ -2028,7 +2063,7 @@ labelNoCheck:
     }
 
     private CompHandler(name: string, text: string) {
-        return this.CompJavaScript<Handler>(`function ${name}(event){${text}\n}`, name)
+        return this.CompJavaScript<Handler>(`function(event){${text}\n}`, name)
     }
     private CompJavaScript<T>(
         expr: string           // Expression to transform into a function
@@ -2131,6 +2166,7 @@ class _RVAR<T = unknown>{
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
     _Subscribers: Set<Subscriber> = new Set();
+    auto: Subscriber;
 
     Subscribe(s: Subscriber, bImmediate?: boolean) {
         if (bImmediate) {
@@ -2329,6 +2365,7 @@ function ScrollToHash() {
 docLocation.Subscribe( () => {
     if (docLocation.V != location.href)
         history.pushState(null, null, docLocation.V);
+    docLocation.searchParams = new URLSearchParams(location.search);
     ScrollToHash();;
 }, true);
 

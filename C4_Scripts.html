@@ -17,12 +17,20 @@
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
         <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "{docLocation.V}").
         <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.
-    </dd>
-    <dt><code>docLocation.subpath</code></dt>
-    <dd>
-        Part of the current pathname after the root path.
-        <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+RootPath).href}", it is "routing".
-        <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
+        </p>
+        <dl>
+            <dt><code>docLocation.subpath</code></dt>
+            <dd>
+                Part of the current pathname after the root path.
+                <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+RootPath).href}", it is "routing".
+                <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
+            </dd>
+            <dt><code>docLocation.searchParams</code></dt>
+            <dd>
+                An <a href="{MDN}Web/API/URLSearchParams">URLSearchParams</a> object containing the current URL search parameters.
+                <br>It is equivalent to <code>new URLSearchParams(location.search)</code>.
+            </dd>
+        </dl>
     </dd>
     <dt><code>reroute</code></dt>
     <dd>
@@ -140,7 +148,7 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         </tr>
         <tr>
             <td>bSetPointer</td><td>true</td>
-            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> or <code>ondblclick</code> handler.</td>
+            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler.</td>
         </tr>
         <tr>
             <td>rootPattern</td><td>"/"</td>

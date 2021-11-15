@@ -126,12 +126,11 @@ declare class RCompiler {
     private sourceNodeCount;
     builtNodeCount: number;
     private CompChildNodes;
-    private CreatedRvars;
     private CompIterator;
-    static genAtts: string[];
+    static genAtts: RegExp;
     private CompElement;
     private GetREACT;
-    private CallWithErrorHandling;
+    private CallWithHandling;
     private CompScript;
     CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder;
     private ParseSignature;
@@ -167,6 +166,7 @@ declare class _RVAR<T = unknown> {
     constructor(MainC: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
     private _Value;
     _Subscribers: Set<Subscriber>;
+    auto: Subscriber;
     Subscribe(s: Subscriber, bImmediate?: boolean): void;
     Unsubscribe(s: Subscriber): void;
     get V(): T;

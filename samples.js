@@ -127,7 +127,7 @@ const sampleGreeting2 =
   Anytime an input event happens, 'yourName.V' will be updated,
   and the DOM as well  -->
 </p>
-<if cond="yourName.V">
+<if cond="yourName.V" reacton=yourName>
   <p> Nice to meet you, {yourName.V}.
     <br>By the way, your name consists of {yourName.V.length} 
         characters.
@@ -200,7 +200,7 @@ with a caption -->
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item of=TODO.V updates=TODO>
+            <for let=item of=TODO.V updates=TODO reacton=TODO>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
                     <input type=checkbox @checked='item.U[1]'> 
@@ -492,3 +492,27 @@ const sampleFormatting =
         Today is {dayjs(today).format('MMM D')}.
     </dd>
 </dl>`
+
+const sampleDocument = 
+`<def rvar=check #value="false"></def>
+
+<document name=showCheck>
+    <title>Check!</title>
+    <div style="margin: 1ex auto" reacton=check>
+      <label>
+          <input type=checkbox @checked=check.V> Check me!
+      </label>
+    </div>
+</document>
+
+<button onclick="
+    showCheck.open(''
+        ,\`width=250,height=100,
+        screenX=\${window.screenX + event.clientX - 100},
+        screenY=\${window.screenY + event.clientY + 100}\`
+        )"
+>Pop up</button>
+
+<label reacton=check>
+    <input type=checkbox @checked=check.V> Checked.
+</label>`
