@@ -9,7 +9,7 @@
 </p>
 <demo #content=sampleSqrt></demo>
 
-<h2>HTML Events</h2>
+<h2>HTML DOM Events</h2>
 <p>
     In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
     <br>They may contain the name <code>event</code> which represents an object containing more information about the event.
@@ -29,6 +29,27 @@
         <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
     </li>
 </ul>
+
+
+<h2>RHTML Non-DOM-events</h2>
+RHTML adds two additional events that are not triggered by browser engine but by the OtoReact engine:
+<dl>
+    <dt><code>oncreate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built).
+    </dd>
+    <dt><code>onupdate</code></dt>
+    <dd>
+        Happens after an element (and its children) has been updated.
+    </dd>
+    <dt><code>onupdate*</code></dt>
+    <dd>
+        Happens after an element (and its children) has been created (built) <i>or</i> updated.
+        <p>Alternative names are <code>oncreateupdate</code> or <code>oncreate!</code>.
+    </dd>
+</dl>
+Note: The name <code>event</code> is not available in handlers for these pseudo-events.
+
 
 <h2>DOM Properties</h2>
 <p>
@@ -97,27 +118,48 @@ HTML allows you set style properties of individual elements with the <a href="{M
 <demo #content=sampleInlineStyles></demo>
 
 
-<h2>Two-way Binding</h2>
-DOM properties are not static but can change. RHTML allows four variants of two-way binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions).
+<h2>Output and Two-way Bindings</h2>
+DOM properties are not static but can change. RHTML allows three variants of output binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions): <code>*</code>, <code>!</code> and <code>!!</code>.
 <br>Valid assignment targets are expressions that can be assigned to: global variables, array elements, and object properties, including RVAR values.
 <dl>
-    <dt><code>@<i>propertyName</i>="<i>expression</i>"</code></dt>
+    <dt><code>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
-        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
-        <br>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
+        The assignment target receives the value of the property immediately after the element (and its children) have been created.
+        <br>This is the same as setting a handler:
+        <pre>oncreate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
     </dd>
-    <dt><code>@@<i>propertyName</i>="<i>expression</i>"</code></dt>
+    <dt><code>!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
-        The property receives the value of the expression at element creation and update, and the expression receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/change_event">change event</a>.
-        <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.</dd>
-    <dt><code>*<i>propertyName</i>="<i>expression</i>"</code>
-    </dt>
-    <dd>
-        The property is left unchanged, but the expression receives the value of the property at element creation and at every input event.
+        The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
+        <br>This is the same as setting a handler:
+        <pre>oninput="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
+        <p>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
     </dd>
-    <dt><code>**<i>propertyName</i>="<i>expression</i>"</code></dt>
+    <dt><code>!!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
-        The property is left unchanged, but the expression receives the value of the property at element creation and at every change event.
+        The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/change_event">change event</a>.
+        <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.
+    </dd>
+</dl>
+These may be combined with each other and with <code>#<i>propertyName</i></code>, so one gets two-way bindings, for example:
+<dl>
+    <dt><code>#!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dd>
+        is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
+    </dd>
+</dl>
+Last but not least, there are two abbreviations:
+<dl>
+    <dt><code>@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dd>
+        This is the same as <code>#!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
+    </dd>
+    <dt><code>@@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dd>
+        This is the same as <code>#!!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every change event.
     </dd>
 </dl>
 <p>
@@ -129,18 +171,3 @@ DOM properties are not static but can change. RHTML allows four variants of two-
 <p *outerHTML="a.V">Hi</p>
 <hr>
 \{a.V}'></demo>
-
-
-<h2>RHTML Pseudo-events</h2>
-RHTML adds two global event-like attributes:
-<dl>
-    <dt><code>oncreate</code></dt>
-    <dd>
-        Happens after an element (and its children) has been created (built).
-    </dd>
-    <dt><code>onupdate</code></dt>
-    <dd>
-        Happens after an element (and its children) has been created (built) <i>or updated</i>.
-    </dd>
-</dl>
-Note: The name <code>event</code> is not available in handlers for these pseudo-events.

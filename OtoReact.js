@@ -1501,25 +1501,23 @@ class RCompiler {
                         modType: ModType.AddToStyle, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
-                else if (m = /^#(.*)/.exec(attName))
-                    modifs.push({
-                        modType: ModType.Prop,
-                        name: CapitalProp(m[1]),
-                        depValue: this.CompJavaScript(attValue, attName)
-                    });
                 else if (attName == "+class")
                     modifs.push({
                         modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJavaScript(attValue, attName)
                     });
-                else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) {
-                    const propName = CapitalProp(m[3]);
+                else if (m = /^([\*#!]+|@@?)(.*)/.exec(attName)) {
+                    const propName = CapitalProp(m[2]);
                     try {
-                        const setter = this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
-                        modifs.push(m[1] == '@'
-                            ? { modType: ModType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) }
-                            : { modType: ModType.oncreate, name: 'oncreate', depValue: setter });
-                        modifs.push({ modType: ModType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter });
+                        const setter = m[1] == '#' ? null : this.CompJavaScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
+                        if (/[@#]/.test(m[1]))
+                            modifs.push({ modType: ModType.Prop, name: propName, depValue: this.CompJavaScript(attValue, attName) });
+                        if (/\*/.test(m[1]))
+                            modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter });
+                        if (/[@!]/.test(m[1]))
+                            modifs.push({ modType: ModType.Event,
+                                name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput',
+                                depValue: setter });
                     }
                     catch (err) {
                         throw `Invalid left-hand side '${attValue}'`;

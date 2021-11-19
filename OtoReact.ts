@@ -1908,22 +1908,35 @@ class RCompiler {
                         modType: ModType.AddToStyle, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
-                else if (m = /^#(.*)/.exec(attName))
-                    modifs.push({
-                        modType: ModType.Prop, 
-                        name: CapitalProp(m[1]),
-                        depValue: this.CompJavaScript<unknown>(attValue, attName)
-                    });
                 else if (attName == "+class")
                     modifs.push({
                         modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJavaScript<object>(attValue, attName)
                     });
+                else if (m = /^([\*#!]+|@@?)(.*)/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                    const propName = CapitalProp(m[2]);
+                    try {
+                        const setter = m[1]=='#' ? null : this.CompJavaScript<Handler>(
+                            `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
+                        
+                        if (/[@#]/.test(m[1]))
+                            modifs.push({ modType: ModType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) });
+                        if (/\*/.test(m[1]))
+                            modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter })
+                        if (/[@!]/.test(m[1]))
+                            modifs.push({modType: ModType.Event, 
+                                name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
+                                depValue: setter});
+                    }
+                    catch(err) { throw `Invalid left-hand side '${attValue}'`}          
+                }
+                /*
                 else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) { // *, **, @, @@
                     const propName = CapitalProp(m[3]);                    
                     try {
                         const setter = this.CompJavaScript<Handler>(
                             `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
+                        
                         modifs.push(
                             m[1] == '@'
                             ? { modType: ModType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) }
@@ -1931,7 +1944,7 @@ class RCompiler {
                         modifs.push({modType: ModType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}
-                }
+                } */
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue) throw `Rest parameter cannot have a value`;
                     modifs.push({
