@@ -121,7 +121,7 @@ declare class RCompiler {
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
-    RVAR<T>(name?: string, initialValue?: T, store?: Store): _RVAR<T>;
+    RVAR<T>(name?: string, initialValue?: T | Promise<T>, store?: Store): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
@@ -163,7 +163,7 @@ declare class _RVAR<T = unknown> {
     private MainC;
     private store?;
     private storeName?;
-    constructor(MainC: RCompiler, globalName?: string, initialValue?: T, store?: Store, storeName?: string);
+    constructor(MainC: RCompiler, globalName?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _Value;
     _Subscribers: Set<Subscriber>;
     auto: Subscriber;
@@ -171,6 +171,7 @@ declare class _RVAR<T = unknown> {
     Unsubscribe(s: Subscriber): void;
     get V(): T;
     set V(t: T);
+    get Set(): any;
     SetAsync(t: T | Promise<T>): void;
     get U(): T;
     set U(t: T);
@@ -185,7 +186,7 @@ declare class Atts extends Map<string, string> {
     CheckNoAttsLeft(): void;
 }
 export declare let R: RCompiler;
-export declare const RVAR: <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, RUpdate: () => void;
+export declare const RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store) => RVAR<T>, RUpdate: () => void;
 declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };
 export declare const docLocation: RVAR<string> & {

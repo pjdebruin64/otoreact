@@ -346,11 +346,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
             elm.setAttribute('src',  new URL(val as string, name).href);
             break;
         case ModType.Prop:
-            if (val != null) {
-                if (val !== elm[name]) elm[name] = val;
-            }
-            else
-                delete elm[name];
+            if (val !== undefined && val !== elm[name]) elm[name] = val;
             break;
         case ModType.Event:
             let m: RegExpMatchArray;
@@ -658,7 +654,7 @@ class RCompiler {
     /* A "responsive variable" is a variable which listeners can subscribe to. */
     RVAR<T>(
         name?: string, 
-        initialValue?: T, 
+        initialValue?: T | Promise<T>, 
         store?: Store
     ) {
         const r = new _RVAR<T>(this.MainC, name, initialValue, store, name);
@@ -769,37 +765,46 @@ class RCompiler {
             async function Iter(this: RCompiler, area: Area, start: number = 0)
                 // start > 0 is use
             {                
-                const bInit = !area.range,
-                    toSubscribe: Array<Subscriber> = [];
-                let i = 0;
-                for (const [builder] of builders)
-                    if (i++ >= start) {
-                        const {range} = area;
+                let i=0;
+                if (!area.range) {
+                    const toSubscribe: Array<Subscriber> = [];
+                    let ref: ChildNode;
+                    for (const [builder] of builders) {
+                        i++;
                         await builder.call(this, area);
                         if (builder.auto)  // Auto subscribe?
-                            if (bInit)
-                                toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i) // Not yet the correct range, we need the next range
-                                );
-                            else {
-                                const rvar = range.value as RVAR;
-                                if (rvar.auto)
-                                    rvar.auto.sArea.env = CloneEnv(area.env);
-                            }
+                                toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i)); // Not yet the correct range, we need the next range
+                        if (!ref && area.prevR)
+                            ref = area.prevR.node || area.prevR.endMark;
                     }
-                this.builtNodeCount += builders.length;
-                for(const subs of toSubscribe) {
-                    const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
-                    if (!rvar._Subscribers.size) // No subscribers yet?
-                    {   // Then subscribe with the correct range
-                        sArea.range = range.next;
-                        rvar.Subscribe(rvar.auto = subs);
+                    for(const subs of toSubscribe) {
+                        const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
+                        if (!rvar._Subscribers.size && ref) // No subscribers yet?
+                        {   // Then subscribe with the correct range
+                            sArea.range = range.next;
+                            subs.ref = ref;
+                            rvar.Subscribe(rvar.auto = subs);
+                        }
                     }
-                }
+                } else
+                    for (const [builder] of builders)
+                        if (i++ >= start) {
+                            const r = area.range;
+                            await builder.call(this, area);
+                            if (builder.auto)  // Auto subscribe?
+                                {
+                                    const rvar = r.value as RVAR;
+                                    if (rvar.auto)
+                                        rvar.auto.sArea.env = CloneEnv(area.env);
+                                }
+                        }
+                
+                this.builtNodeCount += builders.length - start;
             };
         return Iter;
     }
 
-    static genAtts = /^((this)?reacts?on|on((create(!)?)|(update(\*)?)))$/;
+    static genAtts = /^((this)?reacts?on|on((create|\*)|(update|!))+)$/;
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
@@ -812,8 +817,8 @@ class RCompiler {
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
                     if (m[3])
-                        genMods.push({attName, bCr: !!(m[4] || m[7]) // Exec on create
-                            , bUpd: !!(m[6] || m[5])    // Exec on update
+                        genMods.push({attName, bCr: !!m[4] // Exec on create
+                            , bUpd: !!m[5]    // Exec on update
                             , text: atts.get(attName)});
                     else {
                         reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
@@ -831,12 +836,12 @@ class RCompiler {
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
-                            bAsync      = rvarName && CBool(atts.get('async')),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
                             getValue    = this.CompParameter(atts, 'value'),
                             newVar      = this.NewVar(varName);
 
                         if (rvarName) {
+                            atts.get('async');
                             // Check for compile-time subscribers
                             const a = this.cRvars.get(rvarName);    // Save previous value
                             this.cRvars.set(rvarName, true);
@@ -1230,8 +1235,8 @@ class RCompiler {
                 const bInit = !area.range;
                 await b.call(this, area);
                 for (const g of genMods)
-                    //if (bInit ? g.bCr : g.bUpd)
-                    if (bInit || g.bUpd)
+                    if (bInit ? g.bCr : g.bUpd)
+                    //if (bInit || g.bUpd)
                         g.handler(area.env).call(area.prevR?.node);
             }
         }
@@ -1398,7 +1403,7 @@ class RCompiler {
                 let nextName = atts.get('next');
                 if (nextName == '') nextName = 'next';
                 
-                const getRange = this.CompAttrExpr<Iterable<Item>>(atts, 'of', true),
+                const getRange = this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', true),
                 getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
                 bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo,
             
@@ -1428,10 +1433,11 @@ class RCompiler {
                         // Map of the newly obtained data
                             newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map(),
                             setVar = initVar(env),
-
-                            iterable = getRange(env),
                             setIndex = initIndex(env);
+                        let iterable = getRange(env);
                         if (iterable) {
+                            if (iterable instanceof Promise)
+                                iterable = await iterable;
                             if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterable}) is not iterable`;
                             let idx=0;
@@ -2143,7 +2149,7 @@ class _RVAR<T = unknown>{
     constructor(
         private MainC: RCompiler,
         globalName?: string, 
-        initialValue?: T, 
+        initialValue?: T | Promise<T>, 
         private store?: Store,
         private storeName?: string,
     ) {
@@ -2189,6 +2195,9 @@ class _RVAR<T = unknown>{
             this._Value = t;
             this.SetDirty();
         }
+    }
+    get Set() {
+        return (function(this:_RVAR<T>, t:T) {this.V = t}).bind(this);
     }
     SetAsync(t: T | Promise<T>) {
         if (t instanceof Promise) {
@@ -2339,7 +2348,7 @@ Object.defineProperties(
 globalThis.RCompile = RCompile;
 globalThis.RBuild = RBuild;
 export const 
-    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>, 
+    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store) => RVAR<T>, 
     RUpdate = globalThis.RUpdate as () => void;
 
 const _range = globalThis.range = function* range(from: number, upto?: number, step: number = 1) {

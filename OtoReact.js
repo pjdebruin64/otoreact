@@ -218,12 +218,8 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
             elm.setAttribute('src', new URL(val, name).href);
             break;
         case ModType.Prop:
-            if (val != null) {
-                if (val !== elm[name])
-                    elm[name] = val;
-            }
-            else
-                delete elm[name];
+            if (val !== undefined && val !== elm[name])
+                elm[name] = val;
             break;
         case ModType.Event:
             let m;
@@ -567,29 +563,39 @@ class RCompiler {
         }
         const Iter = builders.length == 0 ? null :
             async function Iter(area, start = 0) {
-                const bInit = !area.range, toSubscribe = [];
                 let i = 0;
-                for (const [builder] of builders)
-                    if (i++ >= start) {
-                        const { range } = area;
+                if (!area.range) {
+                    const toSubscribe = [];
+                    let ref;
+                    for (const [builder] of builders) {
+                        i++;
                         await builder.call(this, area);
                         if (builder.auto)
-                            if (bInit)
-                                toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
-                            else {
-                                const rvar = range.value;
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
+                        if (!ref && area.prevR)
+                            ref = area.prevR.node || area.prevR.endMark;
+                    }
+                    for (const subs of toSubscribe) {
+                        const { sArea } = subs, { range } = sArea, rvar = range.value;
+                        if (!rvar._Subscribers.size && ref) {
+                            sArea.range = range.next;
+                            subs.ref = ref;
+                            rvar.Subscribe(rvar.auto = subs);
+                        }
+                    }
+                }
+                else
+                    for (const [builder] of builders)
+                        if (i++ >= start) {
+                            const r = area.range;
+                            await builder.call(this, area);
+                            if (builder.auto) {
+                                const rvar = r.value;
                                 if (rvar.auto)
                                     rvar.auto.sArea.env = CloneEnv(area.env);
                             }
-                    }
-                this.builtNodeCount += builders.length;
-                for (const subs of toSubscribe) {
-                    const { sArea } = subs, { range } = sArea, rvar = range.value;
-                    if (!rvar._Subscribers.size) {
-                        sArea.range = range.next;
-                        rvar.Subscribe(rvar.auto = subs);
-                    }
-                }
+                        }
+                this.builtNodeCount += builders.length - start;
             };
         return Iter;
     }
@@ -603,8 +609,8 @@ class RCompiler {
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
                     if (m[3])
-                        genMods.push({ attName, bCr: !!(m[4] || m[7]),
-                            bUpd: !!(m[6] || m[5]),
+                        genMods.push({ attName, bCr: !!m[4],
+                            bUpd: !!m[5],
                             text: atts.get(attName) });
                     else {
                         reacts.push({ attName, rvars: this.compAttrExprList(atts, attName, true) });
@@ -617,8 +623,9 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bAsync = rvarName && CBool(atts.get('async')), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName);
                             if (rvarName) {
+                                atts.get('async');
                                 const a = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, true);
                                 this.restoreActions.push(() => {
@@ -960,7 +967,7 @@ class RCompiler {
                 const bInit = !area.range;
                 await b.call(this, area);
                 for (const g of genMods)
-                    if (bInit || g.bUpd)
+                    if (bInit ? g.bCr : g.bUpd)
                         g.handler(area.env).call(area.prevR?.node);
             };
         }
@@ -1115,8 +1122,11 @@ class RCompiler {
                 return async function FOR(area) {
                     const { range, subArea } = PrepArea(srcElm, area, '', true), { parent, env } = subArea, savedEnv = SaveEnv();
                     try {
-                        const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env), iterable = getRange(env), setIndex = initIndex(env);
+                        const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env), setIndex = initIndex(env);
+                        let iterable = getRange(env);
                         if (iterable) {
+                            if (iterable instanceof Promise)
+                                iterable = await iterable;
                             if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
                                 throw `[of]: Value (${iterable}) is not iterable`;
                             let idx = 0;
@@ -1693,7 +1703,7 @@ class RCompiler {
     }
 }
 RCompiler.iNum = 0;
-RCompiler.genAtts = /^((this)?reacts?on|on((create(!)?)|(update(\*)?)))$/;
+RCompiler.genAtts = /^((this)?reacts?on|on((create|\*)|(update|!))+)$/;
 RCompiler.regTrimmable = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
 const gFetch = fetch;
 export async function RFetch(input, init) {
@@ -1742,6 +1752,9 @@ class _RVAR {
             this._Value = t;
             this.SetDirty();
         }
+    }
+    get Set() {
+        return (function (t) { this.V = t; }).bind(this);
     }
     SetAsync(t) {
         if (t instanceof Promise) {
