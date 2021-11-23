@@ -1357,25 +1357,23 @@ class RCompiler {
         };
     }
     CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
-        const names = [], saved = this.SaveContext(), bCheckAtts = !atts;
+        const saved = this.SaveContext(), myAtts = atts || new Atts(srcElm), lvars = [];
         try {
-            if (bCheckAtts)
-                atts = new Atts(srcElm);
-            for (const param of signat.Parameters)
-                names.push(atts.get(param.mode + param.name, bNewNames) || param.name);
+            for (const { mode, name } of signat.Parameters)
+                lvars.push([name, this.NewVar(myAtts.get(mode + name, bNewNames) || name)]);
             for (const S of signat.Slots.values())
                 this.AddConstruct(S);
-            if (bCheckAtts)
-                atts.CheckNoAttsLeft();
-            const lvars = names.map(name => this.NewVar(name)), builder = this.CompChildNodes(contentNode), { name } = signat, customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
+            if (!atts)
+                myAtts.CheckNoAttsLeft();
+            const builder = this.CompChildNodes(contentNode), { name } = signat, customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
             return async function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
                 const saved = SaveEnv(), { env } = area;
                 try {
                     for (const [slotName, instanceBuilders] of mSlotTemplates)
                         DefConstruct(env, slotName, { templates: instanceBuilders, constructEnv: slotEnv });
                     let i = 0;
-                    for (const lvar of lvars) {
-                        let arg = args[i], dflt;
+                    for (const [name, lvar] of lvars) {
+                        let arg = args[name], dflt;
                         if (arg === undefined && (dflt = signat.Parameters[i]?.pDefault))
                             arg = dflt(env);
                         lvar(env)(arg);
@@ -1386,8 +1384,8 @@ class RCompiler {
                         if (bInit)
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
-                        if (args[i])
-                            ApplyModifier(elm, ModType.RestArgument, null, args[i], bInit);
+                        if (signat.RestParam)
+                            ApplyModifier(elm, ModType.RestArgument, null, args[signat.RestParam.name], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1406,7 +1404,7 @@ class RCompiler {
         }
     }
     CompInstance(srcElm, atts, signature) {
-        const { name, RestParam } = signature, contentSlot = signature.Slots.get('content'), getArgs = [], slotBuilders = new Map();
+        const { name, RestParam } = signature, contentSlot = signature.Slots.get('content'), getArgs = new Map(), slotBuilders = new Map();
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
         for (const { mode, name, pDefault } of signature.Parameters)
@@ -1414,13 +1412,13 @@ class RCompiler {
                 const attValue = atts.get(mode + name, !pDefault);
                 if (attValue) {
                     const depValue = this.CompJavaScript(attValue, mode + name), setter = this.CompJavaScript(`ORx=>{${attValue}=ORx}`, name);
-                    getArgs.push(env => this.RVAR('', depValue(env), null, setter(env)));
+                    getArgs.set(name, env => this.RVAR('', depValue(env), null, setter(env)));
                 }
                 else
-                    getArgs.push(env => this.RVAR('', pDefault(env)));
+                    getArgs.set(name, env => this.RVAR('', pDefault(env)));
             }
             else if (mode != '...')
-                getArgs.push(this.CompParameter(atts, name, pDefault));
+                getArgs.set(name, this.CompParameter(atts, name, pDefault));
         let slotElm, Slot;
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
@@ -1433,7 +1431,7 @@ class RCompiler {
             slotBuilders.get('content').push(this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
         if (RestParam) {
             const modifs = this.CompAttributes(atts);
-            getArgs.push(env => modifs.map(({ modType, name, depValue }) => ({ modType, name, value: depValue(env) })));
+            getArgs.set(RestParam.name, env => modifs.map(({ modType, name, depValue }) => ({ modType, name, value: depValue(env) })));
         }
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpc.keep;
@@ -1442,7 +1440,9 @@ class RCompiler {
             if (!cdef)
                 return;
             bReadOnly = true;
-            const args = getArgs.map(getArg => getArg(env));
+            const args = {};
+            for (const [nm, getArg] of getArgs)
+                args[nm] = getArg(env);
             bReadOnly = false;
             subArea.env = cdef.constructEnv;
             for (const parBuilder of cdef.templates)

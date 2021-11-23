@@ -376,7 +376,7 @@ const sampleTicTacToe =
 
 <div style="display:grid; grid-template-columns: auto 120pt;
         background-color: white; ">
-  <div style="grid-area: 1/1 / 1/span 2; text-align: center;">
+  <div style="grid-column: 1/3; text-align: center;">
     <b>Tic-Tac-Toe</b>
   </div>
 

@@ -1715,21 +1715,20 @@ class RCompiler {
         bNewNames: boolean, bEncaps?: boolean, styles?: Node[], atts?: Atts
     ): Template
     {
-        const names: string[] = [], 
+        const 
             saved = this.SaveContext(),
-            bCheckAtts = !atts;
+            myAtts = atts || new Atts(srcElm),
+            lvars: Array<[string, LVar]> = [];
         try {
-            if (bCheckAtts)
-                atts = new Atts(srcElm);
-            for (const param of signat.Parameters)
-                names.push( atts.get(param.mode + param.name, bNewNames) || param.name);
+            for (const {mode,name} of signat.Parameters)
+                lvars.push([name, this.NewVar(myAtts.get(mode + name, bNewNames) || name)]);
 
             for (const S of signat.Slots.values())
                 this.AddConstruct(S);
-            if (bCheckAtts)
-                atts.CheckNoAttsLeft();
+            if (!atts)
+                myAtts.CheckNoAttsLeft();
 
-            const lvars: LVar[] = names.map(name => this.NewVar(name)),
+            const
                 builder = this.CompChildNodes(contentNode),
                 {name} = signat,
                 customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
@@ -1744,8 +1743,8 @@ class RCompiler {
                         DefConstruct(env, slotName, {templates: instanceBuilders, constructEnv: slotEnv});
                     
                     let i = 0;
-                    for (const lvar of lvars){
-                        let arg = args[i], dflt: Dependent<unknown>;
+                    for (const [name,lvar] of lvars){
+                        let arg = args[name], dflt: Dependent<unknown>;
                         if (arg===undefined && (dflt = signat.Parameters[i]?.pDefault))
                             arg = dflt(env);
                         lvar(env)(arg);
@@ -1760,8 +1759,8 @@ class RCompiler {
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
                         
-                        if (args[i])
-                            ApplyModifier(elm, ModType.RestArgument, null, args[i], bInit);
+                        if (signat.RestParam)
+                            ApplyModifier(elm, ModType.RestArgument, null, args[signat.RestParam.name], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1782,7 +1781,7 @@ class RCompiler {
         //srcParent.removeChild(srcElm);
         const {name, RestParam} = signature,
             contentSlot = signature.Slots.get('content'),
-            getArgs: Array<Dependent<unknown>> = [],
+            getArgs = new Map<string,Dependent<unknown>>(),
             slotBuilders = new Map<string, Template[]>();
 
         for (const name of signature.Slots.keys())
@@ -1797,15 +1796,15 @@ class RCompiler {
                             `ORx=>{${attValue}=ORx}`,
                             name
                         );
-                    getArgs.push(
+                    getArgs.set(name,
                         env => this.RVAR('', depValue(env), null, setter(env))
                     );
                 }
                 else
-                    getArgs.push(env => this.RVAR('', pDefault(env)));
+                    getArgs.set(name, env => this.RVAR('', pDefault(env)));
             }
             else if (mode != '...')
-                getArgs.push( this.CompParameter(atts, name, pDefault) );
+                getArgs.set(name, this.CompParameter(atts, name, pDefault) );
 
         let slotElm: HTMLElement, Slot: Signature;
         for (const node of Array.from(srcElm.childNodes))
@@ -1826,7 +1825,7 @@ class RCompiler {
 
         if (RestParam) {
             const modifs = this.CompAttributes(atts);
-            getArgs.push( 
+            getArgs.set(RestParam.name, 
                 env => modifs.map(
                     ({modType, name, depValue}) => ({modType, name, value: depValue(env)})
                 )
@@ -1842,7 +1841,9 @@ class RCompiler {
                 {subArea} = PrepArea(srcElm, area);
             if (!cdef) return;
             bReadOnly = true;
-            const args = getArgs.map(getArg => getArg(env));
+            const args = {};
+            for (const [nm, getArg] of getArgs)
+                args[nm] = getArg(env);
             bReadOnly = false;
             subArea.env = cdef.constructEnv;
             for (const parBuilder of cdef.templates) 
