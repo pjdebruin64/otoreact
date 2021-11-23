@@ -357,14 +357,23 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <{}/COMPONENT>
 </pre>
 <ul>
-<li>
-    The <a href=#Signatures><i>signature</i></a> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
-<li>
-    The <a href=#Templates><i>template</i></a> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
-<li>
-    <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and blocks of RHTML code (or actually templates) for each slot.</li>
-<li>
-    A component may be <a href=#Encapsulate><i>encapsulated</i></a> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.</li>
+    <li>
+        The <a href=#Signatures><i>signature</i></a> describes how invocations of the component (or construct), called '<i>instances</i>', look like. The signature may specify <i>parameters</i> and <i>slots</i>.</li>
+    <li>
+        The <a href=#Templates><i>template</i></a> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
+    <li>
+        <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and contain blocks of RHTML code (or actually <i>templates</i>) for each slot.
+    </li>
+    <li>
+        A component may be <a href=#Encapsulate><i>encapsulated</i></a> or not. Encapsulated means mainly that the component contains its own styling rules, independent of the main document.
+    </li>
+    <li>
+        Component templates can contain nested component definitions.
+    </li>
+    <li>
+        Component templates can use local variables defined outside of the component.
+        <br>So a nested component definition can use the parameter values of the outside component.
+    </li>
 </ul>
 <h3 id=Signatures>Signatures</h3>
 <p>
