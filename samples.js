@@ -111,14 +111,9 @@ const sampleBraces =
 Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
-`<script nomodule>
-  // Create a "Reactive variable" with a global name and
-  // an initial value
-  RVAR('yourName', '', sessionStorage);
-  /* Now 'yourName' has been added to the global environment,
-     and 'yourName.V' refers to the value of the variable,
-     so that assignments to this value can be tracked. */
-</script>
+`<!-- Create a "Reactive variable" with a local name and
+   persisted in localStorage -->
+<define rvar='yourName' store=sessionStorage></define>
 
 <p>What's your name?
   <input type=text @value="yourName.V">
@@ -126,7 +121,7 @@ const sampleGreeting2 =
   Anytime an input event happens, 'yourName.V' will be updated,
   and the DOM as well  -->
 </p>
-<if cond="yourName.V" reacton=yourName>
+<if cond="yourName.V">
   <p> Nice to meet you, {yourName.V}.
     <br>By the way, your name consists of {yourName.V.length} 
         characters.
@@ -265,12 +260,13 @@ const sampleRecursion=
 
 const sampleRedefineA =
 `<component>
-<a href #target? ...rest><content></content></a>
-<template><a. #href="href"
+  <a href #target? ...rest><content></content></a>
+
+  <template><a. #href="href"
     #target="!target && /^http/i.test(href) ? '_blank' : target"
     ...rest
-    ><content></content></a.
-></template>
+    ><content>
+  </content></a.></template>
 </component>
 
 This link opens in a blank window:
@@ -515,3 +511,47 @@ const sampleDocument =
 <label reacton=check>
     <input type=checkbox @checked=check.V> Checked.
 </label>`
+
+const sampleRadioGroup=
+`<component>
+    <!-- Radiogroup signature -->
+  <radiogroup name @value>
+    <content>
+      <radiobutton #value onclick? ...rest>
+        <content></content>
+      </radiobutton>
+    </content>
+  </radiogroup>
+
+  <template @value=groupValue>
+    <content>
+      <radiobutton #value onclick ...rest>
+        <label style.cursor=pointer>
+          <input type=radio #name=name #value=value
+            #checked="value == groupValue.V"
+            onclick="groupValue.V = value; onclick()" ...rest>
+          <content></content>
+        </label>
+      </radiobutton>
+    </content>
+  </template>
+</component>
+
+
+<def rvar=answer></def>
+<p>
+  What is your preferred web framework?
+</p>
+<!-- Radiogroup instance -->
+<radiogroup name=framework @value=answer.V>
+  <radiobutton value=jQuery >jQuery</radiobutton>
+  <radiobutton value=React  >React</radiobutton>
+  <radiobutton value=Angular>Angular</radiobutton>
+  <radiobutton value=OtoReact>OtoReact</radiobutton>
+</radiogroup>
+
+<if cond="answer.V">
+  <p>
+    You answered <b>{answer.V}</b>.
+  </p>
+</if>`

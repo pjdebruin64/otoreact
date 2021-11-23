@@ -113,7 +113,7 @@ type Environment =
 // It may carry an indicator that the routine might need a value for 'this'.
 // This will be the semantics, the meaning, of e.g. a JavaScript expression.
 type Dependent<T> = ((env: Environment) => T) & {bThis?: boolean};
-const DUndef: Dependent<any> = (_) => undefined;
+const DUndef: Dependent<any> = _ => undefined;
 
 function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     bMark?: boolean|1|2,  // true=mark area, no wiping; 1=wipe when result has changed; 2=wipe always
@@ -254,7 +254,7 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 
-type Subscriber = (() => (void|Promise<void>)) &
+type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
     {   ref?: {isConnected: boolean};
         sArea?: Area;
         bImm?: boolean
@@ -266,6 +266,8 @@ type ParentNode = HTMLElement|DocumentFragment;
 type Handler = (ev:Event) => any;
 type LVar = ((env: Environment) => (value: unknown) => void) & {varName: string};
 
+// A PARAMETER describes a construct parameter: a name with a default expression
+type Parameter = {mode: string, name: string, pDefault: Dependent<unknown>};
 // A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signature {
     constructor(public srcElm: Element){ 
@@ -294,9 +296,6 @@ class Signature {
         for (const pDefault of mapSigParams.values())
             result &&= pDefault;
 
-        // When the import has a rest parameter, then the module must have it too      
-        result &&= !this.RestParam || this.RestParam.name == sig.RestParam?.name;
-
         // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
         for (let [slotname, slotSig] of this.Slots)
             result &&= sig.Slots.get(slotname)?.IsCompatible(slotSig);
@@ -304,8 +303,6 @@ class Signature {
         return !!result;
     }
 }
-// A PARAMETER describes a construct parameter: a name with a default expression
-type Parameter = {name: string, pDefault: Dependent<unknown>};
 
 // A CONSTRUCTDEF is a concrete instance of a signature
 type ConstructDef = {templates: Template[], constructEnv: Environment};
@@ -357,7 +354,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
                 }
                 else {
                     if (R.Settings.bSetPointer && /^onclick$/.test(name))
-                        elm.style.cursor = val ? 'pointer' : null;
+                        elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : null;
                     elm[name] = val; 
                 }
             break;
@@ -585,7 +582,7 @@ class RCompiler {
     public DirtyVars = new Set<RVAR>();
     private DirtySubs = new Map<{isConnected: boolean}, Subscriber>();
     public AddDirty(sub: Subscriber) {
-        this.MainC.DirtySubs.set(sub.ref, sub)
+        this.DirtySubs.set(sub.ref, sub)
     }
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
@@ -655,9 +652,12 @@ class RCompiler {
     RVAR<T>(
         name?: string, 
         initialValue?: T | Promise<T>, 
-        store?: Store
+        store?: Store,
+        subs?: (t:T) => void
     ) {
         const r = new _RVAR<T>(this.MainC, name, initialValue, store, name);
+        if (subs)
+            r.Subscribe(subs, true, false);
         //this.MainC.CreatedRvars.push(r);
         return r;
     }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
@@ -837,7 +837,7 @@ class RCompiler {
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
-                            getValue    = this.CompParameter(atts, 'value'),
+                            getValue    = this.CompParameter(atts, 'value', DUndef),
                             newVar      = this.NewVar(varName);
 
                         if (rvarName) {
@@ -855,7 +855,7 @@ class RCompiler {
                         builder = async function DEF(this: RCompiler, area) {
                                 const {range, bInit} = PrepArea(srcElm, area), {env}=area;
                                 if (bInit || bReact){
-                                    const value = getValue && getValue(env);
+                                    const value = getValue(env);
                                     if (rvarName)
                                         if (bInit)
                                             range.value = new _RVAR(this.MainC, null, value, getStore && getStore(env), rvarName);
@@ -1101,7 +1101,7 @@ class RCompiler {
 
                     case 'rhtml': {
                         this.whiteSpc=WhiteSpc.trim;
-                        const getSrctext = this.CompParameter(atts, 'srctext', true) as Dependent<string>;
+                        const getSrctext = this.CompParameter(atts, 'srctext') as Dependent<string>;
 
                         //const imports = this.CompAttrExpr(atts, 'imports');
                         const modifs = this.CompAttributes(atts);
@@ -1628,19 +1628,20 @@ class RCompiler {
         for (const attr of elmSignature.attributes) {
             if (signature.RestParam) 
                 throw `Rest parameter must be the last`;
-            const m = /^(#|\.\.\.)?(.*?)(\?)?$/.exec(attr.name);
-            if (m[1] == '...')
-                signature.RestParam = {name: m[2], pDefault: DUndef};
-            else
-                signature.Parameters.push(
-                    { name: m[2]
-                    , pDefault: 
-                        attr.value != '' 
+            const m = /^(#|@|\.\.\.|)(.*?)(\?)?$/.exec(attr.name)
+                , param = { 
+                    mode: m[1]
+                    , name: m[2]
+                    , pDefault:
+                        m[1] == '...' ? () => []
+                        : attr.value != '' 
                         ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
-                        : m[3] ? DUndef   // Unspecified default
+                        : m[3] ? /^on/.test(m[2]) ? _=>_=>null : DUndef   // Unspecified default
                         : null 
                     }
-                );
+            signature.Parameters.push(param);
+            if (m[1] == '...')
+                signature.RestParam = param;
             }
         for (const elmSlot of elmSignature.children)
             signature.Slots.set(elmSlot.localName, this.ParseSignature(elmSlot));
@@ -1684,12 +1685,10 @@ class RCompiler {
         if (!signature) throw `Missing signature`;
         if (!elmTemplate) throw 'Missing <TEMPLATE>';
 
-        if (bEncaps && !signature.RestParam)
-            signature.RestParam = {name: null, pDefault: null}
         this.AddConstruct(signature);
+       
         
-        
-        const {name} = signature,
+        const 
         // Deze builder bouwt de component-instances op
             templates = [
                 this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
@@ -1707,7 +1706,7 @@ class RCompiler {
                 // And keep the previous remembered environment, in case of recursive constructs
 
                 const construct: ConstructDef = {templates, constructEnv: undefined as Environment};
-                DefConstruct(area.env, name, construct);
+                DefConstruct(area.env, signature.name, construct);
                 construct.constructEnv = CloneEnv(area.env);     // Contains circular reference to construct
             };
     }
@@ -1723,10 +1722,7 @@ class RCompiler {
             if (bCheckAtts)
                 atts = new Atts(srcElm);
             for (const param of signat.Parameters)
-                names.push( (atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
-            const {name, RestParam} = signat;
-            if (RestParam?.name)
-                names.push( atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
+                names.push( atts.get(param.mode + param.name, bNewNames) || param.name);
 
             for (const S of signat.Slots.values())
                 this.AddConstruct(S);
@@ -1735,6 +1731,7 @@ class RCompiler {
 
             const lvars: LVar[] = names.map(name => this.NewVar(name)),
                 builder = this.CompChildNodes(contentNode),
+                {name} = signat,
                 customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
             return async function TEMPLATE(this: RCompiler
@@ -1783,15 +1780,32 @@ class RCompiler {
         signature: Signature
     ) {
         //srcParent.removeChild(srcElm);
-        const {name} = signature,
+        const {name, RestParam} = signature,
+            contentSlot = signature.Slots.get('content'),
             getArgs: Array<Dependent<unknown>> = [],
             slotBuilders = new Map<string, Template[]>();
 
-        for (const {name, pDefault} of signature.Parameters)
-            getArgs.push( this.CompParameter(atts, name, !pDefault) );
-
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
+
+        for (const {mode, name, pDefault} of signature.Parameters)
+            if (mode=='@') {
+                const attValue = atts.get(mode+name, !pDefault);
+                if (attValue) {
+                    const depValue = this.CompJavaScript<unknown>(attValue, mode+name),
+                        setter = this.CompJavaScript<Handler>(
+                            `ORx=>{${attValue}=ORx}`,
+                            name
+                        );
+                    getArgs.push(
+                        env => this.RVAR('', depValue(env), null, setter(env))
+                    );
+                }
+                else
+                    getArgs.push(env => this.RVAR('', pDefault(env)));
+            }
+            else if (mode != '...')
+                getArgs.push( this.CompParameter(atts, name, pDefault) );
 
         let slotElm: HTMLElement, Slot: Signature;
         for (const node of Array.from(srcElm.childNodes))
@@ -1804,35 +1818,32 @@ class RCompiler {
                 );
                 srcElm.removeChild(node);
             }
-        
-        const contentSlot = signature.Slots.get('content');
+            
         if (contentSlot)
             slotBuilders.get('content').push(
                 this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
             );
 
-        const modifs = signature.RestParam ? this.CompAttributes(atts): null;
-
+        if (RestParam) {
+            const modifs = this.CompAttributes(atts);
+            getArgs.push( 
+                env => modifs.map(
+                    ({modType, name, depValue}) => ({modType, name, value: depValue(env)})
+                )
+            );
+        }
+        
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpc.keep;
 
         return async function INSTANCE(this: RCompiler, area: Area) {
             const {env} = area,
                 cdef = env.constructs.get(name),
-                {subArea} = PrepArea(srcElm, area),
-                args: unknown[] = [];
+                {subArea} = PrepArea(srcElm, area);
             if (!cdef) return;
-            for ( const getArg of getArgs)
-                args.push(getArg ? getArg(env) : undefined);
-            
-            if (signature.RestParam) {
-                const rest: RestParameter = [];
-                for (const {modType, name, depValue} of modifs)
-                    rest.push({modType, name, value: depValue(env)})
-                
-                args.push(rest);
-            }
-
+            bReadOnly = true;
+            const args = getArgs.map(getArg => getArg(env));
+            bReadOnly = false;
             subArea.env = cdef.constructEnv;
             for (const parBuilder of cdef.templates) 
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
@@ -2069,10 +2080,10 @@ class RCompiler {
         return {lvars, regex: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
-    private CompParameter(atts: Atts, attName: string, bRequired?: boolean): Dependent<unknown> {
+    private CompParameter(atts: Atts, attName: string, pDefault?: Dependent<unknown>): Dependent<unknown> {
         const value = atts.get(attName);
         return (
-            value == null ? this.CompAttrExpr(atts, attName, bRequired)
+            value == null ? this.CompAttrExpr(atts, attName, !pDefault) || pDefault
             : /^on/.test(attName) ? this.CompHandler(attName, value)
             : this.CompString(value, attName)
         );
@@ -2184,19 +2195,18 @@ class _RVAR<T = unknown>{
     // The subscribers
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
-    _Subscribers: Set<Subscriber> = new Set();
+    _Subscribers: Set<Subscriber<T>> = new Set();
     auto: Subscriber;
 
-    Subscribe(s: Subscriber, bImmediate?: boolean) {
-        if (bImmediate) {
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit: boolean = bImmediate) {
+        if (bInit)
             s();
-            s.bImm = bImmediate;
-        }
+        s.bImm = bImmediate;
         if (!s.ref)
             s.ref = {isConnected: true};
         this._Subscribers.add(s);
     }
-    Unsubscribe(s: Subscriber) {
+    Unsubscribe(s: Subscriber<T>) {
         this._Subscribers.delete(s);
     }
 
@@ -2210,11 +2220,11 @@ class _RVAR<T = unknown>{
         }
     }
     get Set() {
-        return (function(this:_RVAR<T>, t:T) {this.V = t}).bind(this);
+        return this.SetAsync.bind(this);
     }
     SetAsync(t: T | Promise<T>) {
         if (t instanceof Promise) {
-            this.V == undefined;
+            this.V = undefined;
             t.then(v => {this.V = v})
         } else
             this.V = t;
@@ -2234,7 +2244,7 @@ class _RVAR<T = unknown>{
         let b: boolean;
         for (const sub of this._Subscribers)
             if (sub.bImm)
-                sub();
+                sub(this._Value);
             else if (sub.ref.isConnected)
                 { this.MainC.AddDirty(sub); b=true}
             else

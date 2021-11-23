@@ -57,7 +57,7 @@ declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 export declare function RBuild(): Promise<void>;
-declare type Subscriber = (() => (void | Promise<void>)) & {
+declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     ref?: {
         isConnected: boolean;
     };
@@ -121,7 +121,7 @@ declare class RCompiler {
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
-    RVAR<T>(name?: string, initialValue?: T | Promise<T>, store?: Store): _RVAR<T>;
+    RVAR<T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: (t: T) => void): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
@@ -165,10 +165,10 @@ declare class _RVAR<T = unknown> {
     private storeName?;
     constructor(MainC: RCompiler, globalName?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _Value;
-    _Subscribers: Set<Subscriber>;
+    _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
-    Subscribe(s: Subscriber, bImmediate?: boolean): void;
-    Unsubscribe(s: Subscriber): void;
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
+    Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
     get Set(): any;

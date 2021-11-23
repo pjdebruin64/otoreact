@@ -375,7 +375,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
             The tag name of the signature element ('repeat' in this example) defines the name of the component.
         </li>
         <li>
-            Attributes <code><i>name</i></code> or <code><i>#name</i></code> of the signature element define the parameters of the component.
+            Attributes <code><i>name</i></code>, <code>#<i>name</i></code>, or <code>@<i>name</i></code> of the signature element define the parameters of the component.
             <br>Instances of the component must have the same attributes, and these correspond to local variables inside the component template.
             <p>There are special cases:</p>
             <ul>
@@ -387,6 +387,14 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                         <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
                     </p>
                     <p>The default default value is <code>undefined</code>.</p>
+                </li>
+                <li>
+                    Attributes where <i>name</i> starts with "on" represent event handlers.
+                    <br>Values are compiled as JavaScript, and the default default value is the empty handler.
+                </li>
+                <li>
+                    Attributes <code>@<i>name</i></code> define two-way parameters.
+                    <br>Their values must be valid <a href="#TwoWayBinding">assignment targets</a>.
                 </li>
                 <li>
                     An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
@@ -420,16 +428,20 @@ The component template is tagged <elm>template</elm>. E.g.:
 <ul>
     <li>
         Parameters of the component (like <code>count</code>) are available as local variables inside the template.
-        <p>
-            Parameter names <u>may</u> be repeated in the template tag, like: <elm>template #count</elm>.
-            <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
-        </p>
+    </li>
+    <li>
+        The value of the local variable <i>name</i> representing a two-way parameter <code>@<i>name</i></code> will be a new RVAR for each created instance of the component.
+        <br>The RVAR value <code><i>name</i>.V</code> will be the value of the assignment target provided in the instance, and whenever a new value is assigned to the RVAR, that value will be assigned to the assignment target as well.
+    </li>
+    <li>
+        Parameter names <u>may</u> be repeated in the template tag, like: <elm>template #count</elm>.
+        <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
     </li>
     <li>Slots of the component (like <elm>rbody</elm>) are available as constructs inside  the template</li>
     <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
 </ul>
 
-<h3 id=Templates>Instances</h3>
+<h3 id=Instances>Instances</h3>
 A component is instantiated by a tag containing the component name:
 
 <pre>{C3}</pre>
@@ -442,6 +454,9 @@ A component instance may/must have attributes that provide values for all option
     <li>
         When <i>name</i> starts with "on", then the value is specified as a block of JavaScript statements, just like an event handler: <code><i>name</i>="<i>statements</i>"</code>
         <br>The value of the parameter will be the routine <code>function(event) \{ <i>statements</i> \}</code>.
+    </li>
+    <li>
+        The value provided for a two-way parameter <code>@<i>name</i></code> must be a valid <a href="#TwoWayBinding">assignment target</a>.
     </li>
     <li>
         As with standard constructs, attribute names starting with an underscore "_" are ignored.
@@ -461,7 +476,7 @@ The component instance may contain templates for each of the slots of the compon
         Slot templates must be immediate children of the component instance. They are fixed at compile time, so they cannot be inside a <elm>CASE</elm> or some other construct.
     </li>
     <li>
-        When the slot signature contains parameters, then these <u>must</u> be repeated in the slot template tag
+        When the slot signature contains parameters, then these names <u>must</u> be repeated in the slot template tag.
     </li>
     <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
     <li>
@@ -473,7 +488,7 @@ Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody
 <pre>
 <{}!-- Component instance -->
 <{}repeat #count=7 num>
-  <{}!-- Slot template -->
+  <{}!-- Content slot template -->
   <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
 <{}/repeat>
 </pre>
@@ -508,28 +523,60 @@ Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/
 
 
 <h3>More examples</h3>
+<h4>To-do application</h4>
 Here is a to-do application, which splits the collection of items into those done and not done. We use a component <elm>itemlist</elm> to show such a filtered list.
 <demo #content=sampleTODO>
 </demo>
 
-
+<h4>A recursive component</h4>
 <p>Components may be recursive, i.e. refer to themselve.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #bShow=false #content=sampleRecursion></demo>
 
-
-<p>Components may redefine HTML constructs. To refer to the original construct, add a dot to the tag name.
+<h4>Redefining HTML elements</h4>
+<p>Components may redefine HTML elements. To refer to the original element, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
-<demo #content=sampleRedefineA>
+<demo #content=sampleRedefineA #bShow=true>
 </demo>
 
 
+<h4>Slots within slots</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
     <br>This is particularly useful for components with a <elm>CONTENT</elm> slot. The component may provide new or redefined constructs, that are available only within the content of component instances, and that may provide interaction with the component.
 </p>
 <p>
     This documentation website uses such subslots to redefine <elm>H1</elm>, <elm>H2</elm> within the context of a particular page, so that the given section titles are automatically entered into the table of contents of that page.
 </p>
+
+
+<h4>A radio group component</h4>
+HTML provides radio buttons <elm>input type=radio</elm> bearing a name and a fixed value, and buttons with the same name constitute a group.
+<br>When they are within a <elm>form</elm>, and the form is submitted to the web server, then the value of the currently selected button within each group is sent to the server.
+
+<p>
+    For a reactive application, using <elm>form</elm> works a bit clumsily.
+    <br>The following custom does a much better job; it allows one to bind an RVAR, or any other object property, directly to the selected radio button value, without needing a <elm>form</elm> and without repeating any code.
+</p>
+
+<demo #content="sampleRadioGroup" #bShow=true></demo>
+Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
+<ul>
+    <li>
+        <elm>radiogroup</elm> has a parameter 'name' which will be the common name of all radio buttons in the group, and a two-way parameter '@value', that will provide <i>and</i> receive the value of the selected radio button.
+    </li>
+    <li>
+        <elm>radiogroup</elm> has a slot <elm>content</elm> so that the component output can include the content of any radiogroup instance.
+    </li>
+    <li>
+        Slot <elm>content</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance content.
+    </li>
+    <li>
+        <elm>radiobutton</elm> has parameter '#value' that defines the value of the current button, and an optional 'onclick' handler so that component instances can specify this handler without overwriting the 'onclick' handler set by the component template, and a rest parameter '...rest' that will be passed on to the <elm>input type=radio</elm> radio button element.
+    </li>
+    <li>
+        <elm>radiobutton</elm> has a slot <elm>content</elm>, that defines the label content for the current button.
+    </li>
+</ul>
 
 
 <h2 id=FORoverSlots><{}FOR of> over component slots</h2>

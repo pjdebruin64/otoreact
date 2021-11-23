@@ -118,52 +118,53 @@ HTML allows you set style properties of individual elements with the <a href="{M
 <demo #content=sampleInlineStyles></demo>
 
 
-<h2>Output and Two-way Bindings</h2>
+<h2 id=TwoWayBinding>Output and Two-way Bindings</h2>
 DOM properties are not static but can change. RHTML allows three variants of output binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions): <code>*</code>, <code>!</code> and <code>!!</code>.
 <br>Valid assignment targets are expressions that can be assigned to: global variables, array elements, and object properties, including RVAR values.
 <dl>
-    <dt><code>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property immediately after the element (and its children) have been created.
         <br>This is the same as setting a handler:
         <pre>oncreate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
     </dd>
-    <dt><code>!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
         <br>This is the same as setting a handler:
         <pre>oninput="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
         <p>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
     </dd>
-    <dt><code>!!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>!!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/change_event">change event</a>.
-        <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.
+        <p>
+            Note that only <elm>input</elm>, <elm>select</elm>, and <elm>textarea</elm> produce change events.
+            <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.
+        </p>
     </dd>
 </dl>
-These may be combined with each other and with <code>#<i>propertyName</i></code>, so one gets two-way bindings, for example:
+These may be combined with each other and with <code>#<i>propertyName</i></code> to get two-way bindings, for example:
+<pre>#!<i>propertyName</i>="<i>assignmentTarget</i>"</pre>
+is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+<br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
+
+<p>Last but not least, there are two abbreviations:</p>
 <dl>
-    <dt><code>#!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
-    <dd>
-        is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
-        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
-    </dd>
-</dl>
-Last but not least, there are two abbreviations:
-<dl>
-    <dt><code>@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
         This is the same as <code>#!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
-        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
+        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>input</i> event.
     </dd>
-    <dt><code>@@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>@@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
         This is the same as <code>#!!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
-        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every change event.
+        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>change</i> event.
     </dd>
 </dl>
 <p>
-    These bindings are especially useful for the <code>value</code> or <code>input</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code> or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
+    These bindings are especially useful for the <code>value</code> or <code>checked</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code>, <code>innerText</code>, or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
+    <br>See the example in the <a href="#Persistence">Persistence paragraph</a>.
 </p>
 <p>Or you can use them to capture the innerHTML or outerHTML of an element:
 </p>

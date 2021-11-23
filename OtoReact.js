@@ -57,7 +57,7 @@ class Range {
         return f && f.isConnected;
     }
 }
-const DUndef = (_) => undefined;
+const DUndef = _ => undefined;
 function PrepArea(srcElm, area, text = '', bMark, result) {
     let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
     if (bInit) {
@@ -188,7 +188,6 @@ class Signature {
                 result = false;
         for (const pDefault of mapSigParams.values())
             result &&= pDefault;
-        result &&= !this.RestParam || this.RestParam.name == sig.RestParam?.name;
         for (let [slotname, slotSig] of this.Slots)
             result &&= sig.Slots.get(slotname)?.IsCompatible(slotSig);
         return !!result;
@@ -230,7 +229,7 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                 }
                 else {
                     if (R.Settings.bSetPointer && /^onclick$/.test(name))
-                        elm.style.cursor = val ? 'pointer' : null;
+                        elm.style.cursor = val && !elm.disabled ? 'pointer' : null;
                     elm[name] = val;
                 }
             break;
@@ -415,7 +414,7 @@ class RCompiler {
         R = savedRCompiler;
     }
     AddDirty(sub) {
-        this.MainC.DirtySubs.set(sub.ref, sub);
+        this.DirtySubs.set(sub.ref, sub);
     }
     RUpdate() {
         this.MainC.bUpdate = true;
@@ -468,8 +467,10 @@ class RCompiler {
                 break;
         }
     }
-    RVAR(name, initialValue, store) {
+    RVAR(name, initialValue, store, subs) {
         const r = new _RVAR(this.MainC, name, initialValue, store, name);
+        if (subs)
+            r.Subscribe(subs, true, false);
         return r;
     }
     ;
@@ -623,7 +624,7 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value'), newVar = this.NewVar(varName);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value', DUndef), newVar = this.NewVar(varName);
                             if (rvarName) {
                                 atts.get('async');
                                 const a = this.cRvars.get(rvarName);
@@ -636,7 +637,7 @@ class RCompiler {
                             builder = async function DEF(area) {
                                 const { range, bInit } = PrepArea(srcElm, area), { env } = area;
                                 if (bInit || bReact) {
-                                    const value = getValue && getValue(env);
+                                    const value = getValue(env);
                                     if (rvarName)
                                         if (bInit)
                                             range.value = new _RVAR(this.MainC, null, value, getStore && getStore(env), rvarName);
@@ -845,7 +846,7 @@ class RCompiler {
                     case 'rhtml':
                         {
                             this.whiteSpc = WhiteSpc.trim;
-                            const getSrctext = this.CompParameter(atts, 'srctext', true);
+                            const getSrctext = this.CompParameter(atts, 'srctext');
                             const modifs = this.CompAttributes(atts);
                             builder = async function RHTML(area) {
                                 const srctext = getSrctext(area.env);
@@ -1291,16 +1292,18 @@ class RCompiler {
         for (const attr of elmSignature.attributes) {
             if (signature.RestParam)
                 throw `Rest parameter must be the last`;
-            const m = /^(#|\.\.\.)?(.*?)(\?)?$/.exec(attr.name);
-            if (m[1] == '...')
-                signature.RestParam = { name: m[2], pDefault: DUndef };
-            else
-                signature.Parameters.push({ name: m[2],
-                    pDefault: attr.value != ''
+            const m = /^(#|@|\.\.\.|)(.*?)(\?)?$/.exec(attr.name), param = {
+                mode: m[1],
+                name: m[2],
+                pDefault: m[1] == '...' ? () => []
+                    : attr.value != ''
                         ? (m[1] == '#' ? this.CompJavaScript(attr.value, attr.name) : this.CompString(attr.value, attr.name))
-                        : m[3] ? DUndef
+                        : m[3] ? /^on/.test(m[2]) ? _ => _ => null : DUndef
                             : null
-                });
+            };
+            signature.Parameters.push(param);
+            if (m[1] == '...')
+                signature.RestParam = param;
         }
         for (const elmSlot of elmSignature.children)
             signature.Slots.set(elmSlot.localName, this.ParseSignature(elmSlot));
@@ -1340,10 +1343,8 @@ class RCompiler {
             throw `Missing signature`;
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
-        if (bEncaps && !signature.RestParam)
-            signature.RestParam = { name: null, pDefault: null };
         this.AddConstruct(signature);
-        const { name } = signature, templates = [
+        const templates = [
             this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.whiteSpc = saveWS;
@@ -1351,7 +1352,7 @@ class RCompiler {
             for (const [bldr, srcNode] of builders)
                 await this.CallWithHandling(bldr, srcNode, area);
             const construct = { templates, constructEnv: undefined };
-            DefConstruct(area.env, name, construct);
+            DefConstruct(area.env, signature.name, construct);
             construct.constructEnv = CloneEnv(area.env);
         };
     }
@@ -1361,15 +1362,12 @@ class RCompiler {
             if (bCheckAtts)
                 atts = new Atts(srcElm);
             for (const param of signat.Parameters)
-                names.push((atts.get(`#${param.name}`) ?? atts.get(param.name, bNewNames)) || param.name);
-            const { name, RestParam } = signat;
-            if (RestParam?.name)
-                names.push(atts.get(`...${RestParam.name}`, bNewNames) || RestParam.name);
+                names.push(atts.get(param.mode + param.name, bNewNames) || param.name);
             for (const S of signat.Slots.values())
                 this.AddConstruct(S);
             if (bCheckAtts)
                 atts.CheckNoAttsLeft();
-            const lvars = names.map(name => this.NewVar(name)), builder = this.CompChildNodes(contentNode), customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
+            const lvars = names.map(name => this.NewVar(name)), builder = this.CompChildNodes(contentNode), { name } = signat, customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
             return async function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
                 const saved = SaveEnv(), { env } = area;
                 try {
@@ -1408,11 +1406,21 @@ class RCompiler {
         }
     }
     CompInstance(srcElm, atts, signature) {
-        const { name } = signature, getArgs = [], slotBuilders = new Map();
-        for (const { name, pDefault } of signature.Parameters)
-            getArgs.push(this.CompParameter(atts, name, !pDefault));
+        const { name, RestParam } = signature, contentSlot = signature.Slots.get('content'), getArgs = [], slotBuilders = new Map();
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
+        for (const { mode, name, pDefault } of signature.Parameters)
+            if (mode == '@') {
+                const attValue = atts.get(mode + name, !pDefault);
+                if (attValue) {
+                    const depValue = this.CompJavaScript(attValue, mode + name), setter = this.CompJavaScript(`ORx=>{${attValue}=ORx}`, name);
+                    getArgs.push(env => this.RVAR('', depValue(env), null, setter(env)));
+                }
+                else
+                    getArgs.push(env => this.RVAR('', pDefault(env)));
+            }
+            else if (mode != '...')
+                getArgs.push(this.CompParameter(atts, name, pDefault));
         let slotElm, Slot;
         for (const node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
@@ -1421,24 +1429,21 @@ class RCompiler {
                 slotBuilders.get(slotElm.localName).push(this.CompTemplate(Slot, slotElm, slotElm, true));
                 srcElm.removeChild(node);
             }
-        const contentSlot = signature.Slots.get('content');
         if (contentSlot)
             slotBuilders.get('content').push(this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
-        const modifs = signature.RestParam ? this.CompAttributes(atts) : null;
+        if (RestParam) {
+            const modifs = this.CompAttributes(atts);
+            getArgs.push(env => modifs.map(({ modType, name, depValue }) => ({ modType, name, value: depValue(env) })));
+        }
         atts.CheckNoAttsLeft();
         this.whiteSpc = WhiteSpc.keep;
         return async function INSTANCE(area) {
-            const { env } = area, cdef = env.constructs.get(name), { subArea } = PrepArea(srcElm, area), args = [];
+            const { env } = area, cdef = env.constructs.get(name), { subArea } = PrepArea(srcElm, area);
             if (!cdef)
                 return;
-            for (const getArg of getArgs)
-                args.push(getArg ? getArg(env) : undefined);
-            if (signature.RestParam) {
-                const rest = [];
-                for (const { modType, name, depValue } of modifs)
-                    rest.push({ modType, name, value: depValue(env) });
-                args.push(rest);
-            }
+            bReadOnly = true;
+            const args = getArgs.map(getArg => getArg(env));
+            bReadOnly = false;
             subArea.env = cdef.constructEnv;
             for (const parBuilder of cdef.templates)
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
@@ -1632,9 +1637,9 @@ class RCompiler {
         }
         return { lvars, regex: new RegExp(`^${reg}$`, 'i'), url };
     }
-    CompParameter(atts, attName, bRequired) {
+    CompParameter(atts, attName, pDefault) {
         const value = atts.get(attName);
-        return (value == null ? this.CompAttrExpr(atts, attName, bRequired)
+        return (value == null ? this.CompAttrExpr(atts, attName, !pDefault) || pDefault
             : /^on/.test(attName) ? this.CompHandler(attName, value)
                 : this.CompString(value, attName));
     }
@@ -1732,11 +1737,10 @@ class _RVAR {
             catch { }
         this.SetAsync(initialValue);
     }
-    Subscribe(s, bImmediate) {
-        if (bImmediate) {
+    Subscribe(s, bImmediate, bInit = bImmediate) {
+        if (bInit)
             s();
-            s.bImm = bImmediate;
-        }
+        s.bImm = bImmediate;
         if (!s.ref)
             s.ref = { isConnected: true };
         this._Subscribers.add(s);
@@ -1752,11 +1756,11 @@ class _RVAR {
         }
     }
     get Set() {
-        return (function (t) { this.V = t; }).bind(this);
+        return this.SetAsync.bind(this);
     }
     SetAsync(t) {
         if (t instanceof Promise) {
-            this.V == undefined;
+            this.V = undefined;
             t.then(v => { this.V = v; });
         }
         else
@@ -1774,7 +1778,7 @@ class _RVAR {
         let b;
         for (const sub of this._Subscribers)
             if (sub.bImm)
-                sub();
+                sub(this._Value);
             else if (sub.ref.isConnected) {
                 this.MainC.AddDirty(sub);
                 b = true;
