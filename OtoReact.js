@@ -471,8 +471,8 @@ class RCompiler {
                 break;
         }
     }
-    RVAR(name, initialValue, store, subs) {
-        const r = new _RVAR(this.MainC, name, initialValue, store, name);
+    RVAR(name, initialValue, store, subs, storeName = name) {
+        const r = new _RVAR(this.MainC, name, initialValue, store, storeName);
         if (subs)
             r.Subscribe(subs, true, false);
         return r;
@@ -521,24 +521,15 @@ class RCompiler {
     CompIterator(srcParent, iter) {
         const builders = [];
         for (const srcNode of iter) {
+            let builder;
             switch (srcNode.nodeType) {
                 case Node.ELEMENT_NODE:
                     this.sourceNodeCount++;
-                    const builderElm = this.CompElement(srcParent, srcNode);
-                    if (builderElm) {
-                        if (builderElm[0].ws) {
-                            let i = builders.length - 1;
-                            while (i >= 0 && builders[i][2]) {
-                                builders.pop();
-                                i--;
-                            }
-                        }
-                        builders.push(builderElm);
-                    }
+                    builder = this.CompElement(srcParent, srcNode);
                     break;
                 case Node.TEXT_NODE:
                     this.sourceNodeCount++;
-                    let str = srcNode.nodeValue, builder;
+                    let str = srcNode.nodeValue;
                     if (this.wspc < WSpc.preserve)
                         str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                     const getText = this.CompString(str), { fixed } = getText;
@@ -563,9 +554,19 @@ class RCompiler {
                             builder[0].ws = /^ /.test(str);
                             this.wspc = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
                         }
-                        builders.push(builder);
                     }
                     break;
+            }
+            if (builder) {
+                if (builder[0].ws) {
+                    let i = builders.length - 1, isB;
+                    while (i >= 0 && (isB = builders[i][2])) {
+                        if (isB === true)
+                            builders.splice(i, 1);
+                        i--;
+                    }
+                }
+                builders.push(builder);
             }
         }
         if (!builders.length)
@@ -612,7 +613,7 @@ class RCompiler {
         const atts = new Atts(srcElm), reacts = [], genMods = [];
         if (bUnhide)
             atts.set('#hidden', 'false');
-        let builder, elmBuilder;
+        let builder, elmBuilder, isBlank;
         try {
             let m;
             for (const attName of atts.keys())
@@ -656,6 +657,7 @@ class RCompiler {
                                 }
                                 newVar(env)(range.value);
                             };
+                            isBlank = 1;
                         }
                         break;
                     case 'if':
@@ -830,6 +832,7 @@ class RCompiler {
                                 for (const { name } of listImports)
                                     DefConstruct(env, name, mEnv.constructs.get(name));
                             };
+                            isBlank = 1;
                         }
                         break;
                     case 'react':
@@ -848,6 +851,7 @@ class RCompiler {
                                         await b.call(this, subArea);
                                     }
                                 };
+                                builder.ws = b.ws;
                             }
                         }
                         break;
@@ -888,12 +892,15 @@ class RCompiler {
                         break;
                     case 'script':
                         builder = this.CompScript(srcParent, srcElm, atts);
+                        isBlank = 1;
                         break;
                     case 'style':
                         this.CompStyle(srcElm);
+                        isBlank = 1;
                         break;
                     case 'component':
                         builder = this.CompComponent(srcParent, srcElm, atts);
+                        isBlank = 1;
                         break;
                     case 'document':
                         {
@@ -939,6 +946,7 @@ class RCompiler {
                                 builder = async function DOCUMENT({ env }) {
                                     newVar(env)(docDef(env));
                                 };
+                                isBlank = 1;
                             }
                             finally {
                                 this.RestoreContext(saved);
@@ -953,6 +961,7 @@ class RCompiler {
                                 const head = parent.ownerDocument.head;
                                 return childBuilder.call(this, { parent: head, env });
                             };
+                            isBlank = 1;
                         }
                         ;
                         break;
@@ -999,7 +1008,7 @@ class RCompiler {
                     return builder.call(this, subArea);
                 }
                 : builder);
-        return async function REACT(area) {
+        async function REACT(area) {
             const { range, subArea, bInit } = PrepArea(srcElm, area, attName, true);
             if (bRenew) {
                 const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
@@ -1033,7 +1042,9 @@ class RCompiler {
                     }
                 }
             }
-        };
+        }
+        REACT.ws = builder.ws;
+        return REACT;
     }
     async CallWithHandling(builder, srcNode, area) {
         let { range } = area;
