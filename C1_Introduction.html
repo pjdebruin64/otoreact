@@ -18,18 +18,19 @@
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
-    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks"><i>framework</i></a> makes it much easier to create a reactive web application.
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks"><i>framework</i></a> makes it much easier to create reactive web applications.
 </p>
 <p>
     <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
 </p>
 <ul>
-    <li>Reactive HTML is parsed by the browser  itself, and compiled and executed by OtoReact within milliseconds.
-    <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, or <i>anything</i>.
+    <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.
+    <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node, or <i>anything</i>.
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
-    <li>Reactive HTML has a powerful component system, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, et cetera.
+    <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, et cetera.
+    <li>OtoReact does not modify any native objects (prototypes), and can be used for fragments of a larger application, meaning that it can easily be combined with other tooling.
 </ul>
 <p>
     The tiny example above on the left is the result of the following piece of Reactive HTML:

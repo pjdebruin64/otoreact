@@ -393,12 +393,12 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                     <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default.
                     <p>
                         An empty <i>string</i>: <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
-                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>="''"</code>.
+                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>=" '' "</code>.
                     </p>
                     <p>The default default value is <code>undefined</code>.</p>
                 </li>
                 <li>
-                    Attributes where <i>name</i> starts with "on" represent event handlers.
+                    Attributes <code><i>name</i></code> where <i>name</i> starts with "on" represent event handlers.
                     <br>Values are compiled as JavaScript, and the default default value is the empty handler.
                 </li>
                 <li>

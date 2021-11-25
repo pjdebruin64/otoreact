@@ -14,8 +14,6 @@ const sampleGreeting=
 const sampleServerData2=
 `<script nomodule 
   defines="ColorTable,toHex,handle,StartStop,bAnimate" >
-
-
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
 const ColorTable = RVAR( null,

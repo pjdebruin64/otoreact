@@ -11,14 +11,9 @@ declare const defaultSettings: {
     bSetPointer: boolean;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    ws?: WhiteSpc;
+    ws?: boolean;
     auto?: boolean;
 };
-declare enum WhiteSpc {
-    preserve = 0,
-    keep = 1,
-    trim = 2
-}
 declare type Area = {
     range?: Range;
     parent: Node;
@@ -110,7 +105,7 @@ declare class RCompiler {
     Settings: FullSettings;
     private AllAreas;
     private Builder;
-    private whiteSpc;
+    private wspc;
     private bCompiled;
     DirtyVars: Set<RVAR<unknown>>;
     private DirtySubs;
@@ -137,7 +132,8 @@ declare class RCompiler {
     private CompComponent;
     private CompTemplate;
     private CompInstance;
-    static regTrimmable: RegExp;
+    static regBlock: RegExp;
+    static regInline: RegExp;
     private CompHTMLElement;
     private CompAttributes;
     private CompStyle;
@@ -147,7 +143,7 @@ declare class RCompiler {
     private CompParameter;
     private CompAttrExpr;
     private CompHandler;
-    private CompJavaScript;
+    private CompJScript;
     private CompName;
     private compAttrExprList;
     private GetURL;
