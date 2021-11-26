@@ -19,6 +19,7 @@ declare type Area = {
     parent: Node;
     env: Environment;
     before?: Comment;
+    endMark?: Comment;
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;

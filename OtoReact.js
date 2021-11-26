@@ -60,7 +60,7 @@ class Range {
 }
 const DUndef = _ => undefined;
 function PrepArea(srcElm, area, text = '', bMark, result) {
-    let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
+    let { parent, env, range, before, endMark } = area, subArea = { parent, env, range: null, }, bInit = !range;
     if (bInit) {
         subArea.source = area.source;
         if (srcElm)
@@ -68,8 +68,9 @@ function PrepArea(srcElm, area, text = '', bMark, result) {
         UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
         range.result = result;
         if (bMark)
-            before =
-                range.endMark = parent.insertBefore(document.createComment('/' + text), before);
+            before = range.endMark =
+                endMark !== undefined ? endMark
+                    : parent.insertBefore(document.createComment('/' + text), before);
     }
     else {
         subArea.range = range.child;
@@ -91,7 +92,7 @@ function PrepArea(srcElm, area, text = '', bMark, result) {
             }
         }
     }
-    subArea.before = before;
+    subArea.endMark = (subArea.before = before) || area.endMark;
     return { range, subArea, bInit };
 }
 function UpdatePrevArea(area, range) {
@@ -117,8 +118,11 @@ function PrepareElement(srcElm, area, nodeName = srcElm.nodeName) {
         area.range = elmRange.next;
     }
     return { elmRange,
-        childArea: { parent: elmRange.node, range: elmRange.child, before: null, env: area.env,
-            parentR: elmRange },
+        childArea: { parent: elmRange.node, range: elmRange.child,
+            before: null, endMark: null,
+            env: area.env,
+            parentR: elmRange
+        },
         bInit };
 }
 function PrepareText(area, content) {
@@ -530,30 +534,14 @@ class RCompiler {
                 case Node.TEXT_NODE:
                     this.sourceNodeCount++;
                     let str = srcNode.nodeValue;
-                    if (this.wspc < WSpc.preserve)
-                        str = str.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, ' ');
                     const getText = this.CompString(str), { fixed } = getText;
                     if (fixed !== '') {
-                        if (fixed == undefined)
-                            builder = [
-                                async (area) => {
-                                    PrepareText(area, getText(area.env));
-                                },
-                                srcNode
-                            ];
-                        else {
-                            const isBlank = /^[ \t\r\n]*$/.test(fixed);
-                            if (isBlank && this.wspc <= WSpc.inlineSpc)
-                                break;
-                            builder = [
-                                async (area) => PrepareText(area, fixed),
-                                srcNode, isBlank
-                            ];
-                        }
-                        if (this.wspc < WSpc.preserve) {
-                            builder[0].ws = /^ /.test(str);
-                            this.wspc = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
-                        }
+                        builder =
+                            [fixed
+                                    ? async (area) => PrepareText(area, fixed)
+                                    : async (area) => PrepareText(area, getText(area.env)), srcNode, fixed == ' '];
+                        if (this.wspc < WSpc.preserve)
+                            this.wspc = /\s$/.test(str) ? WSpc.inlineSpc : WSpc.inline;
                     }
                     break;
             }
@@ -574,10 +562,14 @@ class RCompiler {
         const Iter = async function Iter(area, start = 0) {
             let i = 0;
             if (!area.range) {
+                const { endMark } = area;
+                area.endMark = undefined;
                 const toSubscribe = [];
                 let ref;
                 for (const [builder] of builders) {
                     i++;
+                    if (i == builders.length)
+                        area.endMark = endMark;
                     await builder.call(this, area);
                     if (builder.auto)
                         toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
@@ -619,8 +611,9 @@ class RCompiler {
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
                     if (m[3])
-                        genMods.push({ attName, bCr: !!m[4],
-                            bUpd: !!m[5],
+                        genMods.push({ attName,
+                            bCr: /create|\*/.test(attName),
+                            bUpd: /update|!/.test(attName),
                             text: atts.get(attName) });
                     else {
                         reacts.push({ attName, rvars: this.compAttrExprList(atts, attName, true) });
@@ -685,10 +678,11 @@ class RCompiler {
                                     caseNodes.unshift({ node: srcElm, atts, body });
                                 else
                                     atts.CheckNoAttsLeft();
-                            const caseList = [], ws = this.wspc;
+                            const caseList = [], preWs = this.wspc;
+                            let postWs = 0, elseWs = preWs;
                             for (let { node, atts, body } of caseNodes) {
                                 const saved = this.SaveContext();
-                                this.wspc = ws;
+                                this.wspc = preWs;
                                 try {
                                     let cond = null, not = false;
                                     let patt = null;
@@ -717,6 +711,9 @@ class RCompiler {
                                             const builder = this.CompChildNodes(node, body);
                                             caseList.push({ cond, not, patt, builder, node });
                                             atts.CheckNoAttsLeft();
+                                            postWs = Math.max(postWs, this.wspc);
+                                            if (not === undefined)
+                                                elseWs = 0;
                                             continue;
                                     }
                                 }
@@ -727,6 +724,7 @@ class RCompiler {
                                     this.RestoreContext(saved);
                                 }
                             }
+                            this.wspc = Math.max(postWs, elseWs);
                             builder =
                                 async function CASE(area) {
                                     const { env } = area, value = getVal && getVal(env);
@@ -769,8 +767,6 @@ class RCompiler {
                                         }
                                     }
                                 };
-                            if (this.wspc == WSpc.inlineSpc)
-                                this.wspc = WSpc.inline;
                         }
                         break;
                     case 'for':
@@ -862,11 +858,11 @@ class RCompiler {
                             this.wspc = WSpc.block;
                             builder = async function RHTML(area) {
                                 const srctext = getSrctext(area.env);
-                                const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), elm = elmRange.node;
-                                ApplyModifiers(elm, modifs, area.env, bInit);
+                                const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), { node } = elmRange;
+                                ApplyModifiers(node, modifs, area.env, bInit);
                                 if (area.prevR || srctext != elmRange.result) {
                                     elmRange.result = srctext;
-                                    const shadowRoot = elm.shadowRoot || elm.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml');
+                                    const shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml');
                                     try {
                                         tempElm.innerHTML = srctext;
                                         if (elmRange.hdrElms) {
@@ -982,11 +978,11 @@ class RCompiler {
         if (genMods.length) {
             const b = builder;
             builder = async function ON(area) {
-                const bInit = !area.range;
+                const { range } = area;
                 await b.call(this, area);
                 for (const g of genMods)
-                    if (bInit ? g.bCr : g.bUpd)
-                        g.handler(area.env).call(area.prevR?.node);
+                    if (range ? g.bUpd : g.bCr)
+                        g.handler(area.env).call((range || area.prevR).node);
             };
         }
         for (const { attName, rvars } of reacts)
@@ -1010,12 +1006,7 @@ class RCompiler {
                 : builder);
         async function REACT(area) {
             const { range, subArea, bInit } = PrepArea(srcElm, area, attName, true);
-            if (bRenew) {
-                const subsubArea = PrepArea(srcElm, subArea, 'renew', 2).subArea;
-                await builder.call(this, subsubArea);
-            }
-            else
-                await builder.call(this, subArea);
+            await builder.call(this, bRenew ? PrepArea(srcElm, subArea, 'renew', 2).subArea : subArea);
             if (getRvars) {
                 const rvars = getRvars(area.env);
                 let subscriber, pVars;
@@ -1165,6 +1156,7 @@ class RCompiler {
                         const setPrevious = initPrevious(env), setNext = initNext(env), iterator = newMap.entries(), nextIterator = nextName ? newMap.values() : null;
                         let prevItem, nextItem, prevRange = null, childArea;
                         subArea.parentR = range;
+                        subArea.endMark = undefined;
                         if (nextIterator)
                             nextIterator.next();
                         while (true) {
@@ -1172,11 +1164,9 @@ class RCompiler {
                             while (nextChild && !newMap.has(k = nextChild.key)) {
                                 if (k != null)
                                     keyMap.delete(k);
-                                try {
-                                    for (const node of nextChild.Nodes())
+                                for (const node of nextChild.Nodes())
+                                    if (node.isConnected)
                                         parent.removeChild(node);
-                                }
-                                catch { }
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
@@ -1282,12 +1272,9 @@ class RCompiler {
                 const initIndex = this.NewVar(indexName);
                 const bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOREACH_Slot(area) {
-                    const { subArea } = PrepArea(srcElm, area);
-                    const env = subArea.env;
-                    const saved = SaveEnv();
-                    const slotDef = env.constructs.get(slotName);
+                    const { subArea } = PrepArea(srcElm, area), { env } = subArea, saved = SaveEnv(), slotDef = env.constructs.get(slotName), setIndex = initIndex(area.env);
+                    subArea.endMark = undefined;
                     try {
-                        const setIndex = initIndex(area.env);
                         let index = 0;
                         for (const slotBuilder of slotDef.templates) {
                             setIndex(index++);
@@ -1529,7 +1516,7 @@ class RCompiler {
                 else if (m = /^style\.(.*)$/.exec(attName))
                     modifs.push({
                         modType: ModType.Style, name: CapitalProp(m[1]),
-                        depValue: this.CompString(attValue)
+                        depValue: this.CompString(attValue, attName)
                     });
                 else if (attName == '+style')
                     modifs.push({
@@ -1570,13 +1557,13 @@ class RCompiler {
                     modifs.push({
                         modType: ModType.Src,
                         name: this.FilePath,
-                        depValue: this.CompString(attValue),
+                        depValue: this.CompString(attValue, attName),
                     });
                 else
                     modifs.push({
                         modType: ModType.Attr,
                         name: attName,
-                        depValue: this.CompString(attValue)
+                        depValue: this.CompString(attValue, attName)
                     });
             }
             catch (err) {
@@ -1594,13 +1581,22 @@ class RCompiler {
         const regIS = this.regIS ||=
             new RegExp(/(?<![\\$])/.source
                 + (this.Settings.bDollarRequired ? '\\$' : '\\$?')
-                + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/.source, 'gs'), generators = [];
+                + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/.source, 'gs'), generators = [], ws = name ? WSpc.preserve : this.wspc;
         let isTrivial = true, bThis = false;
         regIS.lastIndex = 0;
         while (regIS.lastIndex < data.length) {
-            const lastIndex = regIS.lastIndex, m = regIS.exec(data), fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
-            if (fixed)
-                generators.push(fixed.replace(/\\([${}\\])/g, '$1'));
+            const lastIndex = regIS.lastIndex, m = regIS.exec(data);
+            let fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
+            if (fixed) {
+                fixed = fixed.replace(/\\([${}\\])/g, '$1');
+                if (ws < WSpc.preserve) {
+                    fixed = fixed.replace(/\s+/g, ' ');
+                    if (!generators.length && ws <= WSpc.inlineSpc)
+                        fixed = fixed.replace(/^ /, '');
+                }
+                if (fixed)
+                    generators.push(fixed);
+            }
             if (m[1]) {
                 const getS = this.CompJScript(m[1], name, '{}');
                 generators.push(getS);
