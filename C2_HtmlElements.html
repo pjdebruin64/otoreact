@@ -45,7 +45,7 @@ RHTML adds two additional events that are not triggered by browser engine but by
     <dt><code>onupdate*</code></dt>
     <dd>
         Happens after an element (and its children) has been created (built) <i>or</i> updated.
-        <p>Alternative names are <code>oncreateupdate</code> or <code>oncreate!</code>.
+        <p>Alternative names are <code>oncreateupdate</code> or <code>oncreate+</code>.
     </dd>
 </dl>
 Note: The name <code>event</code> is not available in handlers for these pseudo-events.
@@ -124,9 +124,15 @@ DOM properties are not static but can change. RHTML allows three variants of out
 <dl>
     <dt><code class=sourcecode>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>
-        The assignment target receives the value of the property immediately after the element (and its children) have been created.
+        The assignment target receives the value of the property immediately after the element and its children have been <i>created</i>.
         <br>This is the same as setting a handler:
         <pre>oncreate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
+    </dd>
+    <dt><code class=sourcecode>+<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dd>
+        The assignment target receives the value of the property immediately after the element and its children have been <i>updated</i>.
+        <br>This is the same as setting a handler:
+        <pre>onupdate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
     </dd>
     <dt><code class=sourcecode>!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>

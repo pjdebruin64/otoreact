@@ -11,6 +11,8 @@ const defaultSettings = {
     bNoGlobals:     false,
     bDollarRequired: false,
     bSetPointer:    true,
+    bKeepWhiteSpace: false,
+    bKeepComments:  false,
 }
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
@@ -197,19 +199,20 @@ function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm
         bInit};
 }
 
-function PrepareText(area: Area, content: string) {
-    let range = area.range as Range<Text>;
+function PrepText(area: Area, content: string, bComm?: boolean) {
+    let range = area.range as Range<CharacterData>;
     if (!range) {
         range = new Range(
-            area.parent.insertBefore<Text>(document.createTextNode(content), area.before), 'text'
-            );
+            area.parent.insertBefore(
+                bComm ? document.createComment(content) : document.createTextNode(content)
+                , area.before)
+        );
         UpdatePrevArea(area, range);
     } else {
         range.node.data = content;
         area.range = range.next;
     }
 }
-
 
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
@@ -327,7 +330,7 @@ interface Key {}
 interface Hash {}
 
 enum ModType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
-    oncreate //, onupdate
+    oncreate, onupdate
 }
 type Modifier = {
     modType: ModType,
@@ -394,6 +397,9 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
             break;
         case ModType.oncreate:
             if (bCreate)
+                (val as ()=>void).call(elm);
+        case ModType.onupdate:
+            if (!bCreate)
                 (val as ()=>void).call(elm); 
             break;
     }
@@ -739,12 +745,20 @@ class RCompiler {
                     if (fixed !== '') { // Either nonempty or undefined
                         builder = 
                             [ fixed 
-                                ? async (area: Area) => PrepareText(area, fixed)
-                                : async (area: Area) => PrepareText(area, getText(area.env))
+                                ? async (area: Area) => PrepText(area, fixed)
+                                : async (area: Area) => PrepText(area, getText(area.env))
                             , srcNode, fixed==' ' ];
                         
                         if (this.wspc < WSpc.preserve)
                             this.wspc = /\s$/.test(str) ? WSpc.inlineSpc : WSpc.inline;
+                    }
+                    break;
+
+                case Node.COMMENT_NODE:
+                    if (this.Settings.bKeepComments) {
+                        const getText = this.CompString(srcNode.nodeValue, 'Comment');
+                        builder =
+                            [ async (area:Area)=> PrepText(area, getText(area.env), true), srcNode]
                     }
                     break;
             }
@@ -809,7 +823,7 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^((this)?reacts?on|on((create|\*)|(update|!))+)$/;
+    static genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
     private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
@@ -824,7 +838,7 @@ class RCompiler {
                     if (m[3])
                         genMods.push({attName
                             , bCr:  /create|\*/.test(attName)   // Exec on create
-                            , bUpd: /update|!/.test(attName)    // Exec on update
+                            , bUpd: /update|\+/.test(attName)    // Exec on update
                             , text: atts.get(attName)});
                     else {
                         reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
@@ -1052,7 +1066,7 @@ class RCompiler {
                             
                         const C = new RCompiler();
                         C.FilePath = this.GetPath(src);
-                        C.Settings.bRunScripts = true;
+                        C.Settings = {...this.Settings, bRunScripts: true};
                 
                         let promiseModule = RModules.get(src);
                         if (!promiseModule) {
@@ -1060,7 +1074,7 @@ class RCompiler {
                             .then(textContent => {
                                 // Parse the contents of the file
                                 const parser = new DOMParser(),
-                                    parsedDoc = parser.parseFromString(textContent, 'text/html') as HTMLDocument,
+                                    parsedDoc = parser.parseFromString(textContent, 'text/html') as Document,
                                     builder = C.CompIterator(null, 
                                         concIterable(parsedDoc.head.children, parsedDoc.body.children)
                                     );
@@ -1961,7 +1975,7 @@ class RCompiler {
                         modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJScript<object>(attValue, attName)
                     });
-                else if (m = /^([\*#!]+|@@?)(.*)/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                     const propName = CapitalProp(m[2]);
                     try {
                         const setter = m[1]=='#' ? null : this.CompJScript<Handler>(
@@ -1970,7 +1984,9 @@ class RCompiler {
                         if (/[@#]/.test(m[1]))
                             modifs.push({ modType: ModType.Prop, name: propName, depValue: this.CompJScript<unknown>(attValue, attName) });
                         if (/\*/.test(m[1]))
-                            modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter })
+                            modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter });
+                        if (/\+/.test(m[1]))
+                            modifs.push({ modType: ModType.onupdate, name: 'onupdate', depValue: setter });
                         if (/[@!]/.test(m[1]))
                             modifs.push({modType: ModType.Event, 
                                 name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
@@ -2037,7 +2053,7 @@ class RCompiler {
                     , 'gs'
                 ),
             generators: Array< string | Dependent<unknown> > = [],
-            ws: WSpc = name ? WSpc.preserve : this.wspc;
+            ws: WSpc = name || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.wspc;
         let isTrivial = true, bThis = false;
         regIS.lastIndex = 0;
 

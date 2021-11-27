@@ -165,6 +165,18 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
                 <br>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
             </td>
         </tr>
+        <tr>
+            <td>bKeepWhiteSpace</td><td>false</td>
+            <td>
+                When true, <i>all</i> white space will be preserved in the DOM output.
+            </td>
+        </tr>
+        <tr>
+            <td>bKeepComments</td><td>false</td>
+            <td>
+                When true, comments in the RHTML code will be included in the DOM output.
+            </td>
+        </tr>
     </tbody>
 </table>
 Example: <code>RCompile(document.body, \{bTiming: true, preformatted: ['quote'], } );</code>

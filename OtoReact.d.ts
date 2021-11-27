@@ -9,6 +9,8 @@ declare const defaultSettings: {
     bNoGlobals: boolean;
     bDollarRequired: boolean;
     bSetPointer: boolean;
+    bKeepWhiteSpace: boolean;
+    bKeepComments: boolean;
 };
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
     ws?: boolean;
