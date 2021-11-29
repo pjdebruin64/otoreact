@@ -33,6 +33,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     child: Range;
     next: Range;
     endMark?: Comment;
+    before?: Comment;
     constructor(node?: NodeType, text?: string);
     toString(): string;
     result?: any;
@@ -109,6 +110,7 @@ declare class RCompiler {
     private AllAreas;
     private Builder;
     private wspc;
+    private rspc;
     private bCompiled;
     DirtyVars: Set<RVAR<unknown>>;
     private DirtySubs;

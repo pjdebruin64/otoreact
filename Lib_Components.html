@@ -13,7 +13,7 @@
     
 <!-- Component to demonstrate RHTML -->
 <component>
-    <demo #content?="''" #bshow=true #editable=true rvar?></demo>
+    <demo #srctext?="''" #bshow=true #editable=true rvar?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
     <script nomodule defines=ColorCode>
         const mapping = {'<': '&lt;', '&': '&amp;'};
@@ -66,8 +66,8 @@
         }
     </style>
     
-    <template>
-        <define var=srctext #value="rvar || RVAR('', content.trim())"></define>
+    <template #srctext=source>
+        <define var=srctext #value="rvar || RVAR('', source.trim())"></define>
         <define rvar=rShow  #value="bshow"></define>
         <table. class=demo>
             <tr.><th.>

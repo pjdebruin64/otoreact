@@ -7,7 +7,7 @@
 <p>All source attributes that do not fall in any of the categories below, are compiled as HTML attributes.
     <br>They may use <a href="#StringInterpolation">string interpolation</a>.
 </p>
-<demo #content=sampleSqrt></demo>
+<demo #srctext=sampleSqrt></demo>
 
 <h2>HTML DOM Events</h2>
 <p>
@@ -115,7 +115,7 @@ HTML allows you set style properties of individual elements with the <a href="{M
         <br>Every property <i>name</i> in the object will be set or reset in the inline style object.
     </dd>
 </dl>
-<demo #content=sampleInlineStyles></demo>
+<demo #srctext=sampleInlineStyles></demo>
 
 
 <h2 id=TwoWayBinding>Output and Two-way Bindings</h2>
@@ -174,7 +174,7 @@ is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>property
 </p>
 <p>Or you can use them to capture the innerHTML or outerHTML of an element:
 </p>
-<demo content='<def rvar=a></def>
+<demo srctext='<def rvar=a></def>
 <p *outerHTML="a.V">Hi</p>
 <hr>
 \{a.V}'></demo>

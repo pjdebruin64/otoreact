@@ -491,18 +491,16 @@ const sampleDocument =
 
 <document name=showCheck>
     <title>Check!</title>
-    <div style="margin: 1ex auto" reacton=check>
-      <label>
-          <input type=checkbox @checked=check.V> Check me!
-      </label>
-    </div>
+    <label reacton=check style="display: block; margin: 30px">
+        <input type=checkbox @checked=check.V> Check me!
+    </label>
 </document>
 
 <button onclick="
     showCheck.open(''
-        ,\`width=250,height=100,
-        screenX=\${window.screenX + event.clientX - 100},
-        screenY=\${window.screenY + event.clientY + 100}\`
+        ,\`screenX=\${window.screenX + event.clientX - 100},
+        screenY=\${window.screenY + event.clientY + 100},
+        width=250,height=100\`
         )"
 >Pop up</button>
 
@@ -553,3 +551,36 @@ const sampleRadioGroup=
     You answered <b>{answer.V}</b>.
   </p>
 </if>`
+
+const demoRendering=
+`<style>
+h5 {margin: 0px; padding: 4px 0px;
+   border-top: solid 2px grey}
+pre {background-color: lightgrey}
+</style>
+
+<def rvar=source value=
+"<def var=x value=A></def>
+<ul> <li> x = \\{x} </ul>"
+  store=localStorage></def>
+<def rvar=html></def>
+<def rvar=rhtml></def>
+
+<h5>HTML source:</h5>
+<textarea rows=5 cols=50 @value=source.V></textarea>
+
+<h5>HTML rendering:</h5>
+<div #innerhtml=source.V 
+    *+innerHTML= "html.V"
+></div>
+
+<h5>Parsed HTML:</h5>
+<pre reacton=html>{html.V}</pre>
+
+<h5>RHTML rendering:</h5>
+<rhtml #srctext=source.V
+  onupdate*= "rhtml.V = this.shadowRoot.innerHTML"
+></rhtml>
+
+<h5>Created DOM:</h5>
+<pre reacton=rhtml>{rhtml.V}</pre>`

@@ -42,7 +42,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
-<demo content=
+<demo srctext=
 "<def var=a #value=&quot;10&quot;></def>
 <def var=f #value=&quot;(x) => a+x&quot;></def>
 
@@ -170,7 +170,7 @@ is the same as:
     Attribute <code>let=<i>name</i></code> or <code>var</code> is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
 </p>
 
-<demo #content="sampleParticipants">
+<demo #srctext="sampleParticipants">
 </demo>
 
 Further on, <elm>FOR</elm> can have the following attributes:
@@ -340,7 +340,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </p>
 
 <div id=TicTacToe></div>
-<demo #bShow=false #content=sampleTicTacToe></demo>
+<demo #bShow=false #srctext=sampleTicTacToe></demo>
 
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
 <p>
@@ -504,7 +504,7 @@ Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody
 Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>num</code>.
 
 <p>Putting it all together, we get:</p>
-<demo #content=sampleComponent1></demo>
+<demo #srctext=sampleComponent1></demo>
 
 <h3 id=Encapsulate>Encapsulate</h3>
 The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
@@ -534,18 +534,18 @@ Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/
 <h3>More examples</h3>
 <h4>To-do application</h4>
 Here is a to-do application, which splits the collection of items into those done and not done. We use a component <elm>itemlist</elm> to show such a filtered list.
-<demo #content=sampleTODO>
+<demo #srctext=sampleTODO>
 </demo>
 
 <h4>A recursive component</h4>
 <p>Components may be recursive, i.e. refer to themselve.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
-<demo #bShow=false #content=sampleRecursion></demo>
+<demo #bShow=false #srctext=sampleRecursion></demo>
 
 <h4>Redefining HTML elements</h4>
 <p>Components may redefine HTML elements. To refer to the original element, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
-<demo #content=sampleRedefineA #bShow=true>
+<demo #srctext=sampleRedefineA #bShow=true>
 </demo>
 
 
@@ -567,7 +567,7 @@ HTML provides radio buttons <elm>input type=radio</elm> bearing a name and a fix
     <br>The following custom does a much better job; it allows one to bind an RVAR, or any other object property, directly to the selected radio button value, without needing a <elm>form</elm> and without repeating any code.
 </p>
 
-<demo #content="sampleRadioGroup" #bShow=true></demo>
+<demo #srctext="sampleRadioGroup" #bShow=true></demo>
 Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
 <ul>
     <li>
@@ -600,7 +600,7 @@ When this template is instantiated, <i>Body</i> will be repeated for each provid
 <p>
 Here is a component which allows one to define tables column by column:
 </p>
-<demo #bShow=false #content=sampleTableMaker></demo>
+<demo #bShow=false #srctext=sampleTableMaker></demo>
 
 
 <h2 id=Include><{}INCLUDE src></h2>
@@ -662,12 +662,17 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
 <p>After each build or update, when the resulting <i>sourceText</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
-<demo #content=sampleRHTML></demo>
+<demo #srctext=sampleRHTML></demo>
 
 <h4>Caution</h4>
 When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
+<h3>Demo HTML vs RHTML</h3>
+In the following demo you can enter a piece of (R)HTML and compare how it is parsed and rendered by the browser without and with OtoReact processing.
+<br>Note also how OtoReact removes irrelevant white space.
+
+<demo #srcText=demoRendering></demo>
 
 <h2 id=Document><{}DOCUMENT></h2>
 <pre class=sourcecode>
@@ -697,7 +702,7 @@ allows you to define a separate document or form, that remains part of the same 
 By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
 <br>You can use <elm>style</elm> to insert styling information, or <elm>HEAD.</elm><elm>LINK &hellip;</elm><elm>/HEAD.</elm> to link an external style sheet.
 
-<demo #content=sampleDocument></demo>
+<demo #srctext=sampleDocument></demo>
 
 <h2><{}HEAD.></h2>
 Any child elements of <elm class=sourcecode>HEAD.</elm> are inserted into the current document header.

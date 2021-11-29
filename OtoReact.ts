@@ -48,6 +48,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     */
 
     endMark?: Comment;
+    before?: Comment;   // Can be the endmark of the current range or of a parent range
 
     constructor(
         public node?: NodeType,     // Corresponding DOM node, if any
@@ -134,16 +135,16 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
         range.result = result;
 
         if (bMark)
-            before = range.endMark = 
+            before = range.before = 
                 endMark !== undefined ? endMark 
-                : parent.insertBefore<Comment>(document.createComment('/'+text), before);
+                : range.endMark = parent.insertBefore<Comment>(document.createComment('/'+text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
 
         if (bMark) {
-            before = range.endMark;
+            before = range.before;
             if (bMark==1 && result != range.result || bMark==2) {
                 range.result = result;
                 let node = range.First || before;
@@ -231,7 +232,7 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
         ToBuild.push({parent: elm.parentElement, env: NewEnv(), source: elm, range: null});
 
         return (R.Settings.bBuild
-            ? RBuild().then(() => {ScrollToHash();} )
+            ? RBuild()
             : null);
     }
     catch (err) {
@@ -242,9 +243,15 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
 export async function RBuild() {
     R.start = performance.now();
     R.builtNodeCount = 0;
-    for (const area of ToBuild)
-        await R.InitialBuild(area);
-    R.logTime(`Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+    try {
+        for (const area of ToBuild)
+            await R.InitialBuild(area);
+        R.logTime(`Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+        ScrollToHash();
+    }
+    catch (err) {
+        window.alert(`OtoReact error: ${err}`);
+    }
     ToBuild = [];
 }
 
@@ -588,6 +595,7 @@ class RCompiler {
     private AllAreas: Subscriber[] = [];
     private Builder: DOMBuilder;
     private wspc = WSpc.block;
+    private rspc: number|boolean = 1;
 
     private bCompiled = false;
     
@@ -726,10 +734,14 @@ class RCompiler {
     //private CreatedRvars: RVAR[] = [];
 
     private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
-        const builders = [] as Array< [DOMBuilder, ChildNode, boolean?] >;
-        
-        for (const srcNode of iter) {
-            let builder: [DOMBuilder, ChildNode, boolean?]
+        const builders = [] as Array< [DOMBuilder, ChildNode, (boolean|number)?] >
+            , {rspc} = this
+            , arr = Array.from(iter), L = arr.length;
+        let i=0;
+        for (const srcNode of arr) {
+            i++;
+            this.rspc = i==L && rspc;
+            let builder: [DOMBuilder, ChildNode, (boolean|number)?];
             switch (srcNode.nodeType) {
                 
                 case Node.ELEMENT_NODE:
@@ -747,7 +759,8 @@ class RCompiler {
                             [ fixed 
                                 ? async (area: Area) => PrepText(area, fixed)
                                 : async (area: Area) => PrepText(area, getText(area.env))
-                            , srcNode, fixed==' ' ];
+                            , srcNode
+                            , fixed==' ' ];
                         
                         if (this.wspc < WSpc.preserve)
                             this.wspc = /\s$/.test(str) ? WSpc.inlineSpc : WSpc.inline;
@@ -758,21 +771,28 @@ class RCompiler {
                     if (this.Settings.bKeepComments) {
                         const getText = this.CompString(srcNode.nodeValue, 'Comment');
                         builder =
-                            [ async (area:Area)=> PrepText(area, getText(area.env), true), srcNode]
+                            [ async (area:Area)=> PrepText(area, getText(area.env), true), srcNode, 1]
                     }
                     break;
             }
-
-            if (builder) {                        
-                if (builder[0].ws) {
-                    let i = builders.length - 1, isB: boolean|number;
-                    while (i>=0 && (isB= builders[i][2])) {
-                        if (isB === true)
-                            builders.splice(i, 1);
-                        i--;
-                    }
+                       
+            if (builder ? builder[0].ws : this.rspc) {
+                let i = builders.length - 1, isB: boolean|number;
+                while (i>=0 && (isB= builders[i][2])) {
+                    if (isB === true)
+                        builders.splice(i, 1);
+                    i--;
                 }
+            }
+            if (builder) 
                 builders.push(builder);
+        }
+        if (rspc) {
+            let i = builders.length - 1, isB: boolean|number;
+            while (i>=0 && (isB= builders[i][2])) {
+                if (isB === true)
+                    builders.splice(i, 1);
+                i--;
             }
         }
         if (!builders.length) return null;
@@ -824,7 +844,7 @@ class RCompiler {
     }
 
     static genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
-    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode] {
+    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
@@ -930,12 +950,12 @@ class RCompiler {
                                 builder: DOMBuilder, 
                                 node: HTMLElement,
                             }> = [],
-                            preWs = this.wspc;
-                        let postWs: WSpc = 0, elseWs=preWs;
+                            {wspc, rspc}= this;
+                        let postWs: WSpc = 0, elseWs=wspc;
                         
                         for (let {node, atts, body} of caseNodes) {
                             const saved = this.SaveContext();
-                            this.wspc = preWs;
+                            this.wspc = wspc; this.rspc = rspc;
                             try {
                                 let cond: Dependent<unknown> = null, not: boolean = false;
                                 let patt:  {lvars: LVar[], regex: RegExp, url?: boolean} = null;
@@ -1280,6 +1300,7 @@ class RCompiler {
         elmBuilder = function Elm(this: RCompiler, area: Area) {
             return this.CallWithHandling(builder, srcElm, area);
         }
+        elmBuilder.ws = builder.ws;
         return [elmBuilder, srcElm];
     }
 
@@ -1507,7 +1528,8 @@ class RCompiler {
                                 if (k != null)
                                     keyMap.delete(k);
                                 for (const node of nextChild.Nodes())
-                                    if (node.isConnected) parent.removeChild(node);
+                                    //if (node.isConnected) 
+                                    parent.removeChild(node);
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
@@ -1763,7 +1785,7 @@ class RCompiler {
                 this.AddConstruct(S);
             if (!atts)
                 myAtts.CheckNoAttsLeft();
-
+            this.wspc = this.rspc = WSpc.block;
             const
                 builder = this.CompChildNodes(contentNode),
                 {name} = signat,
@@ -1899,7 +1921,7 @@ class RCompiler {
             this.wspc = WSpc.preserve; postWs = WSpc.block;
         }
         else if (RCompiler.regBlock.test(name)) {
-            this.wspc = postWs = WSpc.block
+            this.wspc = this.rspc = postWs = WSpc.block
         }
         else if (RCompiler.regInline.test(name)) {
             postWs = WSpc.inline;
@@ -1935,6 +1957,8 @@ class RCompiler {
         };
 
         builder.ws = (postWs == WSpc.block) || preWs < WSpc.preserve && childnodesBuilder.ws;
+        // true when whitespace befóre this element may be removed
+
         return builder;
     }
 
@@ -2064,8 +2088,10 @@ class RCompiler {
                 fixed = fixed.replace(/\\([${}\\])/g, '$1'); // Replace '\{' etc by '{'
                 if (ws < WSpc.preserve) {
                     fixed = fixed.replace(/\s+/g, ' ');  // Reduce whitespace
-                    if (!generators.length && ws <= WSpc.inlineSpc)
+                    if (ws <= WSpc.inlineSpc && !generators.length)
                         fixed = fixed.replace(/^ /,'');     // No initial whitespace
+                    if (this.rspc && !m[1] && regIS.lastIndex == data.length)
+                        fixed = fixed.replace(/ $/,'');     // No trailing whitespace
                 }
                 if (fixed) generators.push( fixed );  
             }
