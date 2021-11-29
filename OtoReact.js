@@ -242,9 +242,9 @@ function ApplyModifier(elm, modType, name, val, bCreate) {
                     elm.handlers.push({ evType: m[1], listener: val });
                 }
                 else {
-                    if (R.Settings.bSetPointer && /^onclick$/.test(name))
-                        elm.style.cursor = val && !elm.disabled ? 'pointer' : null;
                     elm[name] = val;
+                    if (/^onclick$/.test(name) && R.Settings.bSetPointer)
+                        elm.style.cursor = val && !elm.disabled ? 'pointer' : null;
                 }
             break;
         case ModType.Class:
@@ -1887,9 +1887,11 @@ function CheckValidIdentifier(name) {
         throw `Reserved keyword '${name}'`;
     return name;
 }
-const words = '(?:align|animation|aria|auto|background|blend|border|bottom|bounding|break|caption|caret|child|class|client'
-    + '|clip|(?:col|row)(?=span)|column|content|element|feature|fill|first|font|get|grid|image|inner|^is|last|left|line|margin|^max|^min|node|offset|outer'
-    + '|outline|overflow|owner|padding|parent|read|right|size|rule|scroll|selected|table|tab(?=index)|text|top|value|variant)';
+const words = '(?:access|active|align|animation|aria|background|blend|border|bottom|bounding|break'
+    + '|caption|caret|character|child|class|client|clip|(?:col|row)(?=span)|column|content|default|design|document|element'
+    + '|feature|fill|first|font|form|get|grid|image|inner|input|^is|last|left|line|margin|^max|^min|next|node|offset|outer'
+    + '|outline|overflow|owner|padding|parent|previous|ready?|right|size|rule|scroll|selected|selection'
+    + '|table|tab(?=index)|tag|text|top|validation|value|valueas|variant|will)';
 const regCapitalize = new RegExp(`html|uri|(?<=${words})[a-z]`, "g");
 function CapitalProp(lcName) {
     return lcName.replace(regCapitalize, (char) => char.toUpperCase());
