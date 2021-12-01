@@ -179,6 +179,13 @@ function CloneEnv(env) {
     clone.constructs = new Map(env.constructs.entries());
     return clone;
 }
+function assignEnv(target, source) {
+    const { constructs } = target;
+    Object.assign(target, source);
+    target.constructs = constructs;
+    for (const [key, val] of source.constructs.entries())
+        constructs.get(key).constructEnv = val.constructEnv;
+}
 class Signature {
     constructor(srcElm) {
         this.srcElm = srcElm;
@@ -315,7 +322,7 @@ function RestoreEnv(savedEnv) {
 function DefConstruct(env, name, construct) {
     const { constructs } = env, prevDef = constructs.get(name);
     constructs.set(name, construct);
-    envActions.push(() => { constructs.set(name, prevDef); });
+    envActions.push(() => SetMap(constructs, name, prevDef));
 }
 class RCompiler {
     constructor(clone) {
@@ -385,7 +392,7 @@ class RCompiler {
     AddConstruct(C) {
         const Cnm = C.name, savedConstr = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
-        this.restoreActions.push(() => this.CSignatures.set(Cnm, savedConstr));
+        this.restoreActions.push(() => SetMap(this.CSignatures, Cnm, savedConstr));
     }
     Compile(elm, settings = {}, bIncludeSelf = false) {
         const t0 = performance.now();
@@ -1047,7 +1054,7 @@ class RCompiler {
                     subscriber = this.Subscriber(subArea, updateBuilder, range.child);
                 else {
                     ({ subscriber, rvars: pVars } = range.value);
-                    Object.assign(subscriber.sArea.env, subArea.env);
+                    assignEnv(subscriber.sArea.env, subArea.env);
                 }
                 range.value = { rvars, subscriber };
                 let i = 0;
@@ -1321,7 +1328,7 @@ class RCompiler {
                         }
                     }
                     finally {
-                        env.constructs.set(slotName, slotDef);
+                        SetMap(env.constructs, slotName, slotDef);
                         RestoreEnv(saved);
                     }
                 };
@@ -1925,6 +1932,12 @@ function CBool(s, valOnEmpty = true) {
                 return null;
         }
     return s;
+}
+function SetMap(m, k, v) {
+    if (v)
+        m.set(k, v);
+    else
+        m.delete(k);
 }
 function* concIterable(R, S) {
     for (const x of R)

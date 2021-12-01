@@ -266,6 +266,13 @@ function CloneEnv(env: Environment): Environment {
     clone.constructs = new Map(env.constructs.entries());
     return clone;
 }
+function assignEnv(target: Environment, source: Environment) {
+    const {constructs} = target;
+    Object.assign(target, source);
+    target.constructs = constructs;
+    for (const [key,val] of source.constructs.entries())
+        constructs.get(key).constructEnv = val.constructEnv;
+}
 
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
     {   ref?: {isConnected: boolean};
@@ -439,7 +446,7 @@ function RestoreEnv(savedEnv: SavedEnv) {
 function DefConstruct(env: Environment, name: string, construct: ConstructDef) {
     const {constructs} = env, prevDef = constructs.get(name);
     constructs.set(name, construct);
-    envActions.push(() => {constructs.set(name, prevDef)})
+    envActions.push(() => SetMap(constructs, name, prevDef));
 }
 
 class RCompiler {
@@ -522,8 +529,8 @@ class RCompiler {
         const Cnm = C.name,
             savedConstr = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
-        this.restoreActions.push(
-            () => this.CSignatures.set(Cnm, savedConstr)
+        this.restoreActions.push(() => 
+            SetMap(this.CSignatures, Cnm, savedConstr)
         );
     }
 
@@ -1337,7 +1344,7 @@ class RCompiler {
                     subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
                 else {
                     ({subscriber, rvars: pVars} = range.value);
-                    Object.assign(subscriber.sArea.env, subArea.env);
+                    assignEnv(subscriber.sArea.env, subArea.env);
                 }
                 range.value = {rvars, subscriber};
                 let i=0;
@@ -1676,7 +1683,7 @@ class RCompiler {
                         }
                     }
                     finally {
-                        env.constructs.set(slotName, slotDef);
+                        SetMap(env.constructs, slotName, slotDef);
                         RestoreEnv(saved);
                     }
                 }
@@ -2428,6 +2435,13 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
                 return null;
         }
     return s;
+}
+
+function SetMap<K,V>(m: Map<K,V>, k: K, v: V) {
+    if (v)
+        m.set(k,v);
+    else
+        m.delete(k);
 }
 
 function* concIterable<T>(R: Iterable<T>, S:Iterable<T>)  {
