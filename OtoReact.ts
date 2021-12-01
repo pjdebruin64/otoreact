@@ -1337,7 +1337,7 @@ class RCompiler {
                     subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
                 else {
                     ({subscriber, rvars: pVars} = range.value);
-                    subscriber.sArea.env = CloneEnv(subArea.env);
+                    Object.assign(subscriber.sArea.env, subArea.env);
                 }
                 range.value = {rvars, subscriber};
                 let i=0;
@@ -1629,10 +1629,16 @@ class RCompiler {
                                 // Body berekenen
                                 await bodyBuilder.call(this, childArea);
 
-                                if (rvar && !childRange.rvar)
-                                    rvar.Subscribe(
-                                        this.Subscriber(childArea, bodyBuilder, childRange.child)
-                                    );
+                                if (rvar)
+                                    if (childRange.rvar)
+                                        for (const subs of rvar._Subscribers) {
+                                            Object.assign(subs.sArea.env, env);
+                                            break;
+                                        }
+                                    else
+                                        rvar.Subscribe(
+                                            this.Subscriber(childArea, bodyBuilder, childRange.child)
+                                        );
                                 childRange.rvar = rvar
                             }
 

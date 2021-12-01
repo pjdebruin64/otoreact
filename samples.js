@@ -560,9 +560,9 @@ pre {background-color: lightgrey}
 </style>
 
 <def rvar=source value=
-"<def var=x value=A></def>
+     "<def var=x value=A></def>
 <ul> <li> x = \\{x} </ul>"
-  store=localStorage></def>
+     store=localStorage></def>
 <def rvar=html></def>
 <def rvar=rhtml></def>
 
