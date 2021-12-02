@@ -322,7 +322,7 @@ function RestoreEnv(savedEnv) {
 function DefConstruct(env, name, construct) {
     const { constructs } = env, prevDef = constructs.get(name);
     constructs.set(name, construct);
-    envActions.push(() => SetMap(constructs, name, prevDef));
+    envActions.push(() => mapSet(constructs, name, prevDef));
 }
 class RCompiler {
     constructor(clone) {
@@ -392,7 +392,7 @@ class RCompiler {
     AddConstruct(C) {
         const Cnm = C.name, savedConstr = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
-        this.restoreActions.push(() => SetMap(this.CSignatures, Cnm, savedConstr));
+        this.restoreActions.push(() => mapSet(this.CSignatures, Cnm, savedConstr));
     }
     Compile(elm, settings = {}, bIncludeSelf = false) {
         const t0 = performance.now();
@@ -778,6 +778,11 @@ class RCompiler {
                                             }
                                         }
                                         catch (err) {
+                                            if (bHiding)
+                                                for (const alt of caseList)
+                                                    PrepareElement(alt.node, area);
+                                            else
+                                                PrepArea(srcElm, area, '', 1, choosenAlt);
                                             throw (alt.node.nodeName == 'IF' ? '' : OuterOpenTag(alt.node)) + err;
                                         }
                                     if (bHiding) {
@@ -1328,7 +1333,7 @@ class RCompiler {
                         }
                     }
                     finally {
-                        SetMap(env.constructs, slotName, slotDef);
+                        mapSet(env.constructs, slotName, slotDef);
                         RestoreEnv(saved);
                     }
                 };
@@ -1638,7 +1643,7 @@ class RCompiler {
             if (fixed) {
                 fixed = fixed.replace(/\\([${}\\])/g, '$1');
                 if (ws < WSpc.preserve) {
-                    fixed = fixed.replace(/\s+/g, ' ');
+                    fixed = fixed.replace(/[ \t\n\r]+/g, ' ');
                     if (ws <= WSpc.inlineSpc && !generators.length)
                         fixed = fixed.replace(/^ /, '');
                     if (this.rspc && !m[1] && regIS.lastIndex == data.length)
@@ -1782,7 +1787,7 @@ class RCompiler {
 RCompiler.iNum = 0;
 RCompiler.genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
 RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
-RCompiler.regInline = /^(input|img)$/;
+RCompiler.regInline = /^(button|input|img)$/;
 const gFetch = fetch;
 export async function RFetch(input, init) {
     const r = await gFetch(input, init);
@@ -1933,7 +1938,7 @@ function CBool(s, valOnEmpty = true) {
         }
     return s;
 }
-function SetMap(m, k, v) {
+function mapSet(m, k, v) {
     if (v)
         m.set(k, v);
     else

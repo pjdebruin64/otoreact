@@ -446,7 +446,7 @@ function RestoreEnv(savedEnv: SavedEnv) {
 function DefConstruct(env: Environment, name: string, construct: ConstructDef) {
     const {constructs} = env, prevDef = constructs.get(name);
     constructs.set(name, construct);
-    envActions.push(() => SetMap(constructs, name, prevDef));
+    envActions.push(() => mapSet(constructs, name, prevDef));
 }
 
 class RCompiler {
@@ -530,7 +530,7 @@ class RCompiler {
             savedConstr = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
         this.restoreActions.push(() => 
-            SetMap(this.CSignatures, Cnm, savedConstr)
+            mapSet(this.CSignatures, Cnm, savedConstr)
         );
     }
 
@@ -1017,7 +1017,12 @@ class RCompiler {
                                             && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
                                             ) == alt.not)
                                         { choosenAlt = alt; break }
-                                    } catch (err) { throw (alt.node.nodeName=='IF' ? '' : OuterOpenTag(alt.node)) + err }
+                                    } catch (err) { 
+                                        if (bHiding)
+                                            for (const alt of caseList) PrepareElement(alt.node, area);
+                                        else
+                                            PrepArea(srcElm, area, '', 1, choosenAlt);
+                                        throw (alt.node.nodeName=='IF' ? '' : OuterOpenTag(alt.node)) + err }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
@@ -1683,7 +1688,7 @@ class RCompiler {
                         }
                     }
                     finally {
-                        SetMap(env.constructs, slotName, slotDef);
+                        mapSet(env.constructs, slotName, slotDef);
                         RestoreEnv(saved);
                     }
                 }
@@ -1923,7 +1928,7 @@ class RCompiler {
     }
 
     static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
-    static regInline = /^(input|img)$/;
+    static regInline = /^(button|input|img)$/;
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, '')
@@ -2100,7 +2105,8 @@ class RCompiler {
             if (fixed) {
                 fixed = fixed.replace(/\\([${}\\])/g, '$1'); // Replace '\{' etc by '{'
                 if (ws < WSpc.preserve) {
-                    fixed = fixed.replace(/\s+/g, ' ');  // Reduce whitespace
+                    fixed = fixed.replace(/[ \t\n\r]+/g, ' ');  // Reduce whitespace
+                    // We can't use \s for whitespace, because that includes nonbreakable space &nbsp;
                     if (ws <= WSpc.inlineSpc && !generators.length)
                         fixed = fixed.replace(/^ /,'');     // No initial whitespace
                     if (this.rspc && !m[1] && regIS.lastIndex == data.length)
@@ -2437,7 +2443,7 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     return s;
 }
 
-function SetMap<K,V>(m: Map<K,V>, k: K, v: V) {
+function mapSet<K,V>(m: Map<K,V>, k: K, v: V) {
     if (v)
         m.set(k,v);
     else

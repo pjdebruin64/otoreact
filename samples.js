@@ -499,7 +499,7 @@ const sampleDocument =
 <button onclick="
     showCheck.open(''
         ,\`screenX=\${window.screenX + event.clientX - 100},
-        screenY=\${window.screenY + event.clientY + 100},
+        screenY=\${window.screenY + event.clientY + 200},
         width=250,height=100\`
         )"
 >Pop up</button>
