@@ -318,7 +318,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=ReactOn><{}REACT on? hash? renew?></h2>
+<h2 id=React><{}REACT on? hash? renew?></h2>
 <pre class=sourcecode>
 <elm>REACT on=<i>RVARlist</i></elm>
     <i>Content</i>
@@ -333,7 +333,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
     With attribute <code class=sourcecode>renew</code>, the content will not be updated but removed and rebuilt on every update request.
 </p>
 
-<h2>reacton, thisreactson</h2>
+<h2 id=ReactOn>reacton, thisreactson</h2>
 One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct. This is the same as including the element within <elm>REACT on=<i>RVARlist</i></elm>.
 <p id=thisreactson>
     RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.

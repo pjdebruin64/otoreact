@@ -420,16 +420,16 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: un
 }
 function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], env: Environment, bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
-    for (const {modType, name, depValue} of modifiers) {
+    bReadOnly= true;
+    for (const {modType, name, depValue} of modifiers)
         try {
-            bReadOnly= true;
             const value = depValue.bThis ? depValue.call(elm, env) : depValue(env);    // Evaluate the dependent value in the current environment
-            bReadOnly = false;
             // See what to do with it
             ApplyModifier(elm, modType, name, value, bCreate)
         }
         catch (err) { throw `[${name}]: ${err}` }
-    }
+    
+    bReadOnly = false;
 }
 
 const RModules = new Map<string, Promise<DOMBuilder>>();
@@ -589,12 +589,6 @@ class RCompiler {
         await this.Builder(area);
         const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
         this.AllAreas.push(subs);
-        /*
-        for (const rvar of this.CreatedRvars)
-            if (!rvar._Subscribers.size)
-                rvar.Subscribe(subs);
-        this.CreatedRvars.length=0;
-        */
         R = savedRCompiler;        
     }
 
@@ -624,7 +618,7 @@ class RCompiler {
                 this.handleUpdate = null;
                 this.DoUpdate();
             }, 5);
-    };
+    }
 
     public start: number;
     async DoUpdate() {
@@ -656,13 +650,6 @@ class RCompiler {
                                 console.log(msg);
                                 window.alert(msg);
                             }
-                        /*
-                        for (const rvar of this.CreatedRvars)
-                            if (!rvar._Subscribers.size)
-                                for (const subs of this.AllAreas)
-                                    rvar.Subscribe(subs)
-                        this.CreatedRvars.length=0;
-                        */
                     }
                     
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
@@ -688,7 +675,7 @@ class RCompiler {
             r.Subscribe(subs, true, false);
         //this.MainC.CreatedRvars.push(r);
         return r;
-    }; // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
+    } // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
@@ -824,10 +811,10 @@ class RCompiler {
                     }
                     for(const subs of toSubscribe) {
                         const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
-                        if (!rvar._Subscribers.size && ref) // No subscribers yet?
+                        if (!rvar._Subscribers.size) // No subscribers yet?
                         {   // Then subscribe with the correct range
                             sArea.range = range.next;
-                            subs.ref = ref;
+                            subs.ref = ref || area.parent;
                             rvar.Subscribe(rvar.auto = subs);
                         }
                     }
@@ -836,12 +823,8 @@ class RCompiler {
                         if (i++ >= start) {
                             const r = area.range;
                             await builder.call(this, area);
-                            if (builder.auto)  // Auto subscribe?
-                                {
-                                    const rvar = r.value as RVAR;
-                                    if (rvar.auto)
-                                        rvar.auto.sArea.env = CloneEnv(area.env);
-                                }
+                            if (builder.auto && r.value.auto)  // Auto subscribe?
+                                assignEnv((r.value as RVAR).auto.sArea.env, area.env);
                         }
                 
                 this.builtNodeCount += builders.length - start;
@@ -879,7 +862,9 @@ class RCompiler {
                 switch (srcElm.localName) {
                     case 'def':
                     case 'define': { // 'LET' staat de parser niet toe.
-                        //srcParent.removeChild(srcElm);
+                        for (let C of srcElm.childNodes)
+                            if (!(C.nodeType==Node.TEXT_NODE && /^\s*/.test((C as Text).data)))
+                                throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
@@ -1182,7 +1167,7 @@ class RCompiler {
                                         for (const elm of elmRange.hdrElms) elm.remove();
                                         elmRange.hdrElms = null;
                                     }
-                                    const R = new RCompiler();;
+                                    const R = new RCompiler();; // Double ;; is needed for our minifier
                                     (R.head = shadowRoot).innerHTML = '';
                                     R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
                                     elmRange.hdrElms = R.AddedHeaderElements;
@@ -1302,8 +1287,7 @@ class RCompiler {
                 await b.call(this, area);
                 for (const g of genMods)
                     if (range ? g.bUpd : g.bCr)
-                    //if (bInit || g.bUpd)
-                        g.handler(area.env).call((range || area.prevR).node);
+                        g.handler(area.env).call((range || area.prevR)?.node);
             }
         }
 
@@ -1337,10 +1321,17 @@ class RCompiler {
             );
 
         async function REACT(this: RCompiler, area: Area) {
-            const {range, subArea, bInit} = PrepArea(srcElm, area, attName, true);
-            await builder.call(this,
-                bRenew ?  PrepArea(srcElm, subArea, 'renew', 2).subArea : subArea
-            );
+            
+            let range: Range, subArea: Area, bInit: boolean;
+            if (getRvars) {
+                ({range, subArea, bInit} = PrepArea(srcElm, area, attName, true));
+                area = subArea;
+            }
+
+            if (bRenew)
+                area = PrepArea(srcElm, area, 'renew', 2).subArea;
+
+            await builder.call(this, area);
 
             if (getRvars) {
                 const rvars = getRvars(area.env);

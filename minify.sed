@@ -4,7 +4,7 @@
 1i */
 
 # Remove whitespace before and after special chars, except inside strings
-s/ *(^|[-[(),:;{}<>=?+|&]|]|`.*`|'[^']*'|\"[^\"\"]*\") */\1/g
+s/ *(^|[-[(),:;{}<>=?+|&]|]|`.*`|'[^']*'|\".*\"|\/.*\/) */\1/g
 
 s/(.);?\r$/\1/         # Remove any semicolons and CR at end of non-empty line
 s/[,;]+([]}])/\1/g   # and comma's and semicolons before closing brackets and braces
