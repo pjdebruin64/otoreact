@@ -4,7 +4,7 @@ declare const defaultSettings: {
     bShowErrors: boolean;
     bRunScripts: boolean;
     bBuild: boolean;
-    rootPattern: string;
+    basePattern: string;
     preformatted: any[];
     bNoGlobals: boolean;
     bDollarRequired: boolean;
@@ -57,9 +57,7 @@ declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 export declare function RBuild(): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
-    ref?: {
-        isConnected: boolean;
-    };
+    ref?: {};
     sArea?: Area;
     bImm?: boolean;
 };

@@ -6,7 +6,7 @@ const defaultSettings = {
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bRunScripts:    false,
     bBuild:         true,
-    rootPattern:    '/',
+    basePattern:    '/',
     preformatted:   [],
     bNoGlobals:     false,
     bDollarRequired: false,
@@ -217,15 +217,15 @@ function PrepText(area: Area, content: string, bComm?: boolean) {
 
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
-let RootPath: string = null;
+let BasePath: string = null;
 let ToBuild: Area[] = [];
 
 export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
     try {
-        const {rootPattern} = R.Settings = {...defaultSettings, ...settings},
-            m = location.href.match(`^.*(${rootPattern})`);
+        const {basePattern} = R.Settings = {...defaultSettings, ...settings},
+            m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (
-            globalThis.RootPath = RootPath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
+            globalThis.BasePath = globalThis.BasePath = BasePath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
         )
         R.RootElm = elm;
         R.Compile(elm, {}, true);
@@ -275,7 +275,7 @@ function assignEnv(target: Environment, source: Environment) {
 }
 
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
-    {   ref?: {isConnected: boolean};
+    {   ref?: {};
         sArea?: Area;
         bImm?: boolean
     };
@@ -476,7 +476,7 @@ class RCompiler {
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.head  = clone?.head || document.head;
         this.StyleBefore = clone?.StyleBefore
-        this.FilePath   = clone?.FilePath || location.origin + RootPath;
+        this.FilePath   = clone?.FilePath || location.origin + BasePath;
     }
     private get MainC():RCompiler { return this.clone || this; }
 
@@ -574,8 +574,10 @@ class RCompiler {
                 range,
             },
             subscriber: Subscriber = () => {
-                (this as RCompiler).builtNodeCount++;
-                return builder.call(this, {...sArea}, ...args);
+                if (sArea.parent.isConnected) {
+                    (this as RCompiler).builtNodeCount++;
+                    return builder.call(this, {...sArea}, ...args);
+                }
             };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -601,7 +603,7 @@ class RCompiler {
     private bCompiled = false;
     
     public DirtyVars = new Set<RVAR>();
-    private DirtySubs = new Map<{isConnected: boolean}, Subscriber>();
+    private DirtySubs = new Map<{}, Subscriber>();
     public AddDirty(sub: Subscriber) {
         this.DirtySubs.set(sub.ref, sub)
     }
@@ -642,15 +644,13 @@ class RCompiler {
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
                     this.DirtySubs = new Map();
-                    for (const sub of subs.values()) {
-                        if (!sub.ref || sub.ref.isConnected)
-                            try { await sub(); }
-                            catch (err) {
-                                const msg = `ERROR: ${err}`;
-                                console.log(msg);
-                                window.alert(msg);
-                            }
-                    }
+                    for (const sub of subs.values())
+                        try { await sub(); }
+                        catch (err) {
+                            const msg = `ERROR: ${err}`;
+                            console.log(msg);
+                            window.alert(msg);
+                        }
                     
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
@@ -799,22 +799,19 @@ class RCompiler {
                     const {endMark} = area;
                     area.endMark = undefined;
                     const toSubscribe: Array<Subscriber> = [];
-                    let ref: ChildNode;
                     for (const [builder] of builders) {
                         i++;
                         if (i==builders.length) area.endMark = endMark;
                         await builder.call(this, area);
                         if (builder.auto)  // Auto subscribe?
-                                toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i)); // Not yet the correct range, we need the next range
-                        if (!ref && area.prevR)
-                            ref = area.prevR.node || area.prevR.endMark;
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i)); // Not yet the correct range, we need the next range
                     }
                     for(const subs of toSubscribe) {
                         const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
                         if (!rvar._Subscribers.size) // No subscribers yet?
                         {   // Then subscribe with the correct range
                             sArea.range = range.next;
-                            subs.ref = ref || area.parent;
+                            subs.ref = {};
                             rvar.Subscribe(rvar.auto = subs);
                         }
                     }
@@ -2297,8 +2294,7 @@ class _RVAR<T = unknown>{
         if (bInit)
             s();
         s.bImm = bImmediate;
-        if (!s.ref)
-            s.ref = {isConnected: true};
+        s.ref ||= {};
         this._Subscribers.add(s);
     }
     Unsubscribe(s: Subscriber<T>) {
@@ -2340,7 +2336,7 @@ class _RVAR<T = unknown>{
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (sub.ref.isConnected)
+            else if (!sub.sArea || sub.sArea.parent.isConnected)
                 { this.MainC.AddDirty(sub); b=true}
             else
                 this._Subscribers.delete(sub);
@@ -2491,7 +2487,7 @@ export {_range as range};
 
 export const docLocation: RVAR<string> & {subpath?: string; searchParams?: URLSearchParams}
     = RVAR<string>('docLocation', location.href);
-Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(RootPath.length)});
+Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(BasePath.length)});
 
 window.addEventListener('popstate', () => {docLocation.V = location.href;} );
 

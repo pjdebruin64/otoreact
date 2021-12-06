@@ -4,7 +4,7 @@ const defaultSettings = {
     bShowErrors: true,
     bRunScripts: false,
     bBuild: true,
-    rootPattern: '/',
+    basePattern: '/',
     preformatted: [],
     bNoGlobals: false,
     bDollarRequired: false,
@@ -138,12 +138,12 @@ function PrepText(area, content, bComm) {
         area.range = range.next;
     }
 }
-let RootPath = null;
+let BasePath = null;
 let ToBuild = [];
 export function RCompile(elm, settings) {
     try {
-        const { rootPattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${rootPattern})`);
-        R.FilePath = location.origin + (globalThis.RootPath = RootPath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
+        const { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
+        R.FilePath = location.origin + (globalThis.BasePath = globalThis.BasePath = BasePath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         R.RootElm = elm;
         R.Compile(elm, {}, true);
         ToBuild.push({ parent: elm.parentElement, env: NewEnv(), source: elm, range: null });
@@ -348,7 +348,7 @@ class RCompiler {
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.head = clone?.head || document.head;
         this.StyleBefore = clone?.StyleBefore;
-        this.FilePath = clone?.FilePath || location.origin + RootPath;
+        this.FilePath = clone?.FilePath || location.origin + BasePath;
     }
     get MainC() { return this.clone || this; }
     SaveContext() {
@@ -424,8 +424,10 @@ class RCompiler {
             env: CloneEnv(env),
             range,
         }, subscriber = () => {
-            this.builtNodeCount++;
-            return builder.call(this, { ...sArea }, ...args);
+            if (sArea.parent.isConnected) {
+                this.builtNodeCount++;
+                return builder.call(this, { ...sArea }, ...args);
+            }
         };
         subscriber.sArea = sArea;
         subscriber.ref = before;
@@ -471,17 +473,15 @@ class RCompiler {
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
                     this.DirtySubs = new Map();
-                    for (const sub of subs.values()) {
-                        if (!sub.ref || sub.ref.isConnected)
-                            try {
-                                await sub();
-                            }
-                            catch (err) {
-                                const msg = `ERROR: ${err}`;
-                                console.log(msg);
-                                window.alert(msg);
-                            }
-                    }
+                    for (const sub of subs.values())
+                        try {
+                            await sub();
+                        }
+                        catch (err) {
+                            const msg = `ERROR: ${err}`;
+                            console.log(msg);
+                            window.alert(msg);
+                        }
                     this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
             }
@@ -600,7 +600,6 @@ class RCompiler {
                 const { endMark } = area;
                 area.endMark = undefined;
                 const toSubscribe = [];
-                let ref;
                 for (const [builder] of builders) {
                     i++;
                     if (i == builders.length)
@@ -608,14 +607,12 @@ class RCompiler {
                     await builder.call(this, area);
                     if (builder.auto)
                         toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
-                    if (!ref && area.prevR)
-                        ref = area.prevR.node || area.prevR.endMark;
                 }
                 for (const subs of toSubscribe) {
                     const { sArea } = subs, { range } = sArea, rvar = range.value;
                     if (!rvar._Subscribers.size) {
                         sArea.range = range.next;
-                        subs.ref = ref || area.parent;
+                        subs.ref = {};
                         rvar.Subscribe(rvar.auto = subs);
                     }
                 }
@@ -1824,8 +1821,7 @@ class _RVAR {
         if (bInit)
             s();
         s.bImm = bImmediate;
-        if (!s.ref)
-            s.ref = { isConnected: true };
+        s.ref ||= {};
         this._Subscribers.add(s);
     }
     Unsubscribe(s) {
@@ -1862,7 +1858,7 @@ class _RVAR {
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (sub.ref.isConnected) {
+            else if (!sub.sArea || sub.sArea.parent.isConnected) {
                 this.MainC.AddDirty(sub);
                 b = true;
             }
@@ -1986,7 +1982,7 @@ const _range = globalThis.range = function* range(from, upto, step = 1) {
 };
 export { _range as range };
 export const docLocation = RVAR('docLocation', location.href);
-Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substr(RootPath.length) });
+Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substr(BasePath.length) });
 window.addEventListener('popstate', () => { docLocation.V = location.href; });
 function ScrollToHash() {
     if (location.hash)

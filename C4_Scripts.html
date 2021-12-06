@@ -6,11 +6,11 @@
 <a href="routing" #onclick=reroute>This routed page</a> tells you all about it.
 <p>Here a summary of the OtoReact routing features:</p>
 <dl>
-    <dt id=RootPath><code>RootPath</code></dt>
+    <dt id=BasePath><code>BasePath</code></dt>
     <dd>
-        Global variable containing the <i>root path</i> of the application.
-        <br>All relative URL's within an OtoReact aplication are considered relative to this root path, and it is used to determine the current subpath.
-        <br>The current root path is "{RootPath}".
+        Global variable containing the <i>base path</i> of the application.
+        <br>All relative URL's within an OtoReact aplication are considered relative to this base path, and it is used to determine the current subpath.
+        <br>The current base path is "{BasePath}".
     </dd>
     <dt><code>docLocation</code></dt>
     <dd reacton=docLocation>
@@ -21,8 +21,8 @@
         <dl>
             <dt><code>docLocation.subpath</code></dt>
             <dd>
-                Part of the current pathname after the root path.
-                <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+RootPath).href}", it is "routing".
+                Part of the current pathname after the base path.
+                <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+BasePath).href}", it is "routing".
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
             <dt><code>docLocation.searchParams</code></dt>
@@ -45,14 +45,14 @@
         Command to navigate the application to <i>href</i>. It is the same as <code>docLocation.V = <i>href</i></code>.
         <br>This is useful for <elm>BUTTON onclick</elm> handlers.
     </dd>
-    <dt id=rootPattern><code>\{rootPattern: &hellip;\}</code></dt>
+    <dt id=basePattern><code>\{basePattern: &hellip;\}</code></dt>
     <dd>
-        Compiler option, specifying a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the <a href=RootPath>root path</a>.
+        Compiler option, specifying a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the <a href=BasePath>base path</a>.
         <br>This is only needed for applications that want to use routing on subpathes containing slashes.
-        <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the root path.
-        <br>If there is no match, then the root path is empty.
-        <p>The default rootPattern is "/".
-        <br>E.g., if an OtoReact application is loaded from URL "https://mydomain.org/myapplication/myroutedpage?query" and <code>rootPattern</code> is not explicitly set, then <code>RootPath</code> is set equal to the initial part of pathname "/myapplication/myroutedpage" up to and including the last slash, which is "/myapplication/".
+        <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the base path.
+        <br>If there is no match, then the base path is empty.
+        <p>The default basePattern is "/".
+        <br>E.g., if an OtoReact application is loaded from URL "https://mydomain.org/myapplication/myroutedpage?query" and <code>basePattern</code> is not explicitly set, then <code>BasePath</code> is set equal to the initial part of pathname "/myapplication/myroutedpage" up to and including the last slash, which is "/myapplication/".
     </dd>
 </dl>
 
@@ -151,9 +151,9 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
             <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler.</td>
         </tr>
         <tr>
-            <td>rootPattern</td><td>"/"</td>
+            <td>basePattern</td><td>"/"</td>
             <td>
-                Regular expression to identify the part of the URL that constitutes the <a href=#RootPath><i>root path</i></a>, see <a href="#rootPattern">rootPattern</a>.
+                Regular expression to identify the part of the URL that constitutes the <a href=#BasePath><i>base path</i></a>, see <a href="#basePattern">basePattern</a>.
                 <br>Relevant only for applications that use <a href=#URLRouting>URL routing</a>.
             </td>
         </tr>
