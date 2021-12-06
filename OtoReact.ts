@@ -466,6 +466,8 @@ function DefConstruct(env: Environment, name: string, construct: ConstructDef) {
     envActions.push(() => mapSet(constructs, name, prevDef));
 }
 
+let updCnt = 0;
+
 class RCompiler {
 
     static iNum=0;
@@ -585,15 +587,18 @@ class RCompiler {
     private mPreformatted = new Set<string>(['pre']);
         
     Subscriber({parent, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range, ...args ): Subscriber {
+        range.updated = updCnt;
         const sArea: Area = {
                 parent, bNoChildBuilding,
                 env: CloneEnv(env), 
                 range,
             },
             subscriber: Subscriber = () => {
-                if (!sArea.range.erased) {
+                const {range} = sArea;
+                if (!range.erased && range.updated < updCnt) {
+                    range.updated = updCnt;
                     (this as RCompiler).builtNodeCount++;
-                    sArea.before = sArea.range.Next;
+                    sArea.before = range.Next;
                     return builder.call(this, {...sArea}, ...args);
                 }
             };
@@ -651,6 +656,7 @@ class RCompiler {
             this.bUpdate = false;
             this.bUpdating = true;
             let savedRCompiler = R;
+            updCnt++;
             try {
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
@@ -827,7 +833,7 @@ class RCompiler {
                         const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
                         if (!rvar._Subscribers.size) // No subscribers yet?
                         {   // Then subscribe with the correct range
-                            sArea.range = range.next;
+                            (sArea.range = range.next).updated = 0;
                             subs.ref = {};
                             rvar.Subscribe(rvar.auto = subs);
                         }

@@ -192,7 +192,7 @@ with a caption -->
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item of=TODO.V key=item updates=TODO reacton=TODO>
+            <for let=item of=TODO.V key=item reacton=TODO reactive>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
                     <input type=checkbox @checked='item.U[1]'> 

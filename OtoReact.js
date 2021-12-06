@@ -332,6 +332,7 @@ function DefConstruct(env, name, construct) {
     constructs.set(name, construct);
     envActions.push(() => mapSet(constructs, name, prevDef));
 }
+let updCnt = 0;
 class RCompiler {
     constructor(clone) {
         this.clone = clone;
@@ -428,14 +429,17 @@ class RCompiler {
             console.log(msg);
     }
     Subscriber({ parent, bNoChildBuilding, env }, builder, range, ...args) {
+        range.updated = updCnt;
         const sArea = {
             parent, bNoChildBuilding,
             env: CloneEnv(env),
             range,
         }, subscriber = () => {
-            if (!sArea.range.erased) {
+            const { range } = sArea;
+            if (!range.erased && range.updated < updCnt) {
+                range.updated = updCnt;
                 this.builtNodeCount++;
-                sArea.before = sArea.range.Next;
+                sArea.before = range.Next;
                 return builder.call(this, { ...sArea }, ...args);
             }
         };
@@ -472,6 +476,7 @@ class RCompiler {
             this.bUpdate = false;
             this.bUpdating = true;
             let savedRCompiler = R;
+            updCnt++;
             try {
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
@@ -619,7 +624,7 @@ class RCompiler {
                 for (const subs of toSubscribe) {
                     const { sArea } = subs, { range } = sArea, rvar = range.value;
                     if (!rvar._Subscribers.size) {
-                        sArea.range = range.next;
+                        (sArea.range = range.next).updated = 0;
                         subs.ref = {};
                         rvar.Subscribe(rvar.auto = subs);
                     }
