@@ -25,8 +25,7 @@ type Area = {
     range?: Range,              // Existing piece of DOM
     parent: Node;               // DOM parent node
     env: Environment;
-    before?: Comment;
-    endMark?: Comment;
+    before?: ChildNode;
 
     /* When !range: */
     source?: ChildNode;         // Optional source node to be replaced by the range 
@@ -43,24 +42,26 @@ class Range<NodeType extends ChildNode = ChildNode> {
     
     child: Range;           // Linked list of children (null=empty)
     next: Range = null;     // Next item in linked list
+    parentR?: Range;
 
     /* For a range corresponding to a DOM node, the child ranges will correspond to child nodes of the DOM node.
     */
 
-    endMark?: Comment;
-    before?: Comment;   // Can be the endmark of the current range or of a parent range
-
     constructor(
-        public node?: NodeType,     // Corresponding DOM node, if any
+        public node: NodeType,     // Corresponding DOM node, if any
+        area: Area,
         public text?: string,       // Description, used only for comments
     ) {
         if (!node) this.child = null;
+        if (area && !area.parentR?.node)
+            this.parentR = area.parentR;
     }
     toString() { return this.text || this.node?.nodeName; }
 
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    erased?: boolean;
 
     // Only for FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
@@ -78,7 +79,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
             if (f = child.First) return f;
             child = child.next;
         }
-        return this.endMark || null;
+        return null;
     }
 
     // Enumerate all DOM nodes within this range, not including their children
@@ -87,20 +88,39 @@ class Range<NodeType extends ChildNode = ChildNode> {
             if (r.node)
                 yield r.node;
             else {
-                let child = r.child;
+                let {child} = r;
                 while (child) {
                     yield* Nodes(child as Range);
                     child = child.next;
                 }
             }
-            if (r.endMark)
-                yield r.endMark;
         })(this)
     }
+
+    erase(parent: Node) {
+        if (this.node)
+            parent.removeChild(this.node);
+        else {
+            let {child} = this;
+            this.child = null;
+            while (child) {
+                child.erase(parent);
+                child.erased = true;
+                child.parentR = null;
+                child = child.next;
+            }
+        }
+    }
     
-    public get isConnected(): boolean {
-        const f = this.First;
-        return f && f.isConnected;
+    public get Next(): ChildNode {
+        let r: Range = this, n: ChildNode, p: Range;
+        do {
+            p = r.parentR;
+            while (r = r.next)
+                if (n = r.First)
+                    return n;
+        } while (r = p)
+        return null;
     }
 }
 
@@ -124,35 +144,31 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     result?: any,
 ) : {range: Range, subArea:Area, bInit: boolean}
 {
-    let {parent, env, range, before, endMark} = area,
+    let {parent, env, range, before} = area,
         subArea: Area = {parent, env, range: null, }
         , bInit = !range;
     if (bInit) {
         subArea.source = area.source;
         if (srcElm) text = `${srcElm.localName}${text?' ':''}${text}`;
         
-        UpdatePrevArea(area, range = subArea.parentR = new Range(null, text));
+        UpdatePrevArea(area, range = subArea.parentR = new Range(null, area, text));
         range.result = result;
 
-        if (bMark)
-            before = range.before = 
-                endMark !== undefined ? endMark 
-                : range.endMark = parent.insertBefore<Comment>(document.createComment('/'+text), before);
+        //if (bMark)
+            //before = range.before = 
+            //    endMark !== undefined ? endMark 
+            //    : range.endMark = parent.insertBefore<Comment>(document.createComment('/'+text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
 
         if (bMark) {
-            before = range.before;
+            //before = range.before;
+            before = range.Next;
             if (bMark==1 && result != range.result || bMark==2) {
                 range.result = result;
-                let node = range.First || before;
-                while (node != before) {
-                    const next = node.nextSibling;
-                    parent.removeChild(node);
-                    node = next;
-                }
+                range.erase(parent);                 
                 range.child = null;
                 subArea.range = null;
                 subArea.parentR = range;
@@ -161,17 +177,17 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
         }
     }
     
-    subArea.endMark = (subArea.before = before) || area.endMark;
+    //subArea.endMark = (
+        subArea.before = before
+    //) || area.endMark;
     return {range, subArea, bInit};
 }
 function UpdatePrevArea(area: Area, range: Range) {
     let r: Range
-    if (r = area.parentR) {
-        r.child = range;
-        area.parentR = null;
-    }
-    else if (r = area.prevR) 
+    if (r = area.prevR) 
         r.next = range;
+    else if (r = area.parentR)
+        r.child = range;
 
     area.prevR = range;
 }
@@ -185,7 +201,7 @@ function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm
             ? (srcElm.innerHTML = "", srcElm)
             : area.parent.insertBefore<HTMLElement>(document.createElement(nodeName), area.before)
             );
-        elmRange = new Range(elm) as Range<HTMLElement> & T;
+        elmRange = new Range(elm, area) as Range<HTMLElement> & T;
         UpdatePrevArea(area, elmRange);
     }
     else {
@@ -193,20 +209,21 @@ function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm
     }
     return {elmRange, 
         childArea: {parent: elmRange.node, range: elmRange.child, 
-            before: null, endMark: null,
+            before: null,
             env: area.env, 
             parentR: elmRange
         },
         bInit};
 }
 
-function PrepText(area: Area, content: string, bComm?: boolean) {
+function PrepCharData(area: Area, content: string, bComm?: boolean) {
     let range = area.range as Range<CharacterData>;
     if (!range) {
         range = new Range(
             area.parent.insertBefore(
                 bComm ? document.createComment(content) : document.createTextNode(content)
                 , area.before)
+            , area
         );
         UpdatePrevArea(area, range);
     } else {
@@ -567,20 +584,21 @@ class RCompiler {
 
     private mPreformatted = new Set<string>(['pre']);
         
-    Subscriber({parent, before, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range, ...args ): Subscriber {
-        const sArea = {
-                parent, before, bNoChildBuilding,
+    Subscriber({parent, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range, ...args ): Subscriber {
+        const sArea: Area = {
+                parent, bNoChildBuilding,
                 env: CloneEnv(env), 
                 range,
             },
             subscriber: Subscriber = () => {
-                if (sArea.parent.isConnected) {
+                if (!sArea.range.erased) {
                     (this as RCompiler).builtNodeCount++;
+                    sArea.before = sArea.range.Next;
                     return builder.call(this, {...sArea}, ...args);
                 }
             };
         subscriber.sArea = sArea;
-        subscriber.ref = before;
+        subscriber.ref = range;
         return subscriber;
     }
 
@@ -688,13 +706,15 @@ class RCompiler {
             Object.defineProperty(t, 'U',
                 {get:
                     () => {
-                        for (const sub of t._Subscribers)
-                            R.AddDirty(sub);
-                        if (t._UpdatesTo?.length)
-                            for (const rvar of t._UpdatesTo)
-                                rvar.SetDirty();
-                        else
-                            R.RUpdate();
+                        if (!bReadOnly) {
+                            for (const sub of t._Subscribers)
+                                R.AddDirty(sub);
+                            if (t._UpdatesTo?.length)
+                                for (const rvar of t._UpdatesTo)
+                                    rvar.SetDirty();
+                            else
+                                R.RUpdate();
+                        }
                         return t;
                     }
                 }
@@ -751,8 +771,8 @@ class RCompiler {
                     if (fixed !== '') { // Either nonempty or undefined
                         builder = 
                             [ fixed 
-                                ? async (area: Area) => PrepText(area, fixed)
-                                : async (area: Area) => PrepText(area, getText(area.env))
+                                ? async (area: Area) => PrepCharData(area, fixed)
+                                : async (area: Area) => PrepCharData(area, getText(area.env))
                             , srcNode
                             , fixed==' ' ];
                         
@@ -765,7 +785,7 @@ class RCompiler {
                     if (this.Settings.bKeepComments) {
                         const getText = this.CompString(srcNode.nodeValue, 'Comment');
                         builder =
-                            [ async (area:Area)=> PrepText(area, getText(area.env), true), srcNode, 1]
+                            [ async (area:Area)=> PrepCharData(area, getText(area.env), true), srcNode, 1]
                     }
                     break;
             }
@@ -796,17 +816,14 @@ class RCompiler {
             {                
                 let i=0;
                 if (!area.range) {
-                    const {endMark} = area;
-                    area.endMark = undefined;
                     const toSubscribe: Array<Subscriber> = [];
                     for (const [builder] of builders) {
                         i++;
-                        if (i==builders.length) area.endMark = endMark;
                         await builder.call(this, area);
                         if (builder.auto)  // Auto subscribe?
                             toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i)); // Not yet the correct range, we need the next range
                     }
-                    for(const subs of toSubscribe) {
+                    for (const subs of toSubscribe) {
                         const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
                         if (!rvar._Subscribers.size) // No subscribers yet?
                         {   // Then subscribe with the correct range
@@ -1170,7 +1187,7 @@ class RCompiler {
                                     elmRange.hdrElms = R.AddedHeaderElements;
                                     
                                     const subArea: Area = 
-                                        {parent: shadowRoot, range: null, env: NewEnv(), parentR: new Range(null, 'Shadow')};
+                                        {parent: shadowRoot, range: null, env: NewEnv(), parentR: new Range(null, null, 'Shadow')};
                                     /* R.StyleBefore = subArea.marker; */
                                     await R.InitialBuild(subArea);
                                     this.builtNodeCount += R.builtNodeCount;
@@ -1479,7 +1496,7 @@ class RCompiler {
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
                     const {range, subArea} = PrepArea(srcElm, area, '', true),
-                        {parent, env} = subArea,
+                        {parent, env, before} = subArea,
                         savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
@@ -1518,7 +1535,6 @@ class RCompiler {
                             , prevRange: Range = null,
                             childArea: Area;
                         subArea.parentR = range;
-                        subArea.endMark = undefined;
 
                         if (nextIterator) nextIterator.next();
 
@@ -1527,9 +1543,7 @@ class RCompiler {
                             while (nextChild && !newMap.has(k = nextChild.key)) {
                                 if (k != null)
                                     keyMap.delete(k);
-                                for (const node of nextChild.Nodes())
-                                    //if (node.isConnected) 
-                                    parent.removeChild(node);
+                                nextChild.erase(parent);
                                 nextChild.prev = null;
                                 nextChild = nextChild.next;
                             }
@@ -1546,7 +1560,7 @@ class RCompiler {
                                 // Item has to be newly created
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
-                                subArea.before = nextChild?.First as Comment || range.endMark;
+                                subArea.before = nextChild?.First || nextChild?.Next || before;
                                 // ';' before '(' is needed for our minify routine
                                 ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`, true));
                                 if (key != null) {
@@ -1560,7 +1574,7 @@ class RCompiler {
                                 // Item already occurs in the series
                                 
                                 if (childRange.fragm) {
-                                    const nextNode = nextChild?.First || range.endMark;
+                                    const nextNode = nextChild?.First || nextChild?.Next || before;
                                     parent.insertBefore(childRange.fragm, nextNode);
                                     childRange.fragm = null;
                                 }
@@ -1583,7 +1597,7 @@ class RCompiler {
                                             childRange.prev.next = childRange.next;
                                             if (childRange.next)
                                                 childRange.next.prev = childRange.prev;
-                                            const nextNode = nextChild?.First || range.endMark;
+                                            const nextNode = nextChild?.First || nextChild?.Next || before;
                                             for (const node of childRange.Nodes())
                                                 parent.insertBefore(node, nextNode);
                                         }
@@ -1666,7 +1680,6 @@ class RCompiler {
                         saved= SaveEnv(),
                         slotDef = env.constructs.get(slotName),
                         setIndex = initIndex(area.env);
-                    subArea.endMark = undefined;
                     try {
                         let index = 0;
                         for (const slotBuilder of slotDef.templates) {
@@ -2336,7 +2349,7 @@ class _RVAR<T = unknown>{
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (!sub.sArea || sub.sArea.parent.isConnected)
+            else if (!sub.sArea?.range?.erased)
                 { this.MainC.AddDirty(sub); b=true}
             else
                 this._Subscribers.delete(sub);

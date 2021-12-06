@@ -20,25 +20,24 @@ declare type Area = {
     range?: Range;
     parent: Node;
     env: Environment;
-    before?: Comment;
-    endMark?: Comment;
+    before?: ChildNode;
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
     bNoChildBuilding?: boolean;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
-    node?: NodeType;
+    node: NodeType;
     text?: string;
     child: Range;
     next: Range;
-    endMark?: Comment;
-    before?: Comment;
-    constructor(node?: NodeType, text?: string);
+    parentR?: Range;
+    constructor(node: NodeType, area: Area, text?: string);
     toString(): string;
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    erased?: boolean;
     hash?: Hash;
     key?: Key;
     prev?: Range;
@@ -47,7 +46,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     updated?: number;
     get First(): ChildNode;
     Nodes(): Generator<ChildNode>;
-    get isConnected(): boolean;
+    erase(parent: Node): void;
+    get Next(): ChildNode;
 }
 declare type Environment = Array<unknown> & {
     constructs: Map<string, ConstructDef>;
@@ -102,7 +102,7 @@ declare class RCompiler {
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
     logTime(msg: string): void;
     private mPreformatted;
-    Subscriber({ parent, before, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
+    Subscriber({ parent, bNoChildBuilding, env }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
     InitialBuild(area: Area): Promise<void>;
     Settings: FullSettings;
     private AllAreas;
