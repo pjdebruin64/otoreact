@@ -42,6 +42,19 @@ class Range {
         }
         return null;
     }
+    get Next() {
+        let r = this, n, p;
+        do {
+            p = r.parentR;
+            while (r = r.next)
+                if (n = r.First)
+                    return n;
+        } while (r = p);
+        return null;
+    }
+    get FirstOrNext() {
+        return this.First || this.Next;
+    }
     Nodes() {
         return (function* Nodes(r) {
             if (r.node)
@@ -68,16 +81,6 @@ class Range {
                 child = child.next;
             }
         }
-    }
-    get Next() {
-        let r = this, n, p;
-        do {
-            p = r.parentR;
-            while (r = r.next)
-                if (n = r.First)
-                    return n;
-        } while (r = p);
-        return null;
     }
 }
 const DUndef = _ => undefined;
@@ -1110,7 +1113,7 @@ class RCompiler {
                 throw message;
             console.log(message);
             if (this.Settings.bShowErrors) {
-                const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.First);
+                const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
                 if (range)
                     range.errorNode = errorNode;
             }
@@ -1235,7 +1238,7 @@ class RCompiler {
                             if (bInit) {
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
-                                subArea.before = nextChild?.First || nextChild?.Next || before;
+                                subArea.before = nextChild?.FirstOrNext || before;
                                 ;
                                 ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`, true));
                                 if (key != null) {
@@ -1247,7 +1250,7 @@ class RCompiler {
                             }
                             else {
                                 if (childRange.fragm) {
-                                    const nextNode = nextChild?.First || nextChild?.Next || before;
+                                    const nextNode = nextChild?.FirstOrNext || before;
                                     parent.insertBefore(childRange.fragm, nextNode);
                                     childRange.fragm = null;
                                 }
@@ -1267,12 +1270,13 @@ class RCompiler {
                                             childRange.prev.next = childRange.next;
                                             if (childRange.next)
                                                 childRange.next.prev = childRange.prev;
-                                            const nextNode = nextChild?.First || nextChild?.Next || before;
+                                            const nextNode = nextChild?.FirstOrNext || before;
                                             for (const node of childRange.Nodes())
                                                 parent.insertBefore(node, nextNode);
                                         }
                                         break;
                                     }
+                                childRange.next = nextChild;
                                 childRange.text = `${varName}(${idx})`;
                                 if (prevRange)
                                     prevRange.next = childRange;

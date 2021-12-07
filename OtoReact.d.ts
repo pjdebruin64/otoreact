@@ -45,9 +45,10 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     rvar?: RVAR_Light<Item>;
     updated?: number;
     get First(): ChildNode;
+    get Next(): ChildNode;
+    get FirstOrNext(): ChildNode;
     Nodes(): Generator<ChildNode>;
     erase(parent: Node): void;
-    get Next(): ChildNode;
 }
 declare type Environment = Array<unknown> & {
     constructs: Map<string, ConstructDef>;

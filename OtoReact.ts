@@ -81,6 +81,20 @@ class Range<NodeType extends ChildNode = ChildNode> {
         }
         return null;
     }
+    
+    public get Next(): ChildNode {
+        let r: Range = this, n: ChildNode, p: Range;
+        do {
+            p = r.parentR;
+            while (r = r.next)
+                if (n = r.First)
+                    return n;
+        } while (r = p)
+        return null;
+    }
+    public get FirstOrNext() {
+        return this.First || this.Next;
+    }
 
     // Enumerate all DOM nodes within this range, not including their children
     Nodes(): Generator<ChildNode> { 
@@ -110,17 +124,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
                 child = child.next;
             }
         }
-    }
-    
-    public get Next(): ChildNode {
-        let r: Range = this, n: ChildNode, p: Range;
-        do {
-            p = r.parentR;
-            while (r = r.next)
-                if (n = r.First)
-                    return n;
-        } while (r = p)
-        return null;
     }
 }
 
@@ -1398,7 +1401,7 @@ class RCompiler {
             console.log(message);
             if (this.Settings.bShowErrors) {
                 const errorNode =
-                    area.parent.insertBefore(createErrorNode(message), area.range?.First);
+                    area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
                 if (range)
                     range.errorNode = errorNode;    /* */
             }
@@ -1566,7 +1569,7 @@ class RCompiler {
                                 // Item has to be newly created
                                 subArea.range = null;
                                 subArea.prevR = prevRange;
-                                subArea.before = nextChild?.First || nextChild?.Next || before;
+                                subArea.before = nextChild?.FirstOrNext || before;
                                 // ';' before '(' is needed for our minify routine
                                 ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`, true));
                                 if (key != null) {
@@ -1580,7 +1583,7 @@ class RCompiler {
                                 // Item already occurs in the series
                                 
                                 if (childRange.fragm) {
-                                    const nextNode = nextChild?.First || nextChild?.Next || before;
+                                    const nextNode = nextChild?.FirstOrNext || before;
                                     parent.insertBefore(childRange.fragm, nextNode);
                                     childRange.fragm = null;
                                 }
@@ -1603,13 +1606,14 @@ class RCompiler {
                                             childRange.prev.next = childRange.next;
                                             if (childRange.next)
                                                 childRange.next.prev = childRange.prev;
-                                            const nextNode = nextChild?.First || nextChild?.Next || before;
+                                            const nextNode = nextChild?.FirstOrNext || before;
                                             for (const node of childRange.Nodes())
                                                 parent.insertBefore(node, nextNode);
                                         }
                                         break;
                                     }
 
+                                childRange.next = nextChild;
                                 childRange.text = `${varName}(${idx})`;
 
                                 if (prevRange) 
