@@ -203,13 +203,17 @@ function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm
     else {
         area.range = range.next
     }
-    return { range, 
-            childArea: {parent: range.node, range: range.child, 
+    return { 
+        range, 
+        childArea: {
+            parent: range.node, 
+            range: range.child, 
             before: null,
             env: area.env, 
             parentR: range
         },
-        bInit};
+        bInit
+    };
 }
 
 function PrepCharData(area: Area, content: string, bComm?: boolean) {
