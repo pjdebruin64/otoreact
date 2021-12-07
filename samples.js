@@ -173,6 +173,7 @@ const sampleTODO=
     // Define the data model of our todo list
     let TODO = RVAR('TODO',
         [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
+        , sessionStorage
     );
     // Adding an item to the list
     function AddItem(inputElem) {

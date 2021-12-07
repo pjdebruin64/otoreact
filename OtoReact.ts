@@ -67,6 +67,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     hash?: Hash; key?: Key; prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
+    subs?: Subscriber<Item>;
 
     // For reactive elements
     updated?: number;
@@ -148,41 +149,33 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
 ) : {range: Range, subArea:Area, bInit: boolean}
 {
     let {parent, env, range, before} = area,
-        subArea: Area = {parent, env, range: null, }
+        subArea: Area = {parent, env, range: null }
         , bInit = !range;
     if (bInit) {
         subArea.source = area.source;
+        subArea.before = area.before;
         if (srcElm) text = `${srcElm.localName}${text?' ':''}${text}`;
         
         UpdatePrevArea(area, range = subArea.parentR = new Range(null, area, text));
         range.result = result;
-
-        //if (bMark)
-            //before = range.before = 
-            //    endMark !== undefined ? endMark 
-            //    : range.endMark = parent.insertBefore<Comment>(document.createComment('/'+text), before);
     }
     else {
         subArea.range = range.child;
         area.range = range.next;
 
         if (bMark) {
-            //before = range.before;
-            before = range.Next;
             if (bMark==1 && result != range.result || bMark==2) {
                 range.result = result;
                 range.erase(parent);                 
                 range.child = null;
                 subArea.range = null;
+                subArea.before = range.Next;
                 subArea.parentR = range;
                 bInit = true;
             }
         }
     }
     
-    //subArea.endMark = (
-        subArea.before = before
-    //) || area.endMark;
     return {range, subArea, bInit};
 }
 function UpdatePrevArea(area: Area, range: Range) {
@@ -196,25 +189,25 @@ function UpdatePrevArea(area: Area, range: Range) {
 }
 
 function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeName): 
-    {elmRange: Range<HTMLElement> & T, childArea: Area, bInit: boolean} {
-    let elmRange = area.range as Range<HTMLElement> & T, bInit = !elmRange;
+    {range: Range<HTMLElement> & T, childArea: Area, bInit: boolean} {
+    let range = area.range as Range<HTMLElement> & T, bInit = !range;
     if (bInit) {
         const elm: HTMLElement =
             ( area.source == srcElm
             ? (srcElm.innerHTML = "", srcElm)
             : area.parent.insertBefore<HTMLElement>(document.createElement(nodeName), area.before)
             );
-        elmRange = new Range(elm, area) as Range<HTMLElement> & T;
-        UpdatePrevArea(area, elmRange);
+        range = new Range(elm, area) as Range<HTMLElement> & T;
+        UpdatePrevArea(area, range);
     }
     else {
-        area.range = elmRange.next
+        area.range = range.next
     }
-    return {elmRange, 
-        childArea: {parent: elmRange.node, range: elmRange.child, 
+    return { range, 
+            childArea: {parent: range.node, range: range.child, 
             before: null,
             env: area.env, 
-            parentR: elmRange
+            parentR: range
         },
         bInit};
 }
@@ -287,11 +280,13 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 function assignEnv(target: Environment, source: Environment) {
-    const {constructs} = target;
+    //const {constructs} = target;
     Object.assign(target, source);
+    /*
     target.constructs = constructs;
     for (const [key,val] of source.constructs.entries())
-        constructs.get(key).constructEnv = val.constructEnv;
+        constructs.set(key, val);
+    */
 }
 
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
@@ -601,7 +596,6 @@ class RCompiler {
                 if (!range.erased && range.updated < updCnt) {
                     range.updated = updCnt;
                     (this as RCompiler).builtNodeCount++;
-                    sArea.before = range.Next;
                     return builder.call(this, {...sArea}, ...args);
                 }
             };
@@ -1035,8 +1029,8 @@ class RCompiler {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
                                     for (const alt of caseList) {
-                                        const {elmRange, childArea, bInit} = PrepareElement(alt.node, area);
-                                        const bHidden = elmRange.node.hidden = alt != choosenAlt;
+                                        const {range, childArea, bInit} = PrepareElement(alt.node, area);
+                                        const bHidden = range.node.hidden = alt != choosenAlt;
                                         if ((!bHidden || bInit) && !area.bNoChildBuilding)
                                             await this.CallWithHandling(alt.builder, alt.node, childArea );
                                     }
@@ -1175,25 +1169,25 @@ class RCompiler {
                         builder = async function RHTML(this: RCompiler, area) {
                             const srctext = getSrctext(area.env);
                             
-                            const {elmRange, bInit} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
-                                {node} = elmRange;
+                            const {range, bInit} = PrepareElement<{hdrElms: ChildNode[]}>(srcElm, area, 'rhtml-rhtml'), 
+                                {node} = range;
                             ApplyModifiers(node, modifs, area.env, bInit);
 
-                            if (area.prevR || srctext != elmRange.result) {
-                                elmRange.result = srctext;
+                            if (area.prevR || srctext != range.result) {
+                                range.result = srctext;
                                 const shadowRoot = node.shadowRoot || node.attachShadow({mode: 'open'}),
                                     tempElm = document.createElement('rhtml');
 
                                 try {
                                     tempElm.innerHTML = srctext;
-                                    if (elmRange.hdrElms) {
-                                        for (const elm of elmRange.hdrElms) elm.remove();
-                                        elmRange.hdrElms = null;
+                                    if (range.hdrElms) {
+                                        for (const elm of range.hdrElms) elm.remove();
+                                        range.hdrElms = null;
                                     }
                                     const R = new RCompiler();; // Double ;; is needed for our minifier
                                     (R.head = shadowRoot).innerHTML = '';
                                     R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
-                                    elmRange.hdrElms = R.AddedHeaderElements;
+                                    range.hdrElms = R.AddedHeaderElements;
                                     
                                     const subArea: Area = 
                                         {parent: shadowRoot, range: null, env: NewEnv(), parentR: new Range(null, null, 'Shadow')};
@@ -1488,24 +1482,23 @@ class RCompiler {
                 bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
-                    initVar = this.NewVar(varName),
+                initVar = this.NewVar(varName),
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
-                    initIndex = this.NewVar(indexName),
-                    initPrevious = this.NewVar(prevName),
-                    initNext = this.NewVar(nextName),
+                initIndex = this.NewVar(indexName),
+                initPrevious = this.NewVar(prevName),
+                initNext = this.NewVar(nextName),
 
-                    getKey = this.CompAttrExpr<Key>(atts, 'key'),
-                    getHash = this.CompAttrExpr<Hash>(atts, 'hash'),
+                getKey = this.CompAttrExpr<Key>(atts, 'key'),
+                getHash = this.CompAttrExpr<Hash>(atts, 'hash'),
 
                 // Compileer alle childNodes
-                    bodyBuilder = this.CompChildNodes(srcElm);
-                
-                //srcParent.removeChild(srcElm);
+                bodyBuilder = this.CompChildNodes(srcElm);
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
                     const {range, subArea} = PrepArea(srcElm, area, '', true),
-                        {parent, env, before} = subArea,
+                        {parent, env} = subArea,
+                        before = subArea.before !== undefined ? subArea.before : range.Next,
                         savedEnv = SaveEnv();
                     try {
                         // Map of previous data, if any
@@ -1655,13 +1648,10 @@ class RCompiler {
 
                                 if (rvar)
                                     if (childRange.rvar)
-                                        for (const subs of rvar._Subscribers) {
-                                            Object.assign(subs.sArea.env, env);
-                                            break;
-                                        }
+                                        assignEnv(childRange.subs.sArea.env, env);
                                     else
                                         rvar.Subscribe(
-                                            this.Subscriber(childArea, bodyBuilder, childRange.child)
+                                            childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child)
                                         );
                                 childRange.rvar = rvar
                             }
@@ -1839,7 +1829,7 @@ class RCompiler {
                     }
 
                     if (bEncaps) {
-                        const {elmRange, childArea, bInit} = PrepareElement(srcElm, area, customName), 
+                        const {range: elmRange, childArea, bInit} = PrepareElement(srcElm, area, customName), 
                             elm = elmRange.node,
                             shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
                         if (bInit)
@@ -1970,7 +1960,7 @@ class RCompiler {
 
         // Now the runtime action
         const builder: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
-            const {elmRange: {node}, childArea, bInit} = PrepareElement(srcElm, area, name);
+            const {range: {node}, childArea, bInit} = PrepareElement(srcElm, area, name);
             
             if (!area.bNoChildBuilding)
                 // Build children

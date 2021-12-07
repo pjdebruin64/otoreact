@@ -43,6 +43,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
+    subs?: Subscriber<Item>;
     updated?: number;
     get First(): ChildNode;
     get Next(): ChildNode;

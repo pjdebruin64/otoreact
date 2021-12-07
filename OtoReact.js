@@ -85,9 +85,10 @@ class Range {
 }
 const DUndef = _ => undefined;
 function PrepArea(srcElm, area, text = '', bMark, result) {
-    let { parent, env, range, before } = area, subArea = { parent, env, range: null, }, bInit = !range;
+    let { parent, env, range, before } = area, subArea = { parent, env, range: null }, bInit = !range;
     if (bInit) {
         subArea.source = area.source;
+        subArea.before = area.before;
         if (srcElm)
             text = `${srcElm.localName}${text ? ' ' : ''}${text}`;
         UpdatePrevArea(area, range = subArea.parentR = new Range(null, area, text));
@@ -97,18 +98,17 @@ function PrepArea(srcElm, area, text = '', bMark, result) {
         subArea.range = range.child;
         area.range = range.next;
         if (bMark) {
-            before = range.Next;
             if (bMark == 1 && result != range.result || bMark == 2) {
                 range.result = result;
                 range.erase(parent);
                 range.child = null;
                 subArea.range = null;
+                subArea.before = range.Next;
                 subArea.parentR = range;
                 bInit = true;
             }
         }
     }
-    subArea.before = before;
     return { range, subArea, bInit };
 }
 function UpdatePrevArea(area, range) {
@@ -120,22 +120,22 @@ function UpdatePrevArea(area, range) {
     area.prevR = range;
 }
 function PrepareElement(srcElm, area, nodeName = srcElm.nodeName) {
-    let elmRange = area.range, bInit = !elmRange;
+    let range = area.range, bInit = !range;
     if (bInit) {
         const elm = (area.source == srcElm
             ? (srcElm.innerHTML = "", srcElm)
             : area.parent.insertBefore(document.createElement(nodeName), area.before));
-        elmRange = new Range(elm, area);
-        UpdatePrevArea(area, elmRange);
+        range = new Range(elm, area);
+        UpdatePrevArea(area, range);
     }
     else {
-        area.range = elmRange.next;
+        area.range = range.next;
     }
-    return { elmRange,
-        childArea: { parent: elmRange.node, range: elmRange.child,
+    return { range,
+        childArea: { parent: range.node, range: range.child,
             before: null,
             env: area.env,
-            parentR: elmRange
+            parentR: range
         },
         bInit };
 }
@@ -192,11 +192,7 @@ function CloneEnv(env) {
     return clone;
 }
 function assignEnv(target, source) {
-    const { constructs } = target;
     Object.assign(target, source);
-    target.constructs = constructs;
-    for (const [key, val] of source.constructs.entries())
-        constructs.get(key).constructEnv = val.constructEnv;
 }
 class Signature {
     constructor(srcElm) {
@@ -442,7 +438,6 @@ class RCompiler {
             if (!range.erased && range.updated < updCnt) {
                 range.updated = updCnt;
                 this.builtNodeCount++;
-                sArea.before = range.Next;
                 return builder.call(this, { ...sArea }, ...args);
             }
         };
@@ -797,8 +792,8 @@ class RCompiler {
                                         }
                                     if (bHiding) {
                                         for (const alt of caseList) {
-                                            const { elmRange, childArea, bInit } = PrepareElement(alt.node, area);
-                                            const bHidden = elmRange.node.hidden = alt != choosenAlt;
+                                            const { range, childArea, bInit } = PrepareElement(alt.node, area);
+                                            const bHidden = range.node.hidden = alt != choosenAlt;
                                             if ((!bHidden || bInit) && !area.bNoChildBuilding)
                                                 await this.CallWithHandling(alt.builder, alt.node, childArea);
                                         }
@@ -912,23 +907,23 @@ class RCompiler {
                             this.wspc = WSpc.block;
                             builder = async function RHTML(area) {
                                 const srctext = getSrctext(area.env);
-                                const { elmRange, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), { node } = elmRange;
+                                const { range, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), { node } = range;
                                 ApplyModifiers(node, modifs, area.env, bInit);
-                                if (area.prevR || srctext != elmRange.result) {
-                                    elmRange.result = srctext;
+                                if (area.prevR || srctext != range.result) {
+                                    range.result = srctext;
                                     const shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml');
                                     try {
                                         tempElm.innerHTML = srctext;
-                                        if (elmRange.hdrElms) {
-                                            for (const elm of elmRange.hdrElms)
+                                        if (range.hdrElms) {
+                                            for (const elm of range.hdrElms)
                                                 elm.remove();
-                                            elmRange.hdrElms = null;
+                                            range.hdrElms = null;
                                         }
                                         const R = new RCompiler();
                                         ;
                                         (R.head = shadowRoot).innerHTML = '';
                                         R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, false);
-                                        elmRange.hdrElms = R.AddedHeaderElements;
+                                        range.hdrElms = R.AddedHeaderElements;
                                         const subArea = { parent: shadowRoot, range: null, env: NewEnv(), parentR: new Range(null, null, 'Shadow') };
                                         await R.InitialBuild(subArea);
                                         this.builtNodeCount += R.builtNodeCount;
@@ -1192,7 +1187,7 @@ class RCompiler {
                     nextName = 'next';
                 const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOR(area) {
-                    const { range, subArea } = PrepArea(srcElm, area, '', true), { parent, env, before } = subArea, savedEnv = SaveEnv();
+                    const { range, subArea } = PrepArea(srcElm, area, '', true), { parent, env } = subArea, before = subArea.before !== undefined ? subArea.before : range.Next, savedEnv = SaveEnv();
                     try {
                         const keyMap = range.value ||= new Map(), newMap = new Map(), setVar = initVar(env), setIndex = initIndex(env);
                         let iterable = getRange(env);
@@ -1309,12 +1304,9 @@ class RCompiler {
                                 await bodyBuilder.call(this, childArea);
                                 if (rvar)
                                     if (childRange.rvar)
-                                        for (const subs of rvar._Subscribers) {
-                                            Object.assign(subs.sArea.env, env);
-                                            break;
-                                        }
+                                        assignEnv(childRange.subs.sArea.env, env);
                                     else
-                                        rvar.Subscribe(this.Subscriber(childArea, bodyBuilder, childRange.child));
+                                        rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child));
                                 childRange.rvar = rvar;
                             }
                             prevItem = item;
@@ -1454,7 +1446,7 @@ class RCompiler {
                         i++;
                     }
                     if (bEncaps) {
-                        const { elmRange, childArea, bInit } = PrepareElement(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
+                        const { range: elmRange, childArea, bInit } = PrepareElement(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
                         if (bInit)
                             for (const style of styles)
                                 shadow.appendChild(style.cloneNode(true));
@@ -1543,7 +1535,7 @@ class RCompiler {
         if (postWs)
             this.wspc = postWs;
         const builder = async function ELEMENT(area) {
-            const { elmRange: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
+            const { range: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
             if (!area.bNoChildBuilding)
                 await childnodesBuilder.call(this, childArea);
             node.removeAttribute('class');
