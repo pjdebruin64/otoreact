@@ -53,6 +53,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
 }
 declare type Environment = Array<unknown> & {
     constructs: Map<string, ConstructDef>;
+    onerror?: Handler;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
@@ -64,6 +65,7 @@ declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     bImm?: boolean;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
+declare type Handler = (ev: Event) => any;
 declare type ConstructDef = {
     templates: Template[];
     constructEnv: Environment;
@@ -87,8 +89,9 @@ declare class RCompiler {
     instanceNum: number;
     private ContextMap;
     private context;
-    private cRvars;
     private CSignatures;
+    private bOnerror;
+    private cRvars;
     private head;
     private StyleBefore;
     private AddedHeaderElements;

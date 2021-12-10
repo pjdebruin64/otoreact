@@ -196,9 +196,10 @@ with a caption -->
             <for let=item of=TODO.V key=item reacton=TODO reactive>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
-                    <input type=checkbox @checked='item.U[1]'> 
-                    {item[0]}
-                    <br>
+                    <label style="display: block">
+                      <input type=checkbox @checked='item.U[1]'> 
+                      {item[0]}
+                    </label>
                 </if>
             </for>
         </p>

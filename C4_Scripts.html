@@ -193,8 +193,12 @@ Here you have a playground to enter your own Reactive HTML.
     <for let=rvar of="Playgrounds.V" index key=index>
         <demo #rvar="rvar"></demo>
     </for>
-    <button onclick="playCount.V++">Add another playground</button>
+    <button onclick="playCount.V++">
+        Add another playground
+    </button>
     <if cond="playCount.V > 1">
-        <button onclick="playCount.V--; Playgrounds.V[playCount.V]=undefined">Remove one playground</button>
+        <button onclick="playCount.V--; Playgrounds.V[playCount.V]=undefined">
+            Remove last playground
+        </button>
     </if>
 </react>

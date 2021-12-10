@@ -357,6 +357,7 @@ class RCompiler {
         this.context = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
+        this.bOnerror = clone?.bOnerror;
         this.Settings = clone ? { ...clone.Settings } : { ...defaultSettings };
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.head = clone?.head || document.head;
@@ -432,14 +433,15 @@ class RCompiler {
             console.log(msg);
     }
     Subscriber({ parent, bNoChildBuilding, env }, builder, range, ...args) {
-        range.updated = updCnt;
+        if (range)
+            range.updated = updCnt;
         const sArea = {
             parent, bNoChildBuilding,
             env: CloneEnv(env),
             range,
         }, subscriber = () => {
             const { range } = sArea;
-            if (!range.erased && range.updated < updCnt) {
+            if (!range.erased && (range.updated ?? 0) < updCnt) {
                 range.updated = updCnt;
                 this.builtNodeCount++;
                 return builder.call(this, { ...sArea }, ...args);
@@ -1003,13 +1005,16 @@ class RCompiler {
                         }
                         ;
                         break;
-                    case 'head.':
+                    case 'rhead':
                         {
-                            const childBuilder = this.CompChildNodes(srcElm);
-                            builder = function HEAD({ parent, env }) {
-                                const head = parent.ownerDocument.head;
-                                return childBuilder.call(this, { parent: head, env });
+                            const childBuilder = this.CompChildNodes(srcElm), { wspc } = this;
+                            this.wspc = this.rspc = WSpc.block;
+                            builder = async function HEAD(area) {
+                                const { subArea } = PrepArea(srcElm, area);
+                                subArea.parent = area.parent.ownerDocument.head;
+                                await childBuilder.call(this, subArea);
                             };
+                            this.wspc = wspc;
                             isBlank = 1;
                         }
                         ;
@@ -1189,7 +1194,7 @@ class RCompiler {
                 let nextName = atts.get('next');
                 if (nextName == '')
                     nextName = 'next';
-                const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
+                const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = CBool(atts.get('reacting') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
                 return async function FOR(area) {
                     const { range, subArea } = PrepArea(srcElm, area, '', true), { parent, env } = subArea, before = subArea.before !== undefined ? subArea.before : range.Next, savedEnv = SaveEnv();
                     try {
@@ -1291,7 +1296,7 @@ class RCompiler {
                                 || hash != childRange.hash
                                     && (childRange.hash = hash, true)) {
                                 let rvar;
-                                if (bReactive) {
+                                if (bReacting) {
                                     if (item === childRange.rvar)
                                         rvar = item;
                                     else {
@@ -1379,7 +1384,7 @@ class RCompiler {
         return signature;
     }
     CompComponent(srcParent, srcElm, atts) {
-        const builders = [], bEncaps = CBool(atts.get('encapsulate')), styles = [], saveWS = this.wspc;
+        const builders = [], bEncaps = CBool(atts.get('encapsulate')), styles = [], { wspc } = this;
         let signature, elmTemplate;
         for (const srcChild of Array.from(srcElm.children)) {
             const childAtts = new Atts(srcChild);
@@ -1416,7 +1421,7 @@ class RCompiler {
         const templates = [
             this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
-        this.wspc = saveWS;
+        this.wspc = wspc;
         return async function COMPONENT(area) {
             for (const [bldr, srcNode] of builders)
                 await this.CallWithHandling(bldr, srcNode, area);
@@ -1527,9 +1532,10 @@ class RCompiler {
             postWs = WSpc.block;
         }
         else if (RCompiler.regBlock.test(name)) {
-            this.wspc = this.rspc = postWs = WSpc.block;
+            postWs = this.wspc = this.rspc = WSpc.block;
         }
         else if (RCompiler.regInline.test(name)) {
+            this.wspc = this.rspc = WSpc.block;
             postWs = WSpc.inline;
         }
         if (preWs == WSpc.preserve)
@@ -1593,8 +1599,26 @@ class RCompiler {
                     const propName = CapitalProp(m[2]);
                     try {
                         const setter = m[1] == '#' ? null : this.CompJScript(`function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
-                        if (/[@#]/.test(m[1]))
-                            modifs.push({ modType: ModType.Prop, name: propName, depValue: this.CompJScript(attValue, attName) });
+                        if (/[@#]/.test(m[1])) {
+                            let depValue;
+                            if (/^on/.test(propName) && this.bOnerror) {
+                                const handler = this.CompJScript(attValue, attName);
+                                depValue = (env) => (event) => {
+                                    try {
+                                        const result = handler(env)(event);
+                                        if (result instanceof Promise)
+                                            return result.catch(env.onerror);
+                                        return result;
+                                    }
+                                    catch (err) {
+                                        env.onerror(err);
+                                    }
+                                };
+                            }
+                            else
+                                depValue = this.CompJScript(attValue, attName);
+                            modifs.push({ modType: ModType.Prop, name: propName, depValue });
+                        }
                         if (/\*/.test(m[1]))
                             modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter });
                         if (/\+/.test(m[1]))
@@ -1796,7 +1820,7 @@ class RCompiler {
 }
 RCompiler.iNum = 0;
 RCompiler.genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
-RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
+RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
 RCompiler.regInline = /^(button|input|img)$/;
 const gFetch = fetch;
 export async function RFetch(input, init) {

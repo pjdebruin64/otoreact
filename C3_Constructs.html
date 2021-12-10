@@ -227,11 +227,11 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </p>
     </dd>
 
-    <dt><code>reactive</code></dt>
+    <dt><code>reacting</code></dt>
     <dd>
-        The loop variable <i>name</i> is immutable, but events may modify its properties. If you need the DOM subtree to react on property changes, then you can add attribute <code>reactive</code> to make <i>name</i> reactive.
+        The loop variable <i>name</i> is immutable, but events may modify its properties. If you need the DOM subtree to react on property changes, then you can add attribute <code>reacting</code> (or <code>reactive</code>) to make <i>name</i> reactive.
         <p>
-            When <code>reactive</code> is present, then <i>name</i> gets a property <code><i>name</i>.U</code>, which yields the value of <i>name</i> and marks it as dirty, just as with <a href="#RVAR">reactive variables</a>.
+            When <code>reacting</code> is present, then <i>name</i> gets a property <code><i>name</i>.U</code>, which yields the value of <i>name</i> and marks it as dirty, just as with <a href="#RVAR">reactive variables</a>.
             <br><i>Name</i> does not become a full RVAR: one cannot get or set <code><i>name</i>.V</code>. One could call it an RVAR-light.
         </p>
         <p>
@@ -243,7 +243,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         If you want changes to properties of <i>name</i> to have reactions outside the local subtree, then you can use <code>updates="<i>rvarList</i>"</code>.
         <br><i>rvarList</i> must be a comma-separated list of zero or more RVAR's.
         <p>
-            When present, then <i>name</i> becomes reactive as above, and whenever <i>name</i> is marked dirty (by a reference to <code><i>name</i>.U</code>), then all RVAR's in the list will be marked dirty too.
+            When present, then <i>name</i> becomes reacting as above, and whenever <i>name</i> is marked dirty (by a reference to <code><i>name</i>.U</code>), then all RVAR's in the list will be marked dirty too.
         </p>
         <p>You can find an example of this in the todo-list below: whenever an item is (un)marked as done, then both lists that depend on <code>TODO</code> are updated.</p>
     </dd>
@@ -700,12 +700,12 @@ allows you to define a separate document or form, that remains part of the same 
 </dl>
 
 By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
-<br>You can use <elm>style</elm> to insert styling information, or <elm>HEAD.</elm><elm>LINK &hellip;</elm><elm>/HEAD.</elm> to link an external style sheet.
+<br>You can use <elm>style</elm> to insert styling information, or <elm>RHEAD</elm><elm>LINK &hellip;</elm><elm>/RHEAD</elm> to link an external style sheet.
 
 <demo #srctext=sampleDocument></demo>
 
-<h2><{}HEAD.></h2>
-Any child elements of <elm class=sourcecode>HEAD.</elm> are inserted into the current document header.
+<h2><{}RHEAD></h2>
+Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and updated as needed.
 <p>
     You can use this e.g. to set a dynamic document title or to add dynamic links.
 </p>

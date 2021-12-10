@@ -135,7 +135,8 @@ type Context = Map<string, number>;
 // together with concrete definitions for all visible constructs
 type Environment = 
     Array<unknown> 
-    & { constructs: Map<string, ConstructDef> };
+    & { constructs: Map<string, ConstructDef>,
+        onerror?: Handler };
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T using an environment for that context.
 // It may carry an indicator that the routine might need a value for 'this'.
@@ -477,9 +478,11 @@ class RCompiler {
 
     private ContextMap: Context;
     private context: string;
+    private CSignatures: Map<string, Signature>;
+    private bOnerror: boolean;
+
     private cRvars = new Map<string,boolean>();
 
-    private CSignatures: Map<string, Signature>;
     private head: Node;
     private StyleBefore: ChildNode;
     private AddedHeaderElements: Array<HTMLElement>;
@@ -493,6 +496,7 @@ class RCompiler {
         this.context    = clone?.context || "";
         this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
         this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
+        this.bOnerror = clone?.bOnerror;
         this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
         this.AddedHeaderElements = clone?.AddedHeaderElements || [];
         this.head  = clone?.head || document.head;
@@ -589,7 +593,8 @@ class RCompiler {
     private mPreformatted = new Set<string>(['pre']);
         
     Subscriber({parent, bNoChildBuilding, env}: Area, builder: DOMBuilder, range: Range, ...args ): Subscriber {
-        range.updated = updCnt;
+        if (range)
+            range.updated = updCnt;
         const sArea: Area = {
                 parent, bNoChildBuilding,
                 env: CloneEnv(env), 
@@ -597,7 +602,7 @@ class RCompiler {
             },
             subscriber: Subscriber = () => {
                 const {range} = sArea;
-                if (!range.erased && range.updated < updCnt) {
+                if (!range.erased && (range.updated ?? 0) < updCnt) {
                     range.updated = updCnt;
                     (this as RCompiler).builtNodeCount++;
                     return builder.call(this, {...sArea}, ...args);
@@ -1276,13 +1281,16 @@ class RCompiler {
                         finally { this.RestoreContext(saved); }
                     }; break;
 
-                    case 'head.': {
-                        const childBuilder = this.CompChildNodes(srcElm);
+                    case 'rhead': {
+                        const childBuilder = this.CompChildNodes(srcElm), {wspc} = this;
+                        this.wspc = this.rspc = WSpc.block;
                         
-                        builder = function HEAD(this: RCompiler, {parent, env}) {
-                            const head = parent.ownerDocument.head;
-                            return childBuilder.call(this, {parent: head, env})
+                        builder = async function HEAD(this: RCompiler, area: Area) {
+                            const {subArea} = PrepArea(srcElm, area);                            
+                            subArea.parent = area.parent.ownerDocument.head;
+                            await childBuilder.call(this, subArea);
                         };
+                        this.wspc = wspc;
                         isBlank = 1;
                     }; break;
 
@@ -1483,7 +1491,7 @@ class RCompiler {
                 
                 const getRange = this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', true),
                 getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
-                bReactive = CBool(atts.get('updateable') ?? atts.get('reactive')) || !!getUpdatesTo,
+                bReacting = CBool(atts.get('reacting') ?? atts.get('reactive')) || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
                 initVar = this.NewVar(varName),
@@ -1631,7 +1639,7 @@ class RCompiler {
                                 // Environment instellen
                                 let rvar: RVAR_Light<Item>;
 
-                                if (bReactive) {
+                                if (bReacting) {
                                     if (item === childRange.rvar)
                                         rvar = item;
                                     else {
@@ -1735,7 +1743,7 @@ class RCompiler {
         const builders: [DOMBuilder, ChildNode][] = [],
             bEncaps = CBool(atts.get('encapsulate')),
             styles: Node[] = [],
-            saveWS = this.wspc;
+            {wspc} = this;
         let signature: Signature, elmTemplate: HTMLTemplateElement;
 
         for (const srcChild of Array.from(srcElm.children) as Array<HTMLElement>  ) {
@@ -1776,7 +1784,7 @@ class RCompiler {
                     false, bEncaps, styles)
             ];
 
-        this.wspc = saveWS;
+        this.wspc = wspc;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
@@ -1932,7 +1940,7 @@ class RCompiler {
         }
     }
 
-    static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select)$/;
+    static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
     static regInline = /^(button|input|img)$/;
     private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
@@ -1944,9 +1952,10 @@ class RCompiler {
             this.wspc = WSpc.preserve; postWs = WSpc.block;
         }
         else if (RCompiler.regBlock.test(name)) {
-            this.wspc = this.rspc = postWs = WSpc.block
+            postWs = this.wspc = this.rspc = WSpc.block
         }
-        else if (RCompiler.regInline.test(name)) {
+        else if (RCompiler.regInline.test(name)) {  // Inline-block
+            this.wspc = this.rspc = WSpc.block;
             postWs = WSpc.inline;
         }
         
@@ -2028,8 +2037,26 @@ class RCompiler {
                         const setter = m[1]=='#' ? null : this.CompJScript<Handler>(
                             `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         
-                        if (/[@#]/.test(m[1]))
-                            modifs.push({ modType: ModType.Prop, name: propName, depValue: this.CompJScript<unknown>(attValue, attName) });
+                        if (/[@#]/.test(m[1])) {
+                            let depValue: Dependent<unknown>;
+                            if (/^on/.test(propName) && this.bOnerror) {
+                                const handler = this.CompJScript<Handler>(attValue, attName);
+                                depValue = (env: Environment) => (event: Event) => {
+                                    try {
+                                        const result = handler(env)(event);
+                                        if (result instanceof Promise)
+                                            return result.catch(env.onerror);
+                                        return result;
+                                    }
+                                    catch (err) {
+                                        env.onerror(err)
+                                    }
+                                }
+                            }
+                            else
+                                depValue = this.CompJScript<unknown>(attValue, attName);
+                            modifs.push({ modType: ModType.Prop, name: propName, depValue });
+                        }
                         if (/\*/.test(m[1]))
                             modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter });
                         if (/\+/.test(m[1]))
