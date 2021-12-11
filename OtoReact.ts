@@ -574,7 +574,7 @@ class RCompiler {
             if (!this.clone) R = this;
             this.Builder =
                 bIncludeSelf
-                ? this.CompElement(elm.parentElement, elm as HTMLElement, true)[0]
+                ? this.CompElm(elm.parentElement, elm as HTMLElement, true)[0]
                 : this.CompChildNodes(elm);
             this.bCompiled = true;
         }
@@ -772,7 +772,7 @@ class RCompiler {
                 
                 case Node.ELEMENT_NODE:
                     this.sourceNodeCount ++;
-                    builder = this.CompElement(srcParent, srcNode as HTMLElement);
+                    builder = this.CompElm(srcParent, srcNode as HTMLElement);
                     break;
 
                 case Node.TEXT_NODE:
@@ -860,7 +860,7 @@ class RCompiler {
     }
 
     static genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
-    private CompElement(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
+    private CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
@@ -2004,7 +2004,7 @@ class RCompiler {
                     modifs.push({
                         modType: ModType.Event, 
                         name: CapitalProp(m[0]), 
-                        depValue: this.CompHandler(attName, attValue)
+                        depValue: this.AddErrHandler(this.CompHandler(attName, attValue))
                     });
                 else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
@@ -2038,23 +2038,9 @@ class RCompiler {
                             `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         
                         if (/[@#]/.test(m[1])) {
-                            let depValue: Dependent<unknown>;
-                            if (/^on/.test(propName) && this.bOnerror) {
-                                const handler = this.CompJScript<Handler>(attValue, attName);
-                                depValue = (env: Environment) => (event: Event) => {
-                                    try {
-                                        const result = handler(env)(event);
-                                        if (result instanceof Promise)
-                                            return result.catch(env.onerror);
-                                        return result;
-                                    }
-                                    catch (err) {
-                                        env.onerror(err)
-                                    }
-                                }
-                            }
-                            else
-                                depValue = this.CompJScript<unknown>(attValue, attName);
+                            let depValue = this.CompJScript<Handler>(attValue, attName);
+                            if (/^on/.test(propName))
+                                depValue = this.AddErrHandler(depValue as Dependent<Handler>)
                             modifs.push({ modType: ModType.Prop, name: propName, depValue });
                         }
                         if (/\*/.test(m[1]))
@@ -2273,6 +2259,22 @@ class RCompiler {
             for (const nm of list.split(','))
                 this.cRvars.set(nm.trim(), false);
         return list ? this.CompJScript<T[]>(`[${list}\n]`, attName) : null;
+    }
+
+    private AddErrHandler(handler: Dependent<Handler>): Dependent<Handler> {
+        if (this.bOnerror)
+            return (env: Environment) => (event: Event) => {
+                try {
+                    const result = handler(env)(event);
+                    if (result instanceof Promise)
+                        return result.catch(env.onerror);
+                    return result;
+                }
+                catch (err) {
+                    env.onerror(err)
+                }
+            };
+        return handler;
     }
 
     private GetURL(src: string) {

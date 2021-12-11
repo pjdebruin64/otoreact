@@ -131,7 +131,7 @@ declare class RCompiler {
     private CompChildNodes;
     private CompIterator;
     static genAtts: RegExp;
-    private CompElement;
+    private CompElm;
     private GetREACT;
     private CallWithHandling;
     private CompScript;
@@ -154,6 +154,7 @@ declare class RCompiler {
     private CompJScript;
     private CompName;
     private compAttrExprList;
+    private AddErrHandler;
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
