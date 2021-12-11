@@ -561,16 +561,15 @@ h5 {margin: 0px; padding: 4px 0px;
 pre {background-color: lightgrey}
 </style>
 
-<def rvar=source value=
-     "<def var=x value=A></def>
-<ul> <li> x = \\{x} </ul>"
-     store=localStorage></def>
-<def rvar=html></def>
-<def rvar=rhtml></def>
+<def rvar=source store=localStorage value=
+"<def var=x value=A></def>
+<ul> <li> x = \\{x} </ul>
+"></def>
 
-<h5>HTML source:</h5>
+<h5>RHTML source:</h5>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
+<def rvar=html></def>
 <h5>HTML rendering:</h5>
 <div #innerhtml=source.V 
     *+innerHTML= "html.V"
@@ -579,6 +578,7 @@ pre {background-color: lightgrey}
 <h5>Parsed HTML:</h5>
 <pre reacton=html>{html.V}</pre>
 
+<def rvar=rhtml></def>
 <h5>RHTML rendering:</h5>
 <rhtml #srctext=source.V
   onupdate*= "rhtml.V = this.shadowRoot.innerHTML"
