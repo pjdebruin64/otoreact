@@ -192,7 +192,7 @@ export async function RBuild() {
     try {
         for (const area of ToBuild)
             await R.InitialBuild(area);
-        R.logTime(`Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+        R.logTime(`${R.num}: Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (err) {
@@ -206,9 +206,7 @@ function NewEnv() {
     return env;
 }
 function CloneEnv(env) {
-    const clone = env.slice();
-    clone.constructs = new Map(env.constructs.entries());
-    return clone;
+    return Object.assign(new Array(), env);
 }
 function assignEnv(target, source) {
     Object.assign(target, source);
@@ -356,7 +354,7 @@ let updCnt = 0;
 class RCompiler {
     clone;
     static iNum = 0;
-    instanceNum = RCompiler.iNum++;
+    num = RCompiler.iNum++;
     ContextMap;
     context;
     CSignatures;
@@ -530,7 +528,7 @@ class RCompiler {
                             console.log(msg);
                             window.alert(msg);
                         }
-                    this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+                    this.logTime(`${R.num}: Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
             }
             finally {
@@ -679,9 +677,10 @@ class RCompiler {
         Iter.ws = builders[0][0].ws;
         return Iter;
     }
-    static genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
+    static genAtts = /^(((this)?reacts?on)|on((create|\*)|(update|\+))+|onerror)$/;
     CompElm(srcParent, srcElm, bUnhide) {
-        const atts = new Atts(srcElm), reacts = [], genMods = [];
+        const atts = new Atts(srcElm), reacts = [], genMods = [], saveBO = this.bOnerror;
+        let onerror;
         if (bUnhide)
             atts.set('#hidden', 'false');
         let builder, elmBuilder, isBlank;
@@ -689,13 +688,16 @@ class RCompiler {
             let m;
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
-                    if (m[3])
+                    if (m[2])
+                        reacts.push({ attName, rvars: this.compAttrExprList(atts, attName, true) });
+                    else if (m[4])
                         genMods.push({ attName,
                             bCr: /create|\*/.test(attName),
                             bUpd: /update|\+/.test(attName),
                             text: atts.get(attName) });
                     else {
-                        reacts.push({ attName, rvars: this.compAttrExprList(atts, attName, true) });
+                        onerror = this.CompHandler(attName, atts.get(attName));
+                        this.bOnerror = true;
                     }
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -1064,8 +1066,24 @@ class RCompiler {
         catch (err) {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
+        finally {
+            this.bOnerror = saveBO;
+        }
         if (!builder)
             return null;
+        if (onerror) {
+            const b = builder;
+            builder = async function SetOnError(area) {
+                const { env } = area, save = env.onerror;
+                try {
+                    env.onerror = onerror(env);
+                    await b.call(this, area);
+                }
+                finally {
+                    env.onerror = save;
+                }
+            };
+        }
         if (genMods.length) {
             const b = builder;
             builder = async function ON(area) {
@@ -1149,7 +1167,9 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.Settings.bShowErrors) {
+            if (area.env.onerror)
+                area.env.onerror(err);
+            else if (this.Settings.bShowErrors) {
                 const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
                 if (range)
                     range.errorNode = errorNode;
@@ -1832,16 +1852,19 @@ class RCompiler {
     }
     AddErrHandler(handler) {
         if (this.bOnerror)
-            return (env) => (event) => {
-                try {
-                    const result = handler(env)(event);
-                    if (result instanceof Promise)
-                        return result.catch(env.onerror);
-                    return result;
-                }
-                catch (err) {
-                    env.onerror(err);
-                }
+            return (env) => {
+                const { onerror } = env, h = handler(env);
+                return (ev) => {
+                    try {
+                        const result = h(ev);
+                        if (result instanceof Promise)
+                            return result.catch(onerror);
+                        return result;
+                    }
+                    catch (err) {
+                        onerror(err);
+                    }
+                };
             };
         return handler;
     }

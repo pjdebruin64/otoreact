@@ -86,7 +86,7 @@ interface Hash {
 declare class RCompiler {
     private clone?;
     static iNum: number;
-    instanceNum: number;
+    num: number;
     private ContextMap;
     private context;
     private CSignatures;

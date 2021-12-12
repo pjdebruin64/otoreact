@@ -32,7 +32,7 @@ function toHex(n){
 /* Rotation */
 let handle=RVAR(), bAnimate=RVAR();
 
-async function StartStop() {
+function StartStop() {
   if (handle.V) {
     clearInterval(handle.V); handle.V=0;
   } else

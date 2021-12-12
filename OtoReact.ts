@@ -136,7 +136,8 @@ type Context = Map<string, number>;
 type Environment = 
     Array<unknown> 
     & { constructs: Map<string, ConstructDef>,
-        onerror?: Handler };
+        onerror?: Handler 
+    };
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T using an environment for that context.
 // It may carry an indicator that the routine might need a value for 'this'.
@@ -264,7 +265,7 @@ export async function RBuild() {
     try {
         for (const area of ToBuild)
             await R.InitialBuild(area);
-        R.logTime(`Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+        R.logTime(`${R.num}: Built ${R.builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (err) {
@@ -280,18 +281,10 @@ function NewEnv(): Environment {
     return env;
 }
 function CloneEnv(env: Environment): Environment {
-    const clone = env.slice() as Environment;
-    clone.constructs = new Map(env.constructs.entries());
-    return clone;
+    return Object.assign(new Array(), env);
 }
 function assignEnv(target: Environment, source: Environment) {
-    //const {constructs} = target;
     Object.assign(target, source);
-    /*
-    target.constructs = constructs;
-    for (const [key,val] of source.constructs.entries())
-        constructs.set(key, val);
-    */
 }
 
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
@@ -474,7 +467,7 @@ let updCnt = 0;
 class RCompiler {
 
     static iNum=0;
-    public instanceNum = RCompiler.iNum++;
+    public num = RCompiler.iNum++;
 
     private ContextMap: Context;
     private context: string;
@@ -682,7 +675,7 @@ class RCompiler {
                             window.alert(msg);
                         }
                     
-                    this.logTime(`Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+                    this.logTime(`${R.num}: Updated ${this.builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
                 }
             }
             finally { 
@@ -859,11 +852,13 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^((this)?reacts?on|on((create|\*)|(update|\+))+)$/;
+    static genAtts = /^(((this)?reacts?on)|on((create|\*)|(update|\+))+|onerror)$/;
     private CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
-            genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
+            genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [],
+            saveBO = this.bOnerror;
+        let onerror: Dependent<Handler>;
         if (bUnhide) atts.set('#hidden', 'false');
         
         let builder: DOMBuilder, elmBuilder: DOMBuilder, isBlank: number;
@@ -871,15 +866,17 @@ class RCompiler {
             let m: RegExpExecArray;
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
-                    if (m[3])
+                    if (m[2])
+                        reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
+                    else if (m[4])
                         genMods.push({attName
                             , bCr:  /create|\*/.test(attName)   // Exec on create
                             , bUpd: /update|\+/.test(attName)    // Exec on update
                             , text: atts.get(attName)});
                     else {
-                        reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
+                        onerror = this.CompHandler(attName, atts.get(attName));
+                        this.bOnerror = true;
                     }
-
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -1308,7 +1305,20 @@ class RCompiler {
         catch (err) { 
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
+        finally { this.bOnerror = saveBO; 
+        }
         if (!builder) return null;
+        if (onerror) {
+            const b = builder;
+            builder = async function SetOnError(this: RCompiler, area: Area) {
+                const {env} = area, save = env.onerror;
+                try {
+                    env.onerror = onerror(env);
+                    await b.call(this, area);
+                }
+                finally { env.onerror = save; }
+            }
+        }
         if (genMods.length) {
             const b = builder;
             builder = async function ON(this: RCompiler, area: Area) {
@@ -1402,10 +1412,13 @@ class RCompiler {
         catch (err) { 
             const message = 
                 srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
+
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.Settings.bShowErrors) {
+            if (area.env.onerror)
+                area.env.onerror(err);
+            else if (this.Settings.bShowErrors) {
                 const errorNode =
                     area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
                 if (range)
@@ -2054,21 +2067,6 @@ class RCompiler {
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}          
                 }
-                /*
-                else if (m = /^([*@])(\1)?(.*)$/.exec(attName)) { // *, **, @, @@
-                    const propName = CapitalProp(m[3]);                    
-                    try {
-                        const setter = this.CompJavaScript<Handler>(
-                            `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
-                        
-                        modifs.push(
-                            m[1] == '@'
-                            ? { modType: ModType.Prop, name: propName, depValue: this.CompJavaScript<unknown>(attValue, attName) }
-                            : { modType: ModType.oncreate, name: 'oncreate', depValue: setter });
-                        modifs.push({modType: ModType.Event, name: m[2] ? 'onchange' : 'oninput', depValue: setter});
-                    }
-                    catch(err) { throw `Invalid left-hand side '${attValue}'`}
-                } */
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue) throw `Rest parameter cannot have a value`;
                     modifs.push({
@@ -2263,15 +2261,18 @@ class RCompiler {
 
     private AddErrHandler(handler: Dependent<Handler>): Dependent<Handler> {
         if (this.bOnerror)
-            return (env: Environment) => (event: Event) => {
-                try {
-                    const result = handler(env)(event);
-                    if (result instanceof Promise)
-                        return result.catch(env.onerror);
-                    return result;
-                }
-                catch (err) {
-                    env.onerror(err)
+            return (env: Environment) => {
+                const {onerror} = env, h = handler(env);
+                return (ev: Event) => {
+                    try {
+                        const result = h(ev);
+                        if (result instanceof Promise)
+                            return result.catch(onerror);
+                        return result;
+                    }
+                    catch (err) {
+                        onerror(err)
+                    }
                 }
             };
         return handler;
