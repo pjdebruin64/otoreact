@@ -25,8 +25,9 @@
     </script>
     <script src="samples.js" defer></script>
     <script type=module>
-        import {RCompile} from './OtoReact.js';        
-        RCompile(document.body, {bTiming:true, bAbortOnError: true});
+        import {RCompile} from './OtoReact.js';
+        const errMsg = RVAR('errMsg')  ;
+        RCompile(document.body, {bTiming:true, bAbortOnError: false});
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
@@ -38,7 +39,8 @@
     </script>
   <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>
 </head>
-<body hidden>
+<body hidden onerror="errMsg.V=event">
+    <p style="color:plum">{errMsg.V}</p>
     <!-- Test -->
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -58,7 +60,7 @@
         </pageLayout>
     </import>
 
-    <case thisreactson=docLocation #value="docLocation.subpath" hiding>
+    <case thisreactson=docLocation #value="docLocationn.subpath" hiding>
         <when match="">
             <pageLayout>
                 <pageHead>
