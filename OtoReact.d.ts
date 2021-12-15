@@ -53,7 +53,6 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
 }
 declare type Environment = Array<unknown> & {
     constructs: Map<string, ConstructDef>;
-    onerror?: Handler;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
@@ -62,6 +61,7 @@ export declare function RBuild(): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     ref?: {};
     sArea?: Area;
+    onerror?: Handler;
     bImm?: boolean;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
@@ -84,21 +84,19 @@ interface Key {
 interface Hash {
 }
 declare class RCompiler {
-    private clone?;
+    private RC?;
     static iNum: number;
     num: number;
     private ContextMap;
     private context;
     private CSignatures;
-    private bOnerror;
     private cRvars;
     private head;
     private StyleBefore;
     private AddedHeaderElements;
     FilePath: string;
     RootElm: ParentNode;
-    constructor(clone?: RCompiler);
-    private get MainC();
+    constructor(RC?: RCompiler);
     private restoreActions;
     private SaveContext;
     private RestoreContext;
@@ -112,9 +110,10 @@ declare class RCompiler {
     Settings: FullSettings;
     private AllAreas;
     private Builder;
+    private bCompiled;
+    onerror: Handler;
     private wspc;
     private rspc;
-    private bCompiled;
     DirtyVars: Set<RVAR<unknown>>;
     private DirtySubs;
     AddDirty(sub: Subscriber): void;
@@ -165,10 +164,10 @@ interface Store {
     setItem(key: string, value: string): void;
 }
 declare class _RVAR<T = unknown> {
-    private MainC;
+    private RC;
     private store?;
     private storeName?;
-    constructor(MainC: RCompiler, globalName?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
+    constructor(RC: RCompiler, globalName?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _Value;
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;

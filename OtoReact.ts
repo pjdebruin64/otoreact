@@ -13,7 +13,8 @@ const defaultSettings = {
     bSetPointer:    true,
     bKeepWhiteSpace: false,
     bKeepComments:  false,
-}
+},
+parser = new DOMParser()
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
@@ -136,7 +137,6 @@ type Context = Map<string, number>;
 type Environment = 
     Array<unknown> 
     & { constructs: Map<string, ConstructDef>,
-        onerror?: Handler 
     };
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T using an environment for that context.
@@ -281,7 +281,9 @@ function NewEnv(): Environment {
     return env;
 }
 function CloneEnv(env: Environment): Environment {
-    return Object.assign(new Array(), env);
+    const clone = Object.assign(new Array(), env);
+    clone.constructs = new Map(env.constructs.entries());
+    return clone;
 }
 function assignEnv(target: Environment, source: Environment) {
     Object.assign(target, source);
@@ -290,7 +292,8 @@ function assignEnv(target: Environment, source: Environment) {
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
     {   ref?: {};
         sArea?: Area;
-        bImm?: boolean
+        onerror?: Handler;
+        bImm?: boolean;
     };
 
 type ParentNode = HTMLElement|DocumentFragment;
@@ -472,7 +475,6 @@ class RCompiler {
     private ContextMap: Context;
     private context: string;
     private CSignatures: Map<string, Signature>;
-    private bOnerror: boolean;
 
     private cRvars = new Map<string,boolean>();
 
@@ -484,19 +486,19 @@ class RCompiler {
 
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(
-        private clone?: RCompiler,
+        private RC?: RCompiler,
     ) { 
-        this.context    = clone?.context || "";
-        this.ContextMap = clone ? new Map(clone.ContextMap) : new Map();
-        this.CSignatures = clone ? new Map(clone.CSignatures) : new Map();
-        this.bOnerror = clone?.bOnerror;
-        this.Settings   = clone ? {...clone.Settings} : {...defaultSettings};
-        this.AddedHeaderElements = clone?.AddedHeaderElements || [];
-        this.head  = clone?.head || document.head;
-        this.StyleBefore = clone?.StyleBefore
-        this.FilePath   = clone?.FilePath || location.origin + BasePath;
+        this.context    = RC?.context || "";
+        this.ContextMap = RC ? new Map(RC.ContextMap) : new Map();
+        this.CSignatures = RC ? new Map(RC.CSignatures) : new Map();
+        this.Settings   = RC ? {...RC.Settings} : {...defaultSettings};
+        this.AddedHeaderElements = RC?.AddedHeaderElements || [];
+        this.head  = RC?.head || document.head;
+        this.StyleBefore = RC?.StyleBefore
+        this.FilePath   = RC?.FilePath || location.origin + BasePath;
+        this.RC ||= this;
     }
-    private get MainC():RCompiler { return this.clone || this; }
+    //private get MainC():RCompiler { return this.clone || this; }
 
     private restoreActions: Array<() => void> = [];
 
@@ -564,7 +566,7 @@ class RCompiler {
             this.mPreformatted.add(tag.toLowerCase());
         const savedR = R; 
         try {
-            if (!this.clone) R = this;
+            R = this;
             this.Builder =
                 bIncludeSelf
                 ? this.CompElm(elm.parentElement, elm as HTMLElement, true)[0]
@@ -593,12 +595,18 @@ class RCompiler {
                 env: CloneEnv(env), 
                 range,
             },
-            subscriber: Subscriber = () => {
+            {onerror} = this.RC,
+            subscriber: Subscriber = async () => {
                 const {range} = sArea;
                 if (!range.erased && (range.updated ?? 0) < updCnt) {
                     range.updated = updCnt;
-                    (this as RCompiler).builtNodeCount++;
-                    return builder.call(this, {...sArea}, ...args);
+                    const {RC} = this as RCompiler;
+                    RC.onerror = onerror;
+                    RC.builtNodeCount++;
+                    try {
+                        await builder.call(this, {...sArea}, ...args);
+                    }
+                    finally {RC.onerror = null;}
                 }
             };
         subscriber.sArea = sArea;
@@ -607,22 +615,26 @@ class RCompiler {
     }
 
     public async InitialBuild(area: Area) {
-        const savedRCompiler = R, {parentR} = area;
+        const saveR = R, {parentR} = area;
         R = this;
         this.builtNodeCount++;
         await this.Builder(area);
         const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
         this.AllAreas.push(subs);
-        R = savedRCompiler;        
+        R = saveR;        
     }
 
     public Settings: FullSettings;
     private AllAreas: Subscriber[] = [];
     private Builder: DOMBuilder;
+    private bCompiled = false;
+
+    
+    /* Runttime data */
+    public onerror: Handler;
     private wspc = WSpc.block;
     private rspc: number|boolean = 1;
 
-    private bCompiled = false;
     
     public DirtyVars = new Set<RVAR>();
     private DirtySubs = new Map<{}, Subscriber>();
@@ -635,9 +647,9 @@ class RCompiler {
     private bUpdate = false;
     private handleUpdate: number = null;
     RUpdate() {
-        this.MainC.bUpdate = true;
+        this.bUpdate = true;
 
-        if (!this.clone && !this.bUpdating && !this.handleUpdate)
+        if (!this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
                 this.DoUpdate();
@@ -651,10 +663,10 @@ class RCompiler {
             return;
         }
         
-        for (let i=0;i<2;i++) {
+        for (let i=0;i<3;i++) {
             this.bUpdate = false;
             this.bUpdating = true;
-            let savedRCompiler = R;
+            let saveR = R;
             updCnt++;
             try {
                 for (const rvar of this.DirtyVars)
@@ -662,7 +674,7 @@ class RCompiler {
                 this.DirtyVars.clear();
                 
                 if (this.DirtySubs.size) {
-                    if (!this.clone) R = this;
+                    R = this;
                     this.start = performance.now();
                     this.builtNodeCount = 0;
                     const subs = this.DirtySubs;
@@ -679,7 +691,7 @@ class RCompiler {
                 }
             }
             finally { 
-                R = savedRCompiler;this.bUpdating = false;
+                R = saveR;this.bUpdating = false;
             }
             if (!this.bUpdate) break;
         } 
@@ -693,7 +705,7 @@ class RCompiler {
         subs?: (t:T) => void,
         storeName: string = name
     ) {
-        const r = new _RVAR<T>(this.MainC, name, initialValue, store, storeName);
+        const r = new _RVAR<T>(this.RC, name, initialValue, store, storeName);
         if (subs)
             r.Subscribe(subs, true, false);
         //this.MainC.CreatedRvars.push(r);
@@ -707,18 +719,18 @@ class RCompiler {
         if (!t._Subscribers) {
             t._Subscribers = new Set();
             t._UpdatesTo = updatesTo;
-            const R: RCompiler = this.MainC;
+            const {RC} = this as RCompiler;
             Object.defineProperty(t, 'U',
                 {get:
                     () => {
                         if (!bReadOnly) {
                             for (const sub of t._Subscribers)
-                                R.AddDirty(sub);
+                                RC.AddDirty(sub);
                             if (t._UpdatesTo?.length)
                                 for (const rvar of t._UpdatesTo)
                                     rvar.SetDirty();
                             else
-                                R.RUpdate();
+                                RC.RUpdate();
                         }
                         return t;
                     }
@@ -852,12 +864,11 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^(((this)?reacts?on)|on((create|\*)|(update|\+))+|onerror)$/;
+    static genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?onerror)$/;
     private CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
-            genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [],
-            saveBO = this.bOnerror;
+            genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
         let onerror: Dependent<Handler>;
         if (bUnhide) atts.set('#hidden', 'false');
         
@@ -866,16 +877,15 @@ class RCompiler {
             let m: RegExpExecArray;
             for (const attName of atts.keys())
                 if (m = RCompiler.genAtts.exec(attName))
-                    if (m[2])
+                    if (m[1])
                         reacts.push({attName, rvars: this.compAttrExprList<RVAR>(atts, attName, true)});
-                    else if (m[4])
+                    else if (m[2])
                         genMods.push({attName
                             , bCr:  /create|\*/.test(attName)   // Exec on create
                             , bUpd: /update|\+/.test(attName)    // Exec on update
                             , text: atts.get(attName)});
                     else {
                         onerror = this.CompHandler(attName, atts.get(attName));
-                        this.bOnerror = true;
                     }
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
@@ -886,7 +896,7 @@ class RCompiler {
                     case 'def':
                     case 'define': { // 'LET' staat de parser niet toe.
                         for (let C of srcElm.childNodes)
-                            if (!(C.nodeType==Node.TEXT_NODE && /^\s*/.test((C as Text).data)))
+                            if (C.nodeType!=Node.TEXT_NODE || !/^\s*$/.test((C as Text).data))
                                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
@@ -913,7 +923,7 @@ class RCompiler {
                                     const value = getValue(env);
                                     if (rvarName)
                                         if (bInit)
-                                            range.value = new _RVAR(this.MainC, null, value, getStore && getStore(env), rvarName);
+                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(env), rvarName);
                                         else
                                             range.value.SetAsync(value);
                                     else
@@ -1104,16 +1114,16 @@ class RCompiler {
                             this.AddConstruct(sign);
                         }
                             
-                        const C = new RCompiler();
+                        const C = new RCompiler(this);
                         C.FilePath = this.GetPath(src);
-                        C.Settings = {...this.Settings, bRunScripts: true};
+                        C.Settings.bRunScripts = true;
                 
                         let promiseModule = RModules.get(src);
                         if (!promiseModule) {
                             promiseModule = this.FetchText(src)
                             .then(textContent => {
                                 // Parse the contents of the file
-                                const parser = new DOMParser(),
+                                const
                                     parsedDoc = parser.parseFromString(textContent, 'text/html') as Document,
                                     builder = C.CompIterator(null, 
                                         concIterable(parsedDoc.head.children, parsedDoc.body.children)
@@ -1131,7 +1141,7 @@ class RCompiler {
                             RModules.set(src, promiseModule);
                         }
                         
-                        builder = async function IMPORT({env}: Area) {
+                        builder = async function IMPORT(this: RCompiler, {env}: Area) {
                             const builder = await promiseModule, mEnv = NewEnv();
                             await builder.call(C, {parent: document.createDocumentFragment(), start: null, bInit: true, env: mEnv});
 
@@ -1305,18 +1315,16 @@ class RCompiler {
         catch (err) { 
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
-        finally { this.bOnerror = saveBO; 
-        }
         if (!builder) return null;
         if (onerror) {
             const b = builder;
             builder = async function SetOnError(this: RCompiler, area: Area) {
-                const {env} = area, save = env.onerror;
+                const {env} = area, {RC} = this, save = RC.onerror;
                 try {
-                    env.onerror = onerror(env);
+                    RC.onerror = onerror(env);
                     await b.call(this, area);
                 }
-                finally { env.onerror = save; }
+                finally { RC.onerror = save; }
             }
         }
         if (genMods.length) {
@@ -1416,8 +1424,8 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (area.env.onerror)
-                area.env.onerror(err);
+            if (this.RC.onerror)
+                this.RC.onerror(err);
             else if (this.Settings.bShowErrors) {
                 const errorNode =
                     area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
@@ -1444,7 +1452,7 @@ class RCompiler {
                 
             let exports: Object;
             builder = async function SCRIPT(this: RCompiler, {env}: Area) {
-                if (!(bModule || bNoModule || defines || !this.clone)) {
+                if (!(bModule || bNoModule || defines || this.Settings.bRunScripts)) {
                     if (!exports) {
                         const e = srcElm.cloneNode(true) as HTMLScriptElement;
                         document.head.appendChild(e); // 
@@ -2013,7 +2021,7 @@ class RCompiler {
         for (const [attName, attValue] of atts) {
             let m: RegExpExecArray;
             try {
-                if (m = /^on(.*)$/i.exec(attName))               // Events
+                if (m = /^on(.*?)\.*$/i.exec(attName))               // Events
                     modifs.push({
                         modType: ModType.Event, 
                         name: CapitalProp(m[0]), 
@@ -2044,7 +2052,7 @@ class RCompiler {
                         modType: ModType.AddToClassList, name: null,
                         depValue: this.CompJScript<object>(attValue, attName)
                     });
-                else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                     const propName = CapitalProp(m[2]);
                     try {
                         const setter = m[1]=='#' ? null : this.CompJScript<Handler>(
@@ -2068,7 +2076,7 @@ class RCompiler {
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}          
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
-                    if (attValue) throw `Rest parameter cannot have a value`;
+                    if (attValue) throw `A rest parameter cannot have a value`;
                     modifs.push({
                         modType: ModType.RestArgument, name: null,
                         depValue: this.CompName(m[1])
@@ -2213,7 +2221,8 @@ class RCompiler {
     }
 
     private CompHandler(name: string, text: string) {
-        return this.CompJScript<Handler>(`function(event){${text}\n}`, name)
+        return /^#/.test(name) ? this.CompJScript<Handler>(text, name)
+            : this.CompJScript<Handler>(`function(event){${text}\n}`, name)
     }
     private CompJScript<T>(
         expr: string           // Expression to transform into a function
@@ -2259,23 +2268,24 @@ class RCompiler {
         return list ? this.CompJScript<T[]>(`[${list}\n]`, attName) : null;
     }
 
-    private AddErrHandler(handler: Dependent<Handler>): Dependent<Handler> {
-        if (this.bOnerror)
-            return (env: Environment) => {
-                const {onerror} = env, h = handler(env);
-                return (ev: Event) => {
+    private AddErrHandler(getHndlr: Dependent<Handler>): Dependent<Handler> {
+        return (env: Environment) => {
+            const hndlr = getHndlr(env), {onerror} = this.RC;
+            if (hndlr && onerror)
+                return function hError(this: HTMLElement, ev: Event) {
                     try {
-                        const result = h(ev);
+                        const result = hndlr.call(this,ev);
                         if (result instanceof Promise)
-                            return result.catch(onerror);
+                            return result.then(onerror, onerror);
+                        onerror(null);
                         return result;
                     }
                     catch (err) {
                         onerror(err)
                     }
-                }
-            };
-        return handler;
+                };
+            return hndlr;
+        };
     }
 
     private GetURL(src: string) {
@@ -2310,7 +2320,7 @@ interface Store {
 }
 class _RVAR<T = unknown>{
     constructor(
-        private MainC: RCompiler,
+        private RC: RCompiler,
         globalName?: string, 
         initialValue?: T | Promise<T>, 
         private store?: Store,
@@ -2363,7 +2373,7 @@ class _RVAR<T = unknown>{
     SetAsync(t: T | Promise<T>) {
         if (t instanceof Promise) {
             this.V = undefined;
-            t.then(v => {this.V = v})
+            t.then(v => {this.V = v}, this.RC.onerror);
         } else
             this.V = t;
     }
@@ -2378,17 +2388,17 @@ class _RVAR<T = unknown>{
 
     public SetDirty() {
         if (this.store)
-            this.MainC.DirtyVars.add(this);
+            this.RC.DirtyVars.add(this);
         let b: boolean;
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
             else if (!sub.sArea?.range?.erased)
-                { this.MainC.AddDirty(sub); b=true}
+                { this.RC.AddDirty(sub); b=true}
             else
                 this._Subscribers.delete(sub);
         if (b)
-            this.MainC.RUpdate();
+            this.RC.RUpdate();
     }
 
     public Save() {
@@ -2543,18 +2553,20 @@ function ScrollToHash() {
         setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 6);
 }
 docLocation.Subscribe( () => {
-    if (docLocation.V != location.href)
+    if (docLocation.V != location.href) {
         history.pushState(null, null, docLocation.V);
+    }
     docLocation.searchParams = new URLSearchParams(location.search);
     ScrollToHash();;
 }, true);
 
 export const reroute = globalThis.reroute = 
 (arg: MouseEvent | string) => {
-    if (typeof arg=='string')
-        docLocation.V = arg;
-    else if (!arg.ctrlKey) {
-        docLocation.V = (arg.target as HTMLAnchorElement).href;
+    if (typeof arg != 'string') {
+        if (arg.ctrlKey)
+            return;
         arg.preventDefault();
+        arg = (arg.target as HTMLAnchorElement).href;
     }
+    docLocation.V = new URL(arg, location.href).href;
 }
