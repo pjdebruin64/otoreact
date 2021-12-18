@@ -631,7 +631,7 @@ class RCompiler {
 
     
     /* Runttime data */
-    public onerror: Handler;
+    public onerror: Handler & {bBldr?: boolean};;
     private wspc = WSpc.block;
     private rspc: number|boolean = 1;
 
@@ -864,12 +864,12 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?onerror)$/;
+    static genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?onerror-?)$/;
     private CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
-        let onerror: Dependent<Handler>;
+        let onerror: Dependent<Handler> & {bBldr?: boolean};
         if (bUnhide) atts.set('#hidden', 'false');
         
         let builder: DOMBuilder, elmBuilder: DOMBuilder, isBlank: number;
@@ -886,6 +886,7 @@ class RCompiler {
                             , text: atts.get(attName)});
                     else {
                         onerror = this.CompHandler(attName, atts.get(attName));
+                        onerror.bBldr = /-$/.test(attName);
                     }
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
@@ -1322,6 +1323,7 @@ class RCompiler {
                 const {env} = area, {RC} = this, save = RC.onerror;
                 try {
                     RC.onerror = onerror(env);
+                    RC.onerror.bBldr = onerror.bBldr;
                     await b.call(this, area);
                 }
                 finally { RC.onerror = save; }
@@ -1424,7 +1426,7 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.RC.onerror)
+            if (this.RC.onerror?.bBldr)
                 this.RC.onerror(err);
             else if (this.Settings.bShowErrors) {
                 const errorNode =

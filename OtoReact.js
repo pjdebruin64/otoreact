@@ -20,16 +20,31 @@ var WSpc;
     WSpc[WSpc["preserve"] = 4] = "preserve";
 })(WSpc || (WSpc = {}));
 class Range {
+    node;
+    text;
+    child;
+    next = null;
+    parentR;
     constructor(node, area, text) {
         this.node = node;
         this.text = text;
-        this.next = null;
         if (!node)
             this.child = null;
         if (area && !area.parentR?.node)
             this.parentR = area.parentR;
     }
     toString() { return this.text || this.node?.nodeName; }
+    result;
+    value;
+    errorNode;
+    erased;
+    hash;
+    key;
+    prev;
+    fragm;
+    rvar;
+    subs;
+    updated;
     get First() {
         let f;
         if (f = this.node)
@@ -199,13 +214,15 @@ function assignEnv(target, source) {
     Object.assign(target, source);
 }
 class Signature {
+    srcElm;
     constructor(srcElm) {
         this.srcElm = srcElm;
-        this.Params = [];
-        this.RestParam = null;
-        this.Slots = new Map();
         this.name = srcElm.localName;
     }
+    name;
+    Params = [];
+    RestParam = null;
+    Slots = new Map();
     IsCompatible(sig) {
         if (!sig)
             return false;
@@ -337,23 +354,20 @@ function DefConstruct(env, name, construct) {
 }
 let updCnt = 0;
 class RCompiler {
+    RC;
+    static iNum = 0;
+    num = RCompiler.iNum++;
+    ContextMap;
+    context;
+    CSignatures;
+    cRvars = new Map();
+    head;
+    StyleBefore;
+    AddedHeaderElements;
+    FilePath;
+    RootElm;
     constructor(RC) {
         this.RC = RC;
-        this.num = RCompiler.iNum++;
-        this.cRvars = new Map();
-        this.restoreActions = [];
-        this.mPreformatted = new Set(['pre']);
-        this.AllAreas = [];
-        this.bCompiled = false;
-        this.wspc = WSpc.block;
-        this.rspc = 1;
-        this.DirtyVars = new Set();
-        this.DirtySubs = new Map();
-        this.bUpdating = false;
-        this.bUpdate = false;
-        this.handleUpdate = null;
-        this.sourceNodeCount = 0;
-        this.builtNodeCount = 0;
         this.context = RC?.context || "";
         this.ContextMap = RC ? new Map(RC.ContextMap) : new Map();
         this.CSignatures = RC ? new Map(RC.CSignatures) : new Map();
@@ -364,6 +378,7 @@ class RCompiler {
         this.FilePath = RC?.FilePath || location.origin + BasePath;
         this.RC ||= this;
     }
+    restoreActions = [];
     SaveContext() {
         return this.restoreActions.length;
     }
@@ -430,6 +445,7 @@ class RCompiler {
         if (this.Settings.bTiming)
             console.log(msg);
     }
+    mPreformatted = new Set(['pre']);
     Subscriber({ parent, bNoChildBuilding, env }, builder, range, ...args) {
         if (range)
             range.updated = updCnt;
@@ -465,9 +481,22 @@ class RCompiler {
         this.AllAreas.push(subs);
         R = saveR;
     }
+    Settings;
+    AllAreas = [];
+    Builder;
+    bCompiled = false;
+    onerror;
+    ;
+    wspc = WSpc.block;
+    rspc = 1;
+    DirtyVars = new Set();
+    DirtySubs = new Map();
     AddDirty(sub) {
         this.DirtySubs.set(sub.ref, sub);
     }
+    bUpdating = false;
+    bUpdate = false;
+    handleUpdate = null;
     RUpdate() {
         this.bUpdate = true;
         if (!this.bUpdating && !this.handleUpdate)
@@ -476,6 +505,7 @@ class RCompiler {
                 this.DoUpdate();
             }, 5);
     }
+    start;
     async DoUpdate() {
         if (!this.bCompiled || this.bUpdating) {
             this.bUpdate = true;
@@ -544,6 +574,8 @@ class RCompiler {
         }
         return t;
     }
+    sourceNodeCount = 0;
+    builtNodeCount = 0;
     CompChildNodes(srcParent, childNodes = srcParent.childNodes) {
         const saved = this.SaveContext();
         try {
@@ -584,7 +616,8 @@ class RCompiler {
                         builder =
                             [fixed
                                     ? async (area) => PrepCharData(area, fixed)
-                                    : async (area) => PrepCharData(area, getText(area.env)), srcNode,
+                                    : async (area) => PrepCharData(area, getText(area.env)),
+                                srcNode,
                                 fixed == ' '];
                         if (this.wspc < WSpc.preserve)
                             this.wspc = /\s$/.test(str) ? WSpc.inlineSpc : WSpc.inline;
@@ -651,6 +684,7 @@ class RCompiler {
         Iter.ws = builders[0][0].ws;
         return Iter;
     }
+    static genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?onerror-?)$/;
     CompElm(srcParent, srcElm, bUnhide) {
         const atts = new Atts(srcElm), reacts = [], genMods = [];
         let onerror;
@@ -670,6 +704,7 @@ class RCompiler {
                             text: atts.get(attName) });
                     else {
                         onerror = this.CompHandler(attName, atts.get(attName));
+                        onerror.bBldr = /-$/.test(attName);
                     }
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
@@ -1046,6 +1081,7 @@ class RCompiler {
                 const { env } = area, { RC } = this, save = RC.onerror;
                 try {
                     RC.onerror = onerror(env);
+                    RC.onerror.bBldr = onerror.bBldr;
                     await b.call(this, area);
                 }
                 finally {
@@ -1136,7 +1172,7 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (this.RC.onerror)
+            if (this.RC.onerror?.bBldr)
                 this.RC.onerror(err);
             else if (this.Settings.bShowErrors) {
                 const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
@@ -1546,6 +1582,8 @@ class RCompiler {
                 await parBuilder.call(this, subArea, args, slotBuilders, env);
         };
     }
+    static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
+    static regInline = /^(button|input|img)$/;
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), preWs = this.wspc;
         let postWs;
@@ -1672,6 +1710,7 @@ class RCompiler {
         this.head.appendChild(srcStyle);
         this.AddedHeaderElements.push(srcStyle);
     }
+    regIS;
     CompString(data, name) {
         const regIS = this.regIS ||=
             new RegExp(/(?<![\\$])/.source
@@ -1846,10 +1885,6 @@ class RCompiler {
         return await (await RFetch(this.GetURL(src))).text();
     }
 }
-RCompiler.iNum = 0;
-RCompiler.genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?onerror)$/;
-RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
-RCompiler.regInline = /^(button|input|img)$/;
 const gFetch = fetch;
 export async function RFetch(input, init) {
     const r = await gFetch(input, init);
@@ -1862,11 +1897,13 @@ function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
+    RC;
+    store;
+    storeName;
     constructor(RC, globalName, initialValue, store, storeName) {
         this.RC = RC;
         this.store = store;
         this.storeName = storeName;
-        this._Subscribers = new Set();
         if (globalName)
             globalThis[globalName] = this;
         this.storeName ||= globalName;
@@ -1879,6 +1916,9 @@ class _RVAR {
             catch { }
         this.SetAsync(initialValue);
     }
+    _Value;
+    _Subscribers = new Set();
+    auto;
     Subscribe(s, bImmediate, bInit = bImmediate) {
         if (bInit)
             s();
