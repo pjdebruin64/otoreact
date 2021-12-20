@@ -85,13 +85,13 @@ class Range {
 }
 const DUndef = _ => undefined;
 function PrepArea(srcElm, area, text = '', bMark, result) {
-    let { parent, env, range, before } = area, subArea = { parent, env, range: null }, bInit = !range;
+    let { parent, env, range } = area, subArea = { parent, env, range: null }, bInit = !range;
     if (bInit) {
         subArea.source = area.source;
         subArea.before = area.before;
         if (srcElm)
             text = `${srcElm.localName}${text ? ' ' : ''}${text}`;
-        UpdatePrevArea(area, range = subArea.parentR = new Range(null, area, text));
+        UpdatePrevRange(area, range = subArea.parentR = new Range(null, area, text));
         range.result = result;
     }
     else {
@@ -111,7 +111,7 @@ function PrepArea(srcElm, area, text = '', bMark, result) {
     }
     return { range, subArea, bInit };
 }
-function UpdatePrevArea(area, range) {
+function UpdatePrevRange(area, range) {
     let r;
     if (r = area.prevR)
         r.next = range;
@@ -126,7 +126,7 @@ function PrepareElement(srcElm, area, nodeName = srcElm.nodeName) {
             ? (srcElm.innerHTML = "", srcElm)
             : area.parent.insertBefore(document.createElement(nodeName), area.before));
         range = new Range(elm, area);
-        UpdatePrevArea(area, range);
+        UpdatePrevRange(area, range);
     }
     else {
         area.range = range.next;
@@ -147,7 +147,7 @@ function PrepCharData(area, content, bComm) {
     let range = area.range;
     if (!range) {
         range = new Range(area.parent.insertBefore(bComm ? document.createComment(content) : document.createTextNode(content), area.before), area);
-        UpdatePrevArea(area, range);
+        UpdatePrevRange(area, range);
     }
     else {
         range.node.data = content;
@@ -196,7 +196,9 @@ function CloneEnv(env) {
     return clone;
 }
 function assignEnv(target, source) {
+    const C = target.constructs;
     Object.assign(target, source);
+    target.constructs = C;
 }
 class Signature {
     constructor(srcElm) {
@@ -241,37 +243,39 @@ var ModType;
     ModType[ModType["onupdate"] = 10] = "onupdate";
 })(ModType || (ModType = {}));
 let bReadOnly = false;
-function ApplyModifier(elm, modType, name, val, bCreate) {
+function ApplyModifier(elm, modType, nm, val, bCreate) {
     switch (modType) {
         case ModType.Attr:
-            elm.setAttribute(name, val);
+            elm.setAttribute(nm, val);
             break;
         case ModType.Src:
-            elm.setAttribute('src', new URL(val, name).href);
+            elm.setAttribute('src', new URL(val, nm).href);
             break;
         case ModType.Prop:
-            if (val !== undefined && val !== elm[name])
-                elm[name] = val;
+            if (val === undefined && typeof elm[nm] == 'string')
+                val = '';
+            if (val !== elm[nm])
+                elm[nm] = val;
             break;
         case ModType.Event:
             let m;
             if (val)
-                if (m = /^on(input|change)$/.exec(name)) {
+                if (m = /^on(input|change)$/.exec(nm)) {
                     elm.addEventListener(m[1], val);
                     elm.handlers.push({ evType: m[1], listener: val });
                 }
                 else {
-                    elm[name] = val;
-                    if (/^onclick$/.test(name) && R.Settings.bSetPointer)
+                    elm[nm] = val;
+                    if (/^onclick$/.test(nm) && R.Settings.bSetPointer)
                         elm.style.cursor = val && !elm.disabled ? 'pointer' : null;
                 }
             break;
         case ModType.Class:
             if (val)
-                elm.classList.add(name);
+                elm.classList.add(nm);
             break;
         case ModType.Style:
-            elm.style[name] = val || (val === 0 ? '0' : null);
+            elm.style[nm] = val || (val === 0 ? '0' : null);
             break;
         case ModType.AddToStyle:
             if (val)

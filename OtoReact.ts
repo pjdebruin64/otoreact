@@ -150,7 +150,7 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     result?: any,
 ) : {range: Range, subArea:Area, bInit: boolean}
 {
-    let {parent, env, range, before} = area,
+    let {parent, env, range} = area,
         subArea: Area = {parent, env, range: null }
         , bInit = !range;
     if (bInit) {
@@ -158,7 +158,7 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
         subArea.before = area.before;
         if (srcElm) text = `${srcElm.localName}${text?' ':''}${text}`;
         
-        UpdatePrevArea(area, range = subArea.parentR = new Range(null, area, text));
+        UpdatePrevRange(area, range = subArea.parentR = new Range(null, area, text));
         range.result = result;
     }
     else {
@@ -180,7 +180,7 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     
     return {range, subArea, bInit};
 }
-function UpdatePrevArea(area: Area, range: Range) {
+function UpdatePrevRange(area: Area, range: Range) {
     let r: Range
     if (r = area.prevR) 
         r.next = range;
@@ -200,7 +200,7 @@ function PrepareElement<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm
             : area.parent.insertBefore<HTMLElement>(document.createElement(nodeName), area.before)
             );
         range = new Range(elm, area) as Range<HTMLElement> & T;
-        UpdatePrevArea(area, range);
+        UpdatePrevRange(area, range);
     }
     else {
         area.range = range.next
@@ -227,7 +227,7 @@ function PrepCharData(area: Area, content: string, bComm?: boolean) {
                 , area.before)
             , area
         );
-        UpdatePrevArea(area, range);
+        UpdatePrevRange(area, range);
     } else {
         range.node.data = content;
         area.range = range.next;
@@ -286,7 +286,10 @@ function CloneEnv(env: Environment): Environment {
     return clone;
 }
 function assignEnv(target: Environment, source: Environment) {
+    const C = target.constructs;
     Object.assign(target, source);
+    //for (const [k,v] of source.constructs.entries()) C.set(k, v);
+    target.constructs = C;
 }
 
 type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
@@ -370,36 +373,38 @@ type Modifier = {
 type RestParameter = Array<{modType: ModType, name: string, value: unknown}>;
 let bReadOnly: boolean = false;
 
-function ApplyModifier(elm: HTMLElement, modType: ModType, name: string, val: unknown, bCreate: boolean) {    
+function ApplyModifier(elm: HTMLElement, modType: ModType, nm: string, val: unknown, bCreate: boolean) {    
     switch (modType) {
         case ModType.Attr:
-            elm.setAttribute(name, val as string); 
+            elm.setAttribute(nm, val as string); 
             break;
         case ModType.Src:
-            elm.setAttribute('src',  new URL(val as string, name).href);
+            elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
         case ModType.Prop:
-            if (val !== undefined && val !== elm[name]) elm[name] = val;
+            if (val===undefined && typeof elm[nm]=='string') val = '';
+            if (val !== elm[nm])
+                elm[nm] = val;
             break;
         case ModType.Event:
             let m: RegExpMatchArray;
             if (val)
-                if(m = /^on(input|change)$/.exec(name)) {
+                if(m = /^on(input|change)$/.exec(nm)) {
                     elm.addEventListener(m[1], val as EventListener);
                     (elm as any).handlers.push({evType: m[1], listener: val})
                 }
                 else {
-                    elm[name] = val; 
-                    if (/^onclick$/.test(name) && R.Settings.bSetPointer)
+                    elm[nm] = val; 
+                    if (/^onclick$/.test(nm) && R.Settings.bSetPointer)
                         elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : null;
                 }
             break;
         case ModType.Class:
             if (val)
-                elm.classList.add(name);
+                elm.classList.add(nm);
             break;
         case ModType.Style:
-            elm.style[name] = val || (val === 0 ? '0' : null);
+            elm.style[nm] = val || (val === 0 ? '0' : null);
             break;
         case ModType.AddToStyle:
             if (val) 

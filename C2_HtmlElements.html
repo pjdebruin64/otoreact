@@ -9,6 +9,29 @@
 </p>
 <demo #srctext=sampleSqrt></demo>
 
+
+<h2>DOM Properties</h2>
+<p>
+    The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
+    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
+</p>
+<p>
+    Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
+    <br>So by setting a property rather than an attribute, you avoid unnecessary type conversions, and you spare an attribute node in the created DOM tree.
+    <br>Furthermore, there are some DOM properties that are not available as HTML attributes at all.
+</p>
+<p>
+    Documentation of all properties can e.g. be found at <a href="{MDN}Web/API#interfaces">MDN</a> or at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
+</p>
+<p>
+    When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
+</p>
+<p>
+    Note: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
+    <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
+</p>
+
+
 <h2>HTML DOM Events</h2>
 <p>
     In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
@@ -49,28 +72,6 @@ RHTML implements two additional events that are not triggered by browser engine 
     </dd>
 </dl>
 Note: The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is.
-
-
-<h2>DOM Properties</h2>
-<p>
-    The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
-    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
-</p>
-<p>
-    Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
-    <br>So by setting a property rather than an attribute, you avoid unnecessary type conversions.
-    <br>Furthermore, there are some DOM properties that are not available as HTML attributes at all.
-</p>
-<p>
-    Documentation of all properties can e.g. be found at <a href="{MDN}Web/API#interfaces">MDN</a> or at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
-</p>
-<p>
-    When the expression yields value <code>undefined</code>, then the property is left unchanged.
-</p>
-<p>
-    Note: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
-    <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
-</p>
 
 
 <h2>Class Names</h2>
