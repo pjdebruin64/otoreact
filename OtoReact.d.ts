@@ -111,7 +111,9 @@ declare class RCompiler {
     private AllAreas;
     private Builder;
     private bCompiled;
-    onerror: Handler;
+    onerror: Handler & {
+        bBldr?: boolean;
+    };
     private wspc;
     private rspc;
     DirtyVars: Set<RVAR<unknown>>;
