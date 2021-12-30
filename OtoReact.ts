@@ -667,12 +667,12 @@ class RCompiler {
             this.bUpdate = true;
             return;
         }
+        updCnt++;
         
-        for (let i=0;i<3;i++) {
+        do {
             this.bUpdate = false;
             this.bUpdating = true;
             let saveR = R;
-            updCnt++;
             try {
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
@@ -698,19 +698,19 @@ class RCompiler {
             finally { 
                 R = saveR;this.bUpdating = false;
             }
-            if (!this.bUpdate) break;
-        } 
+        }
+        while (this.bUpdate)
     }
 
     /* A "responsive variable" is a variable which listeners can subscribe to. */
     RVAR<T>(
         name?: string, 
-        initialValue?: T | Promise<T>, 
+        value?: T | Promise<T>, 
         store?: Store,
         subs?: (t:T) => void,
-        storeName: string = name
+        storeName?: string
     ) {
-        const r = new _RVAR<T>(this.RC, name, initialValue, store, storeName);
+        const r = new _RVAR<T>(this.RC, name, value, store, storeName);
         if (subs)
             r.Subscribe(subs, true, false);
         //this.MainC.CreatedRvars.push(r);
@@ -847,7 +847,7 @@ class RCompiler {
                     }
                     for (const subs of toSubscribe) {
                         const {sArea} = subs, {range} = sArea, rvar = range.value as RVAR;
-                        if (!rvar._Subscribers.size) // No subscribers yet?
+                        if (!rvar._Subscribers.size && range.next) // No subscribers yet?
                         {   // Then subscribe with the correct range
                             (sArea.range = range.next).updated = 0;
                             subs.ref = {};
@@ -906,19 +906,18 @@ class RCompiler {
                                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
+                            getValue    = this.CompParameter(atts, 'value', DUndef),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
-                            getValue    = this.CompParameter(atts, 'value', DUndef),
                             newVar      = this.NewVar(varName);
 
                         if (rvarName) {
-                            atts.get('async');
                             // Check for compile-time subscribers
                             const a = this.cRvars.get(rvarName);    // Save previous value
                             this.cRvars.set(rvarName, true);
                             this.restoreActions.push(() => {
                                 // Possibly auto-subscribe when there were no compile-time subscribers
-                                elmBuilder.auto = this.cRvars.get(rvarName);
+                                if (elmBuilder) elmBuilder.auto = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, a);
                             });
                         }
@@ -929,7 +928,7 @@ class RCompiler {
                                     const value = getValue(env);
                                     if (rvarName)
                                         if (bInit)
-                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(env), rvarName);
+                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(env), `RVAR_${rvarName}`);
                                         else
                                             range.value.SetAsync(value);
                                     else
@@ -2328,16 +2327,15 @@ interface Store {
 class _RVAR<T = unknown>{
     constructor(
         private RC: RCompiler,
-        globalName?: string, 
+        name?: string, 
         initialValue?: T | Promise<T>, 
         private store?: Store,
-        private storeName?: string,
+        private storeName: string = `RVAR_${name}`,
     ) {
-        if (globalName) globalThis[globalName] = this;
-        this.storeName ||= globalName;
+        if (name) globalThis[name] = this;
         
-        let s: string;
-        if ((s = store && store.getItem(`RVAR_${this.storeName}`)) != null)
+        const s = store && store.getItem(storeName);
+        if (s != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
@@ -2409,7 +2407,7 @@ class _RVAR<T = unknown>{
     }
 
     public Save() {
-        this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));
+        this.store.setItem(this.storeName, JSON.stringify(this._Value));
     }
 }
 export interface RVAR<T = unknown> extends _RVAR<T> {}

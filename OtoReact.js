@@ -486,11 +486,11 @@ class RCompiler {
             this.bUpdate = true;
             return;
         }
-        for (let i = 0; i < 3; i++) {
+        updCnt++;
+        do {
             this.bUpdate = false;
             this.bUpdating = true;
             let saveR = R;
-            updCnt++;
             try {
                 for (const rvar of this.DirtyVars)
                     rvar.Save();
@@ -517,12 +517,10 @@ class RCompiler {
                 R = saveR;
                 this.bUpdating = false;
             }
-            if (!this.bUpdate)
-                break;
-        }
+        } while (this.bUpdate);
     }
-    RVAR(name, initialValue, store, subs, storeName = name) {
-        const r = new _RVAR(this.RC, name, initialValue, store, storeName);
+    RVAR(name, value, store, subs, storeName) {
+        const r = new _RVAR(this.RC, name, value, store, storeName);
         if (subs)
             r.Subscribe(subs, true, false);
         return r;
@@ -636,7 +634,7 @@ class RCompiler {
                 }
                 for (const subs of toSubscribe) {
                     const { sArea } = subs, { range } = sArea, rvar = range.value;
-                    if (!rvar._Subscribers.size) {
+                    if (!rvar._Subscribers.size && range.next) {
                         (sArea.range = range.next).updated = 0;
                         subs.ref = {};
                         rvar.Subscribe(rvar.auto = subs);
@@ -688,13 +686,13 @@ class RCompiler {
                             for (let C of srcElm.childNodes)
                                 if (C.nodeType != Node.TEXT_NODE || !/^\s*$/.test(C.data))
                                     throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), getValue = this.CompParameter(atts, 'value', DUndef), newVar = this.NewVar(varName);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getValue = this.CompParameter(atts, 'value', DUndef), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), newVar = this.NewVar(varName);
                             if (rvarName) {
-                                atts.get('async');
                                 const a = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, true);
                                 this.restoreActions.push(() => {
-                                    elmBuilder.auto = this.cRvars.get(rvarName);
+                                    if (elmBuilder)
+                                        elmBuilder.auto = this.cRvars.get(rvarName);
                                     this.cRvars.set(rvarName, a);
                                 });
                             }
@@ -704,7 +702,7 @@ class RCompiler {
                                     const value = getValue(env);
                                     if (rvarName)
                                         if (bInit)
-                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(env), rvarName);
+                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(env), `RVAR_${rvarName}`);
                                         else
                                             range.value.SetAsync(value);
                                     else
@@ -1869,16 +1867,15 @@ function quoteReg(fixed) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
 }
 class _RVAR {
-    constructor(RC, globalName, initialValue, store, storeName) {
+    constructor(RC, name, initialValue, store, storeName = `RVAR_${name}`) {
         this.RC = RC;
         this.store = store;
         this.storeName = storeName;
         this._Subscribers = new Set();
-        if (globalName)
-            globalThis[globalName] = this;
-        this.storeName ||= globalName;
-        let s;
-        if ((s = store && store.getItem(`RVAR_${this.storeName}`)) != null)
+        if (name)
+            globalThis[name] = this;
+        const s = store && store.getItem(storeName);
+        if (s != null)
             try {
                 this._Value = JSON.parse(s);
                 return;
@@ -1937,7 +1934,7 @@ class _RVAR {
             this.RC.RUpdate();
     }
     Save() {
-        this.store.setItem(`RVAR_${this.storeName}`, JSON.stringify(this._Value));
+        this.store.setItem(this.storeName, JSON.stringify(this._Value));
     }
 }
 class Atts extends Map {

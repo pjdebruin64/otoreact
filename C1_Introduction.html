@@ -1,4 +1,4 @@
-<h1>Introduction</h1>
+<h1 id=Introduction>Introduction</h1>
 
 <div style="display: grid; grid-template-columns: 1fr 1fr ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
     <div class=sample 
@@ -29,7 +29,7 @@
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
-    <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, some <a href="#Persistence">persistence</a>, et cetera.
+    <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
     <li>OtoReact does not modify any native objects (prototypes), and can be used for fragments of a larger application, meaning that it can easily be combined with other tooling.
 </ul>
 
@@ -56,7 +56,7 @@ Explanation:
 </ul>
 
 <h4>Tic-Tac-Toe</h4>
-The Tic-Tac-Toe source code is shown <a href="#ReactOn">here</a>.
+The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
 
 
 <h4>Working with server data</h4>
@@ -226,41 +226,92 @@ The question marks indicate optional arguments.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
 </p>
 <p>
-    RVAR's are created either by calling <code>RVAR(name?, value?, store?)</code> from JavaScript, or by using the <a href=#Define></a><elm>define rvar</elm></a> construct.
+    RVAR's are created either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename = `RVAR_$\{name\}`)</code> from JavaScript, or by using the <a href=#define><elm>define rvar</elm></a> construct.
     <br>The created RVAR is returned and may be stored in a local variable.
-    <br>If you supply a name, it will be registered in the global environment under that name and will be visible anywhere.
-    <br>So if you write:
-    <pre>
-<{}script type=module>
-    const A = RVAR('B');
-    &hellip;</pre>
-    , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
 </p>
-<p>A reactive variable is an object, distinct from the value of the variable.</p>
-<ul>
-    <li>
-        To get or set the value of an RVAR <code>x</code>, one writes <code class=sourcecode>x.V</code>. When <code>x.V</code> is set, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
-    </li>
-    <li>
-        When you are modifying, not the value of a variable, but properties of the value, the variable has to be marked as dirty as well.
-        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
-        <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array.
-    </li>
-    <li>
-        You may inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <elm>REACT</elm> element or the <code>react</code> attribute, see below.
-        <br>If you do not, then the full trunk of compiled RHTML will react on all RVAR's.
-    </li>
-    <li>
-        JavaScript code can be notified of changes to the RVAR, by calling <code class=sourcecode>x.Subscribe(<i>handler</i>)</code>.
-        <br>The handler will be called whenever the RVAR is modified or otherwise set dirty.
-    </li>
-    <li>
-        An RVAR can be marked as dirty without modifying it, by calling <code>x.SetDirty()</code>.
-    </li>
-</ul>
 
-<h3 id=Persistence>Persistence</h3>
-When you provide a <code class=sourcecode>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
+<h4>RVAR arguments</h4>
+<dl>
+    <dt><code>name</code></dt>
+    <dd>
+        If you supply a <code>name</code>, the RVAR will be registered in the global environment under that name and will be visible anywhere.
+        <br>So if you write:
+        <pre>
+    <{}script type=module>
+        const A = RVAR('B');
+        &hellip;</pre>
+        , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
+    </dd>
+    <dt><code>initialValue</code></dt>
+    <dd>
+        Provides the initial value of the RVAR.
+        <br>When <code>initialValue</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the RVAR will initially be <code>undefined</code>, and when the promise resolves to a value, then the RVAR will be set to that value.
+    </dd>
+    <dt><code>store</code></dt>
+    <dd>
+        Provides simple persistence functionality, see <a href="#Persistence">Persistence</a>.
+    </dd>
+    <dt><code>subscriber</code></dt>
+    <dd>
+        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR.
+    </dd>
+    <dt><code>storename</code></dt>
+    <dd>See <a href="#Persistence">Persistence</a>.</dd>
+</dl>
+
+<p>
+    You may or must inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <a href=#React><elm>REACT</elm> element</a> or the <a href=#reacton><code>reacton</code> attribute</a>, see below.
+    <br>For RVAR's created by calling <code>RVAR()</code>, this is necessary.
+    <br>For RVAR's created by <elm>define rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code where the RVAR is visible <u>will implicitly react</u> on the RVAR.
+</p>
+
+<h4>Properties and methods</h4>
+<p>A reactive variable <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
+<dl>
+    <dt><code class=sourcecode>x.V</code></dt>
+    <dd>
+        To get or set the value of an RVAR <code>x</code>, one writes <code>x.V</code>.
+        <br>When <code>x.V</code> is set to a different value than it had, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
+    </dd>
+    <dt><code class=sourcecode>x.U</code></dt>
+    <dd>
+        When you modify not the value of a variable, but properties of the value, you may want the variable to be marked as dirty as well.
+        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
+        <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.
+        <p>
+            Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty at all times.
+        </p>
+    </dd>
+    <dt><code class=sourcecode>x.SetDirty()</code></dt>
+    <dd>
+        The RVAR can be explicitly set dirty by calling <code>x.SetDirty()</code>.
+    </dd>
+    <dt id=Subscribe><code class=sourcecode>x.Subscribe(subs, bImmediate?, bInit = bImmediate)</code></dt>
+    <dd>
+        Routine <code>subs</code> is registered as a subscriber to <code>x</code>, so it will be called whenever <code>x</code> has been set dirty.
+        <br>When <code>bImmediate</code> is truthy, <code>subs</code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
+        <br>When <code>bInit</code> is truthy, then <code>subs</code> will be called directly when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+    </dd>
+    <dt><code class=sourcecode>x.UnSubscribe(subs)</code></dt>
+    <dd>
+        Unregisters a routine <code>subs</code> previously registered as a subscriber to <code>x</code>.
+    </dd>
+    <dt><code class=sourcecode>x.SetAsync(value)</code></dt>
+    <dd>
+        Sets the value of <code>x</code> either synchronously, or asynchronously when <code>value</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
+    </dd>
+    <dt><code class=sourcecode>x.Set</code></dt>
+    <dd>
+        Provides a routine that sets the value of <code>x</code>, i.e. <code>v => x.SetAsync(v)</code> (or <code>x.SetAsync.bind(x)</code>).
+        <p>
+            This is handy to create an errorhandler. E.g., if <code>errMsg</code> is an RVAR that should receive error messages, then you can write <code>doSomething().catch(errMsg.Set)</code> to catch the errors of some asynchronous routine, or you can add an attribute <code>#onerror="errMsg.Set"</code> to catch all errors within a block of RHTML.
+        </p>
+    </dd>
+</dl>
+
+
+<h4 id=Persistence>Persistence</h4>
+When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
 <p><code>store</code> can be:</p>
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
@@ -268,10 +319,11 @@ When you provide a <code class=sourcecode>store</code> parameter to <code>RVAR()
     <li>Any other object that supports the <code>setItem</code> and <elm>getItem</elm> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
     </li>
 </ul>
-<p>The variable must have a unique name.</p>
+<p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>.</p>
 
-<demo #srctext=sampleGreeting2></demo>
-
+<p>
+    An as example, enter your name at the <a href=#Introduction>top of this introduction</a>, reload the page, and note that your name has persisted.
+</p>
 
 <h2>Scripts in RHTML</h2>
 <p>

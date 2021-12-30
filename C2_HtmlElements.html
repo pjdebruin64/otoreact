@@ -77,7 +77,7 @@ RHTML implements some additional events that are not triggered by browser engine
 </dl>
 Note: The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is.
 
-<h3>RHTML error handlers</h3>
+<h3 id=onerror>RHTML error handlers</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
 <p>
     RHTML allows you to set an error handler for <i>all</i> DOM events at once!

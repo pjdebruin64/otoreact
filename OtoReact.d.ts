@@ -125,7 +125,7 @@ declare class RCompiler {
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
-    RVAR<T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
+    RVAR<T>(name?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;
     builtNodeCount: number;
@@ -168,8 +168,8 @@ interface Store {
 declare class _RVAR<T = unknown> {
     private RC;
     private store?;
-    private storeName?;
-    constructor(RC: RCompiler, globalName?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
+    private storeName;
+    constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _Value;
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
