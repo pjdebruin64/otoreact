@@ -42,19 +42,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
-<demo srctext=
-"<def var=a #value=&quot;10&quot;></def>
-<def var=f #value=&quot;(x) => a+x&quot;></def>
-
-<p> \{a}, \{f(1)} </p>
-
-<p>
-    <def var=a #value=20></def>
-    \{a}, \{f(2)}
-</p>
-
-<p> \{a} </p>"
-></demo>
+<demo #srctext=demoScoping></demo>
 
 <h2 id=Case><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
@@ -658,8 +646,8 @@ imports a number of components defined in an external file, called a <i>module</
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
 <h2 id=RHTML><{}RHTML #srctext></h2>
-<code class=sourcecode><elm>RHTML #srctext="<i>sourceText</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
-<p>After each build or update, when the resulting <i>sourceText</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
+<code class=sourcecode><elm>RHTML #srctext="<i>sourceExpr</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
+<p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 <demo #srctext=sampleRHTML></demo>

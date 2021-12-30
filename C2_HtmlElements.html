@@ -27,10 +27,12 @@
     When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
 </p>
 <p>
-    Note: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
-    <br>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
+    Notes: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
 </p>
-
+<p>
+    For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
+    <br>Setting <code>#on<i>name</i>="<i>expr</i>"</code> is about the same as <code>on<i>name</i>="return (<i>expr</i>)(event)"</code>.
+</p>
 
 <h2>HTML DOM Events</h2>
 <p>
@@ -55,39 +57,76 @@
 
 
 <h2>RHTML Non-DOM-events</h2>
-RHTML implements two additional events that are not triggered by browser engine but by the OtoReact engine:
+RHTML implements some additional events that are not triggered by browser engine but by the OtoReact engine:
 <dl>
-    <dt><code>oncreate</code></dt>
+    <dt><code class=sourcecode>oncreate</code></dt>
     <dd>
         Happens after an element (and its children) has been <i>created</i> (built).
     </dd>
-    <dt><code>onupdate</code></dt>
+    <dt><code class=sourcecode>onupdate</code></dt>
     <dd>
         Happens after an element (and its children) has been <i>updated</i>.
     </dd>
-    <dt><code>onupdate*</code></dt>
+    <dt><code class=sourcecode>oncreateupdate</code> or <code class=sourcecode>onupdatecreate</code></dt>
     <dd>
         Happens after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
-        <p>Alternative names are <code>oncreateupdate</code> or <code>oncreate+</code>. So <code>*</code> is shorthand for <code>create</code> and <code>+</code> for <code>update</code>. The same association is used with <a href="#TwoWayBinding">two-way bindings</a>.
+        <p>
+            <code>create</code> may replaced by <code>*</code>, and <code>update</code> by <code>+</code>, so you may write <code>oncreate+</code> or <code>onupdate*</code> or even <code>on*+</code>.
+            <br>The association of <code>*</code> with creation and <code>+</code> with updating is used with <a href="#TwoWayBinding">two-way bindings</a> as well.
     </dd>
 </dl>
 Note: The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is.
 
+<h3>RHTML error handlers</h3>
+Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
+<p>
+    RHTML allows you to set an error handler for <i>all</i> DOM events at once!
+</p>
+
+<dl>
+    <dt><code class=sourcecode>onerror</code></dt>
+    <dd>
+        Happens whenever an error occurs in the following situations:
+        <ul>
+            <li>
+                During any synchronous DOM event handler attached to the current element or any of its HTML children, including HTML elements created by RHTML components defined outside the current element
+            </li>
+            <li>
+                During the asynchronous execution of a <code>Promise</code> returned by a DOM event handler.
+                <br>So if your handler includes a call to some asynchronous function <code>doSomething</code>, then you must make sure that that it returns the resulting promise in order for asynchronous errors to be caught, e.g.: <code>onclick="return doSomething()"</code>
+            </li>
+            <li>
+                While creating or updating the current element or its children
+            </li>
+            <li>
+                While resolving an asynchronously defined local variable value, see <a href="#define"><elm>DEFINE</elm></a>.
+            </li>
+        </ul>
+        The name <code>event</code> is bound to the error value (usually a string).
+    </dd>
+    <dt><code class=sourcecode>onerror-</code></dt>
+    <dd>
+        Happens in the first two situations listed for <code>onerror</code>, so not while creating or updating the element.
+    </dd>
+</dl>
 
 <h2>Class Names</h2>
 <p>
-    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <code>class</code> attribute or the <code>#className</code> DOM property. Note that there cannot be a <code>#class</code> DOM property, because 'class' is a reserved word in JavaScript.
-    <br>Besides these, RHTML recognizes the following attributes:
+    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <code>class</code> attribute or the <code>#className</code> DOM property.
+    <br>Note that there is not (and cannot be) a <code>#class</code> DOM property, because 'class' is a reserved word in JavaScript.
+</p>
+<p>
+    Besides these, RHTML recognizes the following attributes:
 </p>
 <dl>
-    <dt><code>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
+    <dt><code class=sourcecode>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
     <dd>or</dd>
-    <dt><code>#class.<i>name</i>="<i>booleanExpression</i>"</code></dt>
+    <dt><code class=sourcecode>#class.<i>name</i>="<i>booleanExpression</i>"</code></dt>
     <dd>
         Class name <i>name</i> will be added in lowercase to the element if and only if the expression evaluates to true (or another <a href="{MDN}Glossary/Truthy">truthy</a> value).
         <br>Note that the HTML parser transforms <i>name</i> into lowercase, so you cannot use this for class names containing uppercase characters.
     </dd>
-    <dt><code>+class="<i>expression</i>"</code></dt>
+    <dt><code class=sourcecode>+class="<i>expression</i>"</code></dt>
     <dd>
         When the value of the expression is a string, then it is added to the list of class names.
         <br>When it is an array, then every element of the array is added to the list of class names
@@ -96,21 +135,24 @@ Note: The name <code>event</code> is not available in handlers for these pseudo-
 </dl>
 Just as other DOM properties, class names are recomputed at every update of the element.
 
+
 <h2>Inline Styles</h2>
 HTML, and hence RHTML, allow you set style properties of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> global attribute</a>. These are called "inline styles".
 <br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
 <br>One can, however, set its properties. RHTML recognizes the following attributes:
 <dl>
-    <dt><code>style.<i>name</i>="<i>string</i>"</code></dt>
+    <dt><code class=sourcecode>style.<i>name</i>="<i>string</i>"</code></dt>
     <dd>
         Style property <i>name</i> will be set to <code><i>string</i></code>, applying string interpolation.
     </dd>
-    <dt><code>#style.<i>name</i>="<i>expression</i>"</code></dt>
+    <dt><code class=sourcecode>#style.<i>name</i>="<i>expression</i>"</code></dt>
     <dd>
         Style property <i>name</i> will be set to the value of <code><i>expression</i></code>.
-        <br>When the value is <code>null</code>, <code>false</code>, empty, or <code>undefined</code>, then the style property will be reset.
+        <p>When the value is <code>null</code>, empty, or <code>undefined</code>, then the style property will be reset.
+        <p>When the value is <code>false</code>, then the style property will also be reset.
+            <br>This allows you to abbreviate a conditional style setting like <code>#style.<i>name</i>="<i>cond</i> ? <i>expr</i> : null"</code> to <code>#style.<i>name</i>="<i>cond</i> &amp;&amp; <i>expr</i>"</code>
     </dd>
-    <dt><code>+style="<i>objectExpression</i>"</code></dt>
+    <dt><code class=sourcecode>+style="<i>objectExpression</i>"</code></dt>
     <dd>
         The expression should evaluate to an object.
         <br>Every property <i>name</i> in the object will be set or reset in the inline style object.

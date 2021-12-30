@@ -2283,7 +2283,7 @@ class RCompiler {
                     try {
                         const result = hndlr.call(this,ev);
                         if (result instanceof Promise)
-                            return result.then(onerror, onerror);
+                            return result.then(() => onerror(null), onerror);
                         onerror(null);
                         return result;
                     }

@@ -561,16 +561,15 @@ h5 {margin: 0px; padding: 4px 0px;
 pre {background-color: lightgrey}
 </style>
 
+<h5>RHTML source:</h5>
 <def rvar=source store=localStorage value=
 "<def var=x value=A></def>
 <ul> <li> x = \\{x} </ul>
 "></def>
-
-<h5>RHTML source:</h5>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
-<def rvar=html></def>
 <h5>HTML rendering:</h5>
+<def rvar=html></def>
 <div #innerhtml=source.V 
     *+innerHTML= "html.V"
 ></div>
@@ -578,11 +577,25 @@ pre {background-color: lightgrey}
 <h5>Parsed HTML:</h5>
 <pre reacton=html>{html.V}</pre>
 
-<def rvar=rhtml></def>
 <h5>RHTML rendering:</h5>
+<def rvar=rhtml></def>
 <rhtml #srctext=source.V
   onupdate*= "rhtml.V = this.shadowRoot.innerHTML"
 ></rhtml>
 
 <h5>Created DOM:</h5>
-<pre reacton=rhtml>{rhtml.V}</pre>`
+<pre reacton=rhtml>{rhtml.V}</pre>`;
+
+const demoScoping=
+`(Look to the source code please)
+<def var=A #value="10"></def>
+<def var=F #value="(x) => A+x"></def>
+
+<p>A = {A}, F(1) = {F(1)} </p>
+
+<p>
+    <def var=A #value=20></def>
+    Here A = {A}, but F still refers to the orinal value of A, so F(2) = {F(2)}
+</p>
+
+<p>Here A = {A} again.</p>`

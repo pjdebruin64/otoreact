@@ -13,4 +13,7 @@
 		"declaration": true,
 		"composite": true,
 	},
+	"exclude": [
+		"./*.d.ts"
+	]
 }
