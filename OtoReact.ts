@@ -128,6 +128,19 @@ class Range<NodeType extends ChildNode = ChildNode> {
         }
     }
 }
+/*
+function NextNode(a: Area): ChildNode {
+    do {        
+        let r = a.range, n: ChildNode;
+        while (r) {
+            if (n = r.First)
+                return n;
+            r = r.next;
+        }
+    }
+    while (a = a.parentArea);
+}
+*/
 
 // A CONTEXT is the set of local variable names, each with a number indicating its position in an environment
 type Context = Map<string, number>;
@@ -146,7 +159,7 @@ type Dependent<T> = ((env: Environment) => T) & {bThis?: boolean};
 const DUndef: Dependent<any> = _ => undefined;
 
 function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
-    bMark?: boolean|1|2,  // true=mark area, no wiping; 1=wipe when result has changed; 2=wipe always
+    nWipe?: 1|2,  // 1=wipe when result has changed; 2=wipe always
     result?: any,
 ) : {range: Range, subArea:Area, bInit: boolean}
 {
@@ -165,16 +178,14 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
         subArea.range = range.child;
         area.range = range.next;
 
-        if (bMark) {
-            if (bMark==1 && result != range.result || bMark==2) {
-                range.result = result;
-                range.erase(parent);                 
-                range.child = null;
-                subArea.range = null;
-                subArea.before = range.Next;
-                subArea.parentR = range;
-                bInit = true;
-            }
+        if (nWipe && (nWipe==2 || result != range.result)) {
+            range.result = result;
+            range.erase(parent);                 
+            range.child = null;
+            subArea.range = null;
+            subArea.before = range.Next;
+            subArea.parentR = range;
+            bInit = true;
         }
     }
     
@@ -874,7 +885,7 @@ class RCompiler {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
-        let onerror: Dependent<Handler> & {bBldr?: boolean};
+        let depOnerror: Dependent<Handler> & {bBldr?: boolean};
         if (bUnhide) atts.set('#hidden', 'false');
         
         let builder: DOMBuilder, elmBuilder: DOMBuilder, isBlank: number;
@@ -890,8 +901,8 @@ class RCompiler {
                             , bUpd: /update|\+/.test(attName)    // Exec on update
                             , text: atts.get(attName)});
                     else {
-                        onerror = this.CompHandler(attName, atts.get(attName));
-                        onerror.bBldr = /-$/.test(attName);
+                        depOnerror = this.CompHandler(attName, atts.get(attName));
+                        depOnerror.bBldr = !/-$/.test(attName);
                     }
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
@@ -1321,13 +1332,13 @@ class RCompiler {
             throw `${OuterOpenTag(srcElm)} ${err}`;
         }
         if (!builder) return null;
-        if (onerror) {
+        if (depOnerror) {
             const b = builder;
             builder = async function SetOnError(this: RCompiler, area: Area) {
                 const {env} = area, {RC} = this, save = RC.onerror;
                 try {
-                    RC.onerror = onerror(env);
-                    RC.onerror.bBldr = onerror.bBldr;
+                    RC.onerror = depOnerror(env);
+                    RC.onerror.bBldr = depOnerror.bBldr;
                     await b.call(this, area);
                 }
                 finally { RC.onerror = save; }
@@ -1377,7 +1388,7 @@ class RCompiler {
             
             let range: Range, subArea: Area, bInit: boolean;
             if (getRvars) {
-                ({range, subArea, bInit} = PrepArea(srcElm, area, attName, true));
+                ({range, subArea, bInit} = PrepArea(srcElm, area, attName));
                 area = subArea;
             }
 
@@ -1535,7 +1546,7 @@ class RCompiler {
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
-                    const {range, subArea} = PrepArea(srcElm, area, '', true),
+                    const {range, subArea} = PrepArea(srcElm, area, ''),
                         {parent, env} = subArea,
                         before = subArea.before !== undefined ? subArea.before : range.Next,
                         savedEnv = SaveEnv();
@@ -1603,7 +1614,7 @@ class RCompiler {
                                 subArea.prevR = prevRange;
                                 subArea.before = nextChild?.FirstOrNext || before;
                                 // ';' before '(' is needed for our minify routine
-                                ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`, true));
+                                ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`));
                                 if (key != null) {
                                     if (keyMap.has(key))
                                         throw `Duplicate key '${key}'`;
@@ -1653,7 +1664,7 @@ class RCompiler {
                                 else
                                     range.child = childRange;
                                 subArea.range = childRange;
-                                childArea = PrepArea(null, subArea, '', true).subArea;
+                                childArea = PrepArea(null, subArea, '').subArea;
                                 subArea.parentR = null;
                             }
                             childRange.prev = prevRange;
@@ -2282,8 +2293,9 @@ class RCompiler {
                     try {
                         const result = hndlr.call(this,ev);
                         if (result instanceof Promise)
-                            return result.then(() => onerror(null), onerror);
-                        onerror(null);
+                            //return result.then(() => onerror(null), onerror);
+                            return result.catch(onerror);
+                        //onerror(null);
                         return result;
                     }
                     catch (err) {
@@ -2372,15 +2384,15 @@ class _RVAR<T = unknown>{
             this.SetDirty();
         }
     }
-    get Set() {
-        return this.SetAsync.bind(this);
-    }
     SetAsync(t: T | Promise<T>) {
         if (t instanceof Promise) {
             this.V = undefined;
             t.then(v => {this.V = v}, this.RC.onerror);
         } else
             this.V = t;
+    }
+    get Set() {
+        return this.SetAsync.bind(this);
     }
 
     // Use var.U to get its value for the purpose of updating some part of it.
@@ -2471,7 +2483,7 @@ function OuterOpenTag(elm: HTMLElement, maxLength?: number): string {
 }
 function Abbreviate(s: string, maxLength: number) {
     return (maxLength && s.length > maxLength
-        ? s.substr(0, maxLength - 3) + "..."
+        ? s.substring(0, maxLength - 3) + "..."
         : s);
 }
 
@@ -2549,13 +2561,13 @@ export {_range as range};
 
 export const docLocation: RVAR<string> & {subpath?: string; searchParams?: URLSearchParams}
     = RVAR<string>('docLocation', location.href);
-Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substr(BasePath.length)});
+Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substring(BasePath.length)});
 
 window.addEventListener('popstate', () => {docLocation.V = location.href;} );
 
 function ScrollToHash() {
     if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.substr(1))?.scrollIntoView()), 6);
+        setTimeout((() => document.getElementById(location.hash.substring(1))?.scrollIntoView()), 6);
 }
 docLocation.Subscribe( () => {
     if (docLocation.V != location.href) {

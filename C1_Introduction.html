@@ -226,9 +226,12 @@ The question marks indicate optional arguments.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
 </p>
 <p>
-    RVAR's are created either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename = `RVAR_$\{name\}`)</code> from JavaScript, or by using the <a href=#define><elm>define rvar</elm></a> construct.
-    <br>The created RVAR is returned and may be stored in a local variable.
+    RVAR's are created:
 </p>
+<ul>
+    <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename = `RVAR_$\{name\}`)</code> from JavaScript,</li>
+    <li>or by using the <a href=#define><elm>define rvar</elm></a> construct.</li>
+</ul>
 
 <h4>RVAR arguments</h4>
 <dl>
@@ -238,9 +241,9 @@ The question marks indicate optional arguments.
         <br>So if you write:
         <pre>
     <{}script type=module>
-        const A = RVAR('B');
+        const x = RVAR('X');
         &hellip;</pre>
-        , then it will be available as <code>A</code> just inside this script, and also as <code>B</code> anywhere (though normally one wouldn't use different local and global names).
+        , then it will be available as <code>x</code> just inside this script, and also as <code>X</code> anywhere (though normally one wouldn't use different local and global names).
     </dd>
     <dt><code>initialValue</code></dt>
     <dd>
@@ -253,7 +256,7 @@ The question marks indicate optional arguments.
     </dd>
     <dt><code>subscriber</code></dt>
     <dd>
-        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR.
+        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR, as by <code>x.Subscribe(subscriber)</code>.
     </dd>
     <dt><code>storename</code></dt>
     <dd>See <a href="#Persistence">Persistence</a>.</dd>
@@ -262,7 +265,7 @@ The question marks indicate optional arguments.
 <p>
     You may or must inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <a href=#React><elm>REACT</elm> element</a> or the <a href=#reacton><code>reacton</code> attribute</a>, see below.
     <br>For RVAR's created by calling <code>RVAR()</code>, this is necessary.
-    <br>For RVAR's created by <elm>define rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code where the RVAR is visible <u>will implicitly react</u> on the RVAR.
+    <br>For RVAR's created by <elm>define rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code following the <elm>define rvar</elm>, i.e. the range where the RVAR is visible, <u>will implicitly react</u> on the RVAR.
 </p>
 
 <h4>Properties and methods</h4>
@@ -290,7 +293,7 @@ The question marks indicate optional arguments.
     <dd>
         Routine <code>subs</code> is registered as a subscriber to <code>x</code>, so it will be called whenever <code>x</code> has been set dirty.
         <br>When <code>bImmediate</code> is truthy, <code>subs</code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
-        <br>When <code>bInit</code> is truthy, then <code>subs</code> will be called directly when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+        <br>When <code>bInit</code> is truthy, then <code>subs</code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
     </dd>
     <dt><code class=sourcecode>x.UnSubscribe(subs)</code></dt>
     <dd>

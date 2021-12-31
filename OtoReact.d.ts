@@ -177,8 +177,8 @@ declare class _RVAR<T = unknown> {
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
-    get Set(): any;
     SetAsync(t: T | Promise<T>): void;
+    get Set(): any;
     get U(): T;
     set U(t: T);
     SetDirty(): void;
