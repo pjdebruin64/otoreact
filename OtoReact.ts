@@ -373,31 +373,31 @@ interface Item {}  // Three unknown but distinct types, used by the <FOR> constr
 interface Key {}
 interface Hash {}
 
-enum ModType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
+enum MType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
 }
 type Modifier = {
-    modType: ModType,
+    mType: MType,
     name: string,
-    depValue: Dependent<unknown>,
+    depV: Dependent<unknown>,
 }
-type RestParameter = Array<{modType: ModType, name: string, value: unknown}>;
+type RestParameter = Array<{modType: MType, name: string, value: unknown}>;
 let bReadOnly: boolean = false;
 
-function ApplyModifier(elm: HTMLElement, modType: ModType, nm: string, val: unknown, bCreate: boolean) {    
+function ApplyModifier(elm: HTMLElement, modType: MType, nm: string, val: unknown, bCreate: boolean) {    
     switch (modType) {
-        case ModType.Attr:
+        case MType.Attr:
             elm.setAttribute(nm, val as string); 
             break;
-        case ModType.Src:
+        case MType.Src:
             elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
-        case ModType.Prop:
+        case MType.Prop:
             if (val===undefined && typeof elm[nm]=='string') val = '';
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
-        case ModType.Event:
+        case MType.Event:
             let m: RegExpMatchArray;
             if (val)
                 if(m = /^on(input|change)$/.exec(nm)) {
@@ -410,19 +410,19 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, nm: string, val: unkn
                         elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : null;
                 }
             break;
-        case ModType.Class:
+        case MType.Class:
             if (val)
                 elm.classList.add(nm);
             break;
-        case ModType.Style:
+        case MType.Style:
             elm.style[nm] = val || (val === 0 ? '0' : null);
             break;
-        case ModType.AddToStyle:
+        case MType.AddToStyle:
             if (val) 
                 for (const [name,v] of Object.entries(val as Object))
                     elm.style[name] = v || (v === 0 ? '0' : null);
             break
-        case ModType.AddToClassList:
+        case MType.AddToClassList:
             switch (typeof val) {
                 case 'string': elm.classList.add(val); break;
                 case 'object':
@@ -437,14 +437,14 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, nm: string, val: unkn
                 default: throw `Invalid '+class' value`;
             }
             break;
-        case ModType.RestArgument:
+        case MType.RestArgument:
             for (const {modType, name, value} of val as RestParameter || [])
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
-        case ModType.oncreate:
+        case MType.oncreate:
             if (bCreate)
                 (val as ()=>void).call(elm);
-        case ModType.onupdate:
+        case MType.onupdate:
             if (!bCreate)
                 (val as ()=>void).call(elm); 
             break;
@@ -453,7 +453,7 @@ function ApplyModifier(elm: HTMLElement, modType: ModType, nm: string, val: unkn
 function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], env: Environment, bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
     bReadOnly= true;
-    for (const {modType, name, depValue} of modifiers)
+    for (const {mType: modType, name, depV: depValue} of modifiers)
         try {
             const value = depValue.bThis ? depValue.call(elm, env) : depValue(env);    // Evaluate the dependent value in the current environment
             // See what to do with it
@@ -1887,7 +1887,7 @@ class RCompiler {
                                 shadow.appendChild(style.cloneNode(true));
                         
                         if (signat.RestParam)
-                            ApplyModifier(elm, ModType.RestArgument, null, args[signat.RestParam.name], bInit);
+                            ApplyModifier(elm, MType.RestArgument, null, args[signat.RestParam.name], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1954,7 +1954,7 @@ class RCompiler {
             const modifs = this.CompAttributes(atts);
             getArgs.set(RestParam.name, 
                 env => modifs.map(
-                    ({modType, name, depValue}) => ({modType, name, value: depValue(env)})
+                    ({mType: modType, name, depV: depValue}) => ({modType, name, value: depValue(env)})
                 )
             );
         }
@@ -2040,76 +2040,78 @@ class RCompiler {
             try {
                 if (m = /^on(.*?)\.*$/i.exec(attName))               // Events
                     modifs.push({
-                        modType: ModType.Event, 
+                        mType: MType.Event, 
                         name: CapitalProp(m[0]), 
-                        depValue: this.AddErrHandler(this.CompHandler(attName, attValue))
+                        depV: this.AddErrHandler(this.CompHandler(attName, attValue))
                     });
                 else if (m = /^#class[:.](.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModType.Class, name: m[1],
-                        depValue: this.CompJScript<boolean>(attValue, attName)
+                        mType: MType.Class, name: m[1],
+                        depV: this.CompJScript<boolean>(attValue, attName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModType.Style, name: CapitalProp(m[1]),
-                        depValue: this.CompJScript<unknown>(attValue, attName)
+                        mType: MType.Style, name: CapitalProp(m[1]),
+                        depV: this.CompJScript<unknown>(attValue, attName)
                     });
                 else if (m = /^style\.(.*)$/.exec(attName))
                     modifs.push({
-                        modType: ModType.Style, name: CapitalProp(m[1]),
-                        depValue: this.CompString(attValue, attName)
+                        mType: MType.Style, name: CapitalProp(m[1]),
+                        depV: this.CompString(attValue, attName)
                     });
                 else if (attName == '+style')
                     modifs.push({
-                        modType: ModType.AddToStyle, name: null,
-                        depValue: this.CompJScript<object>(attValue, attName)
+                        mType: MType.AddToStyle, name: null,
+                        depV: this.CompJScript<object>(attValue, attName)
                     });
                 else if (attName == "+class")
                     modifs.push({
-                        modType: ModType.AddToClassList, name: null,
-                        depValue: this.CompJScript<object>(attValue, attName)
+                        mType: MType.AddToClassList, name: null,
+                        depV: this.CompJScript<object>(attValue, attName)
                     });
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
-                    const propName = CapitalProp(m[2]);
+                    const name = CapitalProp(m[2]);
                     try {
                         const setter = m[1]=='#' ? null : this.CompJScript<Handler>(
-                            `function(){const ORx=this.${propName};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
+                            `function(){const ORx=this.${name};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
                         
                         if (/[@#]/.test(m[1])) {
-                            let depValue = this.CompJScript<Handler>(attValue, attName);
-                            if (/^on/.test(propName))
-                                depValue = this.AddErrHandler(depValue as Dependent<Handler>)
-                            modifs.push({ modType: ModType.Prop, name: propName, depValue });
+                            let depV = this.CompJScript<Handler>(attValue, attName);
+                            if (/^on/.test(name))
+                                modifs.push({mType: MType.Event, name
+                                    , depV: this.AddErrHandler(depV as Dependent<Handler>) });
+                            else
+                                modifs.push({ mType: MType.Prop, name, depV });
                         }
                         if (/\*/.test(m[1]))
-                            modifs.push({ modType: ModType.oncreate, name: 'oncreate', depValue: setter });
+                            modifs.push({ mType: MType.oncreate, name: 'oncreate', depV: setter });
                         if (/\+/.test(m[1]))
-                            modifs.push({ modType: ModType.onupdate, name: 'onupdate', depValue: setter });
+                            modifs.push({ mType: MType.onupdate, name: 'onupdate', depV: setter });
                         if (/[@!]/.test(m[1]))
-                            modifs.push({modType: ModType.Event, 
+                            modifs.push({mType: MType.Event, 
                                 name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
-                                depValue: setter});
+                                depV: setter});
                     }
                     catch(err) { throw `Invalid left-hand side '${attValue}'`}          
                 }
                 else if (m = /^\.\.\.(.*)/.exec(attName)) {
                     if (attValue) throw `A rest parameter cannot have a value`;
                     modifs.push({
-                        modType: ModType.RestArgument, name: null,
-                        depValue: this.CompName(m[1])
+                        mType: MType.RestArgument, name: null,
+                        depV: this.CompName(m[1])
                     });
                 }
                 else if (attName == 'src')
                     modifs.push({
-                        modType: ModType.Src,
+                        mType: MType.Src,
                         name: this.FilePath,
-                        depValue: this.CompString(attValue, attName),
+                        depV: this.CompString(attValue, attName),
                     });
                 else
                     modifs.push({
-                        modType: ModType.Attr,
+                        mType: MType.Attr,
                         name: attName,
-                        depValue: this.CompString(attValue, attName)
+                        depV: this.CompString(attValue, attName)
                     });
             }
             catch (err) {
