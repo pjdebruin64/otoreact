@@ -217,8 +217,29 @@ The question marks indicate optional arguments.
 </p>
 
 
-<h2 id=Variables>Local and global variables</h2>
+<h2 id=Variables>RHTML local variables</h2>
+JavaScript in a browser environment distinguishes between local variables, module variables and global variables:
+<ul>
+    <li>
+        Local variables are visible within a single block <code>\{ &hellip; \}</code> of JavaScript code
+    </li>
+    <li>
+        Module variables are visible within a single module, and may be exported and imported into other modules
+    </li>
+    <li>
+        Global variables are visible in all JavaScript code running in the context of a single browser window:
+        <ul>
+            <li>Embedded scripts</li>
+            <li>External scripts</li>
+            <li>HTML inline event handlers</li>
+        </ul>
+    </li>
+</ul>
+Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#Scripts>section on <code>script</code></a>.
 
+<p>
+    RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.
+</p>
 
 <h2 id=RVAR>RVAR: Reactive VARiable's</h2>
 <p>

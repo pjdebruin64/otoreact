@@ -2035,48 +2035,48 @@ class RCompiler {
     private CompAttributes(atts: Atts) { 
         const modifs: Array<Modifier> = [];
 
-        for (const [attName, attValue] of atts) {
+        for (const [aName, aVal] of atts) {
             let m: RegExpExecArray;
             try {
-                if (m = /^on(.*?)\.*$/i.exec(attName))               // Events
+                if (m = /^on(.*?)\.*$/i.exec(aName))               // Events
                     modifs.push({
                         mType: MType.Event, 
                         name: CapitalProp(m[0]), 
-                        depV: this.AddErrHandler(this.CompHandler(attName, attValue))
+                        depV: this.AddErrHandler(this.CompHandler(aName, aVal))
                     });
-                else if (m = /^#class[:.](.*)$/.exec(attName))
+                else if (m = /^#class[:.](.*)$/.exec(aName))
                     modifs.push({
                         mType: MType.Class, name: m[1],
-                        depV: this.CompJScript<boolean>(attValue, attName)
+                        depV: this.CompJScript<boolean>(aVal, aName)
                     });
-                else if (m = /^#style\.(.*)$/.exec(attName))
+                else if (m = /^#style\.(.*)$/.exec(aName))
                     modifs.push({
                         mType: MType.Style, name: CapitalProp(m[1]),
-                        depV: this.CompJScript<unknown>(attValue, attName)
+                        depV: this.CompJScript<unknown>(aVal, aName)
                     });
-                else if (m = /^style\.(.*)$/.exec(attName))
+                else if (m = /^style\.(.*)$/.exec(aName))
                     modifs.push({
                         mType: MType.Style, name: CapitalProp(m[1]),
-                        depV: this.CompString(attValue, attName)
+                        depV: this.CompString(aVal, aName)
                     });
-                else if (attName == '+style')
+                else if (aName == '+style')
                     modifs.push({
                         mType: MType.AddToStyle, name: null,
-                        depV: this.CompJScript<object>(attValue, attName)
+                        depV: this.CompJScript<object>(aVal, aName)
                     });
-                else if (attName == "+class")
+                else if (aName == "+class")
                     modifs.push({
                         mType: MType.AddToClassList, name: null,
-                        depV: this.CompJScript<object>(attValue, attName)
+                        depV: this.CompJScript<object>(aVal, aName)
                     });
-                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(attName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                     const name = CapitalProp(m[2]);
                     try {
                         const setter = m[1]=='#' ? null : this.CompJScript<Handler>(
-                            `function(){const ORx=this.${name};if(${attValue}!==ORx)${attValue}=ORx}`, attName);
+                            `function(){const ORx=this.${name};if(${aVal}!==ORx)${aVal}=ORx}`, aName);
                         
                         if (/[@#]/.test(m[1])) {
-                            let depV = this.CompJScript<Handler>(attValue, attName);
+                            let depV = this.CompJScript<Handler>(aVal, aName);
                             if (/^on/.test(name))
                                 modifs.push({mType: MType.Event, name
                                     , depV: this.AddErrHandler(depV as Dependent<Handler>) });
@@ -2092,30 +2092,30 @@ class RCompiler {
                                 name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
                                 depV: setter});
                     }
-                    catch(err) { throw `Invalid left-hand side '${attValue}'`}          
+                    catch(err) { throw `Invalid left-hand side '${aVal}'`}          
                 }
-                else if (m = /^\.\.\.(.*)/.exec(attName)) {
-                    if (attValue) throw `A rest parameter cannot have a value`;
+                else if (m = /^\.\.\.(.*)/.exec(aName)) {
+                    if (aVal) throw `A rest parameter cannot have a value`;
                     modifs.push({
                         mType: MType.RestArgument, name: null,
                         depV: this.CompName(m[1])
                     });
                 }
-                else if (attName == 'src')
+                else if (aName == 'src')
                     modifs.push({
                         mType: MType.Src,
                         name: this.FilePath,
-                        depV: this.CompString(attValue, attName),
+                        depV: this.CompString(aVal, aName),
                     });
                 else
                     modifs.push({
                         mType: MType.Attr,
-                        name: attName,
-                        depV: this.CompString(attValue, attName)
+                        name: aName,
+                        depV: this.CompString(aVal, aName)
                     });
             }
             catch (err) {
-                throw(`[${attName}]: ${err}`)
+                throw(`[${aName}]: ${err}`)
             }
         }
         atts.clear();
