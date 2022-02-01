@@ -463,7 +463,7 @@ class RCompiler {
         env = NewEnv();
         builtNodeCount++;
         await this.Builder(area);
-        const subs = this.Subscriber(area, this.Builder, parentR ? parentR.child : area.prevR);
+        const subs = this.Subscriber(area, this.Builder, parentR?.child ?? area.prevR);
         this.AllAreas.push(subs);
         R = saveR;
     }
@@ -1248,7 +1248,7 @@ class RCompiler {
                                 setVar(item);
                                 setIndex(idx);
                                 const hash = getHash && getHash();
-                                const key = getKey ? getKey() : hash;
+                                const key = getKey?.() ?? hash;
                                 if (key != null && newMap.has(key))
                                     throw `Key '${key}' is not unique`;
                                 newMap.set(key ?? {}, { item, hash, idx });
@@ -1604,7 +1604,8 @@ class RCompiler {
     }
     CompAttributes(atts) {
         const modifs = [];
-        for (const [aName, aVal] of atts) {
+        for (let [aName, aVal] of atts) {
+            aName = aName.replace(/\.+$/, '');
             let m;
             try {
                 if (m = /^on(.*?)\.*$/i.exec(aName))
@@ -1853,8 +1854,9 @@ class RCompiler {
                         return result;
                     }
                     catch (err) {
-                        if (onerr)
-                            onerr(err);
+                        if (!onerr)
+                            throw err;
+                        onerr(err);
                     }
                 };
             return hndlr;

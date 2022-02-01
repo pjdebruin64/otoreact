@@ -587,14 +587,16 @@ pre {background-color: lightgrey}
 <pre reacton=rhtml>{rhtml.V}</pre>`;
 
 const demoScoping=
-`(Look to the source code please)
-<def var=A #value="10"></def>
-<def var=F #value="(x) => A+x"></def>
-
-<p>A = {A}, F(1) = {F(1)} </p>
+`(Look at the source code please)
+<define var=A #value="10"></define>
+<define var=F #value="(x) => A+x"></define>
 
 <p>
-    <def var=A #value=20></def>
+    Now A = { A }, F(1) = { F(1) }
+</p>
+
+<p>
+    <define var=A #value=20></define>
     Here A = {A}, but F still refers to the orinal value of A, so F(2) = {F(2)}
 </p>
 

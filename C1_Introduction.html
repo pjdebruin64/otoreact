@@ -217,7 +217,7 @@ The question marks indicate optional arguments.
 </p>
 
 
-<h2 id=Variables>RHTML local variables</h2>
+<h2 id=Variables>Local and global variables, 'globalThis'</h2>
 JavaScript in a browser environment distinguishes between local variables, module variables and global variables:
 <ul>
     <li>
@@ -237,8 +237,28 @@ JavaScript in a browser environment distinguishes between local variables, modul
 </ul>
 Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#Scripts>section on <code>script</code></a>.
 
+<h4>RHTML local variables</h4>
+<p>RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.</p>
+<p>These are introduced by the following RHTML constructs:</p>
+<ul>
+    <li><elm>DEFINE</elm> and <elm>SCRIPT define</elm> constructs introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag</li>.
+    <li><elm>FOR</elm>, <elm>CASE value</elm> with capturing, and in <elm>COMPONENT</elm> templates with parameters</li> introduce local variables visible within the <u>construct</u> block.
+</ul>
 <p>
-    RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.
+    RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
+</p>
+<p>RHTML local variables are <u>not</u> visible within <elm>SCRIPT</elm> embedded or external scripts; these are executed just once in global scope.</p>
+
+<h4>Global variables in RHTML</h4>
+Global variables are visible in RHTM Linline scripts, of course.
+<p>
+    Global variables are preferably created as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
+</p>
+<pre>
+    globalThis.<i>varName</i> = <i>value</i>;
+</pre>
+<p>
+    In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
 </p>
 
 <h2 id=RVAR>RVAR: Reactive VARiable's</h2>
@@ -264,7 +284,7 @@ Browser-based JavaScript also has a distinction between <i>classic</i> JavaScrip
     <{}script type=module>
         const x = RVAR('X');
         &hellip;</pre>
-        , then it will be available as <code>x</code> just inside this script, and also as <code>X</code> anywhere (though normally one wouldn't use different local and global names).
+        , then it will be available as <code>x</code> just inside this module, and also as <code>X</code> anywhere (though normally one shouldn't use different local and global names).
     </dd>
     <dt><code>initialValue</code></dt>
     <dd>
@@ -301,9 +321,10 @@ Browser-based JavaScript also has a distinction between <i>classic</i> JavaScrip
     <dd>
         When you modify not the value of a variable, but properties of the value, you may want the variable to be marked as dirty as well.
         <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
-        <br>If, e.g., <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an element <code>e</code>, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.
+        <p>E.g., if <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> or <code>x.U[i] = e</code> to add an or modify an array element, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.</p>
+        <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the variable as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the variable will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
         <p>
-            Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty at all times.
+            Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty even when the value is equal to the previous value.
         </p>
     </dd>
     <dt><code class=sourcecode>x.SetDirty()</code></dt>

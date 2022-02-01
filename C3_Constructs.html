@@ -36,10 +36,11 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     When <code class=sourcecode>async</code> is specified, then <i>expression</i> must yield a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
     The value of the rvar wil initially be <code>undefined</code>, and when the promise resolves to a value, then the rvar will be set to that value.
 </p>
+<p><elm>DEFINE</elm> may not have any child nodes, other than comments or white space.</p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm class=sourcecode>DEF</elm>.
 </p>
-<p>
+<p id=lexicalScoping>
     Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
 <demo #srctext=demoScoping></demo>
@@ -252,7 +253,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 </p>
 <p>This gives you the followingalternatives.</p>
 <dl>
-    <dt><elm>SCRIPT src?</elm> in main file</dt>
+    <dt><elm>SCRIPT src?</elm> in main file:</dt>
     <dd>
         Scripts in the main document file with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
         <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
@@ -260,7 +261,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <br>Names defined in a classic script are automatically put in the global environment and are available in RHTML code.
     </dd>
 
-    <dt><elm>SCRIPT type=module src?</elm> in main file</dt>
+    <dt><elm>SCRIPT type=module src?</elm> in main file:</dt>
     <dd>
         Scripts in the main document file with <code>type=module</code> are treated as a JavaScript <u>module</u>.
         <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
@@ -269,8 +270,8 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 
     <dt>
-        <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere
-        <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>
+        <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere;
+        <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>:
     </dt>
     <dd>
         Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
@@ -282,8 +283,8 @@ Further on, <elm>FOR</elm> can have the following attributes:
                 The script may be classic or module.
                 <br>For classic scripts:
                 <ul>
-                    <li>OtoReact modifies the script so that defined names are not automatically global</li>
-                    <li>OtoReact executes the script once in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> during compilation</li>
+                    <li>OtoReact modifies the script so that defined names are <b>not automatically global</b></li>
+                    <li>OtoReact executes the script once <b>in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a></b> during compilation</li>
                 </ul>
                 For module scripts:
                 <ul>
@@ -292,7 +293,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
                 </ul>
             </li>
             <li>
-                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the scope surrounding the <elm>SCRIPT</elm> element.
+                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the block surrounding the <elm>SCRIPT</elm> element.
                 <br>This works for both classic and module, internal and external scripts.
                 <p>
                     For module scripts, the names must be marked as exports inside the script.
@@ -301,7 +302,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </ul>
     </dd>
     <dd>
-        If you don't want the distinction between scripts in the main file and scripts in included files, <b>you can always use <elm>SCRIPT nomodule</elm></b>.
+        If you don't want the distinction between scripts in the main file and scripts in included files, <b>you can always use <code>nomodule</code></b>.
         <br>These are always skipped by the browser, and always executed by OtoReact.
     </dd>
 </dl>

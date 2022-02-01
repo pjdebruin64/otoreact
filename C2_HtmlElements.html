@@ -5,7 +5,7 @@
 
 <h2>HTML Attributes</h2>
 <p>All source attributes that do not fall in any of the categories below, are compiled as HTML attributes.
-    <br>They may use <a href="#StringInterpolation">string interpolation</a>.
+    <br>They may use <a href="#StringInterpolation">string interpolation</a>, and trailing dots are removed.
 </p>
 <demo #srctext=sampleSqrt></demo>
 
@@ -80,20 +80,20 @@ Note: The name <code>event</code> is not available in handlers for these pseudo-
 <h3 id=onerror>RHTML error handlers</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
 <p>
-    RHTML allows you to set an error handler for <i>all</i> DOM events at once!
+    RHTML allows you to set an error handler for <i>all</i> error cases at once, as follows.
 </p>
 
 <dl>
     <dt><code class=sourcecode>onerror</code></dt>
     <dd>
-        Happens whenever an error occurs in the following situations:
-        <ul>
+        Happens whenever an (uncaught) error occurs in the following situations:
+        <ol>
             <li>
                 During any synchronous DOM event handler attached to the current element or any of its HTML children, including HTML elements created by RHTML components defined outside the current element
             </li>
             <li>
-                During the asynchronous execution of a <code>Promise</code> returned by a DOM event handler.
-                <br>So if your handler includes a call to some asynchronous function <code>doSomething</code>, then you must make sure that that it returns the resulting promise in order for asynchronous errors to be caught, e.g.: <code>onclick="return doSomething()"</code>
+                During the asynchronous execution of a <code>Promise</code> returned by a DOM event handler, i.e. when the Promise is rejected.
+                <br>So if your handler includes a call to some asynchronous function <code>doSomething</code>, then it must return the resulting promise, in order for asynchronous errors to be caught, e.g.: <code>onclick="return doSomething()"</code> or <code>#onclick="doSomething"</code>
             </li>
             <li>
                 While creating or updating the current element or its children
@@ -101,14 +101,29 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
             <li>
                 While resolving an asynchronously defined local variable value, see <a href="#define"><elm>DEFINE</elm></a>.
             </li>
-        </ul>
+        </ol>
         The name <code>event</code> is bound to the error value (usually a string).
     </dd>
     <dt><code class=sourcecode>onerror-</code></dt>
     <dd>
-        Happens in the first two situations listed for <code>onerror</code>, so not while creating or updating the element.
+        Happens in situations 1 and 2 listed for <code>onerror</code>, so not while creating or updating the element.
+    </dd>
+    <dt><code class=sourcecode>onsuccess</code></dt>
+    <dd>
+        <ol>
+            <li>Happens when any (synchronous) DOM event handler terminates without throwing an uncaught error.</li>
+            <li>If the handler returns a <code>Promise</code>, then <code>onsuccess</code> happens only after the promise succeeds ("is fulfilled").</li>
+        </ol>
+        If you use <code>onerror</code> to assign errormessages to an RVAR to be shown in your document,
+        then you can use <code>onsuccess</code> to reset that message.
     </dd>
 </dl>
+
+Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror"><code>window.onerror</code></a> global event handler of the DOM API.
+
+<p>
+    If you want to handle the <i>DOM</i> event <code>onerror</code> of e.g. an <elm>img</elm> or <elm>audio</elm> element, then you must add a dot: <elm>img src="&hellip;" onerror.="&hellip;"</elm>
+</p>
 
 <h2>Class Names</h2>
 <p>
