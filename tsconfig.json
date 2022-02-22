@@ -4,7 +4,7 @@
 		"noImplicitThis": true,
 		"removeComments": true,
 		"module": "ESNext",
-		"target":"ESNext",
+		"target":"ES2020",
 		"lib": [ 
 			"DOM",
 			"DOM.Iterable",

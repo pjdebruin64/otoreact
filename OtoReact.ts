@@ -19,7 +19,7 @@ parser = new DOMParser()
 // A DOMBUILDER is the semantics of a piece of RHTML.
 // It can both build (construct) a new piece of DOM, and update an existing piece of DOM.
 type DOMBuilder = ((reg: Area) => Promise<void>) & {ws?: boolean; auto?: boolean};
-enum WSpc {block = 1, inlineSpc, inline, preserve}
+const enum WSpc {block = 1, inlineSpc, inline, preserve}
 
 // An AREA is the (runtime) place to build or update, with all required information
 type Area = {
@@ -374,7 +374,7 @@ interface Item {}  // Three unknown but distinct types, used by the <FOR> constr
 interface Key {}
 interface Hash {}
 
-enum MType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
+const enum MType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
 }
 type Modifier = {

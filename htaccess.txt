@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+   RewriteEngine On
+
+    # Make sure that / doesn't try to go to index.php without a rewrite :)
+    DirectoryIndex disabled
+
+    ####
+    # Deny access to certain directories that SHOULD NOT be exposed.
+    ####
+    RewriteRule ^cgi-bin/ - [L,R=403]
+
+    ####
+    # Redirect any non existing file/directory to /index.html
+    ####
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule (.*) index.html [E=X_REWRITE:1,E=X_PATH_INFO:/$1,L]
+</IfModule>

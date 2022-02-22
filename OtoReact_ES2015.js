@@ -1,3 +1,19 @@
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
 const defaultSettings = {
     bTiming: false,
     bAbortOnError: false,
@@ -12,17 +28,25 @@ const defaultSettings = {
     bKeepWhiteSpace: false,
     bKeepComments: false,
 }, parser = new DOMParser();
+var WSpc;
+(function (WSpc) {
+    WSpc[WSpc["block"] = 1] = "block";
+    WSpc[WSpc["inlineSpc"] = 2] = "inlineSpc";
+    WSpc[WSpc["inline"] = 3] = "inline";
+    WSpc[WSpc["preserve"] = 4] = "preserve";
+})(WSpc || (WSpc = {}));
 class Range {
     constructor(node, area, text) {
+        var _a;
         this.node = node;
         this.text = text;
         this.next = null;
         if (!node)
             this.child = null;
-        if (area && !area.parentR?.node)
+        if (area && !((_a = area.parentR) === null || _a === void 0 ? void 0 : _a.node))
             this.parentR = area.parentR;
     }
-    toString() { return this.text || this.node?.nodeName; }
+    toString() { var _a; return this.text || ((_a = this.node) === null || _a === void 0 ? void 0 : _a.nodeName); }
     get First() {
         let f;
         if (f = this.node)
@@ -148,7 +172,7 @@ let BasePath = null;
 let ToBuild = [];
 export function RCompile(elm, settings) {
     try {
-        const { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
+        const { basePattern } = R.Settings = Object.assign(Object.assign({}, defaultSettings), settings), m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (globalThis.BasePath = globalThis.BasePath = BasePath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         R.RootElm = elm;
         R.Compile(elm, {}, true);
@@ -161,19 +185,21 @@ export function RCompile(elm, settings) {
         window.alert(`OtoReact error: ${err}`);
     }
 }
-export async function RBuild() {
-    R.start = performance.now();
-    builtNodeCount = 0;
-    try {
-        for (const area of ToBuild)
-            await R.InitialBuild(area);
-        R.logTime(`${R.num}: Built ${builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
-        ScrollToHash();
-    }
-    catch (err) {
-        window.alert(`OtoReact error: ${err}`);
-    }
-    ToBuild = [];
+export function RBuild() {
+    return __awaiter(this, void 0, void 0, function* () {
+        R.start = performance.now();
+        builtNodeCount = 0;
+        try {
+            for (const area of ToBuild)
+                yield R.InitialBuild(area);
+            R.logTime(`${R.num}: Built ${builtNodeCount} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+            ScrollToHash();
+        }
+        catch (err) {
+            window.alert(`OtoReact error: ${err}`);
+        }
+        ToBuild = [];
+    });
 }
 function NewEnv() {
     const env = [];
@@ -199,6 +225,7 @@ class Signature {
         this.name = srcElm.localName;
     }
     IsCompatible(sig) {
+        var _a;
         if (!sig)
             return false;
         let result = true;
@@ -213,27 +240,41 @@ class Signature {
         for (const pDefault of mapSigParams.values())
             result && (result = pDefault);
         for (let [slotname, slotSig] of this.Slots)
-            result && (result = sig.Slots.get(slotname)?.IsCompatible(slotSig));
+            result && (result = (_a = sig.Slots.get(slotname)) === null || _a === void 0 ? void 0 : _a.IsCompatible(slotSig));
         return !!result;
     }
 }
 const gEval = eval;
+var MType;
+(function (MType) {
+    MType[MType["Attr"] = 0] = "Attr";
+    MType[MType["Prop"] = 1] = "Prop";
+    MType[MType["Src"] = 2] = "Src";
+    MType[MType["Class"] = 3] = "Class";
+    MType[MType["Style"] = 4] = "Style";
+    MType[MType["Event"] = 5] = "Event";
+    MType[MType["AddToStyle"] = 6] = "AddToStyle";
+    MType[MType["AddToClassList"] = 7] = "AddToClassList";
+    MType[MType["RestArgument"] = 8] = "RestArgument";
+    MType[MType["oncreate"] = 9] = "oncreate";
+    MType[MType["onupdate"] = 10] = "onupdate";
+})(MType || (MType = {}));
 let bReadOnly = false;
 function ApplyModifier(elm, modType, nm, val, bCreate) {
     switch (modType) {
-        case 0:
+        case MType.Attr:
             elm.setAttribute(nm, val);
             break;
-        case 2:
+        case MType.Src:
             elm.setAttribute('src', new URL(val, nm).href);
             break;
-        case 1:
+        case MType.Prop:
             if (val === undefined && typeof elm[nm] == 'string')
                 val = '';
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
-        case 5:
+        case MType.Event:
             let m;
             if (val)
                 if (m = /^on(input|change)$/.exec(nm)) {
@@ -246,19 +287,19 @@ function ApplyModifier(elm, modType, nm, val, bCreate) {
                         elm.style.cursor = val && !elm.disabled ? 'pointer' : null;
                 }
             break;
-        case 3:
+        case MType.Class:
             if (val)
                 elm.classList.add(nm);
             break;
-        case 4:
+        case MType.Style:
             elm.style[nm] = val || (val === 0 ? '0' : null);
             break;
-        case 6:
+        case MType.AddToStyle:
             if (val)
                 for (const [name, v] of Object.entries(val))
                     elm.style[name] = v || (v === 0 ? '0' : null);
             break;
-        case 7:
+        case MType.AddToClassList:
             switch (typeof val) {
                 case 'string':
                     elm.classList.add(val);
@@ -276,14 +317,14 @@ function ApplyModifier(elm, modType, nm, val, bCreate) {
                 default: throw `Invalid '+class' value`;
             }
             break;
-        case 8:
+        case MType.RestArgument:
             for (const { modType, name, value } of val || [])
                 ApplyModifier(elm, modType, name, value, bCreate);
             break;
-        case 9:
+        case MType.oncreate:
             if (bCreate)
                 val.call(elm);
-        case 10:
+        case MType.onupdate:
             if (!bCreate)
                 val.call(elm);
             break;
@@ -326,7 +367,7 @@ class RCompiler {
         this.mPreformatted = new Set(['pre']);
         this.AllAreas = [];
         this.bCompiled = false;
-        this.wspc = 1;
+        this.wspc = WSpc.block;
         this.rspc = 1;
         this.DirtyVars = new Set();
         this.DirtySubs = new Map();
@@ -334,14 +375,14 @@ class RCompiler {
         this.bUpdate = false;
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
-        this.context = RC?.context || "";
+        this.context = (RC === null || RC === void 0 ? void 0 : RC.context) || "";
         this.ContextMap = RC ? new Map(RC.ContextMap) : new Map();
         this.CSignatures = RC ? new Map(RC.CSignatures) : new Map();
-        this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
-        this.AddedHeaderElements = RC?.AddedHeaderElements || [];
-        this.head = RC?.head || document.head;
-        this.StyleBefore = RC?.StyleBefore;
-        this.FilePath = RC?.FilePath || location.origin + BasePath;
+        this.Settings = RC ? Object.assign({}, RC.Settings) : Object.assign({}, defaultSettings);
+        this.AddedHeaderElements = (RC === null || RC === void 0 ? void 0 : RC.AddedHeaderElements) || [];
+        this.head = (RC === null || RC === void 0 ? void 0 : RC.head) || document.head;
+        this.StyleBefore = RC === null || RC === void 0 ? void 0 : RC.StyleBefore;
+        this.FilePath = (RC === null || RC === void 0 ? void 0 : RC.FilePath) || location.origin + BasePath;
         this.RC || (this.RC = this);
     }
     SaveContext() {
@@ -416,35 +457,39 @@ class RCompiler {
         const sArea = {
             parent, bNoChildBuilding,
             range,
-        }, subEnv = { env: CloneEnv(env), onerror, onsuccess }, subscriber = async () => {
+        }, subEnv = { env: CloneEnv(env), onerror, onsuccess }, subscriber = () => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { range } = sArea, save = { env, onerror, onsuccess };
-            if (!range.erased && (range.updated ?? 0) < updCnt) {
+            if (!range.erased && ((_a = range.updated) !== null && _a !== void 0 ? _a : 0) < updCnt) {
                 range.updated = updCnt;
                 ;
                 ({ env, onerror, onsuccess } = subEnv);
                 builtNodeCount++;
                 try {
-                    await builder.call(this, { ...sArea }, ...args);
+                    yield builder.call(this, Object.assign({}, sArea), ...args);
                 }
                 finally {
                     ({ env, onerror, onsuccess } = save);
                 }
             }
-        };
+        });
         subscriber.sArea = sArea;
         subscriber.ref = range;
         subscriber.env = subEnv.env;
         return subscriber;
     }
-    async InitialBuild(area) {
-        const saveR = R, { parentR } = area;
-        R = this;
-        env = NewEnv();
-        builtNodeCount++;
-        await this.Builder(area);
-        const subs = this.Subscriber(area, this.Builder, parentR?.child ?? area.prevR);
-        this.AllAreas.push(subs);
-        R = saveR;
+    InitialBuild(area) {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            const saveR = R, { parentR } = area;
+            R = this;
+            env = NewEnv();
+            builtNodeCount++;
+            yield this.Builder(area);
+            const subs = this.Subscriber(area, this.Builder, (_a = parentR === null || parentR === void 0 ? void 0 : parentR.child) !== null && _a !== void 0 ? _a : area.prevR);
+            this.AllAreas.push(subs);
+            R = saveR;
+        });
     }
     AddDirty(sub) {
         this.DirtySubs.set(sub.ref, sub);
@@ -457,43 +502,45 @@ class RCompiler {
                 this.DoUpdate();
             }, 5);
     }
-    async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating) {
-            this.bUpdate = true;
-            return;
-        }
-        updCnt++;
-        do {
-            this.bUpdate = false;
-            this.bUpdating = true;
-            let saveR = R;
-            try {
-                for (const rvar of this.DirtyVars)
-                    rvar.Save();
-                this.DirtyVars.clear();
-                if (this.DirtySubs.size) {
-                    R = this;
-                    this.start = performance.now();
-                    builtNodeCount = 0;
-                    const subs = this.DirtySubs;
-                    this.DirtySubs = new Map();
-                    for (const sub of subs.values())
-                        try {
-                            await sub();
-                        }
-                        catch (err) {
-                            const msg = `ERROR: ${err}`;
-                            console.log(msg);
-                            window.alert(msg);
-                        }
-                    this.logTime(`${R.num}: Updated ${builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+    DoUpdate() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.bCompiled || this.bUpdating) {
+                this.bUpdate = true;
+                return;
+            }
+            updCnt++;
+            do {
+                this.bUpdate = false;
+                this.bUpdating = true;
+                let saveR = R;
+                try {
+                    for (const rvar of this.DirtyVars)
+                        rvar.Save();
+                    this.DirtyVars.clear();
+                    if (this.DirtySubs.size) {
+                        R = this;
+                        this.start = performance.now();
+                        builtNodeCount = 0;
+                        const subs = this.DirtySubs;
+                        this.DirtySubs = new Map();
+                        for (const sub of subs.values())
+                            try {
+                                yield sub();
+                            }
+                            catch (err) {
+                                const msg = `ERROR: ${err}`;
+                                console.log(msg);
+                                window.alert(msg);
+                            }
+                        this.logTime(`${R.num}: Updated ${builtNodeCount} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+                    }
                 }
-            }
-            finally {
-                R = saveR;
-                this.bUpdating = false;
-            }
-        } while (this.bUpdate);
+                finally {
+                    R = saveR;
+                    this.bUpdating = false;
+                }
+            } while (this.bUpdate);
+        });
     }
     RVAR(name, value, store, subs, storeName) {
         const r = new _RVAR(this.RC, name, value, store, storeName);
@@ -507,10 +554,11 @@ class RCompiler {
             t._UpdatesTo = updatesTo;
             const { RC } = this;
             Object.defineProperty(t, 'U', { get: () => {
+                    var _a;
                     if (!bReadOnly) {
                         for (const sub of t._Subscribers)
                             RC.AddDirty(sub);
-                        if (t._UpdatesTo?.length)
+                        if ((_a = t._UpdatesTo) === null || _a === void 0 ? void 0 : _a.length)
                             for (const rvar of t._UpdatesTo)
                                 rvar.SetDirty();
                         else
@@ -528,16 +576,18 @@ class RCompiler {
         try {
             const builder = this.CompIterator(srcParent, childNodes);
             return builder ?
-                async function ChildNodes(area) {
-                    const savedEnv = SaveEnv();
-                    try {
-                        await builder.call(this, area);
-                    }
-                    finally {
-                        RestoreEnv(savedEnv);
-                    }
+                function ChildNodes(area) {
+                    return __awaiter(this, void 0, void 0, function* () {
+                        const savedEnv = SaveEnv();
+                        try {
+                            yield builder.call(this, area);
+                        }
+                        finally {
+                            RestoreEnv(savedEnv);
+                        }
+                    });
                 }
-                : async () => { };
+                : () => __awaiter(this, void 0, void 0, function* () { });
         }
         finally {
             this.RestoreContext(saved);
@@ -562,18 +612,18 @@ class RCompiler {
                     if (fixed !== '') {
                         builder =
                             [fixed
-                                    ? async (area) => PrepCharData(area, fixed)
-                                    : async (area) => PrepCharData(area, getText()), srcNode,
+                                    ? (area) => __awaiter(this, void 0, void 0, function* () { return PrepCharData(area, fixed); })
+                                    : (area) => __awaiter(this, void 0, void 0, function* () { return PrepCharData(area, getText()); }), srcNode,
                                 fixed == ' '];
-                        if (this.wspc < 4)
-                            this.wspc = /\s$/.test(str) ? 2 : 3;
+                        if (this.wspc < WSpc.preserve)
+                            this.wspc = /\s$/.test(str) ? WSpc.inlineSpc : WSpc.inline;
                     }
                     break;
                 case Node.COMMENT_NODE:
                     if (this.Settings.bKeepComments) {
                         const getText = this.CompString(srcNode.nodeValue, 'Comment');
                         builder =
-                            [async (area) => PrepCharData(area, getText(), true), srcNode, 1];
+                            [(area) => __awaiter(this, void 0, void 0, function* () { return PrepCharData(area, getText(), true); }), srcNode, 1];
                     }
                     break;
             }
@@ -598,39 +648,42 @@ class RCompiler {
         }
         if (!builders.length)
             return null;
-        const Iter = async function Iter(area, start = 0) {
-            let i = 0;
-            if (!area.range) {
-                const toSubscribe = [];
-                for (const [builder] of builders) {
-                    i++;
-                    await builder.call(this, area);
-                    if (builder.auto)
-                        toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
-                }
-                for (const subs of toSubscribe) {
-                    const { sArea } = subs, { range } = sArea, rvar = range.value;
-                    if (!rvar._Subscribers.size && range.next) {
-                        (sArea.range = range.next).updated = 0;
-                        subs.ref = {};
-                        rvar.Subscribe(rvar.auto = subs);
+        const Iter = function Iter(area, start = 0) {
+            return __awaiter(this, void 0, void 0, function* () {
+                let i = 0;
+                if (!area.range) {
+                    const toSubscribe = [];
+                    for (const [builder] of builders) {
+                        i++;
+                        yield builder.call(this, area);
+                        if (builder.auto)
+                            toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
+                    }
+                    for (const subs of toSubscribe) {
+                        const { sArea } = subs, { range } = sArea, rvar = range.value;
+                        if (!rvar._Subscribers.size && range.next) {
+                            (sArea.range = range.next).updated = 0;
+                            subs.ref = {};
+                            rvar.Subscribe(rvar.auto = subs);
+                        }
                     }
                 }
-            }
-            else
-                for (const [builder] of builders)
-                    if (i++ >= start) {
-                        const r = area.range;
-                        await builder.call(this, area);
-                        if (builder.auto && r.value.auto)
-                            assignEnv(r.value.auto.env, env);
-                    }
-            builtNodeCount += builders.length - start;
+                else
+                    for (const [builder] of builders)
+                        if (i++ >= start) {
+                            const r = area.range;
+                            yield builder.call(this, area);
+                            if (builder.auto && r.value.auto)
+                                assignEnv(r.value.auto.env, env);
+                        }
+                builtNodeCount += builders.length - start;
+            });
         };
         Iter.ws = builders[0][0].ws;
         return Iter;
     }
     CompElm(srcParent, srcElm, bUnhide) {
+        var _a, _b;
         const atts = new Atts(srcElm), reacts = [], genMods = [];
         let depOnerror, depOnsuccess;
         if (bUnhide)
@@ -667,7 +720,7 @@ class RCompiler {
                             for (let C of srcElm.childNodes)
                                 if (C.nodeType != Node.TEXT_NODE || !/^\s*$/.test(C.data))
                                     throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
-                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getValue = this.CompParameter(atts, 'value', DUndef), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), newVar = this.NewVar(varName);
+                            const rvarName = atts.get('rvar'), varName = rvarName || atts.get('let') || atts.get('var', true), getValue = this.CompParameter(atts, 'value', DUndef), getStore = rvarName && this.CompAttrExpr(atts, 'store'), bReact = CBool((_a = atts.get('reacting')) !== null && _a !== void 0 ? _a : atts.get('updating')), newVar = this.NewVar(varName);
                             if (rvarName) {
                                 const a = this.cRvars.get(rvarName);
                                 this.cRvars.set(rvarName, true);
@@ -677,19 +730,21 @@ class RCompiler {
                                     this.cRvars.set(rvarName, a);
                                 });
                             }
-                            builder = async function DEF(area) {
-                                const { range, bInit } = PrepArea(srcElm, area);
-                                if (bInit || bReact) {
-                                    const value = getValue();
-                                    if (rvarName)
-                                        if (bInit)
-                                            range.value = new _RVAR(this.RC, null, value, getStore && getStore(), `RVAR_${rvarName}`);
+                            builder = function DEF(area) {
+                                return __awaiter(this, void 0, void 0, function* () {
+                                    const { range, bInit } = PrepArea(srcElm, area);
+                                    if (bInit || bReact) {
+                                        const value = getValue();
+                                        if (rvarName)
+                                            if (bInit)
+                                                range.value = new _RVAR(this.RC, null, value, getStore && getStore(), `RVAR_${rvarName}`);
+                                            else
+                                                range.value.SetAsync(value);
                                         else
-                                            range.value.SetAsync(value);
-                                    else
-                                        range.value = value;
-                                }
-                                newVar()(range.value);
+                                            range.value = value;
+                                    }
+                                    newVar()(range.value);
+                                });
                             };
                             isBlank = 1;
                         }
@@ -741,11 +796,10 @@ class RCompiler {
                                                     : (pattern = atts.get('urlmatch')) != null
                                                         ? this.CompPattern(pattern, true)
                                                         : (pattern = atts.get('regmatch')) != null
-                                                            ? { regex: new RegExp(pattern, 'i'),
-                                                                lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
+                                                            ? { regex: new RegExp(pattern, 'i'), lvars: (((_b = atts.get('captures')) === null || _b === void 0 ? void 0 : _b.split(',')) || []).map(this.NewVar.bind(this))
                                                             }
                                                             : null;
-                                            if (bHiding && patt?.lvars.length)
+                                            if (bHiding && (patt === null || patt === void 0 ? void 0 : patt.lvars.length))
                                                 throw `Pattern capturing cannot be combined with hiding`;
                                             if (patt && !getVal)
                                                 throw `Match requested but no 'value' specified.`;
@@ -768,51 +822,53 @@ class RCompiler {
                             }
                             this.wspc = Math.max(postWs, elseWs);
                             builder =
-                                async function CASE(area) {
-                                    const value = getVal && getVal();
-                                    let choosenAlt = null;
-                                    let matchResult;
-                                    for (const alt of caseList)
-                                        try {
-                                            if (!((!alt.cond || alt.cond())
-                                                && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))) == alt.not) {
-                                                choosenAlt = alt;
-                                                break;
-                                            }
-                                        }
-                                        catch (err) {
-                                            if (bHiding)
-                                                for (const alt of caseList)
-                                                    PrepareElement(alt.node, area);
-                                            else
-                                                PrepArea(srcElm, area, '', 1, choosenAlt);
-                                            throw (alt.node.nodeName == 'IF' ? '' : OuterOpenTag(alt.node)) + err;
-                                        }
-                                    if (bHiding) {
-                                        for (const alt of caseList) {
-                                            const { range, childArea, bInit } = PrepareElement(alt.node, area);
-                                            const bHidden = range.node.hidden = alt != choosenAlt;
-                                            if ((!bHidden || bInit) && !area.bNoChildBuilding)
-                                                await this.CallWithHandling(alt.builder, alt.node, childArea);
-                                        }
-                                    }
-                                    else {
-                                        const { subArea, bInit } = PrepArea(srcElm, area, '', 1, choosenAlt);
-                                        if (choosenAlt && (bInit || !area.bNoChildBuilding)) {
-                                            const saved = SaveEnv();
+                                function CASE(area) {
+                                    return __awaiter(this, void 0, void 0, function* () {
+                                        const value = getVal && getVal();
+                                        let choosenAlt = null;
+                                        let matchResult;
+                                        for (const alt of caseList)
                                             try {
-                                                if (choosenAlt.patt) {
-                                                    let i = 1;
-                                                    for (const lvar of choosenAlt.patt.lvars)
-                                                        lvar()((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[i++]));
+                                                if (!((!alt.cond || alt.cond())
+                                                    && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))) == alt.not) {
+                                                    choosenAlt = alt;
+                                                    break;
                                                 }
-                                                await this.CallWithHandling(choosenAlt.builder, choosenAlt.node, subArea);
                                             }
-                                            finally {
-                                                RestoreEnv(saved);
+                                            catch (err) {
+                                                if (bHiding)
+                                                    for (const alt of caseList)
+                                                        PrepareElement(alt.node, area);
+                                                else
+                                                    PrepArea(srcElm, area, '', 1, choosenAlt);
+                                                throw (alt.node.nodeName == 'IF' ? '' : OuterOpenTag(alt.node)) + err;
+                                            }
+                                        if (bHiding) {
+                                            for (const alt of caseList) {
+                                                const { range, childArea, bInit } = PrepareElement(alt.node, area);
+                                                const bHidden = range.node.hidden = alt != choosenAlt;
+                                                if ((!bHidden || bInit) && !area.bNoChildBuilding)
+                                                    yield this.CallWithHandling(alt.builder, alt.node, childArea);
                                             }
                                         }
-                                    }
+                                        else {
+                                            const { subArea, bInit } = PrepArea(srcElm, area, '', 1, choosenAlt);
+                                            if (choosenAlt && (bInit || !area.bNoChildBuilding)) {
+                                                const saved = SaveEnv();
+                                                try {
+                                                    if (choosenAlt.patt) {
+                                                        let i = 1;
+                                                        for (const lvar of choosenAlt.patt.lvars)
+                                                            lvar()((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[i++]));
+                                                    }
+                                                    yield this.CallWithHandling(choosenAlt.builder, choosenAlt.node, subArea);
+                                                }
+                                                finally {
+                                                    RestoreEnv(saved);
+                                                }
+                                            }
+                                        }
+                                    });
                                 };
                         }
                         break;
@@ -825,18 +881,20 @@ class RCompiler {
                             const src = atts.get('src', true);
                             let C = new RCompiler(this);
                             C.FilePath = this.GetPath(src);
-                            const task = (async () => {
-                                const textContent = await this.FetchText(src);
+                            const task = (() => __awaiter(this, void 0, void 0, function* () {
+                                const textContent = yield this.FetchText(src);
                                 const parser = new DOMParser();
                                 const parsedContent = parser.parseFromString(textContent, 'text/html');
                                 C.Compile(parsedContent.body, { bRunScripts: true }, false);
-                            })();
+                            }))();
                             builder =
-                                async function INCLUDE(area) {
-                                    const t0 = performance.now();
-                                    await task;
-                                    this.start += performance.now() - t0;
-                                    await C.Builder(area);
+                                function INCLUDE(area) {
+                                    return __awaiter(this, void 0, void 0, function* () {
+                                        const t0 = performance.now();
+                                        yield task;
+                                        this.start += performance.now() - t0;
+                                        yield C.Builder(area);
+                                    });
                                 };
                         }
                         break;
@@ -868,14 +926,16 @@ class RCompiler {
                                 });
                                 RModules.set(src, promiseModule);
                             }
-                            builder = async function IMPORT() {
-                                const saveEnv = env, builder = await promiseModule;
-                                env = NewEnv();
-                                await builder.call(C, { parent: document.createDocumentFragment(), start: null, bInit: true });
-                                const { constructs } = env;
-                                env = saveEnv;
-                                for (const { name } of listImports)
-                                    DefConstruct(name, constructs.get(name));
+                            builder = function IMPORT() {
+                                return __awaiter(this, void 0, void 0, function* () {
+                                    const saveEnv = env, builder = yield promiseModule;
+                                    env = NewEnv();
+                                    yield builder.call(C, { parent: document.createDocumentFragment(), start: null, bInit: true });
+                                    const { constructs } = env;
+                                    env = saveEnv;
+                                    for (const { name } of listImports)
+                                        DefConstruct(name, constructs.get(name));
+                                });
                             };
                             isBlank = 1;
                         }
@@ -888,13 +948,15 @@ class RCompiler {
                             builder = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, CBool(atts.get('renew')));
                             if (getHashes) {
                                 const b = builder;
-                                builder = async function HASH(area) {
-                                    const { subArea, range } = PrepArea(srcElm, area, 'hash');
-                                    const hashes = getHashes();
-                                    if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
-                                        range.value = hashes;
-                                        await b.call(this, subArea);
-                                    }
+                                builder = function HASH(area) {
+                                    return __awaiter(this, void 0, void 0, function* () {
+                                        const { subArea, range } = PrepArea(srcElm, area, 'hash');
+                                        const hashes = getHashes();
+                                        if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
+                                            range.value = hashes;
+                                            yield b.call(this, subArea);
+                                        }
+                                    });
                                 };
                                 builder.ws = b.ws;
                             }
@@ -904,36 +966,38 @@ class RCompiler {
                         {
                             const getSrctext = this.CompParameter(atts, 'srctext');
                             const modifs = this.CompAttributes(atts);
-                            this.wspc = 1;
-                            builder = async function RHTML(area) {
-                                const srctext = getSrctext();
-                                const { range, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), { node } = range;
-                                ApplyModifiers(node, modifs, bInit);
-                                if (area.prevR || srctext != range.result) {
-                                    range.result = srctext;
-                                    const shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), savedEnv = env;
-                                    try {
-                                        tempElm.innerHTML = srctext;
-                                        if (range.hdrElms) {
-                                            for (const elm of range.hdrElms)
-                                                elm.remove();
-                                            range.hdrElms = null;
+                            this.wspc = WSpc.block;
+                            builder = function RHTML(area) {
+                                return __awaiter(this, void 0, void 0, function* () {
+                                    const srctext = getSrctext();
+                                    const { range, bInit } = PrepareElement(srcElm, area, 'rhtml-rhtml'), { node } = range;
+                                    ApplyModifiers(node, modifs, bInit);
+                                    if (area.prevR || srctext != range.result) {
+                                        range.result = srctext;
+                                        const shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), savedEnv = env;
+                                        try {
+                                            tempElm.innerHTML = srctext;
+                                            if (range.hdrElms) {
+                                                for (const elm of range.hdrElms)
+                                                    elm.remove();
+                                                range.hdrElms = null;
+                                            }
+                                            const R = new RCompiler();
+                                            ;
+                                            (R.head = shadowRoot).innerHTML = '';
+                                            R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, false);
+                                            range.hdrElms = R.AddedHeaderElements;
+                                            const subArea = { parent: shadowRoot, range: null, parentR: new Range(null, null, 'Shadow') };
+                                            yield R.InitialBuild(subArea);
                                         }
-                                        const R = new RCompiler();
-                                        ;
-                                        (R.head = shadowRoot).innerHTML = '';
-                                        R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, false);
-                                        range.hdrElms = R.AddedHeaderElements;
-                                        const subArea = { parent: shadowRoot, range: null, parentR: new Range(null, null, 'Shadow') };
-                                        await R.InitialBuild(subArea);
+                                        catch (err) {
+                                            shadowRoot.appendChild(createErrorNode(`Compile error: ${err}`));
+                                        }
+                                        finally {
+                                            env = savedEnv;
+                                        }
                                     }
-                                    catch (err) {
-                                        shadowRoot.appendChild(createErrorNode(`Compile error: ${err}`));
-                                    }
-                                    finally {
-                                        env = savedEnv;
-                                    }
-                                }
+                                });
                             };
                         }
                         break;
@@ -951,24 +1015,26 @@ class RCompiler {
                         break;
                     case 'document':
                         {
-                            const newVar = this.NewVar(atts.get('name', true)), bEncaps = CBool(atts.get('encapsulate')), params = atts.get('params'), RC = this, saved = this.SaveContext(), setVars = (params?.split(',') || []).map(v => this.NewVar(v));
+                            const newVar = this.NewVar(atts.get('name', true)), bEncaps = CBool(atts.get('encapsulate')), params = atts.get('params'), RC = this, saved = this.SaveContext(), setVars = ((params === null || params === void 0 ? void 0 : params.split(',')) || []).map(v => this.NewVar(v));
                             try {
                                 const docBuilder = RC.CompChildNodes(srcElm), docDef = (docEnv) => {
                                     docEnv = CloneEnv(docEnv);
                                     return {
-                                        async render(parent, args) {
-                                            parent.innerHTML = '';
-                                            const savedEnv = env;
-                                            let i = 0;
-                                            env = docEnv;
-                                            for (const init of setVars)
-                                                init()(args[i++]);
-                                            try {
-                                                await docBuilder.call(RC, { parent });
-                                            }
-                                            finally {
-                                                env = savedEnv;
-                                            }
+                                        render(parent, args) {
+                                            return __awaiter(this, void 0, void 0, function* () {
+                                                parent.innerHTML = '';
+                                                const savedEnv = env;
+                                                let i = 0;
+                                                env = docEnv;
+                                                for (const init of setVars)
+                                                    init()(args[i++]);
+                                                try {
+                                                    yield docBuilder.call(RC, { parent });
+                                                }
+                                                finally {
+                                                    env = savedEnv;
+                                                }
+                                            });
                                         },
                                         open(target, features, ...args) {
                                             const W = window.open('', target, features);
@@ -979,20 +1045,24 @@ class RCompiler {
                                             this.render(W.document.body, args);
                                             return W;
                                         },
-                                        async print(...args) {
-                                            const iframe = document.createElement('iframe');
-                                            iframe.setAttribute('style', 'display:none');
-                                            document.body.appendChild(iframe);
-                                            if (!bEncaps)
-                                                copyStyleSheets(document, iframe.contentDocument);
-                                            await this.render(iframe.contentDocument.body, args);
-                                            iframe.contentWindow.print();
-                                            iframe.remove();
+                                        print(...args) {
+                                            return __awaiter(this, void 0, void 0, function* () {
+                                                const iframe = document.createElement('iframe');
+                                                iframe.setAttribute('style', 'display:none');
+                                                document.body.appendChild(iframe);
+                                                if (!bEncaps)
+                                                    copyStyleSheets(document, iframe.contentDocument);
+                                                yield this.render(iframe.contentDocument.body, args);
+                                                iframe.contentWindow.print();
+                                                iframe.remove();
+                                            });
                                         }
                                     };
                                 };
-                                builder = async function DOCUMENT() {
-                                    newVar()(docDef(env));
+                                builder = function DOCUMENT() {
+                                    return __awaiter(this, void 0, void 0, function* () {
+                                        newVar()(docDef(env));
+                                    });
                                 };
                                 isBlank = 1;
                             }
@@ -1005,11 +1075,13 @@ class RCompiler {
                     case 'rhead':
                         {
                             const childBuilder = this.CompChildNodes(srcElm), { wspc } = this;
-                            this.wspc = this.rspc = 1;
-                            builder = async function HEAD(area) {
-                                const { subArea } = PrepArea(srcElm, area);
-                                subArea.parent = area.parent.ownerDocument.head;
-                                await childBuilder.call(this, subArea);
+                            this.wspc = this.rspc = WSpc.block;
+                            builder = function HEAD(area) {
+                                return __awaiter(this, void 0, void 0, function* () {
+                                    const { subArea } = PrepArea(srcElm, area);
+                                    subArea.parent = area.parent.ownerDocument.head;
+                                    yield childBuilder.call(this, subArea);
+                                });
                             };
                             this.wspc = wspc;
                             isBlank = 1;
@@ -1032,30 +1104,35 @@ class RCompiler {
             return null;
         if (depOnerror || depOnsuccess) {
             const b = builder;
-            builder = async function SetOnError(area) {
-                const save = { onerror, onsuccess };
-                try {
-                    if (depOnerror) {
-                        onerror = depOnerror();
-                        onerror.bBldr = depOnerror.bBldr;
+            builder = function SetOnError(area) {
+                return __awaiter(this, void 0, void 0, function* () {
+                    const save = { onerror, onsuccess };
+                    try {
+                        if (depOnerror) {
+                            onerror = depOnerror();
+                            onerror.bBldr = depOnerror.bBldr;
+                        }
+                        if (depOnsuccess)
+                            onsuccess = depOnsuccess();
+                        yield b.call(this, area);
                     }
-                    if (depOnsuccess)
-                        onsuccess = depOnsuccess();
-                    await b.call(this, area);
-                }
-                finally {
-                    ({ onerror, onsuccess } = save);
-                }
+                    finally {
+                        ({ onerror, onsuccess } = save);
+                    }
+                });
             };
         }
         if (genMods.length) {
             const b = builder;
-            builder = async function ON(area) {
-                const { range } = area;
-                await b.call(this, area);
-                for (const g of genMods)
-                    if (range ? g.bUpd : g.bCr)
-                        g.handler().call((range || area.prevR)?.node);
+            builder = function ON(area) {
+                var _a;
+                return __awaiter(this, void 0, void 0, function* () {
+                    const { range } = area;
+                    yield b.call(this, area);
+                    for (const g of genMods)
+                        if (range ? g.bUpd : g.bCr)
+                            g.handler().call((_a = (range || area.prevR)) === null || _a === void 0 ? void 0 : _a.node);
+                });
             };
         }
         for (const { attName, rvars } of reacts)
@@ -1078,70 +1155,76 @@ class RCompiler {
                     return builder.call(this, subArea);
                 }
                 : builder);
-        async function REACT(area) {
-            let range, subArea, bInit;
-            if (getRvars) {
-                ({ range, subArea, bInit } = PrepArea(srcElm, area, attName));
-                area = subArea;
-            }
-            if (bRenew)
-                area = PrepArea(srcElm, area, 'renew', 2).subArea;
-            await builder.call(this, area);
-            if (getRvars) {
-                const rvars = getRvars();
-                let subscriber, pVars;
-                if (bInit)
-                    subscriber = this.Subscriber(subArea, updateBuilder, range.child);
-                else {
-                    ({ subscriber, rvars: pVars } = range.value);
-                    assignEnv(subscriber.env, env);
+        function REACT(area) {
+            return __awaiter(this, void 0, void 0, function* () {
+                let range, subArea, bInit;
+                if (getRvars) {
+                    ({ range, subArea, bInit } = PrepArea(srcElm, area, attName));
+                    area = subArea;
                 }
-                range.value = { rvars, subscriber };
-                let i = 0;
-                for (const rvar of rvars) {
-                    if (pVars) {
-                        const pvar = pVars[i++];
-                        if (rvar == pvar)
-                            continue;
-                        pvar._Subscribers.delete(subscriber);
+                if (bRenew)
+                    area = PrepArea(srcElm, area, 'renew', 2).subArea;
+                yield builder.call(this, area);
+                if (getRvars) {
+                    const rvars = getRvars();
+                    let subscriber, pVars;
+                    if (bInit)
+                        subscriber = this.Subscriber(subArea, updateBuilder, range.child);
+                    else {
+                        ({ subscriber, rvars: pVars } = range.value);
+                        assignEnv(subscriber.env, env);
                     }
-                    try {
-                        rvar.Subscribe(subscriber);
-                    }
-                    catch {
-                        throw `[${attName}] This is not an RVAR`;
+                    range.value = { rvars, subscriber };
+                    let i = 0;
+                    for (const rvar of rvars) {
+                        if (pVars) {
+                            const pvar = pVars[i++];
+                            if (rvar == pvar)
+                                continue;
+                            pvar._Subscribers.delete(subscriber);
+                        }
+                        try {
+                            rvar.Subscribe(subscriber);
+                        }
+                        catch (_a) {
+                            throw `[${attName}] This is not an RVAR`;
+                        }
                     }
                 }
-            }
+            });
         }
         REACT.ws = builder.ws;
         return REACT;
     }
-    async CallWithHandling(builder, srcNode, area) {
-        let { range } = area;
-        if (range && range.errorNode) {
-            area.parent.removeChild(range.errorNode);
-            range.errorNode = undefined;
-        }
-        try {
-            return await builder.call(this, area);
-        }
-        catch (err) {
-            const message = srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
-            if (this.Settings.bAbortOnError)
-                throw message;
-            console.log(message);
-            if (onerror?.bBldr)
-                onerror(err);
-            else if (this.Settings.bShowErrors) {
-                const errorNode = area.parent.insertBefore(createErrorNode(message), area.range?.FirstOrNext);
-                if (range)
-                    range.errorNode = errorNode;
+    CallWithHandling(builder, srcNode, area) {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            let { range } = area;
+            if (range && range.errorNode) {
+                area.parent.removeChild(range.errorNode);
+                range.errorNode = undefined;
             }
-        }
+            try {
+                return yield builder.call(this, area);
+            }
+            catch (err) {
+                const message = srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
+                if (this.Settings.bAbortOnError)
+                    throw message;
+                console.log(message);
+                if (onerror === null || onerror === void 0 ? void 0 : onerror.bBldr)
+                    onerror(err);
+                else if (this.Settings.bShowErrors) {
+                    const errorNode = area.parent.insertBefore(createErrorNode(message), (_a = area.range) === null || _a === void 0 ? void 0 : _a.FirstOrNext);
+                    if (range)
+                        range.errorNode = errorNode;
+                }
+            }
+        });
     }
     CompScript(srcParent, srcElm, atts) {
-        const bModule = atts.get('type')?.toLowerCase() == 'module', bNoModule = atts.get('nomodule') != null, defines = atts.get('defines');
+        var _a;
+        const bModule = ((_a = atts.get('type')) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'module', bNoModule = atts.get('nomodule') != null, defines = atts.get('defines');
         let src = atts.get('src');
         let builder;
         if (bNoModule || this.Settings.bRunScripts) {
@@ -1151,45 +1234,47 @@ class RCompiler {
                 for (const name of defines.split(','))
                     lvars.push({ name, init: this.NewVar(name) });
             let exports;
-            builder = async function SCRIPT() {
-                if (!(bModule || bNoModule || defines || this.Settings.bRunScripts)) {
-                    if (!exports) {
-                        const e = srcElm.cloneNode(true);
-                        document.head.appendChild(e);
-                        this.AddedHeaderElements.push(e);
-                        exports = {};
+            builder = function SCRIPT() {
+                return __awaiter(this, void 0, void 0, function* () {
+                    if (!(bModule || bNoModule || defines || this.Settings.bRunScripts)) {
+                        if (!exports) {
+                            const e = srcElm.cloneNode(true);
+                            document.head.appendChild(e);
+                            this.AddedHeaderElements.push(e);
+                            exports = {};
+                        }
                     }
-                }
-                else if (bModule) {
-                    if (!exports) {
-                        if (src)
-                            exports = await import(this.GetURL(src));
-                        else
-                            try {
-                                script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
-                                const src = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
-                                exports = await import(src);
-                            }
-                            finally {
-                                URL.revokeObjectURL(src);
-                            }
+                    else if (bModule) {
+                        if (!exports) {
+                            if (src)
+                                exports = yield import(this.GetURL(src));
+                            else
+                                try {
+                                    script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
+                                    const src = URL.createObjectURL(new Blob([script], { type: 'application/javascript' }));
+                                    exports = yield import(src);
+                                }
+                                finally {
+                                    URL.revokeObjectURL(src);
+                                }
+                        }
+                        for (const { name, init } of lvars) {
+                            if (!(name in exports))
+                                throw `'${name}' is not exported by this script`;
+                            init()(exports[name]);
+                        }
                     }
-                    for (const { name, init } of lvars) {
-                        if (!(name in exports))
-                            throw `'${name}' is not exported by this script`;
-                        init()(exports[name]);
+                    else {
+                        if (!exports) {
+                            if (src)
+                                script = yield this.FetchText(src);
+                            exports = gEval(`'use strict'\n;${script};[${defines}]\n`);
+                        }
+                        let i = 0;
+                        for (const { init } of lvars)
+                            init()(exports[i++]);
                     }
-                }
-                else {
-                    if (!exports) {
-                        if (src)
-                            script = await this.FetchText(src);
-                        exports = gEval(`'use strict'\n;${script};[${defines}]\n`);
-                    }
-                    let i = 0;
-                    for (const { init } of lvars)
-                        init()(exports[i++]);
-                }
+                });
             };
         }
         else if (defines)
@@ -1198,7 +1283,8 @@ class RCompiler {
         return builder;
     }
     CompFor(srcParent, srcElm, atts) {
-        const varName = atts.get('let') ?? atts.get('var');
+        var _a, _b;
+        const varName = (_a = atts.get('let')) !== null && _a !== void 0 ? _a : atts.get('var');
         let indexName = atts.get('index');
         if (indexName == '')
             indexName = 'index';
@@ -1211,140 +1297,154 @@ class RCompiler {
                 let nextName = atts.get('next');
                 if (nextName == '')
                     nextName = 'next';
-                const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = CBool(atts.get('reacting') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
-                return async function FOR(area) {
-                    const { range, subArea } = PrepArea(srcElm, area, ''), { parent } = subArea, before = subArea.before !== undefined ? subArea.before : range.Next, savedEnv = SaveEnv();
-                    try {
-                        const keyMap = range.value || (range.value = new Map()), newMap = new Map(), setVar = initVar(), setIndex = initIndex();
-                        let iterable = getRange();
-                        if (iterable) {
-                            if (iterable instanceof Promise)
-                                iterable = await iterable;
-                            if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
-                                throw `[of]: Value (${iterable}) is not iterable`;
-                            let idx = 0;
-                            for await (const item of iterable) {
-                                setVar(item);
-                                setIndex(idx);
-                                const hash = getHash && getHash();
-                                const key = getKey?.() ?? hash;
-                                if (key != null && newMap.has(key))
-                                    throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, { item, hash, idx });
-                                idx++;
+                const getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = CBool((_b = atts.get('reacting')) !== null && _b !== void 0 ? _b : atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(indexName), initPrevious = this.NewVar(prevName), initNext = this.NewVar(nextName), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = this.CompChildNodes(srcElm);
+                return function FOR(area) {
+                    var e_1, _a;
+                    var _b, _c, _d;
+                    return __awaiter(this, void 0, void 0, function* () {
+                        const { range, subArea } = PrepArea(srcElm, area, ''), { parent } = subArea, before = subArea.before !== undefined ? subArea.before : range.Next, savedEnv = SaveEnv();
+                        try {
+                            const keyMap = range.value || (range.value = new Map()), newMap = new Map(), setVar = initVar(), setIndex = initIndex();
+                            let iterable = getRange();
+                            if (iterable) {
+                                if (iterable instanceof Promise)
+                                    iterable = yield iterable;
+                                if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
+                                    throw `[of]: Value (${iterable}) is not iterable`;
+                                let idx = 0;
+                                try {
+                                    for (var iterable_1 = __asyncValues(iterable), iterable_1_1; iterable_1_1 = yield iterable_1.next(), !iterable_1_1.done;) {
+                                        const item = iterable_1_1.value;
+                                        setVar(item);
+                                        setIndex(idx);
+                                        const hash = getHash && getHash();
+                                        const key = (_b = getKey === null || getKey === void 0 ? void 0 : getKey()) !== null && _b !== void 0 ? _b : hash;
+                                        if (key != null && newMap.has(key))
+                                            throw `Key '${key}' is not unique`;
+                                        newMap.set(key !== null && key !== void 0 ? key : {}, { item, hash, idx });
+                                        idx++;
+                                    }
+                                }
+                                catch (e_1_1) { e_1 = { error: e_1_1 }; }
+                                finally {
+                                    try {
+                                        if (iterable_1_1 && !iterable_1_1.done && (_a = iterable_1.return)) yield _a.call(iterable_1);
+                                    }
+                                    finally { if (e_1) throw e_1.error; }
+                                }
                             }
-                        }
-                        let nextChild = range.child;
-                        const setPrevious = initPrevious(), setNext = initNext(), iterator = newMap.entries(), nextIterator = nextName ? newMap.values() : null;
-                        let prevItem, nextItem, prevRange = null, childArea;
-                        subArea.parentR = range;
-                        if (nextIterator)
-                            nextIterator.next();
-                        while (true) {
-                            let k;
-                            while (nextChild && !newMap.has(k = nextChild.key)) {
-                                if (k != null)
-                                    keyMap.delete(k);
-                                nextChild.erase(parent);
-                                nextChild.prev = null;
-                                nextChild = nextChild.next;
-                            }
-                            const { value } = iterator.next();
-                            if (!value)
-                                break;
-                            const [key, { item, hash, idx }] = value;
+                            let nextChild = range.child;
+                            const setPrevious = initPrevious(), setNext = initNext(), iterator = newMap.entries(), nextIterator = nextName ? newMap.values() : null;
+                            let prevItem, nextItem, prevRange = null, childArea;
+                            subArea.parentR = range;
                             if (nextIterator)
-                                nextItem = nextIterator.next().value?.item;
-                            let childRange = keyMap.get(key), bInit = !childRange;
-                            if (bInit) {
-                                subArea.range = null;
-                                subArea.prevR = prevRange;
-                                subArea.before = nextChild?.FirstOrNext || before;
-                                ;
-                                ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`));
-                                if (key != null) {
-                                    if (keyMap.has(key))
-                                        throw `Duplicate key '${key}'`;
-                                    keyMap.set(key, childRange);
+                                nextIterator.next();
+                            while (true) {
+                                let k;
+                                while (nextChild && !newMap.has(k = nextChild.key)) {
+                                    if (k != null)
+                                        keyMap.delete(k);
+                                    nextChild.erase(parent);
+                                    nextChild.prev = null;
+                                    nextChild = nextChild.next;
                                 }
-                                childRange.key = key;
-                            }
-                            else {
-                                if (childRange.fragm) {
-                                    const nextNode = nextChild?.FirstOrNext || before;
-                                    parent.insertBefore(childRange.fragm, nextNode);
-                                    childRange.fragm = null;
-                                }
-                                else
-                                    while (true) {
-                                        if (nextChild == childRange)
-                                            nextChild = nextChild.next;
-                                        else {
-                                            const nextIndex = newMap.get(nextChild.key)?.idx;
-                                            if (nextIndex > idx + 2) {
-                                                const fragm = nextChild.fragm = document.createDocumentFragment();
-                                                for (const node of nextChild.Nodes())
-                                                    fragm.appendChild(node);
-                                                nextChild = nextChild.next;
-                                                continue;
-                                            }
-                                            childRange.prev.next = childRange.next;
-                                            if (childRange.next)
-                                                childRange.next.prev = childRange.prev;
-                                            const nextNode = nextChild?.FirstOrNext || before;
-                                            for (const node of childRange.Nodes())
-                                                parent.insertBefore(node, nextNode);
-                                        }
-                                        break;
-                                    }
-                                childRange.next = nextChild;
-                                childRange.text = `${varName}(${idx})`;
-                                if (prevRange)
-                                    prevRange.next = childRange;
-                                else
-                                    range.child = childRange;
-                                subArea.range = childRange;
-                                childArea = PrepArea(null, subArea, '').subArea;
-                                subArea.parentR = null;
-                            }
-                            childRange.prev = prevRange;
-                            prevRange = childRange;
-                            if (hash == null
-                                || hash != childRange.hash
-                                    && (childRange.hash = hash, true)) {
-                                let rvar;
-                                if (bReacting) {
-                                    if (item === childRange.rvar)
-                                        rvar = item;
-                                    else {
-                                        rvar = this.RVAR_Light(item, getUpdatesTo && [getUpdatesTo()]);
-                                        if (childRange.rvar)
-                                            rvar._Subscribers = childRange.rvar._Subscribers;
-                                    }
-                                }
-                                setVar(rvar || item);
-                                setIndex(idx);
-                                setPrevious(prevItem);
+                                const { value } = iterator.next();
+                                if (!value)
+                                    break;
+                                const [key, { item, hash, idx }] = value;
                                 if (nextIterator)
-                                    setNext(nextItem);
-                                await bodyBuilder.call(this, childArea);
-                                if (rvar)
-                                    if (childRange.rvar)
-                                        assignEnv(childRange.subs.env, env);
+                                    nextItem = (_c = nextIterator.next().value) === null || _c === void 0 ? void 0 : _c.item;
+                                let childRange = keyMap.get(key), bInit = !childRange;
+                                if (bInit) {
+                                    subArea.range = null;
+                                    subArea.prevR = prevRange;
+                                    subArea.before = (nextChild === null || nextChild === void 0 ? void 0 : nextChild.FirstOrNext) || before;
+                                    ;
+                                    ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`));
+                                    if (key != null) {
+                                        if (keyMap.has(key))
+                                            throw `Duplicate key '${key}'`;
+                                        keyMap.set(key, childRange);
+                                    }
+                                    childRange.key = key;
+                                }
+                                else {
+                                    if (childRange.fragm) {
+                                        const nextNode = (nextChild === null || nextChild === void 0 ? void 0 : nextChild.FirstOrNext) || before;
+                                        parent.insertBefore(childRange.fragm, nextNode);
+                                        childRange.fragm = null;
+                                    }
                                     else
-                                        rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child));
-                                childRange.rvar = rvar;
+                                        while (true) {
+                                            if (nextChild == childRange)
+                                                nextChild = nextChild.next;
+                                            else {
+                                                const nextIndex = (_d = newMap.get(nextChild.key)) === null || _d === void 0 ? void 0 : _d.idx;
+                                                if (nextIndex > idx + 2) {
+                                                    const fragm = nextChild.fragm = document.createDocumentFragment();
+                                                    for (const node of nextChild.Nodes())
+                                                        fragm.appendChild(node);
+                                                    nextChild = nextChild.next;
+                                                    continue;
+                                                }
+                                                childRange.prev.next = childRange.next;
+                                                if (childRange.next)
+                                                    childRange.next.prev = childRange.prev;
+                                                const nextNode = (nextChild === null || nextChild === void 0 ? void 0 : nextChild.FirstOrNext) || before;
+                                                for (const node of childRange.Nodes())
+                                                    parent.insertBefore(node, nextNode);
+                                            }
+                                            break;
+                                        }
+                                    childRange.next = nextChild;
+                                    childRange.text = `${varName}(${idx})`;
+                                    if (prevRange)
+                                        prevRange.next = childRange;
+                                    else
+                                        range.child = childRange;
+                                    subArea.range = childRange;
+                                    childArea = PrepArea(null, subArea, '').subArea;
+                                    subArea.parentR = null;
+                                }
+                                childRange.prev = prevRange;
+                                prevRange = childRange;
+                                if (hash == null
+                                    || hash != childRange.hash
+                                        && (childRange.hash = hash, true)) {
+                                    let rvar;
+                                    if (bReacting) {
+                                        if (item === childRange.rvar)
+                                            rvar = item;
+                                        else {
+                                            rvar = this.RVAR_Light(item, getUpdatesTo && [getUpdatesTo()]);
+                                            if (childRange.rvar)
+                                                rvar._Subscribers = childRange.rvar._Subscribers;
+                                        }
+                                    }
+                                    setVar(rvar || item);
+                                    setIndex(idx);
+                                    setPrevious(prevItem);
+                                    if (nextIterator)
+                                        setNext(nextItem);
+                                    yield bodyBuilder.call(this, childArea);
+                                    if (rvar)
+                                        if (childRange.rvar)
+                                            assignEnv(childRange.subs.env, env);
+                                        else
+                                            rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child));
+                                    childRange.rvar = rvar;
+                                }
+                                prevItem = item;
                             }
-                            prevItem = item;
+                            if (prevRange)
+                                prevRange.next = null;
+                            else
+                                range.child = null;
                         }
-                        if (prevRange)
-                            prevRange.next = null;
-                        else
-                            range.child = null;
-                    }
-                    finally {
-                        RestoreEnv(savedEnv);
-                    }
+                        finally {
+                            RestoreEnv(savedEnv);
+                        }
+                    });
                 };
             }
             else {
@@ -1354,20 +1454,22 @@ class RCompiler {
                     throw `Missing attribute [let]`;
                 const initIndex = this.NewVar(indexName);
                 const bodyBuilder = this.CompChildNodes(srcElm);
-                return async function FOREACH_Slot(area) {
-                    const { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(slotName), setIndex = initIndex();
-                    try {
-                        let index = 0;
-                        for (const slotBuilder of slotDef.templates) {
-                            setIndex(index++);
-                            env.constructs.set(slotName, { templates: [slotBuilder], constructEnv: slotDef.constructEnv });
-                            await bodyBuilder.call(this, subArea);
+                return function FOREACH_Slot(area) {
+                    return __awaiter(this, void 0, void 0, function* () {
+                        const { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(slotName), setIndex = initIndex();
+                        try {
+                            let index = 0;
+                            for (const slotBuilder of slotDef.templates) {
+                                setIndex(index++);
+                                env.constructs.set(slotName, { templates: [slotBuilder], constructEnv: slotDef.constructEnv });
+                                yield bodyBuilder.call(this, subArea);
+                            }
                         }
-                    }
-                    finally {
-                        mapSet(env.constructs, slotName, slotDef);
-                        RestoreEnv(saved);
-                    }
+                        finally {
+                            mapSet(env.constructs, slotName, slotDef);
+                            RestoreEnv(saved);
+                        }
+                    });
                 };
             }
         }
@@ -1439,12 +1541,14 @@ class RCompiler {
             this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.wspc = wspc;
-        return async function COMPONENT(area) {
-            for (const [bldr, srcNode] of builders)
-                await this.CallWithHandling(bldr, srcNode, area);
-            const construct = { templates, constructEnv: undefined };
-            DefConstruct(signature.name, construct);
-            construct.constructEnv = CloneEnv(env);
+        return function COMPONENT(area) {
+            return __awaiter(this, void 0, void 0, function* () {
+                for (const [bldr, srcNode] of builders)
+                    yield this.CallWithHandling(bldr, srcNode, area);
+                const construct = { templates, constructEnv: undefined };
+                DefConstruct(signature.name, construct);
+                construct.constructEnv = CloneEnv(env);
+            });
         };
     }
     CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
@@ -1456,36 +1560,39 @@ class RCompiler {
                 this.AddConstruct(S);
             if (!atts)
                 myAtts.CheckNoAttsLeft();
-            this.wspc = this.rspc = 1;
+            this.wspc = this.rspc = WSpc.block;
             const builder = this.CompChildNodes(contentNode), { name } = signat, customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
-            return async function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
-                const saved = SaveEnv();
-                try {
-                    for (const [slotName, templates] of mSlotTemplates)
-                        DefConstruct(slotName, { templates, constructEnv: slotEnv });
-                    let i = 0;
-                    for (const [name, lvar] of lvars) {
-                        let arg = args[name], dflt;
-                        if (arg === undefined && (dflt = signat.Params[i]?.pDefault))
-                            arg = dflt();
-                        lvar()(arg);
-                        i++;
+            return function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
+                var _a;
+                return __awaiter(this, void 0, void 0, function* () {
+                    const saved = SaveEnv();
+                    try {
+                        for (const [slotName, templates] of mSlotTemplates)
+                            DefConstruct(slotName, { templates, constructEnv: slotEnv });
+                        let i = 0;
+                        for (const [name, lvar] of lvars) {
+                            let arg = args[name], dflt;
+                            if (arg === undefined && (dflt = (_a = signat.Params[i]) === null || _a === void 0 ? void 0 : _a.pDefault))
+                                arg = dflt();
+                            lvar()(arg);
+                            i++;
+                        }
+                        if (bEncaps) {
+                            const { range: elmRange, childArea, bInit } = PrepareElement(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
+                            if (bInit)
+                                for (const style of styles)
+                                    shadow.appendChild(style.cloneNode(true));
+                            if (signat.RestParam)
+                                ApplyModifier(elm, MType.RestArgument, null, args[signat.RestParam.name], bInit);
+                            childArea.parent = shadow;
+                            area = childArea;
+                        }
+                        yield builder.call(this, area);
                     }
-                    if (bEncaps) {
-                        const { range: elmRange, childArea, bInit } = PrepareElement(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
-                        if (bInit)
-                            for (const style of styles)
-                                shadow.appendChild(style.cloneNode(true));
-                        if (signat.RestParam)
-                            ApplyModifier(elm, 8, null, args[signat.RestParam.name], bInit);
-                        childArea.parent = shadow;
-                        area = childArea;
+                    finally {
+                        RestoreEnv(saved);
                     }
-                    await builder.call(this, area);
-                }
-                finally {
-                    RestoreEnv(saved);
-                }
+                });
             };
         }
         catch (err) {
@@ -1526,59 +1633,63 @@ class RCompiler {
             getArgs.set(RestParam.name, () => modifs.map(({ mType: modType, name, depV: depValue }) => ({ modType, name, value: depValue() })));
         }
         atts.CheckNoAttsLeft();
-        this.wspc = 3;
-        return async function INSTANCE(area) {
-            const savedEnv = env, cdef = env.constructs.get(name), { subArea } = PrepArea(srcElm, area);
-            if (!cdef)
-                return;
-            bReadOnly = true;
-            const args = {};
-            for (const [nm, getArg] of getArgs)
-                args[nm] = getArg();
-            bReadOnly = false;
-            env = cdef.constructEnv;
-            try {
-                for (const template of cdef.templates)
-                    await template.call(this, subArea, args, slotBuilders, savedEnv);
-            }
-            finally {
-                env = savedEnv;
-            }
+        this.wspc = WSpc.inline;
+        return function INSTANCE(area) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const savedEnv = env, cdef = env.constructs.get(name), { subArea } = PrepArea(srcElm, area);
+                if (!cdef)
+                    return;
+                bReadOnly = true;
+                const args = {};
+                for (const [nm, getArg] of getArgs)
+                    args[nm] = getArg();
+                bReadOnly = false;
+                env = cdef.constructEnv;
+                try {
+                    for (const template of cdef.templates)
+                        yield template.call(this, subArea, args, slotBuilders, savedEnv);
+                }
+                finally {
+                    env = savedEnv;
+                }
+            });
         };
     }
     CompHTMLElement(srcElm, atts) {
         const name = srcElm.localName.replace(/\.+$/, ''), preWs = this.wspc;
         let postWs;
         if (this.mPreformatted.has(name)) {
-            this.wspc = 4;
-            postWs = 1;
+            this.wspc = WSpc.preserve;
+            postWs = WSpc.block;
         }
         else if (RCompiler.regBlock.test(name)) {
-            postWs = this.wspc = this.rspc = 1;
+            postWs = this.wspc = this.rspc = WSpc.block;
         }
         else if (RCompiler.regInline.test(name)) {
-            this.wspc = this.rspc = 1;
-            postWs = 3;
+            this.wspc = this.rspc = WSpc.block;
+            postWs = WSpc.inline;
         }
-        if (preWs == 4)
-            postWs = 4;
+        if (preWs == WSpc.preserve)
+            postWs = WSpc.preserve;
         const modifs = this.CompAttributes(atts);
         const childnodesBuilder = this.CompChildNodes(srcElm);
         if (postWs)
             this.wspc = postWs;
-        const builder = async function ELEMENT(area) {
-            const { range: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
-            if (!area.bNoChildBuilding)
-                await childnodesBuilder.call(this, childArea);
-            node.removeAttribute('class');
-            if (node.handlers) {
-                for (const { evType, listener } of node.handlers)
-                    node.removeEventListener(evType, listener);
-            }
-            node.handlers = [];
-            ApplyModifiers(node, modifs, bInit);
+        const builder = function ELEMENT(area) {
+            return __awaiter(this, void 0, void 0, function* () {
+                const { range: { node }, childArea, bInit } = PrepareElement(srcElm, area, name);
+                if (!area.bNoChildBuilding)
+                    yield childnodesBuilder.call(this, childArea);
+                node.removeAttribute('class');
+                if (node.handlers) {
+                    for (const { evType, listener } of node.handlers)
+                        node.removeEventListener(evType, listener);
+                }
+                node.handlers = [];
+                ApplyModifiers(node, modifs, bInit);
+            });
         };
-        builder.ws = (postWs == 1) || preWs < 4 && childnodesBuilder.ws;
+        builder.ws = (postWs == WSpc.block) || preWs < WSpc.preserve && childnodesBuilder.ws;
         return builder;
     }
     CompAttributes(atts) {
@@ -1589,33 +1700,33 @@ class RCompiler {
             try {
                 if (m = /^on(.*?)\.*$/i.exec(aName))
                     modifs.push({
-                        mType: 5,
+                        mType: MType.Event,
                         name: CapitalProp(m[0]),
                         depV: this.AddErrHandler(this.CompHandler(aName, aVal))
                     });
                 else if (m = /^#class[:.](.*)$/.exec(aName))
                     modifs.push({
-                        mType: 3, name: m[1],
+                        mType: MType.Class, name: m[1],
                         depV: this.CompJScript(aVal, aName)
                     });
                 else if (m = /^#style\.(.*)$/.exec(aName))
                     modifs.push({
-                        mType: 4, name: CapitalProp(m[1]),
+                        mType: MType.Style, name: CapitalProp(m[1]),
                         depV: this.CompJScript(aVal, aName)
                     });
                 else if (m = /^style\.(.*)$/.exec(aName))
                     modifs.push({
-                        mType: 4, name: CapitalProp(m[1]),
+                        mType: MType.Style, name: CapitalProp(m[1]),
                         depV: this.CompString(aVal, aName)
                     });
                 else if (aName == '+style')
                     modifs.push({
-                        mType: 6, name: null,
+                        mType: MType.AddToStyle, name: null,
                         depV: this.CompJScript(aVal, aName)
                     });
                 else if (aName == "+class")
                     modifs.push({
-                        mType: 7, name: null,
+                        mType: MType.AddToClassList, name: null,
                         depV: this.CompJScript(aVal, aName)
                     });
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aName)) {
@@ -1625,16 +1736,16 @@ class RCompiler {
                         if (/[@#]/.test(m[1])) {
                             let depV = this.CompJScript(aVal, aName);
                             if (/^on/.test(name))
-                                modifs.push({ mType: 5, name, depV: this.AddErrHandler(depV) });
+                                modifs.push({ mType: MType.Event, name, depV: this.AddErrHandler(depV) });
                             else
-                                modifs.push({ mType: 1, name, depV });
+                                modifs.push({ mType: MType.Prop, name, depV });
                         }
                         if (/\*/.test(m[1]))
-                            modifs.push({ mType: 9, name: 'oncreate', depV: setter });
+                            modifs.push({ mType: MType.oncreate, name: 'oncreate', depV: setter });
                         if (/\+/.test(m[1]))
-                            modifs.push({ mType: 10, name: 'onupdate', depV: setter });
+                            modifs.push({ mType: MType.onupdate, name: 'onupdate', depV: setter });
                         if (/[@!]/.test(m[1]))
-                            modifs.push({ mType: 5,
+                            modifs.push({ mType: MType.Event,
                                 name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput',
                                 depV: setter });
                     }
@@ -1646,19 +1757,19 @@ class RCompiler {
                     if (aVal)
                         throw `A rest parameter cannot have a value`;
                     modifs.push({
-                        mType: 8, name: null,
+                        mType: MType.RestArgument, name: null,
                         depV: this.CompName(m[1])
                     });
                 }
                 else if (aName == 'src')
                     modifs.push({
-                        mType: 2,
+                        mType: MType.Src,
                         name: this.FilePath,
                         depV: this.CompString(aVal, aName),
                     });
                 else
                     modifs.push({
-                        mType: 0,
+                        mType: MType.Attr,
                         name: aName,
                         depV: this.CompString(aVal, aName)
                     });
@@ -1677,7 +1788,7 @@ class RCompiler {
     CompString(data, name) {
         const regIS = this.regIS || (this.regIS = new RegExp(/(?<![\\$])/.source
             + (this.Settings.bDollarRequired ? '\\$' : '\\$?')
-            + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/.source, 'gs')), generators = [], ws = name || this.Settings.bKeepWhiteSpace ? 4 : this.wspc;
+            + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|.)*?)(?<!\\)\}|$/.source, 'gs')), generators = [], ws = name || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.wspc;
         let isTrivial = true, bThis = false;
         regIS.lastIndex = 0;
         while (regIS.lastIndex < data.length) {
@@ -1685,9 +1796,9 @@ class RCompiler {
             let fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
             if (fixed) {
                 fixed = fixed.replace(/\\([${}\\])/g, '$1');
-                if (ws < 4) {
+                if (ws < WSpc.preserve) {
                     fixed = fixed.replace(/[ \t\n\r]+/g, ' ');
-                    if (ws <= 2 && !generators.length)
+                    if (ws <= WSpc.inlineSpc && !generators.length)
                         fixed = fixed.replace(/^ /, '');
                     if (this.rspc && !m[1] && regIS.lastIndex == data.length)
                         fixed = fixed.replace(/ $/, '');
@@ -1711,10 +1822,11 @@ class RCompiler {
         else
             dep = bThis ?
                 function () {
+                    var _a;
                     try {
                         let result = "";
                         for (const gen of generators)
-                            result += typeof gen == 'string' ? gen : gen.call(this) ?? '';
+                            result += typeof gen == 'string' ? gen : (_a = gen.call(this)) !== null && _a !== void 0 ? _a : '';
                         return result;
                     }
                     catch (err) {
@@ -1722,10 +1834,11 @@ class RCompiler {
                     }
                 }
                 : () => {
+                    var _a;
                     try {
                         let result = "";
                         for (const gen of generators)
-                            result += typeof gen == 'string' ? gen : gen() ?? '';
+                            result += typeof gen == 'string' ? gen : (_a = gen()) !== null && _a !== void 0 ? _a : '';
                         return result;
                     }
                     catch (err) {
@@ -1846,8 +1959,10 @@ class RCompiler {
     GetPath(src) {
         return this.GetURL(src).replace(/[^/]*$/, '');
     }
-    async FetchText(src) {
-        return await (await RFetch(this.GetURL(src))).text();
+    FetchText(src) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield (yield RFetch(this.GetURL(src))).text();
+        });
     }
 }
 RCompiler.iNum = 0;
@@ -1855,11 +1970,13 @@ RCompiler.genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+
 RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
 RCompiler.regInline = /^(button|input|img)$/;
 const gFetch = fetch;
-export async function RFetch(input, init) {
-    const r = await gFetch(input, init);
-    if (!r.ok)
-        throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
-    return r;
+export function RFetch(input, init) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const r = yield gFetch(input, init);
+        if (!r.ok)
+            throw `${(init === null || init === void 0 ? void 0 : init.method) || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
+        return r;
+    });
 }
 globalThis.RFetch = RFetch;
 function quoteReg(fixed) {
@@ -1879,7 +1996,7 @@ class _RVAR {
                 this._Value = JSON.parse(s);
                 return;
             }
-            catch { }
+            catch (_a) { }
         this.SetAsync(initialValue);
     }
     Subscribe(s, bImmediate, bInit = bImmediate) {
@@ -1917,13 +2034,14 @@ class _RVAR {
     }
     set U(t) { this._Value = t; this.SetDirty(); }
     SetDirty() {
+        var _a, _b;
         if (this.store)
             this.RC.DirtyVars.add(this);
         let b;
         for (const sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (!sub.sArea?.range?.erased) {
+            else if (!((_b = (_a = sub.sArea) === null || _a === void 0 ? void 0 : _a.range) === null || _b === void 0 ? void 0 : _b.erased)) {
                 this.RC.AddDirty(sub);
                 b = true;
             }
@@ -2051,7 +2169,7 @@ Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.sub
 window.addEventListener('popstate', () => { docLocation.V = location.href; });
 function ScrollToHash() {
     if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.substring(1))?.scrollIntoView()), 6);
+        setTimeout((() => { var _a; return (_a = document.getElementById(location.hash.substring(1))) === null || _a === void 0 ? void 0 : _a.scrollIntoView(); }), 6);
 }
 docLocation.Subscribe(() => {
     if (docLocation.V != location.href) {

@@ -3,16 +3,48 @@
     <span class=OtoRed>OtoReact</span> Download, license, installation
   </pageHead>
 
+  <h2>Prerequisites</h2>
+  <h3>Server</h3>
+  <p>
+    Otoreact does not have any server requirements: any web server serving static files will do.
+  </p>
+  <h3>Clients</h3>
+  <p>
+    OtoReact is heavy on JavaScript and requires a pretty modern web browser to run. It does not run in Internet Explorer.
+    <br>If you can read this text, then OtoReact is running in your current browser.
+  </p>
+  <p>
+    The standard version is compiled for ECMAScript 2020 and runs in any modern browser version released in 2021 or later.
+  </p>
+  <p>
+    There is an alternative version compiled for ECMAScript 2015 (ES5) that should run in older browsers supporting ES5.
+    <br>Note that OtoReact is not being tested in older browsers, and performance may be bad.
+  </p>
+
   <h2>Downloads</h2>
+  <p>
+    OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download>OtoReact.js</a>
+  </p>
+  <p>
+    if you are using <a href="https://www.typescriptlang.org/">TypeScript</a>, then you may want these type declarations: <a href="{src}OtoReact.d.ts" download>OtoReact.d.ts</a> 
+  </p>
+  <p>
+    Here is the alternative version for older browsers: <a href="{src}OtoReact_ES5.js" download>OtoReact_ES5.js</a>, <a href="{src}OtoReact_ES5.d.ts" download>OtoReact_ES5.d.ts</a>
+  </p>
+
+  <h3>Routing</h3>
+  <p>
+    If your application uses <a href="routing">Routing</a> on pathnames, then you need to configure your server to serve the same HTML file on different pathnames.
+    <br>On Microsoft IIS, it suffices to place this file in your application root: <a href="{src}web.config" download>web.config</a>
+    <br>On Apache HTTP Server, it suffices to place this file in your application root: <a href="{src}htaccess.txt">htaccess</a> and rename it to ".htaccess".
+  </p>
+
+
 
   <if cond="/dev\//i.test(document.location.href)">
     <def rvar=donate></def>
     <if cond=donate.V reacton=donate>
-      <!-- of iframe met absolute/relative position -->
       <div style="width:20em;float:right; border:solid 2pt gold; padding:8px">
-        <!--
-        <iframe src="donate.html" onload="this.height = this.contentWindow.document.body.scrollHeight+'px';"></iframe>
-        -->
         <include src="donate.html"></include>
       </div>
     </if>
@@ -22,16 +54,15 @@
     <br><a onclick="donate.V=true">Donations</a> are welcome.
     <p>
       Commercial licences can be obtained at a price of €200 per developer, valid for 5 years.
-    <br>Sourcecode access is negotiable.
-
+      <br>Sourcecode access is negotiable.
+    </p>
     <p>
       You may distribute OtoReact as part of your application.
-      <br>OtoReact is copyrighted and may not be redistributed on its own in modified or unmodified form without permission.
+      <br>OtoReact is copyrighted and may not be redistributed on its own, in modified or unmodified form, without permission.
     </p>
     <p>
       This website too is copyrighted and <u>may not be republished</u>.
     </p>
   </if>
-  <h2>Installation</h2>
 
 </pageLayout>

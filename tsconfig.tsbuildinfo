@@ -197,7 +197,7 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "b28380893a3fe87bc210cefd826b499d424c167a2f4179c23b862572e905ff2b",
+        "version": "e0362d559b3f8fe58985eb747b6cddd5738a1519fe77622f5c8dcb35ff4d35db",
         "signature": "8dc8508470dda1e5819fcea8a98093cd30a51e42a422ad6acfaf1ca8ccb621f4",
         "affectsGlobalScope": false
       }
@@ -207,7 +207,7 @@
       "noImplicitThis": true,
       "removeComments": true,
       "module": 99,
-      "target": 99,
+      "target": 7,
       "lib": [
         "lib.dom.d.ts",
         "lib.dom.iterable.d.ts",
@@ -215,7 +215,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
