@@ -625,24 +625,34 @@ allows you to include another RHTML file as if it were inserted into the main fi
 
 <h2 id=Import><{}IMPORT src>, modules</h2>
 <pre class=sourcecode>
-<{}IMPORT src="<i>URL</i>">
+<{}IMPORT async? src="<i>URL</i>">
     <i>Signatures</i>
 <{}/IMPORT>
 </pre>
 imports a number of components defined in an external file, called a <i>module</i>.
+<br>There are two variants:
 <ul>
-<li>
-    The component signatures must be repeated in the main file, because the file is fetched asynchronously while compiling continues synchronously.
-</li>
-<li>
-    Components from the same module may be imported at multiple places and will be fetched and compiled only once.
-</li>
-<li>
-    Local variables from the main file are not visible within the external file.
-</li>
-<li>
-    Local variables in the external file but outside the component definitions will be initialized (once) and can be used by the components, not by the main file.
-</li>
+    <li>
+        With the <code>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.
+        <br>Compiling the document will continue asynchronously with the provided signatures while the external file is being fetched and compiled.
+        <br>Only when one of the components has to be instantiated, will OtoReact wait for the completion of the import.
+    </li>
+    <li>
+        Without the <code>async</code> option, the <elm>IMPORT</elm> element needs only specify the names of the imported components.
+        <br>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of these components, it will wait for the external file.
+    </li>
+</ul>
+Furthermore:
+<ul>
+    <li>
+        Components from the same module may be imported at multiple places and will be fetched and compiled only once.
+    </li>
+    <li>
+        Local variables from the main file are not visible within the external file.
+    </li>
+    <li>
+        Local variables in the external file but outside the component definitions will be initialized (once) and can be used by the components, not by the main file.
+    </li>
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 

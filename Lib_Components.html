@@ -230,7 +230,12 @@
                         </p>
                     </div>
                     <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
-                        Created by <a href="http://www.peterdebruin.net" title="www.peterdebruin.net">Peter J. de Bruin</a>.
+                        Created by <a 
+                            onclick="
+                                let rect = this.getBoundingClientRect();
+                                popup.V={display: null, left: `${window.scrollX + rect.left - 200}px`, top: `${window.scrollY + rect.top + 30}px`};
+                                event.stopPropagation();" 
+                            title="More about me">Peter J. de Bruin</a>.
                         <p>Made possible by:
                     </div>
                     <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%; white-space: nowrap;">

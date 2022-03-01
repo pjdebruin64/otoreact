@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<html>
 <head>
     <meta charset="utf-8">
     <!--
@@ -27,6 +28,7 @@
     <script src="samples.js" defer></script>
     <script type=module>
         import {RCompile} from './OtoReact.js';
+        let popup = RVAR('popup', {display: 'none'});
         RCompile(document.body, {bTiming:true, bAbortOnError: false});
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
@@ -39,8 +41,9 @@
     </script>
   <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>
 </head>
-<body hidden>
-    <import src="Lib_Components.html">
+<body hidden onclick="popup.V=null" style.cursor=default>
+
+    <import async src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href? #target? ...rest><content></content></a>
         
@@ -78,4 +81,12 @@
             <include src="download.html">
         </when>        
     </case>
+    <div 
+        style="position: absolute; background-color: #FFFBE3; outline: 4px solid #FFE75B; padding: 8px; border-radius: 4px;"
+        +style="popup.V" thisreactson=popup
+    >
+        You can find more about me on my <a href="https://www.linkedin.com/in/peter-de-bruin-trautmann/">LinkedIn profile</a>,
+        <br>and on my <a href="http://www.peterdebruin.net">personal homepage</a> in Dutch
+    </div>
 </body>
+</html>

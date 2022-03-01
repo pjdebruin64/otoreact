@@ -1,5 +1,5 @@
 const sampleGreeting=
-`<define rvar='yourName' store=sessionStorage></define>
+`<define rvar='yourName'></define>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
@@ -329,6 +329,10 @@ const sampleTicTacToe =
         outcome =   RVAR('outcome');      //: '◯' | '✕' | true
         count = 0;
 
+        constructor() {
+            this.ClearAll();
+        }
+
         ClearAll() {
             this.board.V = Board();
             this.outcome.V = null;
@@ -339,11 +343,9 @@ const sampleTicTacToe =
             function Board(){return [Row(), Row(), Row()]; }
         }
 
-        constructor() {
-            this.ClearAll();
-        }
-
         Move(cell) {
+            if (this.outcome.V || cell.P) // Move not allowed
+              return;
             cell.U.P = this.toMove.V;
             this.count++;
             this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
@@ -367,6 +369,9 @@ const sampleTicTacToe =
 </script>
 
 <style>
+    table.tic-tac-toe {
+        width: fit-content; margin:1ex
+    }
     table.tic-tac-toe td {
         height:2em; width: 2em; padding: 0px;
         border: 2px solid; 
@@ -381,12 +386,12 @@ const sampleTicTacToe =
   </div>
 
   <define var=T #value="new TicTacToe()"></define>
-  <table. class=tic-tac-toe reacton=T.board
-            style="width: fit-content; margin:1ex">
+  <table. class=tic-tac-toe
+        reacton=T.board>
     <for let=row #of="T.board.V">
       <tr.>
         <for let=cell #of=row updates=T.board>
-          <td. onclick="!T.outcome.V && !cell.P && T.Move(cell)"
+          <td. onclick="T.Move(cell)"
            >{cell.P || ''}</td.>
         </for>
       </tr.>

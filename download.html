@@ -20,7 +20,7 @@
     There is an alternative version compiled for ECMAScript 2015 (ES5) that should run in older browsers supporting ES5.
     <br>Note that OtoReact is not being tested in older browsers, and performance may be bad.
   </p>
-
+  
   <h2>Downloads</h2>
   <p>
     OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download>OtoReact.js</a>
@@ -32,6 +32,13 @@
     Here is the alternative version for older browsers: <a href="{src}OtoReact_ES5.js" download>OtoReact_ES5.js</a>, <a href="{src}OtoReact_ES5.d.ts" download>OtoReact_ES5.d.ts</a>
   </p>
 
+  <def rvar=donate></def>
+  <if cond=donate.V reacton=donate>
+    <div style="width:20em;float:right; border:solid 2pt gold; padding:8px">
+      <include src="donate.html"></include>
+    </div>
+  </if>
+
   <h3>Routing</h3>
   <p>
     If your application uses <a href="routing">Routing</a> on pathnames, then you need to configure your server to serve the same HTML file on different pathnames.
@@ -42,12 +49,6 @@
 
 
   <if cond="/dev\//i.test(document.location.href)">
-    <def rvar=donate></def>
-    <if cond=donate.V reacton=donate>
-      <div style="width:20em;float:right; border:solid 2pt gold; padding:8px">
-        <include src="donate.html"></include>
-      </div>
-    </if>
 
     <h2>License</h2>
     OtoReact is free for noncommercial use, and available for unlimited trial for commercial use.

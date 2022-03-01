@@ -251,7 +251,7 @@ type Settings = Partial<FullSettings>;
 let BasePath: string = null;
 let ToBuild: Area[] = [];
 
-export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
+export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
     try {
         const {basePattern} = R.Settings = {...defaultSettings, ...settings},
             m = location.href.match(`^.*(${basePattern})`);
@@ -259,12 +259,11 @@ export function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> {
             globalThis.BasePath = globalThis.BasePath = BasePath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
         )
         R.RootElm = elm;
-        R.Compile(elm, {}, true);
+        await R.Compile(elm, {}, true);
         ToBuild.push({parent: elm.parentElement, source: elm, range: null});
 
-        return (R.Settings.bBuild
-            ? RBuild()
-            : null);
+        if (R.Settings.bBuild)
+            await RBuild();
     }
     catch (err) {
         window.alert(`OtoReact error: ${err}`);
@@ -325,6 +324,7 @@ class Signature {
         this.name = srcElm.localName;
     }
     public name: string;
+    public prom: Promise<any>;
     public Params: Array<Parameter> = [];
     public RestParam: Parameter = null;
     public Slots = new Map<string, Signature>();
@@ -579,7 +579,7 @@ class RCompiler {
     }
 
     // Compile a source tree into an ElmBuilder
-    public Compile(
+    public async Compile(
         elm: ParentNode, 
         settings: Settings = {},
         bIncludeSelf: boolean = false,  // Compile the element itself, or just its childnodes
@@ -593,8 +593,8 @@ class RCompiler {
             R = this;
             this.Builder =
                 bIncludeSelf
-                ? this.CompElm(elm.parentElement, elm as HTMLElement, true)[0]
-                : this.CompChildNodes(elm);
+                ? (await this.CompElm(elm.parentElement, elm as HTMLElement, true))[0]
+                : await this.CompChildNodes(elm);
             this.bCompiled = true;
         }
         finally {
@@ -764,13 +764,13 @@ class RCompiler {
 
     private sourceNodeCount = 0;   // To check for empty Content
 
-    private CompChildNodes(
+    private async CompChildNodes(
         srcParent: ParentNode,
         childNodes: Iterable<ChildNode> = srcParent.childNodes,
-    ): DOMBuilder {
+    ): Promise<DOMBuilder> {
         const saved = this.SaveContext();
         try {
-            const builder = this.CompIterator(srcParent, childNodes);
+            const builder = await this.CompIterator(srcParent, childNodes);
             return builder ?
                  async function ChildNodes(this: RCompiler, area) {
                     const savedEnv = SaveEnv();
@@ -784,7 +784,7 @@ class RCompiler {
 
     //private CreatedRvars: RVAR[] = [];
 
-    private CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): DOMBuilder {
+    private async CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         const builders = [] as Array< [DOMBuilder, ChildNode, (boolean|number)?] >
             , {rspc} = this
             , arr = Array.from(iter), L = arr.length;
@@ -797,7 +797,7 @@ class RCompiler {
                 
                 case Node.ELEMENT_NODE:
                     this.sourceNodeCount ++;
-                    builder = this.CompElm(srcParent, srcNode as HTMLElement);
+                    builder = await this.CompElm(srcParent, srcNode as HTMLElement);
                     break;
 
                 case Node.TEXT_NODE:
@@ -885,7 +885,8 @@ class RCompiler {
     }
 
     static genAtts = /^(?:((?:this)?reacts?on)|#?on((?:create|\*)|(?:update|\+))+|#?on(?:(error)-?|success))$/;
-    private CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean): [DOMBuilder, ChildNode, number?] {
+    private async CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
+        ): Promise<[DOMBuilder, ChildNode, number?]> {
         const atts =  new Atts(srcElm),
             reacts: Array<{attName: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attName: string, bCr: boolean, bUpd: boolean, text: string, handler?: Dependent<Handler>}> = [];
@@ -915,7 +916,7 @@ class RCompiler {
             // See if this node is a user-defined construct (component or slot) instance
             const construct = this.CSignatures.get(srcElm.localName);
             if (construct)
-                builder = this.CompInstance(srcElm, atts, construct);
+                builder = await this.CompInstance(srcElm, atts, construct);
             else {
                 switch (srcElm.localName) {
                     case 'def':
@@ -1033,7 +1034,7 @@ class RCompiler {
 
                                     // Fall through!
                                     case 'ELSE':
-                                        const builder = this.CompChildNodes(node, body);
+                                        const builder = await this.CompChildNodes(node, body);
                                         caseList.push({cond, not, patt, builder, node});
                                         atts.CheckNoAttsLeft();
                                         postWs = Math.max(postWs, this.wspc);
@@ -1097,7 +1098,7 @@ class RCompiler {
                             
                     case 'for':
                     case 'foreach':
-                        builder = this.CompFor(srcParent, srcElm, atts);
+                        builder = await this.CompFor(srcParent, srcElm, atts);
                     break;
                         
                     case 'include': {
@@ -1113,7 +1114,7 @@ class RCompiler {
                             const parsedContent = parser.parseFromString(textContent, 'text/html') as HTMLDocument;
 
                             // Compile the parsed contents of the file in the original context
-                            C.Compile(parsedContent.body, {bRunScripts: true}, false);
+                            await C.Compile(parsedContent.body, {bRunScripts: true}, false);
                         })();
 
                         builder = 
@@ -1128,6 +1129,7 @@ class RCompiler {
 
                     case 'import': {
                         const src = this.GetURL(atts.get('src', true))
+                            , bAsync = CBool(atts.get('async'));
                         const listImports = new Array<Signature>();
                         
                         for (const child of srcElm.children) {
@@ -1143,11 +1145,11 @@ class RCompiler {
                         let promiseModule = RModules.get(src);
                         if (!promiseModule) {
                             promiseModule = this.FetchText(src)
-                            .then(textContent => {
+                            .then(async textContent => {
                                 // Parse the contents of the file
                                 const
                                     parsedDoc = parser.parseFromString(textContent, 'text/html') as Document,
-                                    builder = C.CompIterator(null, 
+                                    builder = await C.CompIterator(null, 
                                         concIterable(parsedDoc.head.children, parsedDoc.body.children)
                                     );
 
@@ -1155,13 +1157,18 @@ class RCompiler {
                                     const signature = C.CSignatures.get(clientSig.name);
                                     if (!signature)
                                         throw `<${clientSig.name}> is missing in '${src}'`;
-                                    if (!clientSig.IsCompatible(signature))
+                                    if (!bAsync)
+                                        Object.assign(clientSig, signature);
+                                    else if (!clientSig.IsCompatible(signature))
                                         throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
                                 }
                                 return builder
                             });
                             RModules.set(src, promiseModule);
                         }
+                        if (!bAsync)
+                            for (const clientSig of listImports)
+                                clientSig.prom = promiseModule;
                         
                         builder = async function IMPORT(this: RCompiler) {
                             const saveEnv = env, builder = await promiseModule;
@@ -1180,7 +1187,7 @@ class RCompiler {
                         const getRvars = this.compAttrExprList<RVAR>(atts, 'on', true);
                         const getHashes = this.compAttrExprList<unknown>(atts, 'hash');
 
-                        const bodyBuilder = this.CompChildNodes(srcElm);
+                        const bodyBuilder = await this.CompChildNodes(srcElm);
                         
                         builder = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, CBool(atts.get('renew')));
 
@@ -1227,7 +1234,7 @@ class RCompiler {
                                     }
                                     const R = new RCompiler();; // Double ;; is needed for our minifier
                                     (R.head = shadowRoot).innerHTML = '';
-                                    R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
+                                    await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
                                     range.hdrElms = R.AddedHeaderElements;
                                     
                                     const subArea: Area = 
@@ -1254,7 +1261,7 @@ class RCompiler {
                         break;
 
                     case 'component': 
-                        builder = this.CompComponent(srcParent, srcElm, atts);
+                        builder = await this.CompComponent(srcParent, srcElm, atts);
                         isBlank = 1;
                         break;
 
@@ -1267,7 +1274,7 @@ class RCompiler {
                             setVars = (params?.split(',') || []).map(v => this.NewVar(v));
                         try {
                             const
-                                docBuilder = RC.CompChildNodes(srcElm),
+                                docBuilder = await RC.CompChildNodes(srcElm),
                                 docDef = (docEnv: Environment) => {
                                     docEnv = CloneEnv(docEnv);
                                     return {
@@ -1315,7 +1322,7 @@ class RCompiler {
                     }; break;
 
                     case 'rhead': {
-                        const childBuilder = this.CompChildNodes(srcElm), {wspc} = this;
+                        const childBuilder = await this.CompChildNodes(srcElm), {wspc} = this;
                         this.wspc = this.rspc = WSpc.block;
                         
                         builder = async function HEAD(this: RCompiler, area: Area) {
@@ -1329,7 +1336,7 @@ class RCompiler {
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        builder = this.CompHTMLElement(srcElm, atts); 
+                        builder = await this.CompHTMLElement(srcElm, atts); 
                         break;
                 }
                 atts.CheckNoAttsLeft();
@@ -1527,7 +1534,7 @@ class RCompiler {
         return builder;
     }
 
-    public CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
+    public async CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
         const varName = atts.get('let') ?? atts.get('var');
         let indexName = atts.get('index');
         if (indexName == '') indexName = 'index';
@@ -1554,7 +1561,7 @@ class RCompiler {
                 getHash = this.CompAttrExpr<Hash>(atts, 'hash'),
 
                 // Compileer alle childNodes
-                bodyBuilder = this.CompChildNodes(srcElm);
+                bodyBuilder = await this.CompChildNodes(srcElm);
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
@@ -1733,7 +1740,7 @@ class RCompiler {
                     throw `Missing attribute [let]`;
 
                 const initIndex = this.NewVar(indexName);
-                const bodyBuilder = this.CompChildNodes(srcElm);
+                const bodyBuilder = await this.CompChildNodes(srcElm);
                 //srcParent.removeChild(srcElm);
 
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
@@ -1786,7 +1793,7 @@ class RCompiler {
         return signature;
     }
 
-    private CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder {
+    private async CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
         //srcParent.removeChild(srcElm);
 
         const builders: [DOMBuilder, ChildNode][] = [],
@@ -1829,7 +1836,7 @@ class RCompiler {
         const 
         // Deze builder bouwt de component-instances op
             templates = [
-                this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
+                await this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
                     false, bEncaps, styles)
             ];
 
@@ -1849,9 +1856,9 @@ class RCompiler {
             };
     }
 
-    private CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
+    private async CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
         bNewNames: boolean, bEncaps?: boolean, styles?: Node[], atts?: Atts
-    ): Template
+    ): Promise<Template>
     {
         const 
             saved = this.SaveContext(),
@@ -1867,7 +1874,7 @@ class RCompiler {
                 myAtts.CheckNoAttsLeft();
             this.wspc = this.rspc = WSpc.block;
             const
-                builder = this.CompChildNodes(contentNode),
+                builder = await this.CompChildNodes(contentNode),
                 {name} = signat,
                 customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
 
@@ -1911,11 +1918,12 @@ class RCompiler {
     }
 
 
-    private CompInstance(
+    private async CompInstance(
         srcElm: HTMLElement, atts: Atts,
         signature: Signature
     ) {
-        //srcParent.removeChild(srcElm);
+        if (signature.prom)
+            await signature.prom;
         const {name, RestParam} = signature,
             contentSlot = signature.Slots.get('content'),
             getArgs = new Map<string,Dependent<unknown>>(),
@@ -1950,14 +1958,14 @@ class RCompiler {
                 && slotElm.localName != 'content'
             ) {
                 slotBuilders.get(slotElm.localName).push(
-                    this.CompTemplate(Slot, slotElm, slotElm, true)
+                    await this.CompTemplate(Slot, slotElm, slotElm, true)
                 );
                 srcElm.removeChild(node);
             }
             
         if (contentSlot)
             slotBuilders.get('content').push(
-                this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
+                await this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
             );
 
         if (RestParam) {
@@ -1993,7 +2001,7 @@ class RCompiler {
 
     static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
     static regInline = /^(button|input|img)$/;
-    private CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
+    private async CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         const name = srcElm.localName.replace(/\.+$/, '')
             , preWs = this.wspc;
@@ -2017,7 +2025,7 @@ class RCompiler {
         const modifs = this.CompAttributes(atts);
 
         // Compile the given childnodes into a routine that builds the actual childnodes
-        const childnodesBuilder = this.CompChildNodes(srcElm);
+        const childnodesBuilder = await this.CompChildNodes(srcElm);
 
         if (postWs)
             this.wspc = postWs;

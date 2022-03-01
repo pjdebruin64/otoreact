@@ -100,7 +100,7 @@ declare class RCompiler {
     private RestoreContext;
     private NewVar;
     private AddConstruct;
-    Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): void;
+    Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
     Subscriber({ parent, bNoChildBuilding }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
@@ -130,7 +130,7 @@ declare class RCompiler {
     private GetREACT;
     private CallWithHandling;
     private CompScript;
-    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): DOMBuilder;
+    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
     private ParseSignature;
     private CompComponent;
     private CompTemplate;
