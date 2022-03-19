@@ -23,25 +23,46 @@
         const 
             wiki = "https://en.wikipedia.org/wiki/",
             MDN="https://developer.mozilla.org/en-US/docs/",
-            src="./";
+            src="./",
+            locationExternal = !/masterlist\/(test\/)?otoreact/i.test(location.href);
     </script>
     <script src="samples.js" defer></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){
+            if(!/\/dev\//i.test(location.pathname))
+                dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+        gtag('config', 'G-T23W7PMPX4');
+    </script>
     <script type=module>
-        import {RCompile} from './OtoReact.js';
+        import {RCompile, RVAR, docLocation} from './OtoReact.js';
         let popup = RVAR('popup', {display: 'none'});
-        RCompile(document.body, {bTiming:true, bAbortOnError: false});
+
+        try {
+            RCompile(document.body, {bTiming:true, bAbortOnError: false});
+
+            docLocation.Subscribe(() => {
+                document.title =
+                    docLocation.subpath == '' ? "The OtoReact Framework"
+                    : /^routing$/i.test(docLocation.subpath) ? "OtoReact Routing"
+                    : /^download$/i.test(docLocation.subpath) ? "OtoReact Download"
+                    : "Page not found";
+
+                    //gtag('event', 'page_view');
+            }, true);
+            
+        }
+        catch (err) {
+            document.body.appendChild(document.createTextNode(err))
+        }
+
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
-    <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-T23W7PMPX4');
-    </script>
-  <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" defer></script>
 </head>
-<body hidden onclick="popup.V=null" style.cursor=default>
+<body hidden onclick="popup.V={display:'none'}" style.cursor=default>
 
     <import async src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -53,6 +74,7 @@
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout>
             <pageHead></pageHead>
+            <leftbar></leftbar>
             <content>
                 <h1 id?><content></content></h1>
                 <h2 id?><content></content></h2>
@@ -79,10 +101,30 @@
         </when>  
         <when match="download">
             <include src="download.html">
-        </when>        
+        </when>
+        <else>
+            <rhead>
+                <meta name="robots" content="noindex">
+            </rhead>
+            Page not found
+        </else>    
     </case>
+
+    <def rvar="cookiesAck" store="localStorage"></def>
+    <if cond="locationExternal && !cookiesAck.V">
+        <div style="position: absolute; left: 30px; bottom: 30px;
+        background-color: #FFFBE3; 
+        border: 4px solid #FFE75B; padding: 8px; border-radius: 4px;
+        outline: 8px solid white"
+        >
+            This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a> and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a>.
+            <button onclick="cookiesAck.V=true">OK</button>
+        </div>
+    </if>
     <div 
-        style="position: absolute; background-color: #FFFBE3; outline: 4px solid #FFE75B; padding: 8px; border-radius: 4px;"
+        style="position: absolute; background-color: #FFFBE3; 
+            border: 4px solid #FFE75B; padding: 8px; border-radius: 4px;
+            outline: 8px solid white"
         +style="popup.V" thisreactson=popup
     >
         You can find more about me on my <a href="https://www.linkedin.com/in/peter-de-bruin-trautmann/">LinkedIn profile</a>,

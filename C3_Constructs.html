@@ -636,6 +636,10 @@ imports a number of components defined in an external file, called a <i>module</
         With the <code>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.
         <br>Compiling the document will continue asynchronously with the provided signatures while the external file is being fetched and compiled.
         <br>Only when one of the components has to be instantiated, will OtoReact wait for the completion of the import.
+        <p>
+            The listed signature need not be identical to the external signature, but must be 'compatible'. E.g., the order of parameters and slots may differ, and the external signature may have optional parameters and slots missing in the listed signature.
+            <br>Default values may be different too; Otoreact will use the values listed in the <elm>IMPORT</elm> element.
+        </p>
     </li>
     <li>
         Without the <code>async</code> option, the <elm>IMPORT</elm> element needs only specify the names of the imported components.
@@ -693,7 +697,7 @@ allows you to define a separate document or form, that remains part of the same 
     </dd>
     <dt><code><i>docName</i>.print(...args)</code></dt>
     <dd>
-        The construct content is rendered in an invisible browser window wtih parameter names bound to the given args, and its browser print dialog is opened.
+        The construct content is rendered in an invisible browser window with parameter names bound to the given args, and its browser print dialog is opened.
         <br>After the user has closed the print dialog, the invisible window is closed as well.
     </dd>
 </dl>
