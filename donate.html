@@ -1,5 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet"      href="index.css">
+  </head>
+<body>
 <div id="smart-button-container">
-    <div style="text-align: center"><label>E-mail <input type="text" name="descriptionInput" id="description" maxlength="127" value=""></label></div>
+    <div style="text-align: center"><label>E-mail <input type="text" name="descriptionInput" id="description" maxlength="127" value="" autofocus></label></div>
       <p id="descriptionError" style="visibility: hidden; color:red; text-align: center;">Please enter your e-mail address</p>
     <div style="text-align: center"><label>Donate <input name="amountInput" type="number" id="amount" value="" ></label><span> EUR</span></div>
       <p id="priceLabelError" style="visibility: hidden; color:red; text-align: center;">Please enter a price</p>
@@ -7,7 +13,8 @@
       <p id="invoiceidError" style="visibility: hidden; color:red; text-align: center; display: none">Please enter an Invoice ID</p>
     <div style="text-align: center; margin-top: 0.625rem;" id="paypal-button-container"></div>
   </div>
-  <script nomodule>
+  <script src="https://www.paypal.com/sdk/js?client-id=sb&enable-funding=venmo&currency=EUR" data-sdk-integration-source="button-factory" ></script>
+  <script>
   function initPayPalButton() {
     var description = document.querySelector('#smart-button-container #description');
     var amount = document.querySelector('#smart-button-container #amount');
@@ -115,3 +122,5 @@
   }
   initPayPalButton();
   </script>
+  </body>
+  </html>

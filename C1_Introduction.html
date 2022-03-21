@@ -2,7 +2,7 @@
 
 <div style="display: grid; grid-template-columns: 1fr 1fr ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
     <div class=sample 
-        style="min-width: 325px; min-height: 110px;" 
+        style="min-width: 380px; min-height: 110px;" 
         id=sampleGreeting>
         <RHTML #srctext=sampleGreeting></RHTML>
     </div>
@@ -31,7 +31,7 @@
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
     <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
-    <li>OtoReact does not modify any native objects (prototypes), and can be used for fragments of a larger application, meaning that it can easily be combined with other tooling.
+    <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.
 </ul>
 
 <h3>Samples</h3>
@@ -49,7 +49,7 @@ Explanation:
         <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and the rendered document.
     </li>
     <li>
-        <elm>if cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is <a href="{MDN}Glossary/Truthy">truthy</a>, in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
+        <elm>if cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
     </li>
     <li>
         <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code> are embedded expressions. The rendered document will contain the value of the expression between the braces.
@@ -62,7 +62,7 @@ The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
 
 <h4>Working with server data</h4>
 <p id=colorTable>Here is an example of dynamically building a table based on server data, with a bit of animation as well:</p>
-<demo #srctext="sampleServerData2" #bShow=false #editable=true></demo>                                
+<demo #srctext="sampleServerData2" #bShow=false></demo>                                
 
 
 <h3>Remarks</h3>
@@ -353,6 +353,12 @@ Global variables are visible in RHTM Linline scripts, of course.
             This is handy to create an errorhandler. E.g., if <code>errMsg</code> is an RVAR that should receive error messages, then you can write <code>doSomething().catch(errMsg.Set)</code> to catch the errors of some asynchronous routine, or you can add an attribute <code>#onerror="errMsg.Set"</code> to catch all errors within a block of RHTML.
         </p>
     </dd>
+    <dt><code class=sourcecode>x.Clear</code></dt>
+    <dd>
+        Provides a routine that clears the value of <code>x</code>.
+        <p>
+            You can e.g. add an attribute <code>#onsuccess="errMsg.Clear"</code> to clear any error message when any event succeeds without error.
+        </p>
 </dl>
 
 
@@ -362,7 +368,7 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
     <li><code>localStorage</code>, meaning that the value will be preserved in local browser storage and restored when the user returns to the same site in the same browser on the same machine</li>
-    <li>Any other object that supports the <code>setItem</code> and <elm>getItem</elm> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
+    <li>Any other object that supports the <code>setItem</code> and <code>getItem</code> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
     </li>
 </ul>
 <p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>.</p>

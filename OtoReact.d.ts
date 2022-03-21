@@ -82,9 +82,9 @@ interface Key {
 interface Hash {
 }
 declare class RCompiler {
-    private RC?;
     static iNum: number;
     num: number;
+    private RC;
     private ContextMap;
     private context;
     private CSignatures;
@@ -173,6 +173,7 @@ declare class _RVAR<T = unknown> {
     set V(t: T);
     SetAsync(t: T | Promise<T>): void;
     get Set(): any;
+    get Clear(): () => void;
     get U(): T;
     set U(t: T);
     SetDirty(): void;
@@ -190,7 +191,8 @@ export declare const RVAR: <T>(name?: string, initialValue?: T | Promise<T>, sto
 declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };
 export declare const docLocation: RVAR<string> & {
-    subpath?: string;
-    searchParams?: URLSearchParams;
+    basepath: string;
+    subpath: string;
+    searchParams: URLSearchParams;
 };
 export declare const reroute: (arg: MouseEvent | string) => void;

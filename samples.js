@@ -1,5 +1,5 @@
 const sampleGreeting=
-`<define rvar='yourName'></define>
+`<define rvar='yourName' store='sessionStorage'></define>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
@@ -13,24 +13,20 @@ const sampleGreeting=
 
 const sampleServerData2=
 `<script nomodule 
-  defines="ColorTable,toHex,handle,StartStop,bAnimate" >
+  defines="ColorTable,toHex,handle,StartStop" >
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
 const ColorTable = RVAR( null,
   /* Fetch the data! */
   RFetch("webColors.json").then(response => response.json())
 );
-/* Too bad JavaScript has no async blocks, like:
-  async { ... await ... return await ... }
-*/
 
 /* Utility for 2-digit hex code */
 function toHex(n){ 
   return n.toString(16).toUpperCase().padStart(2,'0');
 }
-
 /* Rotation */
-let handle=RVAR(), bAnimate=RVAR();
+let handle=RVAR();
 
 function StartStop() {
   if (handle.V) {
@@ -40,7 +36,6 @@ function StartStop() {
       // Modify the data model, triggering a DOM update:
       ColorTable.U.push(ColorTable.V.shift());
     }, 330);
-  bAnimate.V = true;
 }
 </script>
 
@@ -51,27 +46,17 @@ function StartStop() {
     text-align: center;
     max-width: 8em; overflow:hidden;
   }
-
-  @keyframes Disappearing {
-    from {line-height: 100%}
-    to   {line-height: 0%}
-  }
-  
-  tbody.animated > tr:first-child {
-    animation: Disappearing 300ms linear 30ms forwards
-  }
 </style>
 
 <div style="height:50ex; overflow-y:scroll;">
 <!-- Now we build our table! 
-The dots are needed because HTML does not allow <FOR> as a
-child of <TABLE>. OtoReact removes these dots. -->
+The dots behind element names are needed because HTML does not allow <FOR> as
+a child of <TABLE>. OtoReact removes these dots. -->
 <table. class=colorTable>
 
   <!-- Table caption -->
   <caption.>Web Colors 
-    <button onclick="StartStop();" reacton=handle
-        style="float:right; width:5em">
+    <button onclick="StartStop();" reacton=handle style="float:right; width:5em">
         {handle.V ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
@@ -83,7 +68,7 @@ child of <TABLE>. OtoReact removes these dots. -->
     <th.>Hex</th.>
   </tr.>
 
-  <tbody. #class:animated="bAnimate.V" thisreactson=bAnimate>
+  <tbody.>
     <!-- Detail records -->
     <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
       <tr. 
@@ -324,12 +309,12 @@ const sampleTicTacToe =
 `<script nomodule defines=TicTacToe>
 
     class TicTacToe {
-        board =     RVAR('board');        //: Array<Array<{P: '◯'|'✕'}>>
-        toMove =    RVAR('toMove', '✕'); //: '◯' | '✕'
-        outcome =   RVAR('outcome');      //: '◯' | '✕' | true
-        count = 0;
-
         constructor() {
+            this.board =     RVAR('board');        //: Array<Array<{P: '◯'|'✕'}>>
+            this.toMove =    RVAR('toMove', '✕'); //: '◯' | '✕'
+            this.outcome =   RVAR('outcome');      //: '◯' | '✕' | true
+            this.count = 0;
+
             this.ClearAll();
         }
 
@@ -358,11 +343,11 @@ const sampleTicTacToe =
             }
             let w = null;
             for (let i=0;i<3;i++) {
-                w ||= CheckRow(...b[i]);
-                w ||= CheckRow(b[0][i], b[1][i], b[2][i]);
+                w = w || CheckRow(...b[i]);
+                w = w || CheckRow(b[0][i], b[1][i], b[2][i]);
             }
             for (let i=-1;i<2;i+=2)
-                w ||= CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
+                w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
             return w;
         }
     }
@@ -497,7 +482,7 @@ const sampleDocument =
 `<def rvar=check #value="false"></def>
 
 <document name=showCheck>
-    <title>Check!</title>
+    <h4>This is a separate document.</h4>
     <label reacton=check style="display: block; margin: 30px">
         <input type=checkbox @checked=check.V> Check me!
     </label>
@@ -507,13 +492,15 @@ const sampleDocument =
     showCheck.open(''
         ,\`screenX=\${window.screenX + event.clientX - 100},
         screenY=\${window.screenY + event.clientY + 200},
-        width=250,height=100\`
+        width=250,height=120\`
         )"
 >Pop up</button>
 
 <label reacton=check>
     <input type=checkbox @checked=check.V> Checked.
-</label>`
+</label>
+<p>
+<button onclick="showCheck.print()">Print</button>`
 
 const sampleRadioGroup=
 `<component>
@@ -606,3 +593,20 @@ const demoScoping=
 </p>
 
 <p>Here A = {A} again.</p>`
+
+const basicSetup =
+`<!DOCTYPE html>
+<html>
+    <head>
+        <script type=module>
+            import {RCompile} from './OtoReact.js';
+            RCompile(document.body)
+        </script>
+    </head>
+    <body hidden>
+        <!-- Here goes your RHTML -->
+        <FOR let=i of="range(5)">
+            <div>Hello world</div>
+        </FOR>
+    </body>
+</html>`

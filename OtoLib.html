@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!--
   This component redefines <a> to ensures that all links with no target and an external href, get a target='_blank' attribute
 -->
@@ -33,4 +34,41 @@
       </radiobutton>
     </content>
   </template>
+=======
+<!--
+  This component redefines <a> to ensures that all links with no target and an external href, get a target='_blank' attribute
+-->
+<component>
+  <a href #target? ...rest><content></content></a>
+
+  <template><a. #href="href"
+    #target="!target && /^http/i.test(href) ? '_blank' : target"
+    ...rest
+    ><content>
+  </content></a.></template>
+</component>
+
+<!--
+
+-->
+<component>
+  <radiogroup name @value? onclick?><content>
+    <radiobutton #value onclick? class? ...rest><content></content></radiobutton>
+  </content></radiogroup>
+
+  <template @value=groupValue onclick=groupOnclick>
+    <content>
+      <radiobutton #value onclick class=className ...rest>
+        <label #className=className>
+          <input type=radio #name=name #value=value
+            #checked="value === groupValue.V"
+            onclick="groupValue.V = value; onclick(); groupOnclick();"
+            ...rest
+          >
+          <content></content>
+        </label>
+      </radiobutton>
+    </content>
+  </template>
+>>>>>>> 852664f5d12aa8a3792e0c84b789e19b24ac3ba6
 </component>
