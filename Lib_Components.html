@@ -15,12 +15,12 @@
 <component>
     <demo #srctext?="''" #bshow=true #editable=false rvar?></demo>
     <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script nomodule defines=ColorCode>
+    <script nomodule>
         const mapping = {'<': '&lt;', '&': '&amp;'};
-        function ColorCode(html) {
+        globalThis.ColorCode = function ColorCode(html) {
             return html.replace(
                     /[<&]/g, c => mapping[c]
-                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=green>$&</span>");
+                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=demoGreen>$&</span>");
         }
         const orgFetch = globalThis.fetch;
         globalThis.fetch = function(url, init) {
@@ -53,7 +53,7 @@
             font-size: 10pt;
             min-height: 4em;
         }
-        table.demo span.green { color: green; } /* This is for comments */
+        span.demoGreen { color: green; } /* This is for comments */
         pre.nodisplay {display: none }
 
         table.demo td.demo {
@@ -256,9 +256,10 @@
                         </a>
                     </div>
                     <nav class=topbar style="grid-area: nav;" reacton=docLocation>
-                        <a href="."           #onclick=reroute>Home</a>
-                        <a href="routing"    #onclick=reroute>Routing</a>
-                        <a href="download"   #onclick=reroute>Download</a>                        
+                        <a href="."         #onclick=reroute>Home</a>
+                        <a href="routing"   #onclick=reroute>Routing</a>
+                        <a href="otolib"    #onclick=reroute>OtoLib</a>
+                        <a href="download"  #onclick=reroute>Download</a>                        
                         <a href="https://forum.otoreact.dev/">Forum</a>
                     </nav>
             </header>

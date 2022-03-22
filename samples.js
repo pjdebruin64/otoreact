@@ -610,3 +610,28 @@ const basicSetup =
         </FOR>
     </body>
 </html>`
+
+const demoRadiogroup=
+`<import src="OtoLib.html">
+  <radiogroup></radiogroup>
+</import>
+
+<p>What's your favorite color?</p>
+
+<def rvar="fav"></def>
+<radiogroup @value="fav.V">
+  <for let="C" of="['Red', 'Green', 'SkyBlue', 'Pink']">
+    <radiobutton #value="C">{C}</radiobutton>
+  </for>
+  <br>
+  <radiobutton value="None">I don't have a favorite</radiobutton>
+</radiogroup>
+
+<case #value="fav.V" reacton="fav">
+  <when match="None">
+    <p>Oh, I'm sorry to hear that.</p>
+  </when>
+  <when match="*">
+    <p #style.backgroundcolor="fav.V">Yes, {fav.V.toLowerCase()} is a great color.</p>
+  </when>
+</case>`

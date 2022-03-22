@@ -313,7 +313,7 @@ type Handler = (ev:Event) => any;
 type LVar = (() => (value: unknown) => void) & {varName: string};
 
 // A PARAMETER describes a construct parameter: a name with a default expression
-type Parameter = {mode: string, name: string, pDefault: Dependent<unknown>};
+type Parameter = {mode: string, nm: string, pDflt: Dependent<unknown>};
 // A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signature {
     constructor(public srcElm: Element){ 
@@ -330,18 +330,18 @@ class Signature {
         if (!sig) return false;
         let result: any = true;
         
-        const mapSigParams = new Map(sig.Params.map(p => [p.name, p.pDefault]));
+        const mapSigParams = new Map(sig.Params.map(p => [p.nm, p.pDflt]));
         // All parameters in the import must be present in the module
-        for (const {name, pDefault} of this.Params)
-            if (mapSigParams.has(name)) {
+        for (const {nm, pDflt} of this.Params)
+            if (mapSigParams.has(nm)) {
                 // When optional in the import, then also optional in the module
-                result &&= (!pDefault || mapSigParams.get(name));
-                mapSigParams.delete(name);
+                result &&= (!pDflt || mapSigParams.get(nm));
+                mapSigParams.delete(nm);
             }
             else result = false
         // Any remaining module parameters must be optional
-        for (const pDefault of mapSigParams.values())
-            result &&= pDefault;
+        for (const pDflt of mapSigParams.values())
+            result &&= pDflt;
 
         // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
         for (let [slotname, slotSig] of this.Slots)
@@ -461,7 +461,7 @@ function ApplyModifiers(elm: HTMLElement, modifiers: Modifier[], bCreate?: boole
     bReadOnly = false;
 }
 
-const RModules = new Map<string, Promise<DOMBuilder>>();
+const RModules = new Map<string, Promise<[DOMBuilder,Map<string, Signature>]>>();
 
    
 /* Runtime data */
@@ -922,7 +922,7 @@ class RCompiler {
                                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
                         const rvarName  = atts.get('rvar'),
                             varName     = rvarName || atts.get('let') || atts.get('var', true),
-                            getValue    = this.CompParameter(atts, 'value', DUndef),
+                            getValue    = this.CompParameter(atts, 'value'),
                             getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
                             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
                             newVar      = this.NewVar(varName);
@@ -1052,7 +1052,7 @@ class RCompiler {
                                     try {
                                         if ( !(
                                             (!alt.cond || alt.cond()) 
-                                            && (!alt.patt || (matchResult = alt.patt.regex.exec(value)))
+                                            && (!alt.patt || value!=null && (matchResult = alt.patt.regex.exec(value)))
                                             ) == alt.not)
                                         { choosenAlt = alt; break }
                                     } catch (err) { 
@@ -1135,10 +1135,6 @@ class RCompiler {
                             this.AddConstruct(sign);
                         }
                             
-                        const C = new RCompiler(this);
-                        C.FilePath = this.GetPath(src);
-                        C.Settings.bRunScripts = true;
-                
                         let promiseModule = RModules.get(src);
                         if (!promiseModule) {
                             promiseModule = this.FetchText(src)
@@ -1149,6 +1145,11 @@ class RCompiler {
                                     body: Element = parsedDoc.body;
                                 if (body.firstElementChild.tagName == 'MODULE')
                                     body = body.firstElementChild;
+
+                                const C = new RCompiler(this);
+                                C.FilePath = this.GetPath(src);
+                                C.Settings.bRunScripts = true;
+                            
                                 let
                                     builder = await C.CompIterator(null, 
                                         concIterable(parsedDoc.head.children, body.children)
@@ -1159,23 +1160,26 @@ class RCompiler {
                                     const signature = C.CSignatures.get(clientSig.name);
                                     if (!signature)
                                         throw `<${clientSig.name}> is missing in '${src}'`;
-                                    if (!bAsync)
-                                        Object.assign(clientSig, signature);
                                     else if (!clientSig.IsCompatible(signature))
                                         throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
                                 }
-                                return builder
+                                return [builder.bind(C), C.CSignatures];
                             });
                             RModules.set(src, promiseModule);
                         }
-                        if (!bAsync)
+                        if (!bAsync) {
+                            const prom = promiseModule.then(([builder, CSigns]) => {
+                                for (const clientSig of listImports)
+                                    Object.assign(clientSig, CSigns.get(clientSig.name));
+                            })
                             for (const clientSig of listImports)
-                                clientSig.prom = promiseModule;
+                                clientSig.prom = prom;
+                        }
                         
                         builder = async function IMPORT(this: RCompiler) {
-                            const saveEnv = env, builder = await promiseModule;
+                            const saveEnv = env, [builder] = await promiseModule;
                             env = NewEnv();
-                            await builder.call(C, {parent: document.createDocumentFragment(), start: null, bInit: true});
+                            await builder({parent: document.createDocumentFragment()});
                             const {constructs} = env;
                             env = saveEnv;
                             for (const {name} of listImports)
@@ -1209,7 +1213,7 @@ class RCompiler {
                     } break;
 
                     case 'rhtml': {
-                        const getSrctext = this.CompParameter(atts, 'srctext') as Dependent<string>;
+                        const getSrctext = this.CompParameter(atts, 'srctext', true) as Dependent<string>;
                         
                         //const imports = this.CompAttrExpr(atts, 'imports');
                         const modifs = this.CompAttributes(atts);
@@ -1778,8 +1782,8 @@ class RCompiler {
             if (m[1] != '_') {
                 const param = { 
                     mode: m[1]
-                    , name: m[2]
-                    , pDefault:
+                    , nm: m[2]
+                    , pDflt:
                         m[1] == '...' ? () => []
                         : attr.value != '' 
                         ? (m[1] == '#' ? this.CompJScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
@@ -1868,8 +1872,8 @@ class RCompiler {
             myAtts = atts || new Atts(srcElm),
             lvars: Array<[string, LVar]> = [];
         try {
-            for (const {mode,name} of signat.Params)
-                lvars.push([name, this.NewVar(myAtts.get(mode + name, bNewNames) || name)]);
+            for (const {mode,nm} of signat.Params)
+                lvars.push([nm, this.NewVar(myAtts.get(mode + nm, bNewNames) || nm)]);
 
             for (const S of signat.Slots.values())
                 this.AddConstruct(S);
@@ -1892,7 +1896,7 @@ class RCompiler {
                     let i = 0;
                     for (const [name,lvar] of lvars){
                         let arg = args[name], dflt: Dependent<unknown>;
-                        if (arg===undefined && (dflt = signat.Params[i]?.pDefault))
+                        if (arg===undefined && (dflt = signat.Params[i]?.pDflt))
                             arg = dflt();
                         lvar()(arg);
                         i++;
@@ -1907,7 +1911,7 @@ class RCompiler {
                                 shadow.appendChild(style.cloneNode(true));
                         
                         if (signat.RestParam)
-                            ApplyModifier(elm, MType.RestArgument, null, args[signat.RestParam.name], bInit);
+                            ApplyModifier(elm, MType.RestArgument, null, args[signat.RestParam.nm], bInit);
                         childArea.parent = shadow;
                         area = childArea;
                     }
@@ -1935,24 +1939,24 @@ class RCompiler {
         for (const name of signature.Slots.keys())
             slotBuilders.set(name, []);
 
-        for (const {mode, name, pDefault} of signature.Params)
+        for (const {mode, nm, pDflt} of signature.Params)
             if (mode=='@') {
-                const attValue = atts.get(mode+name, !pDefault);
+                const attValue = atts.get(mode+nm, !pDflt);
                 if (attValue) {
-                    const depValue = this.CompJScript<unknown>(attValue, mode+name),
+                    const depValue = this.CompJScript<unknown>(attValue, mode+nm),
                         setter = this.CompJScript<Handler>(
                             `ORx=>{${attValue}=ORx}`,
-                            name
+                            nm
                         );
-                    getArgs.set(name,
+                    getArgs.set(nm,
                         () => this.RVAR('', depValue(), null, setter())
                     );
                 }
                 else
-                    getArgs.set(name, () => this.RVAR('', pDefault()));
+                    getArgs.set(nm, () => this.RVAR('', pDflt()));
             }
             else if (mode != '...')
-                getArgs.set(name, this.CompParameter(atts, name, pDefault) );
+                getArgs.set(nm, this.CompParameter(atts, nm, !pDflt) );
 
         let slotElm: HTMLElement, Slot: Signature;
         for (const node of Array.from(srcElm.childNodes))
@@ -1973,7 +1977,7 @@ class RCompiler {
 
         if (RestParam) {
             const modifs = this.CompAttributes(atts);
-            getArgs.set(RestParam.name, 
+            getArgs.set(RestParam.nm, 
                 () => modifs.map(
                     ({mType: modType, name, depV: depValue}) => ({modType, name, value: depValue()})
                 )
@@ -1995,6 +1999,9 @@ class RCompiler {
             bReadOnly = false;
             env = cdef.constructEnv;
             try {
+                for (const {nm, pDflt} of signature.Params)
+                    if (args[nm] === undefined)
+                        args[nm] = pDflt();
                 for (const template of cdef.templates) 
                     await template.call(this, subArea, args, slotBuilders, savedEnv);
             }
@@ -2067,7 +2074,7 @@ class RCompiler {
                     modifs.push({
                         mType: MType.Event, 
                         name: CapitalProp(m[0]), 
-                        depV: this.AddErrHandler(this.CompHandler(aName, aVal))
+                        depV: this.AddErrH(this.CompHandler(aName, aVal))
                     });
                 else if (m = /^#class[:.](.*)$/.exec(aName))
                     modifs.push({
@@ -2106,7 +2113,7 @@ class RCompiler {
                         let depV = this.CompJScript<Handler>(aVal, aName);
                         if (/^on/.test(name))
                             modifs.push({mType: MType.Event, name
-                                , depV: this.AddErrHandler(depV as Dependent<Handler>) });
+                                , depV: this.AddErrH(depV as Dependent<Handler>) });
                         else
                             modifs.push({ mType: MType.Prop, name, depV });
                     }
@@ -2256,16 +2263,16 @@ class RCompiler {
         return {lvars, regex: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
-    private CompParameter(atts: Atts, attName: string, pDefault?: Dependent<unknown>): Dependent<unknown> {
+    private CompParameter(atts: Atts, attName: string, bReq?: boolean): Dependent<unknown> {
         const value = atts.get(attName);
         return (
-            value == null ? this.CompAttrExpr(atts, attName, !pDefault) || pDefault
+            value == null ? this.CompAttrExpr(atts, attName, bReq) || DUndef
             : /^on/.test(attName) ? this.CompHandler(attName, value)
             : this.CompString(value, attName)
         );
     }
-    private CompAttrExpr<T>(atts: Atts, attName: string, bRequired?: boolean) {
-        return this.CompJScript<T>(atts.get(attName, bRequired, true),attName);
+    private CompAttrExpr<T>(atts: Atts, attName: string, bReq?: boolean) {
+        return this.CompJScript<T>(atts.get(attName, bReq, true),attName);
     }
 
     private CompHandler(name: string, text: string) {
@@ -2316,7 +2323,7 @@ class RCompiler {
         return list ? this.CompJScript<T[]>(`[${list}\n]`, attName) : null;
     }
 
-    private AddErrHandler(getHndlr: Dependent<Handler>): Dependent<Handler> {
+    private AddErrH(getHndlr: Dependent<Handler>): Dependent<Handler> {
         return () => {
             const hndlr = getHndlr(), onerr = onerror, onsucc = onsuccess;
             if (hndlr && (onerr||onsucc))

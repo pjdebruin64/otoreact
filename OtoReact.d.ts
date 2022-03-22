@@ -149,7 +149,7 @@ declare class RCompiler {
     private CompJScript;
     private CompName;
     private compAttrExprList;
-    private AddErrHandler;
+    private AddErrH;
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
