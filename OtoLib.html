@@ -3,7 +3,7 @@
     This component redefines <a> to ensures that all links with no target and an external href, get a target='_blank' attribute
   -->
   <component>
-    <a href #target? ...rest><content></content></a>
+    <A href #target? ...rest><content></content></A>
 
     <template><a. #href="href"
       #target="!target && /^http/i.test(href) ? '_blank' : target"
@@ -25,17 +25,18 @@
   -->
   <def var="num" #value="{V:0}"></def>
   <component>
-    <radiogroup name="RadioGroup{num.V++}" @value? onclick?>
+    <RADIOGROUP name? @value? onclick?>
       <content>
         <radiobutton #value onclick? class? ...rest><content></content></radiobutton>
       </content>
-    </radiogroup>
+    </RADIOGROUP>
 
-    <template @value=groupValue onclick=groupOnclick>      
+    <template @value=groupValue onclick=groupOnclick>
+      <def let="groupName" #value="name || `RadioGroup${num.V++}`"></def>
       <content>
-        <radiobutton #value onclick class=className ...rest>
-          <label #className=className>
-            <input type=radio #name=name #value=value
+        <radiobutton #value onclick class=buttonClass ...rest>
+          <label #className=buttonClass>
+            <input type=radio #name=groupName #value=value
               #checked="value === groupValue.V"
               onclick="groupValue.V = value; onclick(); groupOnclick();"
               ...rest
@@ -46,4 +47,21 @@
       </content>
     </template>
   </component>
+
+  <!--
+    A labeled checkbox with three-valued @value
+  -->
+  <component>
+    <CHECKBOX @value class? ...rest><content></content></CHECKBOX>
+    <template @value class="className">
+      <label #className="className">
+        <input type="checkbox"
+            #checked="value.V" #indeterminate="value.V==null"
+            oninput="value.V= this.indeterminate ? null : this.checked"
+            ...rest
+        ><content></content>
+      </label>
+    </template>
+  </component>
+
 </MODULE>

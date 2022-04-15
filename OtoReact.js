@@ -372,13 +372,19 @@ class RCompiler {
                     return (v) => { env[i] = v; };
                 });
         }
-        init.varName = nm;
+        init.nm = nm;
         return init;
     }
+    NewVars(varlist) {
+        return (varlist
+            ? varlist.split(',')
+                .map(name => this.NewVar(name))
+            : []);
+    }
     AddConstruct(C) {
-        const Cnm = C.name, savedConstr = this.CSignatures.get(Cnm);
+        const Cnm = C.name, savedC = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
-        this.restoreActions.push(() => mapSet(this.CSignatures, Cnm, savedConstr));
+        this.restoreActions.push(() => mapSet(this.CSignatures, Cnm, savedC));
     }
     async Compile(elm, settings = {}, bIncludeSelf = false) {
         const t0 = performance.now();
@@ -519,7 +525,7 @@ class RCompiler {
     async CompChildNodes(srcParent, childNodes = srcParent.childNodes) {
         const saved = this.SaveContext();
         try {
-            const builder = await this.CompIterator(srcParent, childNodes);
+            const builder = await this.CompIterable(srcParent, childNodes);
             return builder ?
                 async function ChildNodes(area) {
                     const savedEnv = SaveEnv();
@@ -536,7 +542,7 @@ class RCompiler {
             this.RestoreContext(saved);
         }
     }
-    async CompIterator(srcParent, iter) {
+    async CompIterable(srcParent, iter) {
         const builders = [], { rspc } = this, arr = Array.from(iter), L = arr.length;
         let i = 0;
         for (const srcNode of arr) {
@@ -833,7 +839,7 @@ class RCompiler {
                         break;
                     case 'import':
                         {
-                            const src = this.GetURL(atts.get('src', true)), defines = atts.get('defines'), bAsync = CBool(atts.get('async'));
+                            const src = this.GetURL(atts.get('src', true)), vars = this.NewVars(atts.get('defines')), bAsync = CBool(atts.get('async'));
                             const listImports = new Array();
                             for (const child of srcElm.children) {
                                 const sign = this.ParseSignature(child);
@@ -850,20 +856,23 @@ class RCompiler {
                                     const C = new RCompiler(this);
                                     C.FilePath = this.GetPath(src);
                                     C.Settings.bRunScripts = true;
-                                    let builder = await C.CompIterator(null, concIterable(parsedDoc.head.children, body.children));
+                                    let builder = await C.CompIterable(null, concIterable(parsedDoc.head.children, body.children));
                                     for (const clientSig of listImports) {
-                                        const signature = C.CSignatures.get(clientSig.name);
-                                        if (!signature)
+                                        const signat = C.CSignatures.get(clientSig.name);
+                                        if (!signat)
                                             throw `<${clientSig.name}> is missing in '${src}'`;
-                                        else if (!clientSig.IsCompatible(signature))
-                                            throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
+                                        if (bAsync && !clientSig.IsCompatible(signat))
+                                            throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat.srcElm.outerHTML}`;
                                     }
+                                    for (let V of vars)
+                                        if ((V.i = C.ContextMap.get(V.nm)) == undefined)
+                                            throw `Module does not define '${V.nm}'`;
                                     return [builder.bind(C), C.CSignatures];
                                 });
                                 RModules.set(src, promiseModule);
                             }
                             if (!bAsync) {
-                                const prom = promiseModule.then(([builder, CSigns]) => {
+                                const prom = promiseModule.then(([_, CSigns]) => {
                                     for (const clientSig of listImports)
                                         Object.assign(clientSig, CSigns.get(clientSig.name));
                                 });
@@ -871,13 +880,13 @@ class RCompiler {
                                     clientSig.prom = prom;
                             }
                             builder = async function IMPORT() {
-                                const saveEnv = env, [builder] = await promiseModule;
-                                env = NewEnv();
+                                const [builder] = await promiseModule, saveEnv = env, MEnv = env = NewEnv();
                                 await builder({ parent: document.createDocumentFragment() });
-                                const { constructs } = env;
                                 env = saveEnv;
                                 for (const { name } of listImports)
-                                    DefConstruct(name, constructs.get(name));
+                                    DefConstruct(name, MEnv.constructs.get(name));
+                                for (const init of vars)
+                                    init()(MEnv[init.i]);
                             };
                             isBlank = 1;
                         }
@@ -954,20 +963,20 @@ class RCompiler {
                         break;
                     case 'document':
                         {
-                            const newVar = this.NewVar(atts.get('name', true)), bEncaps = CBool(atts.get('encapsulate')), params = atts.get('params'), RC = this, saved = this.SaveContext(), setVars = (params?.split(',') || []).map(v => this.NewVar(v));
+                            const newVar = this.NewVar(atts.get('name', true)), RC = this, saved = this.SaveContext();
                             try {
-                                const docBuilder = await RC.CompChildNodes(srcElm), docDef = (docEnv) => {
+                                const bEncaps = CBool(atts.get('encapsulate')), setVars = this.NewVars(atts.get('params')), setWin = this.NewVar(atts.get('window')), docBuilder = await RC.CompChildNodes(srcElm), docDef = (docEnv) => {
                                     docEnv = CloneEnv(docEnv);
                                     return {
-                                        async render(parent, args) {
-                                            parent.innerHTML = '';
+                                        async render(W, args) {
                                             const savedEnv = env;
-                                            let i = 0;
                                             env = docEnv;
+                                            let i = 0;
                                             for (const init of setVars)
                                                 init()(args[i++]);
+                                            setWin()(W);
                                             try {
-                                                await docBuilder.call(RC, { parent });
+                                                await docBuilder.call(RC, { parent: W.document.body });
                                             }
                                             finally {
                                                 env = savedEnv;
@@ -979,7 +988,7 @@ class RCompiler {
                                                 this.close(); });
                                             if (!bEncaps)
                                                 copyStyleSheets(document, W.document);
-                                            this.render(W.document.body, args);
+                                            this.render(W, args);
                                             return W;
                                         },
                                         async print(...args) {
@@ -988,7 +997,7 @@ class RCompiler {
                                             document.body.appendChild(iframe);
                                             if (!bEncaps)
                                                 copyStyleSheets(document, iframe.contentDocument);
-                                            await this.render(iframe.contentDocument.body, args);
+                                            await this.render(iframe.contentWindow, args);
                                             iframe.contentWindow.print();
                                             iframe.remove();
                                         }
@@ -1146,12 +1155,7 @@ class RCompiler {
         let src = atts.get('src');
         let builder;
         if (bNoMod || this.Settings.bRunScripts) {
-            let script = srcElm.text + '\n';
-            const lvars = [];
-            if (defines)
-                for (const name of defines.split(','))
-                    lvars.push({ name, init: this.NewVar(name) });
-            let exports;
+            let script = srcElm.text + '\n', lvars = this.NewVars(defines), exports;
             builder = async function SCRIPT() {
                 if (!(bMod || bNoMod || defines || this.Settings.bRunScripts)) {
                     if (!exports) {
@@ -1175,10 +1179,10 @@ class RCompiler {
                                 URL.revokeObjectURL(src);
                             }
                     }
-                    for (const { name, init } of lvars) {
-                        if (!(name in exports))
-                            throw `'${name}' is not exported by this script`;
-                        init()(exports[name]);
+                    for (const init of lvars) {
+                        if (!(init.nm in exports))
+                            throw `'${init.nm}' is not exported by this script`;
+                        init()(exports[init.nm]);
                     }
                 }
                 else {
@@ -1188,7 +1192,7 @@ class RCompiler {
                         exports = gEval(`'use strict'\n;${script};[${defines}]\n`);
                     }
                     let i = 0;
-                    for (const { init } of lvars)
+                    for (const init of lvars)
                         init()(exports[i++]);
                 }
             };
@@ -1438,11 +1442,18 @@ class RCompiler {
         ];
         this.wspc = wspc;
         return async function COMPONENT(area) {
-            for (const [bldr, srcNode] of builders)
-                await this.CallWithHandling(bldr, srcNode, area);
-            const construct = { templates, constructEnv: undefined };
+            let saved = SaveEnv(), construct;
+            try {
+                for (const [bldr, srcNode] of builders)
+                    await this.CallWithHandling(bldr, srcNode, area);
+                construct = { templates, constructEnv: undefined };
+                DefConstruct(signature.name, construct);
+                construct.constructEnv = CloneEnv(env);
+            }
+            finally {
+                RestoreEnv(saved);
+            }
             DefConstruct(signature.name, construct);
-            construct.constructEnv = CloneEnv(env);
         };
     }
     async CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
@@ -2061,6 +2072,14 @@ const _range = globalThis.range = function* range(from, upto, step = 1) {
 export { _range as range };
 export const docLocation = RVAR('docLocation', location.href);
 Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substring(docLocation.basepath.length) });
+docLocation.search = (key, val) => {
+    let url = new URL(location.href);
+    if (val == null)
+        url.searchParams.delete(key);
+    else
+        url.searchParams.set(key, val);
+    return url.href;
+};
 window.addEventListener('popstate', () => { docLocation.V = location.href; });
 function ScrollToHash() {
     if (location.hash)

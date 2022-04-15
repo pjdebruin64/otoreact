@@ -310,7 +310,7 @@ type ParentNode = HTMLElement|DocumentFragment;
 
 
 type Handler = (ev:Event) => any;
-type LVar = (() => (value: unknown) => void) & {varName: string};
+type LVar = (() => (value: unknown) => void) & {nm: string};
 
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {mode: string, nm: string, pDflt: Dependent<unknown>};
@@ -551,8 +551,8 @@ class RCompiler {
                     }
                 );
                 init = (() => {
-                    envActions.push( () => {env.length = i;});
-                    return (v: unknown) => {env[i] = v };
+                    envActions.push( () => { env.length = i; });
+                    return (v: unknown) => { env[i] = v };
                 }) as LVar;
             }
             else
@@ -562,16 +562,23 @@ class RCompiler {
                     return (v: unknown) => {env[i] = v };
                 }) as LVar;
         }
-        init.varName = nm;
+        init.nm = nm;
         return init;        
+    }
+    private NewVars(varlist: string): Array<LVar> {
+        return (varlist
+            ? varlist.split(',')
+                .map(name => this.NewVar(name))
+            : []
+            );
     }
 
     private AddConstruct(C: Signature) {
         const Cnm = C.name,
-            savedConstr = this.CSignatures.get(Cnm);
+            savedC = this.CSignatures.get(Cnm);
         this.CSignatures.set(Cnm, C);
         this.restoreActions.push(() => 
-            mapSet(this.CSignatures, Cnm, savedConstr)
+            mapSet(this.CSignatures, Cnm, savedC)
         );
     }
 
@@ -767,7 +774,7 @@ class RCompiler {
     ): Promise<DOMBuilder> {
         const saved = this.SaveContext();
         try {
-            const builder = await this.CompIterator(srcParent, childNodes);
+            const builder = await this.CompIterable(srcParent, childNodes);
             return builder ?
                  async function ChildNodes(this: RCompiler, area) {
                     const savedEnv = SaveEnv();
@@ -781,7 +788,7 @@ class RCompiler {
 
     //private CreatedRvars: RVAR[] = [];
 
-    private async CompIterator(srcParent: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
+    private async CompIterable(srcParent: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         const builders = [] as Array< [DOMBuilder, ChildNode, (boolean|number)?] >
             , {rspc} = this
             , arr = Array.from(iter), L = arr.length;
@@ -1125,7 +1132,7 @@ class RCompiler {
 
                     case 'import': {
                         const src = this.GetURL(atts.get('src', true))
-                            , defines = atts.get('defines')
+                            , vars: Array<LVar & {i?:number}> = this.NewVars(atts.get('defines'))
                             , bAsync = CBool(atts.get('async'));
                         const listImports = new Array<Signature>();
                         
@@ -1151,24 +1158,28 @@ class RCompiler {
                                 C.Settings.bRunScripts = true;
                             
                                 let
-                                    builder = await C.CompIterator(null, 
+                                    builder = await C.CompIterable(null, 
                                         concIterable(parsedDoc.head.children, body.children)
                                     );
 
                                 // Check or register the imported signatures
                                 for (const clientSig of listImports) {
-                                    const signature = C.CSignatures.get(clientSig.name);
-                                    if (!signature)
+                                    const signat = C.CSignatures.get(clientSig.name);
+                                    if (!signat)
                                         throw `<${clientSig.name}> is missing in '${src}'`;
-                                    else if (!clientSig.IsCompatible(signature))
-                                        throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signature.srcElm.outerHTML}`;
+                                    if (bAsync && !clientSig.IsCompatible(signat))
+                                        throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat.srcElm.outerHTML}`;
                                 }
+                                for (let V of vars)
+                                    if ((V.i = C.ContextMap.get(V.nm)) == undefined)
+                                        throw `Module does not define '${V.nm}'`;
+                                        
                                 return [builder.bind(C), C.CSignatures];
                             });
                             RModules.set(src, promiseModule);
                         }
                         if (!bAsync) {
-                            const prom = promiseModule.then(([builder, CSigns]) => {
+                            const prom = promiseModule.then(([_, CSigns]) => {
                                 for (const clientSig of listImports)
                                     Object.assign(clientSig, CSigns.get(clientSig.name));
                             })
@@ -1177,13 +1188,17 @@ class RCompiler {
                         }
                         
                         builder = async function IMPORT(this: RCompiler) {
-                            const saveEnv = env, [builder] = await promiseModule;
-                            env = NewEnv();
+                            const [builder] = await promiseModule
+                                , saveEnv = env
+                                , MEnv = env = NewEnv();
                             await builder({parent: document.createDocumentFragment()});
-                            const {constructs} = env;
                             env = saveEnv;
+                            
                             for (const {name} of listImports)
-                                DefConstruct(name, constructs.get(name));
+                                DefConstruct(name, MEnv.constructs.get(name));
+                                
+                            for (const init of vars)
+                                init()(MEnv[init.i]);
                         };
                         isBlank = 1;
 
@@ -1274,26 +1289,26 @@ class RCompiler {
 
                     case 'document': {
                         const newVar = this.NewVar(atts.get('name', true)),
-                            bEncaps = CBool(atts.get('encapsulate')),
-                            params=atts.get('params'),
                             RC = this,
-                            saved = this.SaveContext(),
-                            setVars = (params?.split(',') || []).map(v => this.NewVar(v));
+                            saved = this.SaveContext();
                         try {
                             const
+                                bEncaps = CBool(atts.get('encapsulate')),
+                                setVars = this.NewVars(atts.get('params')),
+                                setWin = this.NewVar(atts.get('window')),
                                 docBuilder = await RC.CompChildNodes(srcElm),
                                 docDef = (docEnv: Environment) => {
                                     docEnv = CloneEnv(docEnv);
                                     return {
-                                        async render(parent: HTMLElement, args: unknown[]) {
-                                            parent.innerHTML = '';
+                                        async render(W: Window, args: unknown[]) {
                                             const savedEnv = env;
-                                            let i=0;
                                             env = docEnv
+                                            let i=0;
                                             for (const init of setVars)
                                                 init()(args[i++]);
+                                            setWin()(W);
                                             try {
-                                                await docBuilder.call(RC, {parent}); 
+                                                await docBuilder.call(RC, {parent: W.document.body}); 
                                             }
                                             finally {env = savedEnv}
                                         },
@@ -1305,7 +1320,7 @@ class RCompiler {
                                             // Copy all style sheet rules
                                             if (!bEncaps)
                                                 copyStyleSheets(document, W.document);
-                                            this.render(W.document.body, args);
+                                            this.render(W, args);
                                             return W;
                                         },
                                         async print(...args: unknown[]) {
@@ -1314,7 +1329,7 @@ class RCompiler {
                                             document.body.appendChild(iframe);
                                             if (!bEncaps)
                                                 copyStyleSheets(document, iframe.contentDocument);
-                                            await this.render(iframe.contentDocument.body, args);
+                                            await this.render(iframe.contentWindow, args);
                                             iframe.contentWindow.print();
                                             iframe.remove();
                                         }
@@ -1487,13 +1502,9 @@ class RCompiler {
         let builder: DOMBuilder;
 
         if ( bNoMod || this.Settings.bRunScripts) {
-            let script = srcElm.text+'\n';
-            const lvars: Array<{name: string,init: LVar}> = [];
-            if (defines) 
-                for (const name of defines.split(','))
-                    lvars.push({name, init: this.NewVar(name)});
-                
-            let exports: Object;
+            let script = srcElm.text+'\n'
+                , lvars = this.NewVars(defines)
+                , exports: Object;
             builder = async function SCRIPT(this: RCompiler) {
                 if (!(bMod || bNoMod || defines || this.Settings.bRunScripts)) {
                     if (!exports) {
@@ -1517,10 +1528,10 @@ class RCompiler {
                             }
                             finally { URL.revokeObjectURL(src); }
                     }
-                    for (const {name, init} of lvars) {
-                        if (!(name in exports))
-                            throw `'${name}' is not exported by this script`;
-                        init()(exports[name]);
+                    for (const init of lvars) {
+                        if (!(init.nm in exports))
+                            throw `'${init.nm}' is not exported by this script`;
+                        init()(exports[init.nm]);
                     }
                 }
                 else  {
@@ -1530,7 +1541,7 @@ class RCompiler {
                         exports = gEval(`'use strict'\n;${script};[${defines}]\n`) as Array<unknown>;
                     }
                     let i=0;
-                    for (const {init} of lvars)
+                    for (const init of lvars)
                         init()(exports[i++]);
                 }
             };
@@ -1851,15 +1862,20 @@ class RCompiler {
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
-                for (const [bldr, srcNode] of builders)
-                    await this.CallWithHandling(bldr, srcNode, area);
+                let saved = SaveEnv(), construct: ConstructDef;
+                try {
+                    for (const [bldr, srcNode] of builders)
+                        await this.CallWithHandling(bldr, srcNode, area);
 
-                // At runtime, we just have to remember the environment that matches the context
-                // And keep the previous remembered environment, in case of recursive constructs
+                    // At runtime, we just have to remember the environment that matches the context
+                    // And keep the previous remembered environment, in case of recursive constructs
 
-                const construct: ConstructDef = {templates, constructEnv: undefined as Environment};
+                    construct = {templates, constructEnv: undefined as Environment};
+                    DefConstruct(signature.name, construct);
+                    construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
+                }
+                finally { RestoreEnv(saved) }
                 DefConstruct(signature.name, construct);
-                construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
             };
     }
 
@@ -2614,9 +2630,19 @@ export {_range as range};
 export const docLocation: RVAR<string> & 
     {   basepath: string;
         subpath: string; 
-        searchParams: URLSearchParams}
+        searchParams: URLSearchParams;
+        search: (key: string, value: string) => void
+    }
     = RVAR<string>('docLocation', location.href) as any;
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substring(docLocation.basepath.length)});
+docLocation.search = (key: string, val: string) => {
+    let url = new URL(location.href);
+    if (val == null)
+        url.searchParams.delete(key);
+    else
+        url.searchParams.set(key, val);
+    return url.href;
+}
 
 window.addEventListener('popstate', () => {docLocation.V = location.href;} );
 

@@ -99,6 +99,7 @@ declare class RCompiler {
     private SaveContext;
     private RestoreContext;
     private NewVar;
+    private NewVars;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): Promise<void>;
     logTime(msg: string): void;
@@ -124,7 +125,7 @@ declare class RCompiler {
     private RVAR_Light;
     private sourceNodeCount;
     private CompChildNodes;
-    private CompIterator;
+    private CompIterable;
     static genAtts: RegExp;
     private CompElm;
     private GetREACT;
@@ -194,5 +195,6 @@ export declare const docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
+    search: (key: string, value: string) => void;
 };
 export declare const reroute: (arg: MouseEvent | string) => void;

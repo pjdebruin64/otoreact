@@ -293,7 +293,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
                 </ul>
             </li>
             <li>
-                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the block surrounding the <elm>SCRIPT</elm> element.
+                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the RHTML code following the <elm>SCRIPT</elm> element.
                 <br>This works for both classic and module, internal and external scripts.
                 <p>
                     For module scripts, the names must be marked as exports inside the script.
@@ -623,18 +623,24 @@ allows you to include another RHTML file as if it were inserted into the main fi
 </p>
 
 
-<h2 id=Import><{}IMPORT src>, modules</h2>
+<h2 id=MODULE><{}MODULE name?></h2>
+A <elm>MODULE</elm> encapsulates a series of components, definitions, scripts and styles(?), that may be imported at other places using <elm>IMPORT</elm>.
+<p>
+    A <elm>MODULE</elm> has (currently) to be saved in a separate file. The given <code>name</code> is not used.
+</p>
+
+<h2 id=Import><{}IMPORT src defines?></h2>
 <pre class=sourcecode>
-<{}IMPORT async? src="<i>URL</i>">
+<{}IMPORT async? src="<i>URL</i>" defines?="<i>nameList</i>">
     <i>Signatures</i>
 <{}/IMPORT>
 </pre>
-imports a number of components defined in an external file, called a <i>module</i>.
+imports a number of components defined in a <elm>module</elm>, loaded from URL <code>src</code>.
 <br>There are two variants:
 <ul>
     <li>
-        With the <code>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.
-        <br>Compiling the document will continue asynchronously with the provided signatures while the external file is being fetched and compiled.
+        With the <code class=sourcecode>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.
+        <br>Compiling the document will continue with the provided signatures while the external file is being asynchronously fetched and compiled.
         <br>Only when one of the components has to be instantiated, will OtoReact wait for the completion of the import.
         <p>
             The listed signature need not be identical to the external signature, but must be 'compatible'. E.g., the order of parameters and slots may differ, and the external signature may have optional parameters and slots missing in the listed signature.
@@ -643,7 +649,8 @@ imports a number of components defined in an external file, called a <i>module</
     </li>
     <li>
         Without the <code>async</code> option, the <elm>IMPORT</elm> element needs only specify the names of the imported components.
-        <br>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of these components, it will wait for the external file.
+        <br>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of these components, it will wait for the external file and get the signatures from there.
+        <br>So one can import from multiple modules one after another, and these will still be fetched in parallel.
     </li>
 </ul>
 Furthermore:
@@ -652,10 +659,13 @@ Furthermore:
         Components from the same module may be imported at multiple places and will be fetched and compiled only once.
     </li>
     <li>
-        Local variables from the main file are not visible within the external file.
+        Local variables from the main file are not visible within the module.
     </li>
     <li>
-        Local variables in the external file but outside the component definitions will be initialized (once) and can be used by the components, not by the main file.
+        When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, then the names in the list, which must be defined as local variables in the module, are made available as local variables in the importing RHTML code.
+    </li>
+    <li>
+        Any <elm>style</elm> definitions in the source module are added to the main document (even those within non-imported components, currently).
     </li>
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
@@ -679,25 +689,34 @@ In the following demo you can enter a piece of (R)HTML and compare how it is par
 
 <h2 id=Document><{}DOCUMENT></h2>
 <pre class=sourcecode>
-    <{}DOCUMENT name=<i>docName</i> params?=<i>nameList</i> encapsulate?>
+    <{}DOCUMENT name=<i>docName</i> params?=<i>nameList</i> window?=<i>windowVar</i> encapsulate?>
         <i>content</i>
     <{}/DOCUMENT>
 </pre>
 allows you to define a separate document or form, that remains part of the same RHTML application.
+<br>
+<i>content</i> can be any RHTML code, which is not rendered immediately, but <i>docName</i> is defined as a local variable, bound to an object with the methods listed below, that will create a window either to be shown or printed.
+<br>
+Any scripts within <i>content</i> are executed within the same browsing context as the main document, and local RHTML variables from the main document are visible in local scripts within <i>content</i>.
 <p>
-    When <code class=sourcecode>params</code> is specified, then the given parameter names are available within <i>content</i> as JavaScript variables.
+    When <code class=sourcecode>params</code> is specified, then the given parameter names are available within <i>content</i> as local variables.
 </p>
 <p>
-    <i>content</i> is not rendered immediately, but <i>docName</i> is defined as a local variable, bound to an object with the following methods:
+    When <code class=sourcecode>window</code> is specified, then the given <i>windowVar</i> is available within <i>content</i> as a local variable, and will be bound to the created window.
+    <br>Note that global variable <code>window</code> refers to the main application window, but may be hidden by the local variable by specifying <code>window="window"</code>.
+</p>
+<p>
+    The available methods are:
 </p>
 <dl>
-    <dt><code><i>docName</i>.open(<i>windowName?</i>, <i>windowFeatures?</i>, ...args)</code></dt>
+    <dt><code><i>docName</i>.open(<i>target?</i>, <i>windowFeatures?</i>, ...<i>args</i>)</code></dt>
     <dd>
-        The construct content is rendered in a separate browser window, using the optionally specified <i>windowName</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given args.
+        The construct content is rendered in a separate browser window, using the optionally specified <i>target</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given <i>args</i>.
+        <br>The method returns a reference to the opened window.
     </dd>
-    <dt><code><i>docName</i>.print(...args)</code></dt>
+    <dt><code><i>docName</i>.print(...<i>args</i>)</code></dt>
     <dd>
-        The construct content is rendered in an invisible browser window with parameter names bound to the given args, and its browser print dialog is opened.
+        The construct content is rendered in an invisible browser window with parameter names bound to the given <i>args</i>, and its browser print dialog is opened.
         <br>After the user has closed the print dialog, the invisible window is closed as well.
     </dd>
 </dl>
@@ -710,5 +729,5 @@ By default, all styling rules attached to the parent document are copied to the 
 <h2><{}RHEAD></h2>
 Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and updated as needed.
 <p>
-    You can use this e.g. to set a dynamic document title or to add dynamic links.
+    You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
 </p>

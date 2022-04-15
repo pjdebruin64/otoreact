@@ -98,29 +98,15 @@
             </pageLayout>
         </when>
         <when match="routing">
-            <include src="Routing.html">
-        </when>  
-        <when match="download">
-            <include src="download.html">
-        </when>
+            <include src="P2_Routing.html"></include>
+        </when> 
         <when match="otolib">
-            <pagelayout>
-                <pagehead>
-                    The <span class=OtoRed>OtoLib</span> library
-                </pagehead>
-                <h2>OtoLib.html</h2>
-                <p>"OtoLib.html" is a small module containing a few general-purpose components:</p>
-                <def rvar="otolib" #value="RFetch('./OtoLib.html').then(resp => resp.text())"></def>
-                <pre class=sourcecode #innerHTML="otolib.V && ColorCode(otolib.V)" reacton="otolib"></pre>
-
-                <h2>Sample usage</h2>
-                <demo #srcText="demoRadiogroup"></demo>
-            </pagelayout>
+            <include src="P3_OtoLib.html"></include>
+        </when> 
+        <when match="download">
+            <include src="P4_Download.html"></include>
         </when>
         <else>
-            <rhead>
-                <meta name="robots" content="noindex">
-            </rhead>
             Page not found
         </else>    
     </case>

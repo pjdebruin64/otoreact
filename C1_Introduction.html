@@ -136,6 +136,9 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
 </p>
 <p>
+    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`${null}`</code> yields <code>"null"</code>.
+</p>
+<p>
     To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
 </p>
 <p>
@@ -146,7 +149,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     You can modify the snippet of source code above and see the result immediately.
     <br> (This interactive demo is itself defined as an RHTML component.)
 </p>
-<p>If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = \${1 + 1}</code>.</p>
+<p>If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = $\{1 + 1}</code>.</p>
 
 <p>If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.</p>
 

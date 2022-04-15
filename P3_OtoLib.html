@@ -1,0 +1,27 @@
+
+<pagelayout>
+  <pagehead>
+      The <span class=OtoRed>OtoLib</span> library
+  </pagehead>
+  <h2>OtoLib.html</h2>
+  <p>"OtoLib.html" is a small module containing a few general-purpose components:</p>
+
+  <h3><{}a></h3>
+
+  <h3><{}radiogroup></h3>
+
+  <h3><{}checkbox></h3>
+
+  <h2>Source code</h2>
+  <def rvar="otolib" #value="RFetch('./OtoLib.html').then(resp => resp.text())"></def>
+  <pre class=sourcecode #innerHTML="otolib.V && ColorCode(otolib.V)" reacton="otolib"></pre>
+
+
+  <h2>Sample usage</h2>
+
+  <h3><{}radiogroup></h3>
+  <demo #srcText="demoRadiogroup"></demo>
+
+  <h3><{}checkbox></h3>
+  <demo #srcText="demoCheckbox"></demo>
+</pagelayout>

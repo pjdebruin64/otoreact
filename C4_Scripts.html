@@ -11,7 +11,7 @@
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
         <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "{docLocation.V}").
         <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.</p>
-        <p>It has three additional properties:</p>
+        <p>It has four additional properties and methods:</p>
         <dl>
             <dt><code>docLocation.basepath</code></dt>
             <dd>
@@ -30,6 +30,10 @@
                 An <a href="{MDN}Web/API/URLSearchParams">URLSearchParams</a> object containing the current URL search parameters.
                 <br>It is equivalent to <code>new URLSearchParams(location.search)</code>.
             </dd>
+            <dt><code>docLocation.search(<i>key</i>, <i>value</i>)</code></dt>
+            <dd>
+                Returns a URL, equal to the current URL with search parameter <i>key</i> set to <i>value</i>, or with search parameter <i>key</i> removed when <i>value</i> is <code>null</code>.
+            </dd>
         </dl>
     </dd>
     <dt><code>reroute</code></dt>
@@ -42,8 +46,9 @@
     </dd>
     <dt><code>reroute(<i>href</i>)</code></dt>
     <dd>
-        Command to navigate the application to <i>href</i>. It is the same as <code>docLocation.V = <i>href</i></code>.
-        <br>This is useful for <elm>BUTTON onclick</elm> handlers.
+        Command to navigate the application to <i>href</i>, which may be an absolute or relative URL.
+        <br>For absolute URLs, it is the same as <code>docLocation.V = <i>href</i></code>.
+        <br>This is useful, e.g., for <elm>BUTTON onclick</elm> handlers.
     </dd>
     <dt id=basePattern><code>\{basePattern: &hellip;\}</code></dt>
     <dd>

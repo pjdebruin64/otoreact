@@ -90,7 +90,11 @@ a child of <TABLE>. OtoReact removes these dots. -->
 
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check this }
+<p>
+Null and undefined are not shown: {null} {undefined}.
 <br>
+Compare this JavaScript template literal: { \`\${null} \${undefined}\` }.
+<p>
 Tag <{}br> looks better in source code than &lt;br&gt;`;
 
 const sampleGreeting2 =
@@ -634,4 +638,12 @@ const demoRadiogroup=
   <when match="*">
     <p #style.backgroundcolor="fav.V">Yes, {fav.V.toLowerCase()} is a great color.</p>
   </when>
-</case>`
+</case>`;
+
+const demoCheckbox=
+`<import src="OtoLib.html"><checkbox></checkbox></import>
+
+<def rvar="check" #value="null"></def>
+<checkbox @value="check.V"></checkbox>
+  <button onclick="check.V = null">Set to null</button>
+  : Value is {\`\${check.V}\`}`

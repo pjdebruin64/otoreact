@@ -1,303 +1,315 @@
-<!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
-<component>
-    <a href? #target? ...rest>
-        <content></content>
-    </a>
-    <template><a. #href="href" ...rest
-        #target="!target && /^http/i.test(href) ? '_blank' : target"
-        #style.fontWeight="href == (docLocation.subpath || '.') ? 'bold' : null"
-        ><content></content></a.
-    ></template>
-</component>
+<module>
+    <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
+    <component>
+        <a href? #target? ...rest>
+            <content></content>
+        </a>
+        <template><a. #href="href" ...rest
+            #target="!target && /^http/i.test(href) ? '_blank' : target"
+            #style.fontWeight="href == (docLocation.subpath || '.') ? 'bold' : null"
+            ><content></content></a.
+        ></template>
+    </component>
 
-    
-<!-- Component to demonstrate RHTML -->
-<component>
-    <demo #srctext?="''" #bshow=true #editable=false rvar?></demo>
-    <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
-    <script nomodule>
-        const mapping = {'<': '&lt;', '&': '&amp;'};
-        globalThis.ColorCode = function ColorCode(html) {
-            return html.replace(
-                    /[<&]/g, c => mapping[c]
-                ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=demoGreen>$&</span>");
-        }
-        const orgFetch = globalThis.fetch;
-        globalThis.fetch = function(url, init) {
-            if (url != "webColors.json") throw "Calling 'fetch' is not allowed in these demo's";
-            return orgFetch(url, init);
-        }
-        delete globalThis.XMLHttpRequest;
-        delete globalThis.import;
-    </script>
+    <component>
+        <xxx></xxx>
 
-    <style>
-        table.demo   { 
-            margin: 2ex auto; 
-            max-width:100%;
-        }
-        table.demo > tr > th, table.demo > tr > td {
-            border: var(--RedBorder);
-            vertical-align: top;
-            min-width:320px;
-            max-width:700px;
-        }
-        table.demo > tr > th, table.demo > tr > td { padding: 8px; }
+        <style>
+            h2_ {color: fuchsia;}
+        </style>
+        <template>
+        </template>
+    </component>
 
-        table.demo > tr > *:nth-child(1) {
-            background-color: rgb(245, 245, 245);
-        }
-        table.demo > tr > td:nth-child(1) > pre { 
-            color: darkblue;
-            white-space: pre-wrap;
-            font-size: 10pt;
-            min-height: 4em;
-        }
-        span.demoGreen { color: green; } /* This is for comments */
-        pre.nodisplay {display: none }
-
-        table.demo td.demo {
-            background-color: rgb(225, 255, 181);
-        }
-        @media screen and (hover: none) {
-            td.demo {
-                font-size: 14pt;
-            }
-        }
-    </style>
-    
-    <template #srctext=source>
-        <define var=srctext #value="rvar || RVAR('', source.trim())"></define>
-        <define rvar=rShow  #value="bshow"></define>
-        <table. class=demo>
-            <tr.><th.>
-                <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                <if #cond=editable>Editable</if> Source Code
-            </th.><th.><if #cond=editable>Live</if> Result</th.></tr.>
-            <tr.>
-                <td.>
-                    <pre #class:nodisplay="!rShow.V" reactOn=rShow style.margin="0px"
-                        #contenteditable="editable.toString()" spellcheck=false 
-                        #innerHTML="ColorCode(srctext.V)" 
-                        !innerText="srctext.V"></pre>
-                </td.>
-                <td. class=demo>
-                    <script defines=prefix>
-                        let prefix=
-`<component><include src></include>
-    <template>Usage of <\{}INCLUDE> is not allowed in these demo's</template>
-</component>
-<component><import><content></content></import>
-    <template>Usage of <\{}IMPORT> is not allowed in these demo's</template>
-</component>`;
-                    </script>                    
-                    <RHTML reacton=srctext #srctext=srctext.V></RHTML>
-                </td.>
-            </tr.>
-        </table.>
-    </template>
-</component>
-
-
-<!-- This component defines our page layout -->
-<component>
-    <pageLayout>
-        <pageHead></pageHead>
-        <leftbar></leftbar>
-        <content>
-            <!-- Within the page content, h1-h3 are redefined to add the header texts tot the table of contents -->
-            <h1 id?><content></content></h1>
-            <h2 id?><content></content></h2>
-            <h3 id?><content></content></h3>
-        </content>
-    </pageLayout>
-
-    <script nomodule defines=TOC>
-        class TOC {
-            constructor () {
-                this.numbers = [0,0,0];
-                this.contents = RVAR(null, []);
-            }
-            getNr(level) {
-                this.numbers[level]++;
-                this.numbers[level+1] = 0;
-                let result = '';
-                for (let i=0; i<=level; i++)
-                    if (result||this.numbers[i])
-                        result += `${this.numbers[i]}.`;
-                return result.replace(/\.$/, '');
-            }
-            addContent(level, headElm) {
-                this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
-            }
-        }
-    </script>
-
-    <style>
-        body    {
-            margin: 0px;
-        }
-        div.pageLayout {
-            display:  grid;
-            gap: 4px;
-            margin: 4px auto;
-        }
-        div.pageLayout > *{
-            box-shadow:0 0 0 4px lightgray;
-            padding: 8px 4px;
-        }
-        div.pageLayout > header    { 
-            grid-row: 1;
-            display: grid; 
-            grid-template-columns: 1fr auto auto; 
-            grid-template-areas:
-            "title credits logo"
-            "nav   built   logo";
-            align-items: stretch;
-            padding: 8px;
-        }
-        div.pageLayout > nav {
-            grid-row: 2;
-            columns: 15em;
-            line-height: 1.25;
-        }
-        div.pageLayout > nav, .nav {
-            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-            font-size: 87.5%;
-        }
-        div.pageLayout > nav > a {
-            display: block;
-            border: none;
-            padding-left: 18pt;
-            text-indent: -18pt;
-        }
-        div.pageLayout > nav > a.chapter {
-            margin-top: 1.5ex; margin-bottom: .75ex;
-            font-weight: bold;
-        }
-        div.pageLayout > main { 
-            grid-row: 3;
-        }
         
-        @media screen and (min-width: 1250px) {
-            div.pageLayout  {
-                grid-template-columns: 16em 1fr;
-                grid-template-rows: min-content 1fr;
-                max-height: calc(100vh - 8px);
-                min-width: 980px;
-                max-width: 1430px;
+    <!-- Component to demonstrate RHTML -->
+    <component>
+        <demo #srctext?="''" #bshow=true #editable=false rvar?></demo>
+        <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
+        <script nomodule>
+            const mapping = {'<': '&lt;', '&': '&amp;'};
+            globalThis.ColorCode = function ColorCode(html) {
+                return html.replace(
+                        /[<&]/g, c => mapping[c]
+                    ).replace(/(^|\s)\/\/[^\n]*|&lt;!--.*?-->|\/\*.*?\*\//gs, "<span class=demoGreen>$&</span>");
+            }
+            const orgFetch = globalThis.fetch;
+            globalThis.fetch = function(url, init) {
+                if (url != "webColors.json") throw "Calling 'fetch' is not allowed in these demo's";
+                return orgFetch(url, init);
+            }
+            delete globalThis.XMLHttpRequest;
+            delete globalThis.import;
+        </script>
+
+        <style>
+            table.demo   { 
+                margin: 2ex auto; 
+                max-width:100%;
+            }
+            table.demo > tr > th, table.demo > tr > td {
+                border: var(--RedBorder);
+                vertical-align: top;
+                min-width:320px;
+                max-width:700px;
+            }
+            table.demo > tr > th, table.demo > tr > td { padding: 8px; }
+
+            table.demo > tr > *:nth-child(1) {
+                background-color: rgb(245, 245, 245);
+            }
+            table.demo > tr > td:nth-child(1) > pre { 
+                color: darkblue;
+                white-space: pre-wrap;
+                font-size: 10pt;
+                min-height: 4em;
+            }
+            span.demoGreen { color: green; } /* This is for comments */
+            pre.nodisplay {display: none }
+
+            table.demo td.demo {
+                background-color: rgb(225, 255, 181);
+            }
+            @media screen and (hover: none) {
+                td.demo {
+                    font-size: 14pt;
+                }
+            }
+        </style>
+        
+        <template #srctext=source>
+            <define var=srctext #value="rvar || RVAR('', source.trim())"></define>
+            <define rvar=rShow  #value="bshow"></define>
+            <table. class=demo>
+                <tr.><th.>
+                    <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
+                    <if #cond=editable>Editable</if> Source Code
+                </th.><th.><if #cond=editable>Live</if> Result</th.></tr.>
+                <tr.>
+                    <td.>
+                        <pre #class:nodisplay="!rShow.V" reactOn=rShow style.margin="0px"
+                            #contenteditable="editable.toString()" spellcheck=false 
+                            #innerHTML="ColorCode(srctext.V)" 
+                            !innerText="srctext.V"></pre>
+                    </td.>
+                    <td. class=demo>
+                        <script defines=prefix>
+                            let prefix=
+    `<component><include src></include>
+        <template>Usage of <\{}INCLUDE> is not allowed in these demo's</template>
+    </component>
+    <component><import><content></content></import>
+        <template>Usage of <\{}IMPORT> is not allowed in these demo's</template>
+    </component>`;
+                        </script>                    
+                        <RHTML reacton=srctext #srctext=srctext.V></RHTML>
+                    </td.>
+                </tr.>
+            </table.>
+        </template>
+    </component>
+
+
+    <!-- This component defines our page layout -->
+    <component>
+        <pageLayout>
+            <pageHead></pageHead>
+            <leftbar></leftbar>
+            <content>
+                <!-- Within the page content, h1-h3 are redefined to add the header texts tot the table of contents -->
+                <h1 id?><content></content></h1>
+                <h2 id?><content></content></h2>
+                <h3 id?><content></content></h3>
+            </content>
+        </pageLayout>
+
+        <script nomodule defines=TOC>
+            class TOC {
+                constructor () {
+                    this.numbers = [0,0,0];
+                    this.contents = RVAR(null, []);
+                }
+                getNr(level) {
+                    this.numbers[level]++;
+                    this.numbers[level+1] = 0;
+                    let result = '';
+                    for (let i=0; i<=level; i++)
+                        if (result||this.numbers[i])
+                            result += `${this.numbers[i]}.`;
+                    return result.replace(/\.$/, '');
+                }
+                addContent(level, headElm) {
+                    this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
+                }
+            }
+        </script>
+
+        <style>
+            body    {
+                margin: 0px;
+            }
+            div.pageLayout {
+                display:  grid;
+                gap: 4px;
+                margin: 4px auto;
             }
             div.pageLayout > *{
-                padding: 8px 8px;
+                box-shadow:0 0 0 4px lightgray;
+                padding: 8px 4px;
             }
             div.pageLayout > header    { 
-                grid-column: 1/3; 
+                grid-row: 1;
+                display: grid; 
+                grid-template-columns: 1fr auto auto; 
+                grid-template-areas:
+                "title credits logo"
+                "nav   built   logo";
+                align-items: stretch;
+                padding: 8px;
             }
-            div.pageLayout > nav    {
-                grid-area: 2 / 1;
-                columns: unset;
-                overflow-y: auto;
-                height: auto;
+            div.pageLayout > nav {
+                grid-row: 2;
+                columns: 15em;
+                line-height: 1.25;
+            }
+            div.pageLayout > nav, .nav {
+                font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+                font-size: 87.5%;
+            }
+            div.pageLayout > nav > a {
+                display: block;
+                border: none;
+                padding-left: 18pt;
+                text-indent: -18pt;
+            }
+            div.pageLayout > nav > a.chapter {
+                margin-top: 1.5ex; margin-bottom: .75ex;
+                font-weight: bold;
             }
             div.pageLayout > main { 
-                grid-area: 2 / 2; 
-                overflow-y: auto;
-                height: auto;
+                grid-row: 3;
             }
-            body {
-                overflow-y: hidden;
+            
+            @media screen and (min-width: 1250px) {
+                div.pageLayout  {
+                    grid-template-columns: 16em 1fr;
+                    grid-template-rows: min-content 1fr;
+                    max-height: calc(100vh - 8px);
+                    min-width: 980px;
+                    max-width: 1430px;
+                }
+                div.pageLayout > *{
+                    padding: 8px 8px;
+                }
+                div.pageLayout > header    { 
+                    grid-column: 1/3; 
+                }
+                div.pageLayout > nav    {
+                    grid-area: 2 / 1;
+                    columns: unset;
+                    overflow-y: auto;
+                    height: auto;
+                }
+                div.pageLayout > main { 
+                    grid-area: 2 / 2; 
+                    overflow-y: auto;
+                    height: auto;
+                }
+                body {
+                    overflow-y: hidden;
+                }
+                .narrow-only { display: none; }
             }
-            .narrow-only { display: none; }
-        }
 
-        nav.topbar {
-            display: flex;
-            padding: 1px 41px
-        }
-        nav.topbar > * {
-            padding: 6px 12px;
-            text-align: center;
-            min-width: 100px;
-            border: solid var(--OtoRed) 2px;
-            background-color: rgb(233, 233, 233);
-            margin: -1px;
-        }
-        @media print {
-            nav.topbar, .narrow-only {display: none}
-        }
-    </style>
+            nav.topbar {
+                display: flex;
+                padding: 1px 41px
+            }
+            nav.topbar > * {
+                padding: 6px 12px;
+                text-align: center;
+                min-width: 100px;
+                border: solid var(--OtoRed) 2px;
+                background-color: rgb(233, 233, 233);
+                margin: -1px;
+            }
+            @media print {
+                nav.topbar, .narrow-only {display: none}
+            }
+        </style>
 
-    <template>
-        <def var=toc #value="new TOC()"></def>
-        <div class=pageLayout>
-            <header>
-                    <div style="padding-left: 40px">
-                        <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">
-                            <pageHead></pageHead>
-                        </p>
-                    </div>
-                    <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
-                        Created by <a 
-                            onclick="
-                                let rect = this.getBoundingClientRect();
-                                popup.V={display: null, left: `${window.scrollX + rect.left - 250}px`, top: `${window.scrollY + rect.top + 30}px`};
-                                event.stopPropagation();" 
-                            title="More about me">Peter J. de Bruin</a>.
-                        <p>Made possible by:
-                    </div>
-                    <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%; white-space: nowrap;">
-                        <p>Built with <a href="./" class=OtoRed style.textDecoration=none>OtoReact</a></p>
-                    </div>
-                    <div style="grid-area: logo;">
-                        <a href="https://www.otolift.com">
-                            <img src="KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
-                                alt="Otolift Stairlifts" title="Otolift Stairlifts,{'\n'}The Netherlands"
-                            >
-                        </a>
-                    </div>
-                    <nav class=topbar style="grid-area: nav;" reacton=docLocation>
-                        <a href="."         #onclick=reroute>Home</a>
-                        <a href="routing"   #onclick=reroute>Routing</a>
-                        <a href="otolib"    #onclick=reroute>OtoLib</a>
-                        <a href="download"  #onclick=reroute>Download</a>                        
-                        <a href="https://forum.otoreact.dev/">Forum</a>
-                    </nav>
-            </header>
-            <nav id=TOC>
-                <center style="background-color: orange;">
-                    <b><i>Table of Contents</i></b>
-                </center>
-                <for let=item #of=toc.contents.V reacton=toc.contents>
-                    <a. #class:chapter="item.level == 0"
-                        href="#{item.id}">
-                        {item.text}
-                    </a.>
-                </for>
-                
-                <leftbar></leftbar>
-            </nav>
-            <main style.position="relative">
-                <button class="nav narrow-only"
-                    style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;" >
-                    <a href="#TOC">↑ Contents ↑</a>
-                </button>
-                <!-- Here the content of the page definition will be inserted -->
-                <content>
-                    <!-- Inside the content, the following construsts are available: -->
-                    <h1 id>
-                        <def var=nr #value="toc.getNr(0)"></def>
-                        <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
-                    </h1>
-                    <h2 id>
-                        <def var=nr #value="toc.getNr(1)"></def>
-                        <h2. #id="id||'s'+nr" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
-                    </h2>
-                    <h3 id>
-                        <def var=nr #value="toc.getNr(2)"></def>
-                        <h3. #id="id||'s'+nr" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
-                    </h3>
-                </content>
-            </main>
-        </div>
-    </template>
-</component>
+        <template>
+            <def var=toc #value="new TOC()"></def>
+            <div class=pageLayout>
+                <header>
+                        <div style="padding-left: 40px">
+                            <p style="font-size: 28pt; font-weight: bold; padding-bottom: .5ex;">
+                                <pageHead></pageHead>
+                            </p>
+                        </div>
+                        <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
+                            Created by <a 
+                                onclick="
+                                    let rect = this.getBoundingClientRect();
+                                    popup.V={display: null, left: `${window.scrollX + rect.left - 250}px`, top: `${window.scrollY + rect.top + 30}px`};
+                                    event.stopPropagation();" 
+                                title="More about me">Peter J. de Bruin</a>.
+                            <p>Made possible by:
+                        </div>
+                        <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%; white-space: nowrap;">
+                            <p>Built with <a href="./" class=OtoRed style.textDecoration=none>OtoReact</a></p>
+                        </div>
+                        <div style="grid-area: logo;">
+                            <a href="https://www.otolift.com">
+                                <img src="KoninklijkeOtolift.png" style="height:125px; object-fit:contain"
+                                    alt="Otolift Stairlifts" title="Otolift Stairlifts,{'\n'}The Netherlands"
+                                >
+                            </a>
+                        </div>
+                        <nav class=topbar style="grid-area: nav;" reacton=docLocation>
+                            <a href="."         #onclick=reroute>Home</a>
+                            <a href="routing"   #onclick=reroute>Routing</a>
+                            <a href="otolib"    #onclick=reroute>OtoLib</a>
+                            <a href="download"  #onclick=reroute>Download</a>                        
+                            <a href="https://forum.otoreact.dev/">Forum</a>
+                        </nav>
+                </header>
+                <nav id=TOC>
+                    <center style="background-color: orange;">
+                        <b><i>Table of Contents</i></b>
+                    </center>
+                    <for let=item #of=toc.contents.V reacton=toc.contents>
+                        <a. #class:chapter="item.level == 0"
+                            href="#{item.id}">
+                            {item.text}
+                        </a.>
+                    </for>
+                    
+                    <leftbar></leftbar>
+                </nav>
+                <main style.position="relative">
+                    <button class="nav narrow-only"
+                        style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;" >
+                        <a href="#TOC">↑ Contents ↑</a>
+                    </button>
+                    <!-- Here the content of the page definition will be inserted -->
+                    <content>
+                        <!-- Inside the content, the following construsts are available: -->
+                        <h1 id>
+                            <def var=nr #value="toc.getNr(0)"></def>
+                            <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
+                        </h1>
+                        <h2 id>
+                            <def var=nr #value="toc.getNr(1)"></def>
+                            <h2. #id="id||'s'+nr" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                        </h2>
+                        <h3 id>
+                            <def var=nr #value="toc.getNr(2)"></def>
+                            <h3. #id="id||'s'+nr" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                        </h3>
+                    </content>
+                </main>
+            </div>
+        </template>
+    </component>
+</module>
