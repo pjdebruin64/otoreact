@@ -319,7 +319,10 @@ specifies that the given content should <i>react on</i> changes to any of the li
 </p>
 
 <p>
-    With attribute <code class=sourcecode>renew</code>, the content will not be updated but removed and rebuilt on every update request.
+    With attribute <code class=sourcecode>renew</code>, the given content will never be updated, but will be removed and rebuilt on every update request.
+</p>
+<p>
+    An <elm>REACT</elm> element without content will not produce any DOM elements, and can be useful to insert <code>oncreate</code> or <code>onupdate</code> handlers in between elements.
 </p>
 
 <h2 id=reacton>reacton, thisreactson</h2>
