@@ -1,0 +1,2 @@
+minify.bat ".\Publish\"
+pause
