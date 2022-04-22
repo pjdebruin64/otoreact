@@ -25,7 +25,7 @@
 </p>
 <ul>
     <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.
-    <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node, or <i>anything</i>.
+    <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
         <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
@@ -100,11 +100,16 @@ The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
 <h4>No server-side functionality</h4>
 OtoReact does not provide server-side functionality. You need other tooling for that, like Node.js (+ Express), Python, PHP, .Net, or perhaps you can use existing web API's.
 
+<h4>Use file extension .html, not .rhtml</h4>
+By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
+<p>Note that that file extension ".rhtml" is sometimes used for HTML files with embedded <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> instructions, that are to be processed by the server-side Ruby on Rails engine.
+
 <h2>Setup</h2>
 <ol>
     <li>
-        Download <a href="{src}OtoReact.js" download>OtoReact.js</a> and place it somewhere on your server.
-        <br>It's just 50 kilobyte.
+        Download <a href="{src}OtoReact.js" download
+        onclick="gtag('event', 'file_download', {value: this.href})">OtoReact.js</a> and place it somewhere on your server.
+        <br>It's less than 50 kilobyte, and has no dependencies at all.
     </li>
     <li>
         Import the OtoReact compiler into your application:
@@ -127,7 +132,7 @@ OtoReact does not provide server-side functionality. You need other tooling for 
         <br>RCompile will unhide its argument after it has been built.
     </li>
 </ol>
-That's all!
+That's all! A complete file is shown on the <a href="download#App" #onclick="reroute">download page</a>.
 
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
@@ -153,7 +158,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 
 <p>If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.</p>
 
-<p>Within JavaScript, you can use the JavaScript syntax for <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>, including backquotes and dollar signs:</p>
+<p>Within JavaScript, you can of course use the JavaScript syntax for <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>, using backquotes and dollar signs:</p>
 <pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
 
 <h2>RHTML Constructs Overview</h2>
@@ -466,20 +471,20 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
     <{}tr> &hellip; \{x\}&hellip; <{}/tr>
 <{}/table></pre>
                 , and will give a misleading error about <code>x</code> being undefined.
-                <br>To get the loop right, OtoReact allows you to put one (or more) dots after any tag name, so the parser won't interfere:
+                <br>To get the loop right, OtoReact allows you to put one (or more) dots after any tag name, so the parser won't recognize this as a table and won't interfere:
 <pre><{}table.>
     <{}for let=x #of=&hellip;>
         <{}tr.> &hellip; \{x\} &hellip; <{}/tr.>
     <{}/for>
 <{}/table.></pre>
-                When compiling, the dots will be removed.
+                When building the DOM tree, the dots will be removed.
             </li>
             <li>
                 The paragraph-element <elm>p</elm> does not allow block-level elements inside, but allows unknown elements.
                 <br>Thus, if you write
 <pre><{}p> &hellip; 
 <{}if &hellip;><{}ul> &hellip; <{}/ul><{}/if></pre>
-                , without closing the <elm>p</elm>, either because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
+                , without closing the <elm>p</elm>, perhaps because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> before the <elm>ul</elm> but <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
 <pre><{}p> &hellip; <{}if &hellip;><{}/if><{}/p>
 <{}ul> &hellip; <{}/ul></pre>
                 To avoid this, make a habit of always closing all elements.
@@ -493,7 +498,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <ul>
             <li>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.</li>
             <li>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), which will only work for class names in lowercase.</li>
-            <li>RHTML allows you to use attributes to set DOM properties, but DOM property names are case sensitive. So Otoreact receives the property name in lowercase and has to restore proper casing. It is conceivable that the restored casing is incorrect for some property.</li>
+            <li>RHTML allows you to use attributes to set DOM properties, but DOM property names are case sensitive. So OtoReact receives the property name in lowercase and has to restore proper casing. It is conceivable that the restored casing is incorrect for some property.</li>
         </ul>
     </li>
     <li><b>Missing error messages</b>
@@ -526,6 +531,6 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         Errors while building the DOM are by default inserted into the DOM output, but may sometimes be invisible or get overlooked. Look in the development console to be sure you haven't missed any error messages, or enable option <code>bAbortOnError</code>.
     </li>
     <li>
-        When an event handler or some other piece of JavScript doesn't work as expected, you might insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, to get a breakpoint at that point when the browser development tool is opened.
+        When an event handler or some other piece of JavaScript doesn't work as expected, you might insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, to get a breakpoint at that point when the browser development tool is opened.
     </li>
 </ul>

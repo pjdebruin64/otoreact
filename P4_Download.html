@@ -21,6 +21,9 @@
   <h3>Server</h3>
   <p>
     Otoreact does not have any server requirements: any web server serving static files will do.
+    <p>
+      If you need a small local server just for development, then the <a href="https://www.npmjs.com/package/serve">npm 'serve' package</a> will serve you well.
+    </p>
   </p>
   <h3>Clients</h3>
   <p>
@@ -28,7 +31,7 @@
     <br>If you can read this text, then OtoReact is running in your current browser.
   </p>
   <p>
-    The standard version is compiled for ECMAScript 2018 and runs in any modern browser version released in 2018 or later.
+    The standard version is compiled for ECMAScript 2019 and runs in any modern browser version released in 2019 or later.
   </p>
   <p>
     There is an alternative version compiled for ECMAScript 2015 (ES5) that should run in older browsers supporting ES5.
@@ -37,16 +40,19 @@
 
   <h2>Downloads</h2>
   <p>
-    OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download>OtoReact.js</a>
+    OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download
+    onclick="gtag('event', 'file_download', {value: this.href})"
+    >OtoReact.js</a>
   </p>
   <p>
     if you are using <a href="https://www.typescriptlang.org/">TypeScript</a>, then you may want these type declarations: <a href="{src}OtoReact.d.ts" download>OtoReact.d.ts</a> 
   </p>
   <p>
-    Here is the alternative version for older browsers: <a href="{src}OtoReact_ES5.js" download>OtoReact_ES5.js</a>, <a href="{src}OtoReact_ES5.d.ts" download>OtoReact_ES5.d.ts</a>
-  </p>
+    Here is the alternative version for older browsers: <a href="{src}OtoReact_ES5.js" download
+    onclick="gtag('event', 'file_download', {value: this.href})">OtoReact_ES5.js</a>
   <p>
-    Here is the OtoLib library: <a href="{src}OtoLib.html" download>OtoLib.html</a>
+    Here is the OtoLib library: <a href="{src}OtoLib.html" download
+    onclick="gtag('event', 'file_download', {value: this.href})">OtoLib.html</a>
   </p>
 
 
@@ -61,11 +67,10 @@
 
     <h2>License</h2>
     OtoReact is free for noncommercial use, and available for unlimited trial for commercial use.
-    <br><a onclick="donate.V=true">Donations</a> are welcome.
+    <br><a onclick="donate.V=true">Donations</a> are welcome, to give thanks and aid further development.
     <p>
-      Commercial licences can be obtained at a price of €200 per developer, valid for 5 years.
+      Commercial licences including sourcecode access, can be obtained at a price of €200 per developer, valid for 5 years.
       To order licenses, please <a href="https://forum.otoreact.dev/messages/add">write a forum message</a> to "admin".
-      <br>Sourcecode access is negotiable.
     </p>
     <p>
       OtoReact is provided "as is", no liability is accepted.
@@ -79,7 +84,7 @@
     </p>
   </if>
 
-  <h2>Application setup</h2>
+  <h2 id=App>Application setup</h2>
   A basic application setup could look like this:
   <pre class=sourceCode>{basicSetup}</pre>
 

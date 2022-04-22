@@ -4,14 +4,14 @@
 		"noImplicitThis": true,
 		"removeComments": true,
 		"module": "ESNext",
-		"target":"ES2019",
+		"target":"ES2015",
 		"lib": [ 
 			"DOM",
 			"DOM.Iterable",
-			"ES2020",
+			"ES2020"
 		],
 		"declaration": true,
-		"composite": true,
+		"composite": true
 	},
 	"exclude": [
 		"./*.d.ts"

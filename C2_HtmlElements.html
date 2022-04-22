@@ -67,15 +67,16 @@ RHTML implements some additional events that are not triggered by browser engine
     <dd>
         Happens after an element (and its children) has been <i>updated</i>.
     </dd>
-    <dt><code class=sourcecode>oncreateupdate</code> or <code class=sourcecode>onupdatecreate</code></dt>
+    <dt><code class=sourcecode>oncreateupdate</code></dt>
     <dd>
         Happens after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
-        <p>
-            <code>create</code> may replaced by <code>*</code>, and <code>update</code> by <code>+</code>, so you may write <code>oncreate+</code> or <code>onupdate*</code> or even <code>on*+</code>.
-            <br>The association of <code>*</code> with creation and <code>+</code> with updating is used with <a href="#TwoWayBinding">two-way bindings</a> as well.
     </dd>
 </dl>
-Note: The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is.
+The name <code>event</code> is not available in handlers for these  RHTML events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
+
+<p>
+    These RHTML events may be attached to RHTML constructs. In that case <code>this</code> will be bound to the nearest parent HTMLElement.
+</p>
 
 <h3 id=onerror>RHTML error handlers</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
@@ -106,7 +107,7 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
     </dd>
     <dt><code class=sourcecode>onerror-</code></dt>
     <dd>
-        Happens in situations 1 and 2 listed for <code>onerror</code>, so not while creating or updating the element.
+        Happens in situations 1 and 2 listed for <code>onerror</code>, so not while creating or updating an element.
     </dd>
     <dt><code class=sourcecode>onsuccess</code></dt>
     <dd>
@@ -127,13 +128,18 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
 
 <h2>Class Names</h2>
 <p>
-    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <code>class</code> attribute or the <code>#className</code> DOM property.
-    <br>Note that there is not (and cannot be) a <code>#class</code> DOM property, because 'class' is a reserved word in JavaScript.
+    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <code>class</code> attribute or the <a href="{MDN}Web/API/Element/className"><code>#className</code> DOM property</a>.
 </p>
 <p>
     Besides these, RHTML recognizes the following attributes:
 </p>
 <dl>
+    <dt><code class=sourcecode>#class="<i>stringExpression</i>"</code></dt>
+    <dd>
+        This is an alias to set the <a href="{MDN}Web/API/Element/className"><code>#className</code> property</a>.
+        The expression may yield a list of class names, separated by spaces.
+    </dd>
+
     <dt><code class=sourcecode>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
     <dd>or</dd>
     <dt><code class=sourcecode>#class.<i>name</i>="<i>booleanExpression</i>"</code></dt>

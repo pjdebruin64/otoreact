@@ -30,7 +30,7 @@
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){
-            if(!/\/dev\//i.test(location.pathname))
+            if(/otoreact\.dev/i.test(location.host))
                 dataLayer.push(arguments);
         }
         gtag('js', new Date());
@@ -50,8 +50,6 @@
                     : /^otolib$/i.test(docLocation.subpath) ? "The OtoLib library"
                     : /^download$/i.test(docLocation.subpath) ? "OtoReact Download"
                     : "Page not found";
-
-                    //gtag('event', 'page_view');
             }, true);
             
         }

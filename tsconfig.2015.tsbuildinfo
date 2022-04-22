@@ -197,12 +197,12 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "bde4376f9e67f827b566a67cc59bb78ec4bafc4104ee9933f4a6476febb4e897",
+        "version": "6dbb56cb78083ee14fea674a1f7afedde38410c49233910f65b33a98fc5c8746",
         "signature": "7d34b5a928bb8b0b13b132e7fa009547437aa47179ea459155cb80a31a875b01",
         "affectsGlobalScope": false
       },
       "./publish/otoreact.ts": {
-        "version": "6dbb56cb78083ee14fea674a1f7afedde38410c49233910f65b33a98fc5c8746",
+        "version": "98e8a093d07b65df6c25b940b7d45a9885005923b1919b46115dd4bd32aa591d",
         "signature": "7d34b5a928bb8b0b13b132e7fa009547437aa47179ea459155cb80a31a875b01",
         "affectsGlobalScope": false
       }
@@ -212,7 +212,7 @@
       "noImplicitThis": true,
       "removeComments": true,
       "module": 99,
-      "target": 6,
+      "target": 2,
       "lib": [
         "lib.dom.d.ts",
         "lib.dom.iterable.d.ts",
@@ -220,9 +220,8 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
-      "watch": true,
-      "configFilePath": "./tsconfig.json"
+      "project": "./tsconfig.2015.json",
+      "configFilePath": "./tsconfig.2015.json"
     },
     "referencedMap": {},
     "exportedModulesMap": {},

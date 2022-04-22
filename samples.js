@@ -50,8 +50,7 @@ function StartStop() {
 
 <div style="height:50ex; overflow-y:scroll;">
 <!-- Now we build our table! 
-The dots behind element names are needed because HTML does not allow <FOR> as
-a child of <TABLE>. OtoReact removes these dots. -->
+The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>. OtoReact removes these dots. -->
 <table. class=colorTable>
 
   <!-- Table caption -->
@@ -105,8 +104,7 @@ const sampleGreeting2 =
 <p>What's your name?
   <input type=text @value="yourName.V">
   <!-- The "@" introduces a two-way binding for the input element.
-  Anytime an input event happens, 'yourName.V' will be updated,
-  and the DOM as well  -->
+  Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
 <if cond="yourName.V">
   <p> Nice to meet you, {yourName.V}.
@@ -148,14 +146,12 @@ const sampleParticipants=
 New participant (Enter):
 <br><input type=text onchange="
       if(this.value) {
-          Participants.U.push(this.value); this.value=''; 
+          Participants.U.push(this.value);
+          this.value=''; 
       }
-    ">
-<!-- 
-  "this" in all RHTML event handlers refers to the target element.
-  Getting "Participants.U" means "Participants" will be marked as
-  changed, even though it is not assigned to.
--->`;
+">
+<!-- "this" in all RHTML event handlers refers to the target element.
+  Getting "Participants.U" means "Participants" will be marked as changed, even though it is not assigned to. -->`;
 
 const sampleTODO=
 `<script nomodule defines=AddItem>
@@ -173,8 +169,7 @@ const sampleTODO=
     }
 </script>
 
-<!-- Define a component, showing a filtered list of to-do-items, 
-with a caption -->
+<!-- Define a component, showing a filtered list of to-do-items, with a caption -->
 <component>
     <!-- This is the component signature -->
     <itemlist caption bDone></itemlist>
@@ -584,16 +579,17 @@ pre {background-color: lightgrey}
 
 const demoScoping=
 `(Look at the source code please)
+
 <define var=A #value="10"></define>
 <define var=F #value="(x) => A+x"></define>
 
-<p>
+<p style="border: 1px solid; padding:2px">
     Now A = { A }, F(1) = { F(1) }
 </p>
 
 <p>
     <define var=A #value=20></define>
-    Here A = {A}, but F still refers to the orinal value of A, so F(2) = {F(2)}
+    Here A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
 </p>
 
 <p>Here A = {A} again.</p>`
@@ -610,7 +606,7 @@ const basicSetup =
     <body hidden>
         <!-- Here goes your RHTML -->
         <FOR let=i of="range(5)">
-            <div>Hello world</div>
+            <div>Hello world {i}</div>
         </FOR>
     </body>
 </html>`
@@ -635,8 +631,8 @@ const demoRadiogroup=
   <when match="None">
     <p>Oh, I'm sorry to hear that.</p>
   </when>
-  <when match="*">
-    <p #style.backgroundcolor="fav.V">Yes, {fav.V.toLowerCase()} is a great color.</p>
+  <when match="{C}">
+    <p #style.backgroundcolor="C">Yes, {C.toLowerCase()} is a great color.</p>
   </when>
 </case>`;
 
