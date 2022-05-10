@@ -214,8 +214,8 @@ class Signature {
 }
 const gEval = eval;
 let bReadOnly = false;
-function ApplyMod(elm, modType, nm, val, bCreate) {
-    switch (modType) {
+function ApplyMod(elm, mType, nm, val, bCreate) {
+    switch (mType) {
         case 0:
             elm.setAttribute(nm, val);
             break;
@@ -272,8 +272,8 @@ function ApplyMod(elm, modType, nm, val, bCreate) {
             }
             break;
         case 8:
-            for (const { modType, name, value } of val || [])
-                ApplyMod(elm, modType, name, value, bCreate);
+            for (const { mType, name, value } of val || [])
+                ApplyMod(elm, mType, name, value, bCreate);
             break;
         case 9:
             if (bCreate)
@@ -286,10 +286,10 @@ function ApplyMod(elm, modType, nm, val, bCreate) {
 }
 function ApplyMods(elm, modifiers, bCreate) {
     bReadOnly = true;
-    for (const { mType: modType, name, depV } of modifiers)
+    for (const { mType, name, depV } of modifiers)
         try {
             const value = depV.bThis ? depV.call(elm) : depV();
-            ApplyMod(elm, modType, name, value, bCreate);
+            ApplyMod(elm, mType, name, value, bCreate);
         }
         catch (err) {
             throw `[${name}]: ${err}`;

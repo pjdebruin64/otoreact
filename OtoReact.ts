@@ -363,11 +363,11 @@ type Modifier = {
     name: string,
     depV: Dependent<unknown>,
 }
-type RestParameter = Array<{modType: MType, name: string, value: unknown}>;
+type RestParameter = Array<{mType: MType, name: string, value: unknown}>;
 let bReadOnly: boolean = false;
 
-function ApplyMod(elm: HTMLElement, modType: MType, nm: string, val: unknown, bCreate: boolean) {    
-    switch (modType) {
+function ApplyMod(elm: HTMLElement, mType: MType, nm: string, val: unknown, bCreate: boolean) {    
+    switch (mType) {
         case MType.Attr:
             elm.setAttribute(nm, val as string); 
             break;
@@ -420,8 +420,8 @@ function ApplyMod(elm: HTMLElement, modType: MType, nm: string, val: unknown, bC
             }
             break;
         case MType.RestArgument:
-            for (const {modType, name, value} of val as RestParameter || [])
-                ApplyMod(elm, modType, name, value, bCreate);
+            for (const {mType, name, value} of val as RestParameter || [])
+                ApplyMod(elm, mType, name, value, bCreate);
             break;
         case MType.oncreate:
             if (bCreate)
@@ -435,11 +435,11 @@ function ApplyMod(elm: HTMLElement, modType: MType, nm: string, val: unknown, bC
 function ApplyMods(elm: HTMLElement, modifiers: Modifier[], bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
     bReadOnly= true;
-    for (const {mType: modType, name, depV} of modifiers)
+    for (const {mType, name, depV} of modifiers)
         try {
             const value = depV.bThis ? depV.call(elm) : depV();    // Evaluate the dependent value in the current environment
             // See what to do with it
-            ApplyMod(elm, modType, name, value, bCreate)
+            ApplyMod(elm, mType, name, value, bCreate)
         }
         catch (err) { throw `[${name}]: ${err}` }
     
