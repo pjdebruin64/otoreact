@@ -6,6 +6,8 @@
         <meta http-equiv=Content-Security-Policy content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://www.googletagmanager.com">
     -->
     <title>The OtoReact Framework</title>
+    <meta name="viewport" content="width=device-width">
+    <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications"
     <link rel=preload href="OtoReact.js"            as=script crossorigin>
     <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
     <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
@@ -57,6 +59,23 @@
             document.body.appendChild(document.createTextNode(err))
         }
 
+        let LastModified = null, hdrNoCache = new Headers();
+        hdrNoCache.append('Cache-Control', 'no-cache');
+        async function CheckForUpdates() {
+            let response = await fetch(location.href, LastModified == null
+                ? { method: 'HEAD' }
+                : { method: 'HEAD', headers: hdrNoCache });
+            if (!response.ok)
+                return;
+            let lm = response.headers.get('Last-Modified');
+            if (LastModified == null) {
+                LastModified = lm;
+                await CheckForUpdates();
+            }
+            else if (lm != LastModified)
+                location.reload();
+        }
+        setInterval(CheckForUpdates, 5 * 60000);
     </script>
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>

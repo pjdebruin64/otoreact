@@ -373,19 +373,21 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 </ul>
 <h3 id=Signatures>Signatures</h3>
 <p>
-    The first element inside <elm>COMPONENT</elm> is its signature. E.g.:
+    The first element inside <elm>COMPONENT</elm> is its signature.
+    <br>It is optionally surrounded by <elm>SIGNATURE</elm>.
+    <br>E.g.:
     <pre>{C1}</pre>
     <ul>
         <li>
             The tag name of the signature element ('repeat' in this example) defines the name of the component.
         </li>
         <li>
-            Attributes <code><i>name</i></code>, <code>#<i>name</i></code>, or <code>@<i>name</i></code> of the signature element define the parameters of the component.
+            Attributes like <code><i>name</i></code>, <code>#<i>name</i></code>, or <code>@<i>name</i></code> of the signature element define the parameters of the component.
             <br>Instances of the component must have the same attributes, and these correspond to local variables inside the component template.
             <p>There are special cases:</p>
             <ul>
                 <li>
-                    Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> are <i>optional</i> parameters.
+                    Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> define <b>optional parameters</b>.
                     <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default.
                     <p>
                         An empty <i>string</i>: <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
@@ -394,15 +396,15 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
                     <p>The default default value is <code>undefined</code>.</p>
                 </li>
                 <li>
-                    Attributes <code><i>name</i></code> where <i>name</i> starts with "on" represent event handlers.
+                    Attributes <code><i>name</i></code> where <i>name</i> starts with "on" represent <b>event handlers</b>.
                     <br>Values are compiled as JavaScript, and the default default value is the empty handler.
                 </li>
                 <li>
-                    Attributes <code>@<i>name</i></code> define two-way parameters.
+                    Attributes <code>@<i>name</i></code> define <b>two-way parameters</b>.
                     <br>Their values must be valid <a href="#TwoWayBinding">assignment targets</a>.
                 </li>
                 <li>
-                    An attribute prefixed with three dots <code>...<i>name</i></code> is a <i>rest parameter</i>. It must be the last parameter.
+                    An attribute prefixed with three dots <code>...<i>name</i></code> is a <b>rest parameter</b>. It must be the last parameter.
                     <br>All instance attributes that do not match a normal parameter are collected into this rest parameter, which can be passed on to an HTML element.
                 </li>
             </ul>
@@ -538,12 +540,12 @@ Here is a to-do application, which splits the collection of items into those don
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #bShow=false #srctext=sampleRecursion></demo>
 
-<h4>Redefining HTML elements</h4>
+<h4 id="Redefining">Redefining HTML elements</h4>
 <p>Components may redefine HTML elements. To refer to the original element, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
 <demo #srctext=sampleRedefineA #bShow=true>
 </demo>
-
+To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 
 <h4>Slots within slots</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.

@@ -132,6 +132,7 @@ declare class RCompiler {
     private CallWithHandling;
     private CompScript;
     CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
+    private CompDefine;
     private ParseSignat;
     private CompComponent;
     private CompTemplate;

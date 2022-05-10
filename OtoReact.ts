@@ -1,4 +1,4 @@
-// Global settings
+// Global settings 
 const defaultSettings = {
     bTiming:        false,
     bAbortOnError:  false,  // Abort processing on runtime errors,
@@ -141,7 +141,7 @@ type Environment =
 // It may carry an indicator that the routine might need a value for 'this'.
 // This will be the semantics, the meaning, of e.g. a JavaScript expression.
 type Dependent<T> = (() => T) & {bThis?: boolean};
-const DUndef: Dependent<any> = () => u;
+const dU: Dependent<any> = () => u;
 
 function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     nWipe?: 1|2,  // 1=wipe when result has changed; 2=wipe always
@@ -906,41 +906,20 @@ class RCompiler {
                 switch (srcElm.localName) {
                     case 'def':
                     case 'define': { // '<LET>' staat de parser niet toe.
-                        for (let C of srcElm.childNodes)
-                            if (C.nodeType!=Node.TEXT_NODE || !/^\s*$/.test((C as Text).data))
-                                throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
-                        const rvarName  = atts.get('rvar'),
-                            varName     = rvarName || atts.get('let') || atts.get('var', true),
-                            getVal    = this.CompParam(atts, 'value'),
-                            getStore    = rvarName && this.CompAttrExpr<Store>(atts, 'store'),
-                            bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
-                            newVar      = this.NewVar(varName);
+                        let rv: string;
+                        [bldr, rv] = this.CompDefine(srcElm, atts);
 
-                        if (rvarName) {
+                        if (rv) {
                             // Check for compile-time subscribers
-                            const a = this.cRvars.get(rvarName);    // Save previous value
-                            this.cRvars.set(rvarName, true);
+                            const a = this.cRvars.get(rv);    // Save previous value
+                            this.cRvars.set(rv, true);
                             this.restoreActions.push(() => {
                                 // Possibly auto-subscribe when there were no compile-time subscribers
-                                if (elmBldr) elmBldr.auto = this.cRvars.get(rvarName);
-                                this.cRvars.set(rvarName, a);
+                                if (elmBldr) elmBldr.auto = this.cRvars.get(rv);
+                                this.cRvars.set(rv, a);
                             });
                         }
                         
-                        bldr = async function DEF(this: RCompiler, area) {
-                                const {range, bInit} = PrepArea(srcElm, area);
-                                if (bInit || bReact){
-                                    const v = getVal();
-                                    if (rvarName)
-                                        if (bInit)
-                                            range.value = new _RVAR(this.RC, null, v, getStore && getStore(), `RVAR_${rvarName}`);
-                                        else
-                                            range.value.SetAsync(v);
-                                    else
-                                        range.value = v;
-                                }
-                                newVar()(range.value);
-                            };
                         isBlank = 1;
                     } break;
 
@@ -1572,168 +1551,186 @@ class RCompiler {
                     const {range, subArea} = PrepArea(srcElm, area, ''),
                         {parent} = subArea,
                         before = subArea.before !== u ? subArea.before : range.Next,
-                        savedEnv = SaveEnv();
-                    try {
-                        // Map of previous data, if any
-                        const keyMap: Map<Key, Range> = range.value ||= new Map(),
-                        // Map of the newly obtained data
-                            newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map(),
-                            setVar = initVar(),
-                            setInd = initIndex();
-                        let iterable = getRange();
-                        if (iterable) {
-                            if (iterable instanceof Promise)
-                                iterable = await iterable;
-                            if (!(iterable[Symbol.iterator] || iterable[Symbol.asyncIterator]))
-                                throw `[of]: Value (${iterable}) is not iterable`;
-                            let idx=0;
-                            for await (const item of iterable) {
-                                setVar(item);
-                                setInd(idx);
-                                const hash = getHash && getHash()
-                                    , key = getKey?.() ?? hash;
-                                if (key != null && newMap.has(key))
-                                    throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, {item, hash, idx});
-                                idx++;
-                            }
-                        }
+                        iterable = getRange();
 
-                        let nextChild = range.child;
 
-                        const setPrev = initPrev(),
-                            setNext = initNext(),
-                            iterator = newMap.entries(),
-                            nextIterator = nextName ? newMap.values() : null;
+                    let  pIter = async (iter: Iterable<Item>) => {
+                        let savedEnv = SaveEnv();
+                        try {
 
-                        let prevItem: Item, nextItem: Item
-                            , prevRange: Range = null,
-                            childArea: Area;
-                        subArea.parentR = range;
+                            // Map of previous data, if any
+                            const keyMap: Map<Key, Range> = range.value ||= new Map(),
+                            // Map of the newly obtained data
+                                newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map(),
+                                setVar = initVar(),
+                                setInd = initIndex();
 
-                        if (nextIterator) nextIterator.next();
-
-                        while(true) {
-                            let k: Key;
-                            while (nextChild && !newMap.has(k = nextChild.key)) {
-                                if (k != null)
-                                    keyMap.delete(k);
-                                nextChild.erase(parent);
-                                nextChild.prev = null;
-                                nextChild = nextChild.next;
-                            }
-
-                            const {value} = iterator.next();
-                            if (!value) break;
-                            const [key, {item, hash, idx}] = value;
-
-                            if (nextIterator)
-                                nextItem = nextIterator.next().value?.item;
-
-                            let childRange = keyMap.get(key), bInit = !childRange;
-                            if (bInit) {
-                                // Item has to be newly created
-                                subArea.range = null;
-                                subArea.prevR = prevRange;
-                                subArea.before = nextChild?.FirstOrNext || before;
-                                // ';' before '(' is needed for our minify routine
-                                ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`));
-                                if (key != null) {
-                                    if (keyMap.has(key))
-                                        throw `Duplicate key '${key}'`;
-                                    keyMap.set(key, childRange);
+                            if (iter) {
+                                if (!(iter[Symbol.iterator] || iter[Symbol.asyncIterator]))
+                                    throw `[of]: Value (${iter}) is not iterable`;
+                                let idx=0;
+                                for await (const item of iter) {
+                                    setVar(item);
+                                    setInd(idx);
+                                    const hash = getHash && getHash()
+                                        , key = getKey?.() ?? hash;
+                                    if (key != null && newMap.has(key))
+                                        throw `Key '${key}' is not unique`;
+                                    newMap.set(key ?? {}, {item, hash, idx});
+                                    idx++;
                                 }
-                                childRange.key = key;
                             }
-                            else {
-                                // Item already occurs in the series
-                                
-                                if (childRange.fragm) {
-                                    const nextNode = nextChild?.FirstOrNext || before;
-                                    parent.insertBefore(childRange.fragm, nextNode);
-                                    childRange.fragm = null;
+
+                            let nextChild = range.child;
+
+                            const setPrev = initPrev(),
+                                setNext = initNext(),
+                                iterator = newMap.entries(),
+                                nextIterator = nextName ? newMap.values() : null;
+
+                            let prevItem: Item, nextItem: Item
+                                , prevRange: Range = null,
+                                childArea: Area;
+                            subArea.parentR = range;
+
+                            if (nextIterator) nextIterator.next();
+
+                            while(true) {
+                                let k: Key;
+                                while (nextChild && !newMap.has(k = nextChild.key)) {
+                                    if (k != null)
+                                        keyMap.delete(k);
+                                    nextChild.erase(parent);
+                                    nextChild.prev = null;
+                                    nextChild = nextChild.next;
                                 }
-                                else
-                                    while (1) {
-                                        if (nextChild == childRange)
-                                            nextChild = nextChild.next;
-                                        else {
-                                            // Item has to be moved
-                                            const nextIndex = newMap.get(nextChild.key)?.idx;
-                                            if (nextIndex > idx + 2) {
-                                                const fragm = nextChild.fragm = document.createDocumentFragment();
-                                                for (const node of nextChild.Nodes())
-                                                    fragm.appendChild(node);
-                                                
-                                                nextChild = nextChild.next;
-                                                continue;
-                                            }
 
-                                            childRange.prev.next = childRange.next;
-                                            if (childRange.next)
-                                                childRange.next.prev = childRange.prev;
-                                            const nextNode = nextChild?.FirstOrNext || before;
-                                            for (const node of childRange.Nodes())
-                                                parent.insertBefore(node, nextNode);
-                                        }
-                                        break;
-                                    }
+                                const {value} = iterator.next();
+                                if (!value) break;
+                                const [key, {item, hash, idx}] = value;
 
-                                childRange.next = nextChild;
-                                childRange.text = `${varName}(${idx})`;
-
-                                if (prevRange) 
-                                    prevRange.next = childRange;
-                                else
-                                    range.child = childRange;
-                                subArea.range = childRange;
-                                childArea = PrepArea(null, subArea, '').subArea;
-                                subArea.parentR = null;
-                            }
-                            childRange.prev = prevRange;
-                            prevRange = childRange;
-
-                            if (hash == null
-                                ||  hash != childRange.hash as Hash
-                                    && (childRange.hash = hash, true)
-                            ) {
-                                // Environment instellen
-                                let rvar: RVAR_Light<Item>;
-
-                                if (bReacting) {
-                                    if (item === childRange.rvar)
-                                        rvar = item;
-                                    else {
-                                        rvar = this.RVAR_Light(item as object, getUpdatesTo && [getUpdatesTo()])
-                                        if (childRange.rvar)
-                                            rvar._Subscribers = childRange.rvar._Subscribers 
-                                    }
-                                }
-                                
-                                setVar(rvar || item);
-                                setInd(idx);
-                                setPrev(prevItem);
                                 if (nextIterator)
-                                    setNext(nextItem)
+                                    nextItem = nextIterator.next().value?.item;
 
-                                // Body berekenen
-                                await bodyBuilder.call(this, childArea);
-
-                                if (rvar)
-                                    if (childRange.rvar)
-                                        assignEnv(childRange.subs.env, env);
+                                let childRange = keyMap.get(key), bInit = !childRange;
+                                if (bInit) {
+                                    // Item has to be newly created
+                                    subArea.range = null;
+                                    subArea.prevR = prevRange;
+                                    subArea.before = nextChild?.FirstOrNext || before;
+                                    // ';' before '(' is needed for our minify routine
+                                    ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`));
+                                    if (key != null) {
+                                        if (keyMap.has(key))
+                                            throw `Duplicate key '${key}'`;
+                                        keyMap.set(key, childRange);
+                                    }
+                                    childRange.key = key;
+                                }
+                                else {
+                                    // Item already occurs in the series
+                                    
+                                    if (childRange.fragm) {
+                                        const nextNode = nextChild?.FirstOrNext || before;
+                                        parent.insertBefore(childRange.fragm, nextNode);
+                                        childRange.fragm = null;
+                                    }
                                     else
-                                        rvar.Subscribe(
-                                            childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child)
-                                        );
-                                childRange.rvar = rvar
-                            }
+                                        while (1) {
+                                            if (nextChild == childRange)
+                                                nextChild = nextChild.next;
+                                            else {
+                                                // Item has to be moved
+                                                const nextIndex = newMap.get(nextChild.key)?.idx;
+                                                if (nextIndex > idx + 2) {
+                                                    const fragm = nextChild.fragm = document.createDocumentFragment();
+                                                    for (const node of nextChild.Nodes())
+                                                        fragm.appendChild(node);
+                                                    
+                                                    nextChild = nextChild.next;
+                                                    continue;
+                                                }
 
-                            prevItem = item;
+                                                childRange.prev.next = childRange.next;
+                                                if (childRange.next)
+                                                    childRange.next.prev = childRange.prev;
+                                                const nextNode = nextChild?.FirstOrNext || before;
+                                                for (const node of childRange.Nodes())
+                                                    parent.insertBefore(node, nextNode);
+                                            }
+                                            break;
+                                        }
+
+                                    childRange.next = nextChild;
+                                    childRange.text = `${varName}(${idx})`;
+
+                                    if (prevRange) 
+                                        prevRange.next = childRange;
+                                    else
+                                        range.child = childRange;
+                                    subArea.range = childRange;
+                                    childArea = PrepArea(null, subArea, '').subArea;
+                                    subArea.parentR = null;
+                                }
+                                childRange.prev = prevRange;
+                                prevRange = childRange;
+
+                                if (hash == null
+                                    ||  hash != childRange.hash as Hash
+                                        && (childRange.hash = hash, true)
+                                ) {
+                                    // Environment instellen
+                                    let rvar: RVAR_Light<Item>;
+
+                                    if (bReacting) {
+                                        if (item === childRange.rvar)
+                                            rvar = item;
+                                        else {
+                                            rvar = this.RVAR_Light(item as object, getUpdatesTo && [getUpdatesTo()])
+                                            if (childRange.rvar)
+                                                rvar._Subscribers = childRange.rvar._Subscribers 
+                                        }
+                                    }
+                                    
+                                    setVar(rvar || item);
+                                    setInd(idx);
+                                    setPrev(prevItem);
+                                    if (nextIterator)
+                                        setNext(nextItem)
+
+                                    // Body berekenen
+                                    await bodyBuilder.call(this, childArea);
+
+                                    if (rvar)
+                                        if (childRange.rvar)
+                                            assignEnv(childRange.subs.env, env);
+                                        else
+                                            rvar.Subscribe(
+                                                childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child)
+                                            );
+                                    childRange.rvar = rvar
+                                }
+
+                                prevItem = item;
+                            }
+                            if (prevRange) prevRange.next = null; else range.child = null;
                         }
-                        if (prevRange) prevRange.next = null; else range.child = null;
+                        finally { RestoreEnv(savedEnv) }
                     }
-                    finally { RestoreEnv(savedEnv) }
+
+                    if (iterable instanceof Promise) {
+                        const subEnv = {env: CloneEnv(env), onerror, onsuccess},
+                            rv = range.rvar = RVAR(null, iterable, null, 
+                                async () => {
+                                    const save = {env, onerror, onsuccess};
+                                    ;({env, onerror, onsuccess} = subEnv);
+                                    try { await pIter(rv.V); }
+                                    finally {({env, onerror, onsuccess} = save)}
+                                }
+                            );
+                    }
+                    else
+                        await pIter(iterable);
                 };
             }
             else { 
@@ -1770,6 +1767,34 @@ class RCompiler {
         finally { this.RestoreCont(saved) }
     }
 
+    private CompDefine(srcElm: HTMLElement, atts: Atts): [DOMBuilder, string] {
+        for (let C of srcElm.childNodes)
+            if (C.nodeType!=Node.TEXT_NODE || !/^\s*$/.test((C as Text).data))
+                throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
+        const rv  = atts.get('rvar'),
+            varNm     = rv || atts.get('let') || atts.get('var', true),
+            getVal    = this.CompParam(atts, 'value'),
+            getStore    = rv && this.CompAttrExpr<Store>(atts, 'store'),
+            bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
+            newVar      = this.NewVar(varNm);
+        
+        return [async function DEF(this: RCompiler, area) {
+                const {range, bInit} = PrepArea(srcElm, area);
+                if (bInit || bReact){
+                    const v = getVal();
+                    if (rv)
+                        if (bInit)
+                            range.value = new _RVAR(this.RC, null, v, getStore && getStore(), `RVAR_${rv}`);
+                        else
+                            range.value.SetAsync(v);
+                    else
+                        range.value = v;
+                }
+                newVar()(range.value);
+            }, rv];
+
+    }
+
     private ParseSignat(elmSignat: Element):  Signature {
         const signat = new Signature(elmSignat);
         for (const attr of elmSignat.attributes) {
@@ -1784,7 +1809,7 @@ class RCompiler {
                         m[1] == '...' ? () => []
                         : attr.value != '' 
                         ? (m[1] == '#' ? this.CompJScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
-                        : m[3] ? /^on/.test(m[2]) ? ()=>_=>null : DUndef   // Unspecified default
+                        : m[3] ? /^on/.test(m[2]) ? ()=>_=>null : dU   // Unspecified default
                         : null 
                     }
                 signat.Params.push(param);
@@ -1798,7 +1823,6 @@ class RCompiler {
     }
 
     private async CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
-        //srcParent.removeChild(srcElm);
 
         const builders: [DOMBuilder, ChildNode][] = [],
             bEncaps = CBool(atts.get('encapsulate')),
@@ -1808,10 +1832,10 @@ class RCompiler {
 
         for (let srcChild of Array.from(srcElm.children) as Array<HTMLElement>  ) {
             let childAtts = new Atts(srcChild)
-                , builder: DOMBuilder;
+                , bldr: DOMBuilder;
             switch (srcChild.nodeName) {
                 case 'SCRIPT':
-                    builder = this.CompScript(srcElm, srcChild as HTMLScriptElement, childAtts);
+                    bldr = this.CompScript(srcElm, srcChild as HTMLScriptElement, childAtts);
                     break;
                 case 'STYLE':
                     if (bEncaps)
@@ -1819,6 +1843,9 @@ class RCompiler {
                     else
                         this.CompStyle(srcChild);
                     
+                    break;
+                case 'DEFINE': case 'DEF':
+                    [bldr] = this.CompDefine(srcChild, childAtts);
                     break;
                 case 'TEMPLATE':
                     if (elmTemplate) throw 'Double <TEMPLATE>';
@@ -1834,7 +1861,7 @@ class RCompiler {
                     signature = this.ParseSignat(srcChild);
                     break;
             }
-            if (builder) builders.push([builder, srcChild]);
+            if (bldr) builders.push([bldr, srcChild]);
         }
         if (!signature) throw `Missing signature`;
         if (!elmTemplate) throw 'Missing <TEMPLATE>';
@@ -1939,7 +1966,7 @@ class RCompiler {
             await signature.prom;
         const {name, RestParam} = signature,
             contentSlot = signature.Slots.get('content'),
-            getArgs = new Map<string,Dependent<unknown>>(),
+            getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             slotBldrs = new Map<string, Template[]>();
 
         for (const name of signature.Slots.keys())
@@ -1948,21 +1975,18 @@ class RCompiler {
         for (const {mode, nm, pDflt} of signature.Params)
             if (mode=='@') {
                 const attValue = atts.get(mode+nm, !pDflt);
-                if (attValue) {
-                    const depValue = this.CompJScript<unknown>(attValue, mode+nm),
-                        setter = this.CompJScript<Handler>(
+                getArgs.push(
+                    attValue
+                    ? [nm, this.CompJScript<unknown>(attValue, mode+nm)
+                        , this.CompJScript<Handler>(
                             `ORx=>{${attValue}=ORx}`,
                             nm
-                        );
-                    getArgs.set(nm,
-                        () => this.RVAR('', depValue(), null, setter())
-                    );
-                }
-                else
-                    getArgs.set(nm, () => this.RVAR('', pDflt()));
+                        )]
+                    : [nm, u, ()=>dU ]
+                )
             }
             else if (mode != '...')
-                getArgs.set(nm, this.CompParam(atts, nm, !pDflt) );
+                getArgs.push([nm, this.CompParam(atts, nm, !pDflt)] );
 
         let slotElm: HTMLElement, Slot: Signature;
         for (const node of Array.from(srcElm.childNodes))
@@ -1983,10 +2007,10 @@ class RCompiler {
 
         if (RestParam) {
             const modifs = this.CompAttribs(atts);
-            getArgs.set(RestParam.nm, 
+            getArgs.push([RestParam.nm, 
                 () => modifs.map(
-                    ({mType: modType, name, depV: depValue}) => ({modType, name, value: depValue()})
-                )
+                    ({mType, name, depV}) => ({mType, name, value: depV()})
+                )]
             );
         }
         
@@ -1996,12 +2020,18 @@ class RCompiler {
         return async function INSTANCE(this: RCompiler, area: Area) {
             const savedEnv = env,
                 cdef = env.constructs.get(name),
-                {subArea} = PrepArea(srcElm, area);
+                {range, subArea, bInit} = PrepArea(srcElm, area);
             if (!cdef) return;
             bReadOnly = true;
-            const args = {};
-            for (const [nm, getArg] of getArgs)
-                args[nm] = getArg();
+            const args = range.value ||= {};
+            for (const [nm, dGet, dSet] of getArgs)
+                if (!dSet)
+                    args[nm] = dGet();
+                else if (bInit)
+                    args[nm] = RVAR('', dGet && dGet(), null, dSet());
+                else if (dGet)
+                    args[nm].V = dGet();
+            
             bReadOnly = false;
             env = cdef.constructEnv;
             try {
@@ -2274,7 +2304,7 @@ class RCompiler {
     private CompParam(atts: Atts, attName: string, bReq?: boolean): Dependent<unknown> {
         const value = atts.get(attName);
         return (
-            value == null ? this.CompAttrExpr(atts, attName, bReq) || DUndef
+            value == null ? this.CompAttrExpr(atts, attName, bReq) || dU
             : /^on/.test(attName) ? this.CompHandler(attName, value)
             : this.CompString(value, attName)
         );

@@ -4,23 +4,14 @@
         <a href? #target? ...rest>
             <content></content>
         </a>
-        <template><a. #href="href" ...rest
+        <template><a. #href="href"
             #target="!target && /^http/i.test(href) ? '_blank' : target"
-            #style.fontWeight="href == (docLocation.subpath || '.') ? 'bold' : null"
+            #style.fontWeight="href == (docLocation.subpath || '.') || href==location.hash ? 'bold' : null"
+            #onclick="/^http/i.test(href) ? null : reroute"
+            ...rest
             ><content></content></a.
         ></template>
     </component>
-
-    <component>
-        <xxx></xxx>
-
-        <style>
-            h2_ {color: fuchsia;}
-        </style>
-        <template>
-        </template>
-    </component>
-
         
     <!-- Component to demonstrate RHTML -->
     <component>
@@ -92,16 +83,7 @@
                             #innerHTML="ColorCode(srctext.V)" 
                             !innerText="srctext.V"></pre>
                     </td.>
-                    <td. class=demo>
-                        <script defines=prefix>
-                            let prefix=
-    `<component><include src></include>
-        <template>Usage of <\{}INCLUDE> is not allowed in these demo's</template>
-    </component>
-    <component><import><content></content></import>
-        <template>Usage of <\{}IMPORT> is not allowed in these demo's</template>
-    </component>`;
-                        </script>                    
+                    <td. class=demo>           
                         <RHTML reacton=srctext #srctext=srctext.V></RHTML>
                     </td.>
                 </tr.>
@@ -124,8 +106,10 @@
         </pageLayout>
 
         <script nomodule defines=TOC>
+            let num = 0;
             class TOC {
                 constructor () {
+                    this.num = ++num;
                     this.numbers = [0,0,0];
                     this.contents = RVAR(null, []);
                 }
@@ -135,8 +119,8 @@
                     let result = '';
                     for (let i=0; i<=level; i++)
                         if (result||this.numbers[i])
-                            result += `${this.numbers[i]}.`;
-                    return result.replace(/\.$/, '');
+                            result += `.${this.numbers[i]}`;
+                    return result.substring(1);
                 }
                 addContent(level, headElm) {
                     this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
@@ -169,7 +153,7 @@
             }
             div.pageLayout > nav {
                 grid-row: 2;
-                columns: 15em;
+                column-width: 15em;
                 line-height: 1.25;
             }
             div.pageLayout > nav, .nav {
@@ -195,7 +179,7 @@
                     grid-template-columns: 16em 1fr;
                     grid-template-rows: min-content 1fr;
                     max-height: calc(100vh - 8px);
-                    min-width: 980px;
+                    min-width: 900px;
                     max-width: 1430px;
                 }
                 div.pageLayout > *{
@@ -278,11 +262,11 @@
                     <center style="background-color: orange;">
                         <b><i>Table of Contents</i></b>
                     </center>
-                    <for let=item #of=toc.contents.V reacton=toc.contents>
-                        <a. #class:chapter="item.level == 0"
+                    <for let=item #of=toc.contents.V reacton="toc.contents,docLocation">
+                        <a #class:chapter="item.level == 0"
                             href="#{item.id}">
                             {item.text}
-                        </a.>
+                        </a>
                     </for>
                     
                     <leftbar></leftbar>
@@ -297,15 +281,15 @@
                         <!-- Inside the content, the following construsts are available: -->
                         <h1 id>
                             <def var=nr #value="toc.getNr(0)"></def>
-                            <h1. #id="id||'s'+nr" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
+                            <h1. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
                         </h1>
                         <h2 id>
                             <def var=nr #value="toc.getNr(1)"></def>
-                            <h2. #id="id||'s'+nr" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                            <h2. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                         </h2>
                         <h3 id>
                             <def var=nr #value="toc.getNr(2)"></def>
-                            <h3. #id="id||'s'+nr" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                            <h3. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
                         </h3>
                     </content>
                 </main>

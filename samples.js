@@ -1,5 +1,5 @@
 const sampleGreeting=
-`<define rvar='yourName' store='sessionStorage'></define>
+`<define rvar='yourName'></define>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
@@ -244,17 +244,26 @@ const sampleRecursion=
 
 const sampleRedefineA =
 `<component>
-  <a href #target? ...rest><content></content></a>
+<a href #target? ...rest><content></content></a>
 
-  <template><a. #href="href"
-    #target="!target && /^http/i.test(href) ? '_blank' : target"
-    ...rest
-    ><content>
-  </content></a.></template>
+<template><a. #href="href"
+  #target="!target && /^http/i.test(href) ? '_blank' : target"
+  ...rest
+  ><content>
+</content></a.></template>
 </component>
 
 This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
+
+const sampleA =
+`<import src=" OtoLib.html"><a></a></import>
+
+<p>This link opens in a blank window:
+<a href="https://www.otolift.com/">Otolift Stairlifts</a>
+
+<p>This link navigates within the current window:
+<a href="./#Introduction">Introduction</a>`;
 
 const sampleTableMaker =
 `<component>
@@ -357,8 +366,8 @@ const sampleTicTacToe =
         width: fit-content; margin:1ex
     }
     table.tic-tac-toe td {
-        height:2em; width: 2em; padding: 0px;
-        border: 2px solid; 
+        height:4ex; width: 4ex; padding: 0px;
+        border: 2px solid; line-height: 1;
         text-align: center; vertical-align: middle;
     }
 </style>
@@ -381,7 +390,7 @@ const sampleTicTacToe =
       </tr.>
     </for>
   </table.>
-  <div style="padding:1ex">
+  <div>
     <p reacton=T.outcome,T.toMove>
       <case>
         <when #cond="T.outcome.V===true">
@@ -618,20 +627,20 @@ const demoRadiogroup=
 
 <p>What's your favorite color?</p>
 
-<def rvar="fav"></def>
-<radiogroup @value="fav.V">
-  <for let="C" of="['Red', 'Green', 'SkyBlue', 'Pink']">
+<def rvar="favColor"></def>
+<radiogroup @value="favColor.V">
+  <for let="C" of="['Red', 'Lime', 'SkyBlue', 'Pink']">
     <radiobutton #value="C">{C}</radiobutton>
   </for>
   <br>
   <radiobutton value="None">I don't have a favorite</radiobutton>
 </radiogroup>
 
-<case #value="fav.V" reacton="fav">
+<case #value="favColor.V">
   <when match="None">
     <p>Oh, I'm sorry to hear that.</p>
   </when>
-  <when match="{C}">
+  <when match="{C}"> <!-- This binds the case-value to 'C' -->
     <p #style.backgroundcolor="C">Yes, {C.toLowerCase()} is a great color.</p>
   </when>
 </case>`;
@@ -640,6 +649,7 @@ const demoCheckbox=
 `<import src="OtoLib.html"><checkbox></checkbox></import>
 
 <def rvar="check" #value="null"></def>
-<checkbox @value="check.V"></checkbox>
-  <button onclick="check.V = null">Set to null</button>
-  : Value is {\`\${check.V}\`}`
+<checkbox @value="check.V">Label</checkbox>
+<br><button onclick="check.V = null">Set to indeterminate</button>
+
+ <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;

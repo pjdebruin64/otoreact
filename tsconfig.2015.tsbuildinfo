@@ -36,6 +36,11 @@
         "signature": "e21c071ca3e1b4a815d5f04a7475adcaeea5d64367e840dd0154096d705c3940",
         "affectsGlobalScope": false
       },
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.d.ts": {
+        "version": "fc7a21dd3ee27fd0a9ff1c46534efcd9c3cec51a445b479bb326d871c0aa8302",
+        "signature": "fc7a21dd3ee27fd0a9ff1c46534efcd9c3cec51a445b479bb326d871c0aa8302",
+        "affectsGlobalScope": false
+      },
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.dom.d.ts": {
         "version": "abadddbf660adeec27e9a56584907d52fa1d6e1e1dc49f639a921baa951b7a84",
         "signature": "abadddbf660adeec27e9a56584907d52fa1d6e1e1dc49f639a921baa951b7a84",
@@ -196,13 +201,33 @@
         "signature": "31e8df2398e328077079c17ea4f1664bad0a34adf8b0608837e504e310e329a1",
         "affectsGlobalScope": true
       },
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.intl.d.ts": {
+        "version": "89bf2b7a601b73ea4311eda9c41f86a58994fec1bee3b87c4a14d68d9adcdcbd",
+        "signature": "89bf2b7a601b73ea4311eda9c41f86a58994fec1bee3b87c4a14d68d9adcdcbd",
+        "affectsGlobalScope": true
+      },
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts": {
+        "version": "fb4416144c1bf0323ccbc9afb0ab289c07312214e8820ad17d709498c865a3fe",
+        "signature": "fb4416144c1bf0323ccbc9afb0ab289c07312214e8820ad17d709498c865a3fe",
+        "affectsGlobalScope": true
+      },
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts": {
+        "version": "cd6efb9467a8b6338ece2e2855e37765700f2cd061ca54b01b33878cf5c7677e",
+        "signature": "cd6efb9467a8b6338ece2e2855e37765700f2cd061ca54b01b33878cf5c7677e",
+        "affectsGlobalScope": true
+      },
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts": {
+        "version": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
+        "signature": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
+        "affectsGlobalScope": true
+      },
       "./otoreact.ts": {
-        "version": "6dbb56cb78083ee14fea674a1f7afedde38410c49233910f65b33a98fc5c8746",
+        "version": "af8008a56b932aabae0c19bd17eff1c39eca54f5b490fcee24955135ff0e3c17",
         "signature": "7d34b5a928bb8b0b13b132e7fa009547437aa47179ea459155cb80a31a875b01",
         "affectsGlobalScope": false
       },
       "./publish/otoreact.ts": {
-        "version": "98e8a093d07b65df6c25b940b7d45a9885005923b1919b46115dd4bd32aa591d",
+        "version": "af8008a56b932aabae0c19bd17eff1c39eca54f5b490fcee24955135ff0e3c17",
         "signature": "7d34b5a928bb8b0b13b132e7fa009547437aa47179ea459155cb80a31a875b01",
         "affectsGlobalScope": false
       }
@@ -216,7 +241,7 @@
       "lib": [
         "lib.dom.d.ts",
         "lib.dom.iterable.d.ts",
-        "lib.es2020.d.ts"
+        "lib.esnext.d.ts"
       ],
       "declaration": true,
       "composite": true,
@@ -265,6 +290,11 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es2020.symbol.wellknown.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.es5.d.ts",
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.d.ts",
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.intl.d.ts",
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
+      "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./otoreact.ts",
       "./publish/otoreact.ts"
     ]

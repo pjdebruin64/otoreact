@@ -1,6 +1,6 @@
 <h1 id=Introduction>Introduction</h1>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
+<div style="display: grid; grid-template-columns: auto auto ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
     <div class=sample 
         style="min-width: 380px; min-height: 110px;" 
         id=sampleGreeting>
@@ -31,7 +31,14 @@
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
     <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
-    <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.
+        <ul>
+            <li>Components are defined right within the HTML, without needing any JavaScript statements</li>
+            <li>Components are leightweight and have local scope</li>
+            <li>Components can be (mutually) recursive</li>
+            <li>Component definitions can be nested</li>
+        </ul>
+    </li>
+    <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.</li>
 </ul>
 
 <h3>Samples</h3>
@@ -43,10 +50,13 @@
 Explanation:
 <ul>
     <li>
-        <elm>define rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application. <code>yourName.V</code> denotes the value of the variable.
+        <elm>define rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
+        <ul>
+            <li><code>yourName.V</code> denotes the value of the variable.</li>
+        </ul>
     </li>
     <li>
-        <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and the rendered document.
+        <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and all document content that reacts on it.
     </li>
     <li>
         <elm>if cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.

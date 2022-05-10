@@ -5,11 +5,18 @@
     --Code: 'Lucida Console',monospace 92.5%;
     font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
-    font-size: 12pt;
-    text-size-adjust: 150%;     /* This applies to phones */
+    font-size: 16px;
+    _text-size-adjust: 185%;     /* This applies to phones */
 }
+
+@media screen and (min-resolution: 150dpi) {
+    :root {
+        font-size: 38px;
+    }
+}
+
 @media print {
-    body { font-size: 7.5pt; }
+    :root { font-size: 10pt; }
     button { font-size: 6.5pt !important; }
 }
 @media screen {

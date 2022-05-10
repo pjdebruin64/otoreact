@@ -7,21 +7,45 @@
   <p>"OtoLib.html" is a small module containing a few general-purpose components:</p>
 
   <h3><{}a></h3>
+  The <elm>a</elm> component redefines the <elm>a</elm> DOM element, so that any absolute, presumably external, link with no <code>target</code> gets a <code>target='_blank'</code> attribute, so it opens in a new window.
+  <br>It also adds rerouting to any relative, presumably internal, link with no <code>target</code>.
+
+  <p>Sample usage:</p>
+  <demo #srctext=sampleA></demo>
 
   <h3><{}radiogroup></h3>
+  In HTML, individual radiobuttons (<a href="{MDN}Web/HTML/Element/input/radio"><elm>input type='radio'</elm></a>) are grouped by giving them the same <i>name</i>. When they are on a <elm>form</elm>, and when the form is submitted, then among its formdata will an entry <i>name</i> bound to the value of the radiobutton selected at the moment of submission.
 
-  <h3><{}checkbox></h3>
+  <p>This is not quite suited for reactive applications, as there is no single property that provides at any moment the value of the currently selected radiobutton.
+  <br>Also, it is somewhat tedious having to provide the group name to each button.
+  </p>
 
-  <h2>Source code</h2>
-  <def rvar="otolib" #value="RFetch('./OtoLib.html').then(resp => resp.text())"></def>
-  <pre class=sourcecode #innerHTML="otolib.V && ColorCode(otolib.V)" reacton="otolib"></pre>
+  <p>
+    The <elm>radiogroup</elm> component resolves this by grouping radiobuttons and providing a single reactive two-way property <code>@value</code> to get or set the currently selected radiobutton.
+    <br>It also copies the group name to each button, so you have to provide it only once. Or, if you don't use form submission, then no name is needed at all; the group generates its own group name.
+  </p>
 
-
-  <h2>Sample usage</h2>
-
-  <h3><{}radiogroup></h3>
+  <h4>Sample usage:</h4>
   <demo #srcText="demoRadiogroup"></demo>
 
   <h3><{}checkbox></h3>
+  In HTML, a checkbox (<a href="{MDN}Web/HTML/Element/input/checkbox"><elm>input type='checkbox'</elm></a>) can have three states: checked, unchecked, and indeterminate, but it doesn't have a single property that in all three cases provides its current state. Instead, it has separate properties <code>checked</code> and <code>indeterminate</code> that are true just when the current state is checked, or indeterminate.
+
+  <p>
+    The <elm>checkbox</elm> component resolves this by providing a single two-way reactive property <code>@value</code> that can have three values:
+  </p>
+  <ul>
+    <li><code>true</code> when the checkbox state is checked</li>
+    <li><code>false</code> when it is unchecked</li>
+    <li><code>null</code> when it is indeterminate</li>
+  </ul>
+
+  <h4>Sample usage:</h4>
   <demo #srcText="demoCheckbox"></demo>
+
+  <h2>Source code</h2>
+  This is the actual library file:
+  
+  <def rvar="otolib" #value="RFetch('./OtoLib.html').then(resp => resp.text())"></def>
+  <pre class=sourcecode #innerHTML="otolib.V && ColorCode(otolib.V)" reacton="otolib"></pre>
 </pagelayout>

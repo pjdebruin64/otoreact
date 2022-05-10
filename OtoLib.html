@@ -1,17 +1,22 @@
 <MODULE>
   <!--
-    This component redefines <a> to ensures that all links with no target and an external href, get a target='_blank' attribute
+    This component redefines <a> to ensures that all links with no target and an external href, get a target='_blank' attribute.
+    It also adds rerouting to any link with a relative (internal) href.
   -->
   <component>
     <signature>
       <A href #target? ...rest><content></content></A>
     </signature>
 
-    <template><a. #href="href"
-      #target="!target && /^http/i.test(href) ? '_blank' : target"
-      ...rest
-      ><content>
-    </content></a.></template>
+    <template><if cond="/^http/i.test(href)">
+      <then><a. #href="href"
+        #target="target || '_blank'" ...rest
+        ><content></content></a.></then>
+      <else><a. #href="href"
+        #target="target"
+        #onclick="target ? null : reroute" ...rest
+        ><content></content></a.></else>
+    </if></template>
   </component>
 
   <!--
@@ -25,25 +30,27 @@
     A 'class' will be attached to the label.
     Other parameters will be passed to the input element.
   -->
-  <def var="num" #value="{V:0}"></def>
   <component>
     <signature>
       <RADIOGROUP name? @value? onclick?>
         <content>
-          <radiobutton #value onclick? class? ...rest><content></content></radiobutton>
+          <RADIOBUTTON #value? ...rest><content></content></RADIOBUTTON>
         </content>
       </RADIOGROUP>
     </signature>
+    
+    <def var="num" #value="{V:0}"></def>
 
     <template @value=groupValue onclick=groupOnclick>
       <def let="groupName" #value="name || `RadioGroup${num.V++}`"></def>
+      <!-- A <RADIOGROUP> expands into its content: -->
       <content>
-        <radiobutton #value onclick class=butClass ...rest>
-          <label #className=butClass>
+        <!-- But any occurence of <radiobutton> within its content should be expanded according to this template: -->
+        <radiobutton #value ...rest>
+          <label ...rest>
             <input type=radio #name=groupName #value=value
               #checked="value === groupValue.V"
-              onclick="groupValue.V = value; onclick(); groupOnclick();"
-              ...rest
+              onclick="groupValue.V = value; groupOnclick();"
             >
             <content></content>
           </label>
