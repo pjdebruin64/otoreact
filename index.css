@@ -54,6 +54,9 @@ pre, code, elm {
 }
 elm::before { content: "<"; }
 elm::after  { content: ">"; }
+comm { color: green; }
+comm::before { content: "<!-- "; }
+comm::after  { content: " -->"; }
 
 dt  {margin-left:1em; margin-top: .5em; }
 dd  {margin-left:3em}

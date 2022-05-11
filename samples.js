@@ -580,7 +580,7 @@ pre {background-color: lightgrey}
 <h5>RHTML rendering:</h5>
 <def rvar=rhtml></def>
 <rhtml #srctext=source.V
-  onupdate*= "rhtml.V = this.shadowRoot.innerHTML"
+  oncreateupdate= "rhtml.V = this.shadowRoot.innerHTML"
 ></rhtml>
 
 <h5>Created DOM:</h5>

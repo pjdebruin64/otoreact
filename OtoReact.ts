@@ -451,8 +451,8 @@ const RModules = new Map<string, Promise<[DOMBuilder,Map<string, Signature>]>>()
    
 /* Runtime data */
 let env: Environment,
-    onerror: Handler & {bBldr?: boolean},
-    onsuccess: Handler,
+    onerr: Handler & {bBldr?: boolean},
+    onsucc: Handler,
     builtNodeCnt = 0;
 
 const envActions: Array<() => void> = []
@@ -607,17 +607,17 @@ class RCompiler {
                 parent, bRootOnly,
                 range,
             },
-            subEnv = {env: CloneEnv(env), onerror, onsuccess},
+            subEnv = {env: CloneEnv(env), onerr, onsucc},
             subscriber: Subscriber = async () => {
-                const {range} = sArea, save = {env, onerror, onsuccess};
+                const {range} = sArea, save = {env, onerr, onsucc};
                 if (!range.erased && (range.updated || 0) < updCnt) {
-                    ({env, onerror, onsuccess} = subEnv);
+                    ({env, onerr, onsucc} = subEnv);
                     range.updated = updCnt;
                     builtNodeCnt++;
                     try {
                         await builder.call(this, {...sArea}, ...args);
                     }
-                    finally {({env, onerror, onsuccess} = save)}
+                    finally {({env, onerr, onsucc} = save)}
                 }
             };
         subscriber.sArea = sArea;
@@ -878,7 +878,7 @@ class RCompiler {
         ): Promise<[DOMBuilder, ChildNode, number?]> {
         const atts =  new Atts(srcElm),
             reacts: Array<{attNm: string, rvars: Dependent<RVAR[]>}> = [],
-            genMods: Array<{attNm: string, text: string, hndlr?: Dependent<Handler>}> = [];
+            genMods: Array<{attNm: string, text: string, hndlr?: Dependent<Handler>, C?: boolean, U?: boolean}> = [];
         let depOnerr: Dependent<Handler> & {bBldr?: boolean}
             , depOnsucc: Dependent<Handler>;
         if (bUnhide) atts.set('#hidden', 'false');
@@ -888,13 +888,13 @@ class RCompiler {
             let m: RegExpExecArray;
             for (const attNm of atts.keys())
                 if (m = RCompiler.genAtts.exec(attNm))
-                    if (m[1])
+                    if (m[1])       // (?:this)?reacts?on)
                         reacts.push({attNm, rvars: this.compAttrExprList<RVAR>(atts, attNm, true)});
-                    else if (m[2])
-                        genMods.push({attNm, text: atts.get(attNm)});
-                    else {
+                    else if (m[2])  // #?on(create|update)+
+                        genMods.push({attNm, text: atts.get(attNm), C:/c/.test(attNm), U:/u/.test(attNm)});
+                    else {          // #?on(?:(error)-?|success)
                         const dep = this.CompHandler(attNm, atts.get(attNm));
-                        if (m[3])
+                        if (m[3])   // #?onerror-?
                             ((depOnerr = dep) as typeof depOnerr).bBldr = !/-$/.test(attNm);
                         else depOnsucc = dep;
                     }
@@ -1335,15 +1335,15 @@ class RCompiler {
         if (depOnerr || depOnsucc) {
             const b = bldr;
             bldr = async function SetOnError(this: RCompiler, area: Area) {
-                const save = {onerror,onsuccess};
+                const save = {onerr, onsucc};
                 try {
                     if (depOnerr) 
-                        ((onerror = depOnerr()) as typeof onerror).bBldr = depOnerr.bBldr;
+                        ((onerr = depOnerr()) as typeof onerr).bBldr = depOnerr.bBldr;
                     if (depOnsucc)
-                        onsuccess = depOnsucc();
+                        onsucc = depOnsucc();
                     await b.call(this, area);
                 }
-                finally { ({onerror,onsuccess} = save); }
+                finally { ({onerr,onsucc} = save); }
             }
         }
         if (genMods.length) {
@@ -1352,7 +1352,7 @@ class RCompiler {
                 const {range} = area;
                 await b.call(this, area);
                 for (const g of genMods)
-                    if ((range ? /u/ : /c/).test(g.attNm))
+                    if (range ? g.U : g.C)
                         g.hndlr().call(
                             (range ? range.node : area.prevR?.node) 
                             || area.parent
@@ -1447,8 +1447,8 @@ class RCompiler {
             if (this.Settings.bAbortOnError)
                 throw message;
             console.log(message);
-            if (onerror?.bBldr)
-                onerror(err);
+            if (onerr?.bBldr)
+                onerr(err);
             else if (this.Settings.bShowErrors) {
                 const errorNode =
                     area.parent.insertBefore(createErrNode(message), area.range?.FirstOrNext);
@@ -1719,13 +1719,13 @@ class RCompiler {
                     }
 
                     if (iterable instanceof Promise) {
-                        const subEnv = {env: CloneEnv(env), onerror, onsuccess},
+                        const subEnv = {env: CloneEnv(env), onerr,  onsucc},
                             rv = range.rvar = RVAR(null, iterable, null, 
                                 async () => {
-                                    const save = {env, onerror, onsuccess};
-                                    ;({env, onerror, onsuccess} = subEnv);
+                                    const save = {env, onerr, onsucc};
+                                    ;({env, onerr, onsucc} = subEnv);
                                     try { await pIter(rv.V); }
-                                    finally {({env, onerror, onsuccess} = save)}
+                                    finally {({env, onerr, onsucc} = save)}
                                 }
                             );
                     }
@@ -2363,19 +2363,19 @@ class RCompiler {
 
     private AddErrH(getHndlr: Dependent<Handler>): Dependent<Handler> {
         return () => {
-            const hndlr = getHndlr(), onerr = onerror, onsucc = onsuccess;
-            if (hndlr && (onerr||onsucc))
+            const hndlr = getHndlr(), sErr = onerr, sSuc = onsucc;
+            if (hndlr && (sErr||sSuc))
                 return function hError(this: HTMLElement, ev: Event) {
                     try {
                         const result = hndlr.call(this,ev);
                         if (result instanceof Promise)
-                            return result.then(onsucc, onerr);
-                        if (onsucc) onsucc(null);
+                            return result.then(sSuc, sErr);
+                        if (sSuc) sSuc(null);
                         return result;
                     }
                     catch (err) {
-                        if (!onerr) throw err;
-                        onerr(err);
+                        if (!sErr) throw err;
+                        sErr(err);
                     }
                 };
             return hndlr;
@@ -2463,7 +2463,7 @@ class _RVAR<T = unknown>{
     SetAsync(t: T | Promise<T>) {
         if (t instanceof Promise) {
             this.V = u;
-            t.then(v => {this.V = v}, onerror);
+            t.then(v => {this.V = v}, onerr);
         } else
             this.V = t;
     }

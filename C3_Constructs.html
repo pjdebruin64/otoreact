@@ -136,7 +136,7 @@ is the same as:
 <{}CASE>
     <{}WHEN cond="<i>expr</i>"> <i>ThenPart</i> <{}/WHEN>
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
-<{}/IF>
+<{}/CASE>
 </pre>
 <p>
     All hiding and pattern-matching features of <elm>CASE</elm><elm>WHEN</elm> apply to <elm>IF</elm> as well.
@@ -337,18 +337,19 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 <h2 id=Component><{}COMPONENT encapsulate?></h2>
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
-<br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets and scripts, and a component <i>template</i>:
+<br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts and local definitions, and a component <i>template</i>:
 <pre class=sourcecode>
 <{}COMPONENT encapsulate?>
 
   <{}SIGNATURE> <i>Signature</i> <{}/SIGNATURE>
-<span style="color: black;">(or just:)</span>
+<comm>or just:</comm>
   <i>Signature</i>
 
-  <{}SCRIPT &hellip;> &hellip; <{}/SCRIPT>&hellip;
   <{}STYLE &hellip;> &hellip; <{}/STYLE>&hellip;
+  <{}SCRIPT &hellip;> &hellip; <{}/SCRIPT>&hellip;
+  <{}DEFINE &hellip;> &hellip; <{}/DEFINE>&hellip;
 
-  <{}TEMPLATE> <i>Template</i> <{}/TEMPLATE>
+  <{}TEMPLATE &hellip;> <i>Template</i> <{}/TEMPLATE>
   
 <{}/COMPONENT>
 </pre>
@@ -368,7 +369,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
     </li>
     <li>
         Component templates can use local variables defined outside of the component.
-        <br>So a nested component definition can use the parameter values of the outside component.
+        <br>So a nested component definition can use the parameter values of the outer component.
     </li>
 </ul>
 <h3 id=Signatures>Signatures</h3>
@@ -376,7 +377,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
     The first element inside <elm>COMPONENT</elm> is its signature.
     <br>It is optionally surrounded by <elm>SIGNATURE</elm>.
     <br>E.g.:
-    <pre>{C1}</pre>
+    <pre #innerHTML="ColorCode(C1)"></pre>
     <ul>
         <li>
             The tag name of the signature element ('repeat' in this example) defines the name of the component.
@@ -431,7 +432,7 @@ One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</co
 
 <h3 id=Templates>Templates</h3>
 The component template is tagged <elm>template</elm>. E.g.:
-<pre>{C2}</pre>
+<pre #innerHTML="ColorCode(C2)"></pre>
 <ul>
     <li>
         Parameters of the component (like <code>count</code>) are available as local variables inside the template.
@@ -451,7 +452,7 @@ The component template is tagged <elm>template</elm>. E.g.:
 <h3 id=Instances>Instances</h3>
 A component is instantiated by a tag containing the component name:
 
-<pre>{C3}</pre>
+<pre #innerHTML="ColorCode(C3)"></pre>
 
 <h4>Parameter values</h4>
 A component instance may/must have attributes that provide values for all optional/compulsory parameters of the template. There are four forms:
@@ -493,9 +494,9 @@ The component instance may contain templates for each of the slots of the compon
 
 Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody</elm>, then the instance would have looked like:
 <pre>
-<{}!-- Component instance -->
+<comm>Component instance</comm>
 <{}repeat #count=7 num>
-  <{}!-- Content slot template -->
+  <comm>Content slot template</comm>
   <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
 <{}/repeat>
 </pre>
