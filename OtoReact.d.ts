@@ -65,8 +65,9 @@ declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
+    name: string;
     templates: Template[];
-    constructEnv: Environment;
+    constructEnv?: Environment;
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {

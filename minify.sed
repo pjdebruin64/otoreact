@@ -22,10 +22,10 @@ t repeat
 s/(`[^`]*\$\{([^{} ]|\{[^{}]*\})*) +/\1/
 t repeat
 
-#s/(.);+$/\1/       # Remove semicolons at end of non-empty line
+s/(.);+$/\1/       # Remove semicolons at end of non-empty line
 s/[,;]+([]}])/\1/g    # Remove comma and semicolon before ] or }
 
-#s/^\(_/;\(_/   # Put a semicolon before "(_" at beginning of line; needed for TypeScript < ES2020
+s/^\(/;\(/   # Put a semicolon before "(" at beginning of line; needed for TypeScript < ES2020
 
 /^$/d                 # Remove emptylines
 

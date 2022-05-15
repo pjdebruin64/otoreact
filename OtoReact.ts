@@ -1215,7 +1215,7 @@ class RCompiler {
                                         range.hdrElms = null;
                                     }
                                     const R = new RCompiler();
-                                    R.FilePath = this.FilePath;; // Double ';' needed because out minifier removes one ';'
+                                    R.FilePath = this.FilePath;
                                     (R.head = shadowRoot).innerHTML = '';
                                     await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
                                     range.hdrElms = R.AddedHeaderElements;
@@ -1294,15 +1294,15 @@ class RCompiler {
                                             iframe.contentWindow.print();
                                             iframe.remove();
                                         }
-                                    };
-                                };
+                                    }
+                                }
                             bldr = async function DOCUMENT(this: RCompiler) {
                                 newVar()(docDef(env));
-                            };
+                            }
                             isBlank = 1;
                         }
                         finally { this.RestoreCont(saved); }
-                    }; break;
+                    } break;
 
                     case 'rhead': {
                         const childBuilder = await this.CompChildNodes(srcElm), {wspc} = this;
@@ -1312,10 +1312,10 @@ class RCompiler {
                             const {subArea} = PrepArea(srcElm, area);                            
                             subArea.parent = area.parent.ownerDocument.head;
                             await childBuilder.call(this, subArea);
-                        };
+                        }
                         this.wspc = wspc;
                         isBlank = 1;
-                    }; break;
+                    } break;
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -1509,7 +1509,7 @@ class RCompiler {
                     for (const init of lvars)
                         init()(exports[i++]);
                 }
-            };
+            }
         }
         else if (defs)
             throw `You must add 'nomodule' if this script has to define OtoReact variables`;
@@ -1618,8 +1618,7 @@ class RCompiler {
                                     subArea.range = null;
                                     subArea.prevR = prevRange;
                                     subArea.before = nextChild?.FirstOrNext || before;
-                                    // ';' before '(' is needed for our minify routine
-                                    ;({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`));
+                                    ({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${varName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
                                             throw `Duplicate key '${key}'`;
@@ -1723,7 +1722,7 @@ class RCompiler {
                             rv = range.rvar = RVAR(null, iterable, null, 
                                 async () => {
                                     const save = {env, onerr, onsucc};
-                                    ;({env, onerr, onsucc} = subEnv);
+                                    ({env, onerr, onsucc} = subEnv);
                                     try { await pIter(rv.V); }
                                     finally {({env, onerr, onsucc} = save)}
                                 }
@@ -1735,8 +1734,8 @@ class RCompiler {
             }
             else { 
                 /* Iterate over multiple slot instances */
-                const slotNm = atts.get('of', true, true).toLowerCase()
-                    , slot = this.CSignatures.get(slotNm);
+                const name = atts.get('of', true, true).toLowerCase()
+                    , slot = this.CSignatures.get(name);
                 if (!slot)
                     throw `Missing attribute [let]`;
 
@@ -1747,18 +1746,18 @@ class RCompiler {
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
                     const {subArea} = PrepArea(srcElm, area),
                         saved= SaveEnv(),
-                        slotDef = env.constructs.get(slotNm),
+                        slotDef = env.constructs.get(name),
                         setInd = initInd();
                     try {
                         let index = 0;
                         for (const slotBldr of slotDef.templates) {
                             setInd(index++);
-                            env.constructs.set(slotNm, {templates: [slotBldr], constructEnv: slotDef.constructEnv});
+                            env.constructs.set(name, {name, templates: [slotBldr], constructEnv: slotDef.constructEnv});
                             await bodyBldr.call(this, subArea);
                         }
                     }
                     finally {
-                        mapSet(env.constructs, slotNm, slotDef);
+                        mapSet(env.constructs, name, slotDef);
                         RestoreEnv(saved);
                     }
                 }

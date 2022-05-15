@@ -306,9 +306,9 @@ function RestoreEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(name, construct) {
-    const { constructs } = env, prevDef = constructs.get(name);
-    constructs.set(name, construct);
+function DefConstruct(cDef) {
+    const { constructs } = env, { name } = cDef, prevDef = constructs.get(name);
+    constructs.set(name, cDef);
     envActions.push(() => mapSet(constructs, name, prevDef));
 }
 let updCnt = 0;
@@ -865,7 +865,7 @@ class RCompiler {
                                 await builder({ parent: document.createDocumentFragment() });
                                 env = saveEnv;
                                 for (const { name } of listImports)
-                                    DefConstruct(name, MEnv.constructs.get(name));
+                                    DefConstruct(MEnv.constructs.get(name));
                                 for (const init of vars)
                                     init()(MEnv[init.i]);
                             };
@@ -913,7 +913,6 @@ class RCompiler {
                                         }
                                         const R = new RCompiler();
                                         R.FilePath = this.FilePath;
-                                        ;
                                         (R.head = shadowRoot).innerHTML = '';
                                         await R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, false);
                                         range.hdrElms = R.AddedHeaderElements;
@@ -993,7 +992,6 @@ class RCompiler {
                                 this.RestoreCont(saved);
                             }
                         }
-                        ;
                         break;
                     case 'rhead':
                         {
@@ -1007,7 +1005,6 @@ class RCompiler {
                             this.wspc = wspc;
                             isBlank = 1;
                         }
-                        ;
                         break;
                     default:
                         bldr = await this.CompHTMLElement(srcElm, atts);
@@ -1241,7 +1238,6 @@ class RCompiler {
                                     subArea.range = null;
                                     subArea.prevR = prevRange;
                                     subArea.before = nextChild?.FirstOrNext || before;
-                                    ;
                                     ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
@@ -1330,7 +1326,6 @@ class RCompiler {
                     if (iterable instanceof Promise) {
                         const subEnv = { env: CloneEnv(env), onerr, onsucc }, rv = range.rvar = RVAR(null, iterable, null, async () => {
                             const save = { env, onerr, onsucc };
-                            ;
                             ({ env, onerr, onsucc } = subEnv);
                             try {
                                 await pIter(rv.V);
@@ -1345,23 +1340,23 @@ class RCompiler {
                 };
             }
             else {
-                const slotNm = atts.get('of', true, true).toLowerCase(), slot = this.CSignatures.get(slotNm);
+                const name = atts.get('of', true, true).toLowerCase(), slot = this.CSignatures.get(name);
                 if (!slot)
                     throw `Missing attribute [let]`;
                 const initInd = this.NewVar(ixName);
                 const bodyBldr = await this.CompChildNodes(srcElm);
                 return async function FOREACH_Slot(area) {
-                    const { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(slotNm), setInd = initInd();
+                    const { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(name), setInd = initInd();
                     try {
                         let index = 0;
                         for (const slotBldr of slotDef.templates) {
                             setInd(index++);
-                            env.constructs.set(slotNm, { templates: [slotBldr], constructEnv: slotDef.constructEnv });
+                            env.constructs.set(name, { name, templates: [slotBldr], constructEnv: slotDef.constructEnv });
                             await bodyBldr.call(this, subArea);
                         }
                     }
                     finally {
-                        mapSet(env.constructs, slotNm, slotDef);
+                        mapSet(env.constructs, name, slotDef);
                         RestoreEnv(saved);
                     }
                 };
@@ -1463,13 +1458,13 @@ class RCompiler {
             throw 'Missing <TEMPLATE>';
         for (let signat of signats)
             this.AddConstruct(signat);
-        const templates = [
+        const name = signats[0].name, templates = [
             await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.wspc = wspc;
         return async function COMPONENT(area) {
-            const construct = { templates, constructEnv: u };
-            DefConstruct(signats[0].name, construct);
+            const construct = { name, templates };
+            DefConstruct(construct);
             let saved = SaveEnv();
             try {
                 for (const [bldr, srcNode] of builders)
@@ -1495,8 +1490,8 @@ class RCompiler {
             return async function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
                 const saved = SaveEnv();
                 try {
-                    for (const [slotName, templates] of mSlotTemplates)
-                        DefConstruct(slotName, { templates, constructEnv: slotEnv });
+                    for (const [name, templates] of mSlotTemplates)
+                        DefConstruct({ name, templates, constructEnv: slotEnv });
                     let i = 0;
                     for (const [name, lvar] of lvars) {
                         let arg = args[name], dflt;
