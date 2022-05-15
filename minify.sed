@@ -14,7 +14,7 @@ s/\r//      # Remove CR's
 /[[,\{\)=:\?]$|else$/ {N ; s/\n */ / ; b start }
 
 # Remove whitespace before and after special chars, except inside strings
-s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`.*`|'[^']*'|\"[^\"\"]*\") */\1/g
+s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`.*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
 
 # Remove whitespace in expressions in interpolated strings
 t repeat
@@ -22,7 +22,7 @@ t repeat
 s/(`[^`]*\$\{([^{} ]|\{[^{}]*\})*) +/\1/
 t repeat
 
-s/(.);+$/\1/       # Remove semicolons at end of non-empty line
+#s/(.);+$/\1/       # Remove semicolons at end of non-empty line
 s/[,;]+([]}])/\1/g    # Remove comma and semicolon before ] or }
 
 #s/^\(_/;\(_/   # Put a semicolon before "(_" at beginning of line; needed for TypeScript < ES2020

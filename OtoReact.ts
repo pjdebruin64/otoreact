@@ -337,7 +337,7 @@ class Signature {
 }
 
 // A CONSTRUCTDEF is a concrete instance of a signature
-type ConstructDef = {templates: Template[], constructEnv: Environment};
+type ConstructDef = {name: string, templates: Template[], constructEnv?: Environment};
 type Template = 
     (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment)
     => Promise<void>;
@@ -464,9 +464,9 @@ function RestoreEnv(savedEnv: EnvState) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(name: string, construct: ConstructDef) {
-    const {constructs} = env, prevDef = constructs.get(name);
-    constructs.set(name, construct);
+function DefConstruct(cDef: ConstructDef) {
+    const {constructs} = env, {name}=cDef, prevDef = constructs.get(name);
+    constructs.set(name, cDef);
     envActions.push(() => mapSet(constructs, name, prevDef));
 }
 
@@ -1156,7 +1156,7 @@ class RCompiler {
                             env = saveEnv;
                             
                             for (const {name} of listImports)
-                                DefConstruct(name, MEnv.constructs.get(name));
+                                DefConstruct(MEnv.constructs.get(name));
                                 
                             for (const init of vars)
                                 init()(MEnv[init.i]);
@@ -1244,7 +1244,7 @@ class RCompiler {
                         break;
 
                     case 'component': 
-                        bldr = await this.CompComponent(srcParent, srcElm, atts);
+                        bldr = await this.CompComponent(srcElm, atts);
                         isBlank = 1;
                         break;
 
@@ -1822,56 +1822,60 @@ class RCompiler {
         return signat;
     }
 
-    private async CompComponent(srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+    private async CompComponent(srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
         const builders: [DOMBuilder, ChildNode][] = [],
             bEncaps = CBool(atts.get('encapsulate')),
             styles: Node[] = [],
             {wspc} = this;
-        let signature: Signature, elmTemplate: HTMLTemplateElement;
+        let signats: Array<Signature> = [], elmTemplate: HTMLTemplateElement;
 
-        for (let srcChild of Array.from(srcElm.children) as Array<HTMLElement>  ) {
-            let childAtts = new Atts(srcChild)
+        for (let child of Array.from(srcElm.children) as Array<HTMLElement>  ) {
+            let childAtts = new Atts(child)
                 , bldr: DOMBuilder;
-            switch (srcChild.nodeName) {
+            switch (child.nodeName) {
                 case 'SCRIPT':
-                    bldr = this.CompScript(srcElm, srcChild as HTMLScriptElement, childAtts);
+                    bldr = this.CompScript(srcElm, child as HTMLScriptElement, childAtts);
                     break;
                 case 'STYLE':
                     if (bEncaps)
-                        styles.push(srcChild);
+                        styles.push(child);
                     else
-                        this.CompStyle(srcChild);
+                        this.CompStyle(child);
                     
                     break;
                 case 'DEFINE': case 'DEF':
-                    [bldr] = this.CompDefine(srcChild, childAtts);
+                    [bldr] = this.CompDefine(child, childAtts);
+                    break;
+                case 'COMPONENT':
+                    bldr = await this.CompComponent(child, childAtts);
                     break;
                 case 'TEMPLATE':
                     if (elmTemplate) throw 'Double <TEMPLATE>';
-                    elmTemplate = srcChild as HTMLTemplateElement;
+                    elmTemplate = child as HTMLTemplateElement;
+                    break;
+                case 'SIGNATURE':
+                case 'SIGNATURES':
+                    for (let elm of child.children)
+                        signats.push(this.ParseSignat(elm));
                     break;
                 default:
-                    if (signature) throw `Illegal child element <${srcChild.nodeName}>`;
-                    if (srcChild.nodeName == 'SIGNATURE') {
-                        if (srcChild.childElementCount != 1)
-                            throw '<SIGNATURE> must have 1 child element.'
-                        srcChild = srcChild.firstElementChild as HTMLElement;
-                    }
-                    signature = this.ParseSignat(srcChild);
+                    if (signats.length) throw `Illegal child element <${child.nodeName}>`;
+                    signats.push(this.ParseSignat(child));
                     break;
             }
-            if (bldr) builders.push([bldr, srcChild]);
+            if (bldr) builders.push([bldr, child]);
         }
-        if (!signature) throw `Missing signature`;
+        if (!signats.length) throw `Missing signature`;
         if (!elmTemplate) throw 'Missing <TEMPLATE>';
 
-        this.AddConstruct(signature);
+        for (let signat of signats)
+            this.AddConstruct(signat);
                
-        const 
+        const name = signats[0].name,
         // Deze builder bouwt de component-instances op
             templates = [
-                await this.CompTemplate(signature, elmTemplate.content, elmTemplate, 
+                await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, 
                     false, bEncaps, styles)
             ];
 
@@ -1879,21 +1883,20 @@ class RCompiler {
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
-                let saved = SaveEnv(), construct: ConstructDef;
-                try {
-                    for (const [bldr, srcNode] of builders)
-                        await this.CallWithHandling(bldr, srcNode, area);
+            const construct: ConstructDef = {name, templates};
+            DefConstruct(construct);
+            let saved = SaveEnv();
+            try {
+                for (const [bldr, srcNode] of builders)
+                    await this.CallWithHandling(bldr, srcNode, area);
 
-                    // At runtime, we just have to remember the environment that matches the context
-                    // And keep the previous remembered environment, in case of recursive constructs
+                // At runtime, we just have to remember the environment that matches the context
+                // And keep the previous remembered environment, in case of recursive constructs
 
-                    construct = {templates, constructEnv: u as Environment};
-                    DefConstruct(signature.name, construct);
-                    construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
-                }
-                finally { RestoreEnv(saved) }
-                DefConstruct(signature.name, construct);
-            };
+                construct.constructEnv = CloneEnv(env);     // Contains circular reference to construct
+            }
+            finally { RestoreEnv(saved) }
+        };
     }
 
     private async CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
@@ -1923,8 +1926,8 @@ class RCompiler {
                 ) {
                 const saved = SaveEnv();
                 try {
-                    for (const [slotName, templates] of mSlotTemplates)
-                        DefConstruct(slotName, {templates, constructEnv: slotEnv});
+                    for (const [name, templates] of mSlotTemplates)
+                        DefConstruct({name, templates, constructEnv: slotEnv});
                     
                     let i = 0;
                     for (const [name,lvar] of lvars){

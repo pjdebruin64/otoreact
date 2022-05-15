@@ -939,7 +939,7 @@ class RCompiler {
                         isBlank = 1;
                         break;
                     case 'component':
-                        bldr = await this.CompComponent(srcParent, srcElm, atts);
+                        bldr = await this.CompComponent(srcElm, atts);
                         isBlank = 1;
                         break;
                     case 'document':
@@ -1416,66 +1416,69 @@ class RCompiler {
             signat.Slots.set(elmSlot.localName, this.ParseSignat(elmSlot));
         return signat;
     }
-    async CompComponent(srcParent, srcElm, atts) {
+    async CompComponent(srcElm, atts) {
         const builders = [], bEncaps = CBool(atts.get('encapsulate')), styles = [], { wspc } = this;
-        let signature, elmTemplate;
-        for (let srcChild of Array.from(srcElm.children)) {
-            let childAtts = new Atts(srcChild), bldr;
-            switch (srcChild.nodeName) {
+        let signats = [], elmTemplate;
+        for (let child of Array.from(srcElm.children)) {
+            let childAtts = new Atts(child), bldr;
+            switch (child.nodeName) {
                 case 'SCRIPT':
-                    bldr = this.CompScript(srcElm, srcChild, childAtts);
+                    bldr = this.CompScript(srcElm, child, childAtts);
                     break;
                 case 'STYLE':
                     if (bEncaps)
-                        styles.push(srcChild);
+                        styles.push(child);
                     else
-                        this.CompStyle(srcChild);
+                        this.CompStyle(child);
                     break;
                 case 'DEFINE':
                 case 'DEF':
-                    [bldr] = this.CompDefine(srcChild, childAtts);
+                    [bldr] = this.CompDefine(child, childAtts);
+                    break;
+                case 'COMPONENT':
+                    bldr = await this.CompComponent(child, childAtts);
                     break;
                 case 'TEMPLATE':
                     if (elmTemplate)
                         throw 'Double <TEMPLATE>';
-                    elmTemplate = srcChild;
+                    elmTemplate = child;
+                    break;
+                case 'SIGNATURE':
+                case 'SIGNATURES':
+                    for (let elm of child.children)
+                        signats.push(this.ParseSignat(elm));
                     break;
                 default:
-                    if (signature)
-                        throw `Illegal child element <${srcChild.nodeName}>`;
-                    if (srcChild.nodeName == 'SIGNATURE') {
-                        if (srcChild.childElementCount != 1)
-                            throw '<SIGNATURE> must have 1 child element.';
-                        srcChild = srcChild.firstElementChild;
-                    }
-                    signature = this.ParseSignat(srcChild);
+                    if (signats.length)
+                        throw `Illegal child element <${child.nodeName}>`;
+                    signats.push(this.ParseSignat(child));
                     break;
             }
             if (bldr)
-                builders.push([bldr, srcChild]);
+                builders.push([bldr, child]);
         }
-        if (!signature)
+        if (!signats.length)
             throw `Missing signature`;
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
-        this.AddConstruct(signature);
+        for (let signat of signats)
+            this.AddConstruct(signat);
         const templates = [
-            await this.CompTemplate(signature, elmTemplate.content, elmTemplate, false, bEncaps, styles)
+            await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
         this.wspc = wspc;
         return async function COMPONENT(area) {
-            let saved = SaveEnv(), construct;
+            const construct = { templates, constructEnv: u };
+            DefConstruct(signats[0].name, construct);
+            let saved = SaveEnv();
             try {
                 for (const [bldr, srcNode] of builders)
                     await this.CallWithHandling(bldr, srcNode, area);
-                construct = { templates, constructEnv: u };
-                DefConstruct(signature.name, construct);
                 construct.constructEnv = CloneEnv(env);
             }
             finally {
                 RestoreEnv(saved);
             }
-            DefConstruct(signature.name, construct);
         };
     }
     async CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {

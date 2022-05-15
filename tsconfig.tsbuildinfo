@@ -222,8 +222,8 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "1a835a29cd0930759c647312c7becfdfe036299d5d87439c24525a5465f9f512",
-        "signature": "0ffed8e01161e10148d7e56b0a5be2f16bc566a7eebbb6b47da5efe1a9a5e18b",
+        "version": "e3d963891376d901cb3ff7d164e85639f13cc5c895feaf76abdcf42fb09b5cc3",
+        "signature": "a4afd816c72cfa74d5adc7efa67bc46d094f62b0056ae50a0948e5818470776a",
         "affectsGlobalScope": false
       },
       "./publish/otoreact.ts": {
@@ -245,7 +245,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -296,8 +295,47 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
-      "./otoreact.ts",
+      [
+        "./otoreact.ts",
+        [
+          {
+            "file": "./otoreact.ts",
+            "start": 77807,
+            "length": 59,
+            "code": 2345,
+            "category": 1,
+            "messageText": {
+              "messageText": "Argument of type '{ templates: Template[]; constructEnv: Environment; }' is not assignable to parameter of type 'ConstructDef'.",
+              "category": 1,
+              "code": 2345,
+              "next": [
+                {
+                  "messageText": "Property 'name' is missing in type '{ templates: Template[]; constructEnv: Environment; }' but required in type 'ConstructDef'.",
+                  "category": 1,
+                  "code": 2741
+                }
+              ]
+            },
+            "relatedInformation": [
+              {
+                "file": "./otoreact.ts",
+                "start": 11455,
+                "length": 4,
+                "messageText": "'name' is declared here.",
+                "category": 3,
+                "code": 2728
+              }
+            ]
+          }
+        ]
+      ],
       "./publish/otoreact.ts"
+    ],
+    "affectedFilesPendingEmit": [
+      [
+        "./otoreact.ts",
+        1
+      ]
     ]
   },
   "version": "4.1.3"
