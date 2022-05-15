@@ -17,15 +17,15 @@ s/\r//      # Remove CR's
 s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`.*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
 
 # Remove whitespace in expressions in interpolated strings
-t repeat
+t repeat    # Needed to clear previous test result
 : repeat
 s/(`[^`]*\$\{([^{} ]|\{[^{}]*\})*) +/\1/
 t repeat
 
-s/(.);+$/\1/       # Remove semicolons at end of non-empty line
+s/;+$//       # Remove semicolons at end of line
 s/[,;]+([]}])/\1/g    # Remove comma and semicolon before ] or }
 
-s/^\(/;\(/   # Put a semicolon before "(" at beginning of line; needed for TypeScript < ES2020
+s/^\(/;\(/   # Reinsert ; before "(" at beginning of line, to prevent incorrect function calls
 
 /^$/d                 # Remove emptylines
 

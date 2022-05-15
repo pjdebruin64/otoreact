@@ -306,10 +306,10 @@ function RestoreEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(cDef) {
-    const { constructs } = env, { name } = cDef, prevDef = constructs.get(name);
-    constructs.set(name, cDef);
-    envActions.push(() => mapSet(constructs, name, prevDef));
+function DefConstruct(C) {
+    const { constructs } = env, prevDef = constructs.get(C.name);
+    mapNm(constructs, C);
+    envActions.push(() => mapSet(constructs, C.name, prevDef));
 }
 let updCnt = 0;
 class RCompiler {
@@ -381,10 +381,10 @@ class RCompiler {
                 .map(name => this.NewVar(name))
             : []);
     }
-    AddConstruct(C) {
-        const Cnm = C.name, savedC = this.CSignatures.get(Cnm);
-        this.CSignatures.set(Cnm, C);
-        this.restoreActions.push(() => mapSet(this.CSignatures, Cnm, savedC));
+    AddConstruct(S) {
+        const savedC = this.CSignatures.get(S.name);
+        mapNm(this.CSignatures, S);
+        this.restoreActions.push(() => mapSet(this.CSignatures, S.name, savedC));
     }
     async Compile(elm, settings = {}, bIncludeSelf = false) {
         const t0 = performance.now();
@@ -1351,12 +1351,12 @@ class RCompiler {
                         let index = 0;
                         for (const slotBldr of slotDef.templates) {
                             setInd(index++);
-                            env.constructs.set(name, { name, templates: [slotBldr], constructEnv: slotDef.constructEnv });
+                            mapNm(env.constructs, { name, templates: [slotBldr], constructEnv: slotDef.constructEnv });
                             await bodyBldr.call(this, subArea);
                         }
                     }
                     finally {
-                        mapSet(env.constructs, name, slotDef);
+                        mapNm(env.constructs, slotDef);
                         RestoreEnv(saved);
                     }
                 };
@@ -1408,7 +1408,7 @@ class RCompiler {
             }
         }
         for (const elmSlot of elmSignat.children)
-            signat.Slots.set(elmSlot.localName, this.ParseSignat(elmSlot));
+            mapNm(signat.Slots, this.ParseSignat(elmSlot));
         return signat;
     }
     async CompComponent(srcElm, atts) {
@@ -2048,11 +2048,14 @@ function CBool(s, valOnEmpty = true) {
         }
     return s;
 }
-function mapSet(m, k, v) {
+function mapNm(m, v) {
+    m.set(v.name, v);
+}
+function mapSet(m, nm, v) {
     if (v)
-        m.set(k, v);
+        m.set(nm, v);
     else
-        m.delete(k);
+        m.delete(nm);
 }
 function* concIterable(R, S) {
     for (const x of R)

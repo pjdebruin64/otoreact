@@ -464,10 +464,10 @@ function RestoreEnv(savedEnv: EnvState) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(cDef: ConstructDef) {
-    const {constructs} = env, {name}=cDef, prevDef = constructs.get(name);
-    constructs.set(name, cDef);
-    envActions.push(() => mapSet(constructs, name, prevDef));
+function DefConstruct(C: ConstructDef) {
+    const {constructs} = env, prevDef = constructs.get(C.name);
+    mapNm(constructs, C);
+    envActions.push(() => mapSet(constructs,C.name, prevDef));
 }
 
 let updCnt = 0;
@@ -558,12 +558,11 @@ class RCompiler {
             );
     }
 
-    private AddConstruct(C: Signature) {
-        const Cnm = C.name,
-            savedC = this.CSignatures.get(Cnm);
-        this.CSignatures.set(Cnm, C);
+    private AddConstruct(S: Signature) {
+        const savedC = this.CSignatures.get(S.name);
+        mapNm(this.CSignatures, S);
         this.restoreActions.push(() => 
-            mapSet(this.CSignatures, Cnm, savedC)
+            mapSet(this.CSignatures, S.name, savedC)
         );
     }
 
@@ -1752,12 +1751,12 @@ class RCompiler {
                         let index = 0;
                         for (const slotBldr of slotDef.templates) {
                             setInd(index++);
-                            env.constructs.set(name, {name, templates: [slotBldr], constructEnv: slotDef.constructEnv});
+                            mapNm(env.constructs, {name, templates: [slotBldr], constructEnv: slotDef.constructEnv});
                             await bodyBldr.call(this, subArea);
                         }
                     }
                     finally {
-                        mapSet(env.constructs, name, slotDef);
+                        mapNm(env.constructs, slotDef);
                         RestoreEnv(saved);
                     }
                 }
@@ -1817,7 +1816,7 @@ class RCompiler {
             }
         }
         for (const elmSlot of elmSignat.children)
-            signat.Slots.set(elmSlot.localName, this.ParseSignat(elmSlot));
+            mapNm(signat.Slots, this.ParseSignat(elmSlot));
         return signat;
     }
 
@@ -2592,11 +2591,14 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     return s;
 }
 
-function mapSet<K,V>(m: Map<K,V>, k: K, v: V) {
+function mapNm<V extends {name: string}>(m: Map<string, V>, v:V) {
+    m.set(v.name,v);
+}
+function mapSet<V>(m: Map<string, V>, nm: string, v:V) {
     if (v)
-        m.set(k,v);
+        m.set(nm,v);
     else
-        m.delete(k);
+        m.delete(nm);
 }
 
 function* concIterable<T>(R: Iterable<T>, S:Iterable<T>)  {
