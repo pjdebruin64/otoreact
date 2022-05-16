@@ -1,4 +1,4 @@
-declare const defaultSettings: {
+declare let defaultSettings: {
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -187,16 +187,16 @@ export interface RVAR<T = unknown> extends _RVAR<T> {
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
     get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
-    CheckNoAttsLeft(): void;
+    ChkNoAttsLeft(): void;
 }
 export declare let R: RCompiler;
-export declare const RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void;
-declare const _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
+export declare let RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void;
+declare let _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
 export { _range as range };
-export declare const docLocation: RVAR<string> & {
+export declare let docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
     search: (key: string, value: string) => void;
 };
-export declare const reroute: (arg: MouseEvent | string) => void;
+export declare let reroute: (arg: MouseEvent | string) => void;
