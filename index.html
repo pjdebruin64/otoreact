@@ -31,7 +31,8 @@
     <script src="samples.js" defer></script>
     <script>
         window.dataLayer = window.dataLayer || [];
-        let r = /otoreact\.dev/i.test(location.host) && location.search != '??';
+        if (location.search == '??') localStorage.setItem('PJ', 'true')
+        let r = /otoreact\.dev/i.test(location.host) && !localStorage.getItem('PJ');
         function gtag(){
             if(r) dataLayer.push(arguments);
         }
