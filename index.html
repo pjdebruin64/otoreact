@@ -31,9 +31,9 @@
     <script src="samples.js" defer></script>
     <script>
         window.dataLayer = window.dataLayer || [];
+        let r = /otoreact\.dev/i.test(location.host) && location.search != '??';
         function gtag(){
-            if(/otoreact\.dev/i.test(location.host))
-                dataLayer.push(arguments);
+            if(r) dataLayer.push(arguments);
         }
         gtag('js', new Date());
         gtag('config', 'G-T23W7PMPX4');

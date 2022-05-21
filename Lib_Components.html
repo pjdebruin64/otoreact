@@ -22,7 +22,7 @@
             const markTag = (mTag) =>
                 `<span class=mTag>${
                     mTag.replace(/\s(?:on|#)\w+\s*=\s*(?:".*?"|'.*?')|(\{(?:\{.*?\}|.)*?\})/gs
-                        , (m,mExpr) => mExpr ? `<span style='color:var(--Oto'>${m}</span>` : m)
+                        , (m,mExpr) => mExpr ? `<span class=otored>${m}</span>` : m)
                 }</span>`;
             globalThis.ColorCode = function ColorCode(html) {
                 return `<div style='color:black'>${
@@ -31,12 +31,14 @@
                     ).replace(
                         /(&lt;!--.*?-->)|(&lt;(script|style).*?>)(.*?)(&lt;\/\3\s*>)|&lt;(\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?>|\\\{|(\{(?:\{.*?\}|.)*?\})/gis
                         , (m,
-                            mComm, 
-                            mScriptOpen,mScriptTag,mScriptBody,mScriptClose, 
-                            mTag,mExpr) =>
-                                ( mComm ? `<span class=demoGreen>${m}</span>`
+                            mComm,      // This is HTML comment
+                            mScriptOpen,mScriptTag,mScriptBody,mScriptClose, // These form a <script> or <style> element
+                            mTag,       // This is any other tag
+                            mExpr       // This is an embedded expression
+                            ) =>
+                                ( mComm ? `<span class=demoGreen>${m}</span>`   // Mark HTML comments
                                 : mScriptTag ? 
-                                        markTag(mScriptOpen)
+                                        markTag(mScriptOpen)                    // Mark <script> tag
                                         + mScriptBody.replace(/\/\/[^\n]*|\/\*.*?\*\//gs, '<span class=demoGreen>$&</span>')
                                         + markTag(mScriptClose)
                                 : mTag  ? markTag(m)

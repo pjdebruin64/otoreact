@@ -65,7 +65,7 @@ declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type ConstructDef = {
-    name: string;
+    nm: string;
     templates: Template[];
     constructEnv?: Environment;
 };
@@ -92,7 +92,7 @@ declare class RCompiler {
     private cRvars;
     private head;
     private StyleBefore;
-    private AddedHeaderElements;
+    private AddedHdrElms;
     FilePath: string;
     RootElm: ParentNode;
     constructor(RC?: RCompiler);
@@ -122,7 +122,7 @@ declare class RCompiler {
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
-    RVAR<T>(name?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
+    RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
     private RVAR_Light;
     private sourceNodeCount;
     private CompChildNodes;
@@ -186,17 +186,14 @@ export interface RVAR<T = unknown> extends _RVAR<T> {
 }
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
-    get(name: string, bRequired?: boolean, bHashAllowed?: boolean): string;
+    get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
     ChkNoAttsLeft(): void;
 }
-export declare let R: RCompiler;
-export declare let RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void;
 declare let _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
-export { _range as range };
-export declare let docLocation: RVAR<string> & {
+export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
     search: (key: string, value: string) => void;
-};
-export declare let reroute: (arg: MouseEvent | string) => void;
+}, reroute: (arg: MouseEvent | string) => void;
+export { _range as range };

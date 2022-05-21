@@ -304,9 +304,9 @@ type Parameter = {mode: string, nm: string, pDflt: Dependent<unknown>};
 // A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signature {
     constructor(public srcElm: Element){ 
-        this.name = srcElm.localName;
+        this.nm = srcElm.localName;
     }
-    public name: string;
+    public nm: string;
     public prom: Promise<any>;
     public Params: Array<Parameter> = [];
     public RestParam: Parameter = null;
@@ -338,7 +338,7 @@ class Signature {
 }
 
 // A CONSTRUCTDEF is a concrete instance of a signature
-type ConstructDef = {name: string, templates: Template[], constructEnv?: Environment};
+type ConstructDef = {nm: string, templates: Template[], constructEnv?: Environment};
 type Template = 
     (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment)
     => Promise<void>;
@@ -359,11 +359,11 @@ const enum MType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassLi
 }
 type Modifier = {
     mt: MType,
-    name: string,
+    nm: string,
     depV: Dependent<unknown>,
 }
-type RestParameter = Array<{mt: MType, name: string, value: unknown}>;
-let bReadOnly: boolean = false;
+type RestParameter = Array<{mt: MType, nm: string, value: unknown}>;
+let bReadOnly: boolean|0|1 = 0;
 
 function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate: boolean) {    
     switch (mt) {
@@ -404,23 +404,25 @@ function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate
                     elm.style[nm] = v || (v === 0 ? '0' : null);
             break
         case MType.AddToClassList:
-            switch (typeof val) {
-                case 'string': elm.classList.add(val); break;
-                case 'object':
-                    if (val)
-                        if (Array.isArray(val))
-                            for (let nm of val)
-                                elm.classList.add(nm);
-                        else
-                            for (let [nm, bln] of Object.entries(val as Object))
-                                if (bln) elm.classList.add(nm);
-                    break;
-                default: throw `Invalid '+class' value`;
-            }
+            (function a(v: any) {
+                if (v)
+                    switch (typeof v) {
+                        case 'string': elm.classList.add(v); break;
+                        case 'object':
+                            if (v)
+                                if (Array.isArray(v)) 
+                                    v.forEach(a);
+                                else
+                                    for (let [nm, b] of Object.entries(v as Object))
+                                        if (b) a(nm);
+                            break;
+                        default: throw `Invalid value`;
+                }
+            })(val);
             break;
         case MType.RestArgument:
-            for (let {mt, name, value} of val as RestParameter || [])
-                ApplyMod(elm, mt, name, value, bCreate);
+            for (let {mt, nm, value} of val as RestParameter || [])
+                ApplyMod(elm, mt, nm, value, bCreate);
             break;
         case MType.oncreate:
             if (bCreate)
@@ -433,16 +435,16 @@ function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate
 }
 function ApplyMods(elm: HTMLElement, modifiers: Modifier[], bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
-    bReadOnly= true;
-    for (let {mt, name, depV} of modifiers)
+    bReadOnly= 1;
+    for (let {mt, nm, depV} of modifiers)
         try {
             let value = depV.bThis ? depV.call(elm) : depV();    // Evaluate the dependent value in the current environment
             // See what to do with it
-            ApplyMod(elm, mt, name, value, bCreate)
+            ApplyMod(elm, mt, nm, value, bCreate)
         }
-        catch (err) { throw `[${name}]: ${err}` }
+        catch (err) { throw `[${nm}]: ${err}` }
     
-    bReadOnly = false;
+    bReadOnly = 0;
 }
 
 let RModules = new Map<string, Promise<[DOMBuilder,Map<string, Signature>]>>(),
@@ -462,9 +464,9 @@ function RestoreEnv(savedEnv: EnvState) {
         envActions.pop()();
 }
 function DefConstruct(C: ConstructDef) {
-    let {constructs} = env, prevDef = constructs.get(C.name);
+    let {constructs} = env, prevDef = constructs.get(C.nm);
     mapNm(constructs, C);
-    envActions.push(() => mapSet(constructs,C.name, prevDef));
+    envActions.push(() => mapSet(constructs,C.nm, prevDef));
 }
 
 let updCnt = 0;
@@ -483,7 +485,7 @@ class RCompiler {
 
     private head: Node;
     private StyleBefore: ChildNode;
-    private AddedHeaderElements: Array<HTMLElement>;
+    private AddedHdrElms: Array<HTMLElement>;
     public FilePath: string;
     public RootElm: ParentNode;
  
@@ -496,7 +498,7 @@ class RCompiler {
         this.CSignatures = RC ? new Map(RC.CSignatures) : new Map();
         this.Settings   = RC ? {...RC.Settings} : {...defaultSettings};
         this.RC = RC ||= this;
-        this.AddedHeaderElements = RC.AddedHeaderElements || [];
+        this.AddedHdrElms = RC.AddedHdrElms || [];
         this.head  = RC.head || document.head;
         this.StyleBefore = RC.StyleBefore
         this.FilePath   = RC.FilePath; // || location.origin + docLocation.basepath;
@@ -550,16 +552,16 @@ class RCompiler {
     private NewVars(varlist: string): Array<LVar> {
         return (varlist
             ? varlist.split(',')
-                .map(name => this.NewVar(name))
+                .map(nm => this.NewVar(nm))
             : []
             );
     }
 
     private AddConstruct(S: Signature) {
-        let savedC = this.CSignatures.get(S.name);
+        let savedC = this.CSignatures.get(S.nm);
         mapNm(this.CSignatures, S);
         this.restoreActions.push(() => 
-            mapSet(this.CSignatures, S.name, savedC)
+            mapSet(this.CSignatures, S.nm, savedC)
         );
     }
 
@@ -702,17 +704,17 @@ class RCompiler {
 
     /* A "responsive variable" is a variable which listeners can subscribe to. */
     RVAR<T>(
-        name?: string, 
+        nm?: string, 
         value?: T | Promise<T>, 
         store?: Store,
         subs?: (t:T) => void,
         storeName?: string
     ) {
-        let r = new _RVAR<T>(this.RC, name, value, store, storeName);
+        let r = new _RVAR<T>(this.RC, nm, value, store, storeName);
         if (subs)
             r.Subscribe(subs, true, false);
         return r;
-    } // as <T>(name?: string, initialValue?: T, store?: Store) => RVAR<T>;
+    } // as <T>(nm?: string, initialValue?: T, store?: Store) => RVAR<T>;
     
     private RVAR_Light<T>(
         t: RVAR_Light<T>, 
@@ -1111,9 +1113,9 @@ class RCompiler {
 
                                 // Check or register the imported signatures
                                 for (let clientSig of listImports) {
-                                    let signat = C.CSignatures.get(clientSig.name);
+                                    let signat = C.CSignatures.get(clientSig.nm);
                                     if (!signat)
-                                        throw `<${clientSig.name}> is missing in '${src}'`;
+                                        throw `<${clientSig.nm}> is missing in '${src}'`;
                                     if (bAsync && !clientSig.IsCompatible(signat))
                                         throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat.srcElm.outerHTML}`;
                                 }
@@ -1128,7 +1130,7 @@ class RCompiler {
                         if (!bAsync) {
                             let prom = promModule.then(([_, CSigns]) => {
                                 for (let clientSig of listImports)
-                                    Object.assign(clientSig, CSigns.get(clientSig.name));
+                                    Object.assign(clientSig, CSigns.get(clientSig.nm));
                             })
                             for (let clientSig of listImports)
                                 clientSig.prom = prom;
@@ -1141,8 +1143,8 @@ class RCompiler {
                             await bldr({parent: document.createDocumentFragment()});
                             env = saveEnv;
                             
-                            for (let {name} of listImports)
-                                DefConstruct(MEnv.constructs.get(name));
+                            for (let {nm} of listImports)
+                                DefConstruct(MEnv.constructs.get(nm));
                                 
                             for (let init of vars)
                                 init()(MEnv[init.i]);
@@ -1203,7 +1205,7 @@ class RCompiler {
                                     R.FilePath = this.FilePath;
                                     (R.head = shadowRoot).innerHTML = '';
                                     await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
-                                    range.hdrElms = R.AddedHeaderElements;
+                                    range.hdrElms = R.AddedHdrElms;
                                     
                                     /* R.StyleBefore = subArea.marker; */
                                     await R.Build({parent: shadowRoot, range: null
@@ -1457,7 +1459,7 @@ class RCompiler {
                     if (!exports) {
                         let e = srcElm.cloneNode(true) as HTMLScriptElement;
                         document.head.appendChild(e); // 
-                        this.AddedHeaderElements.push(e);
+                        this.AddedHdrElms.push(e);
                         exports = {};
                     }
                 }
@@ -1713,8 +1715,8 @@ class RCompiler {
             }
             else { 
                 /* Iterate over multiple slot instances */
-                let name = atts.get('of', true, true).toLowerCase()
-                    , slot = this.CSignatures.get(name);
+                let nm = atts.get('of', true, true).toLowerCase()
+                    , slot = this.CSignatures.get(nm);
                 if (!slot)
                     throw `Missing attribute [let]`;
 
@@ -1725,13 +1727,13 @@ class RCompiler {
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
                     let {subArea} = PrepArea(srcElm, area),
                         saved= SaveEnv(),
-                        slotDef = env.constructs.get(name),
+                        slotDef = env.constructs.get(nm),
                         setInd = initInd();
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             setInd(idx++);
-                            mapNm(env.constructs, {name, templates: [slotBldr], constructEnv: slotDef.constructEnv});
+                            mapNm(env.constructs, {nm: nm, templates: [slotBldr], constructEnv: slotDef.constructEnv});
                             await bodyBldr.call(this, subArea);
                         }
                     }
@@ -1751,7 +1753,7 @@ class RCompiler {
                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
         let rv  = atts.get('rvar'),
             varNm     = rv || atts.get('let') || atts.get('var', true),
-            getVal    = this.CompParam(atts, 'value'),
+            getVal    = this.CompParam(atts, 'value') || dU,
             getStore    = rv && this.CompAttrExpr<Store>(atts, 'store'),
             bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
             newVar      = this.NewVar(varNm);
@@ -1850,7 +1852,7 @@ class RCompiler {
         for (let signat of signats)
             this.AddConstruct(signat);
                
-        let name = signats[0].name,
+        let nm = signats[0].nm,
         // Deze builder bouwt de component-instances op
             templates = [
                 await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, 
@@ -1861,7 +1863,7 @@ class RCompiler {
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
-            let constr: ConstructDef = {name, templates};
+            let constr: ConstructDef = {nm, templates};
             DefConstruct(constr);
             let saved = SaveEnv();
             try {
@@ -1896,19 +1898,19 @@ class RCompiler {
             this.wspc = this.rspc = WSpc.block;
             let
                 builder = await this.CompChildNodes(contentNode),
-                {name} = signat,
-                customName = /^[A-Z].*-/.test(name) ? name : `rhtml-${name}`;
+                {nm} = signat,
+                customName = /^[A-Z].*-/.test(nm) ? nm : `rhtml-${nm}`;
 
             return async function TEMPLATE(this: RCompiler
                 , area: Area, args: unknown[], mSlotTemplates, slotEnv
                 ) {
                 let saved = SaveEnv(), i = 0;
                 try {
-                    for (let [name, templates] of mSlotTemplates)
-                        DefConstruct({name, templates, constructEnv: slotEnv});
+                    for (let [nm, templates] of mSlotTemplates)
+                        DefConstruct({nm, templates, constructEnv: slotEnv});
                     
-                    for (let [name,lvar] of lvars){
-                        let arg = args[name], dflt: Dependent<unknown>;
+                    for (let [nm,lvar] of lvars){
+                        let arg = args[nm], dflt: Dependent<unknown>;
                         if (arg===u && (dflt = signat.Params[i]?.pDflt))
                             arg = dflt();
                         lvar()(arg);
@@ -1940,38 +1942,40 @@ class RCompiler {
 
     private async CompInstance(
         srcElm: HTMLElement, atts: Atts,
-        signature: Signature
+        signat: Signature
     ) {
-        if (signature.prom)
-            await signature.prom;
-        let {name, RestParam} = signature,
-            contentSlot = signature.Slots.get('content'),
+        if (signat.prom)
+            await signat.prom;
+        let {nm, RestParam} = signat,
+            contentSlot = signat.Slots.get('content'),
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             slotBldrs = new Map<string, Template[]>();
 
-        for (let nm of signature.Slots.keys())
+        for (let nm of signat.Slots.keys())
             slotBldrs.set(nm, []);
 
-        for (let {mode, nm, pDflt} of signature.Params)
+        for (let {mode, nm, pDflt} of signat.Params)
             if (mode=='@') {
-                let attValue = atts.get(mode+nm, !pDflt);
+                let attVal = atts.get(mode+nm, !pDflt);
                 getArgs.push(
-                    attValue
-                    ? [nm, this.CompJScript<unknown>(attValue, mode+nm)
+                    attVal
+                    ? [nm, this.CompJScript<unknown>(attVal, mode+nm)
                         , this.CompJScript<Handler>(
-                            `ORx=>{${attValue}=ORx}`,
+                            `ORx=>{${attVal}=ORx}`,
                             nm
                         )]
                     : [nm, u, ()=>dU ]
                 )
             }
-            else if (mode != '...')
-                getArgs.push([nm, this.CompParam(atts, nm, !pDflt)] );
+            else if (mode != '...') {
+                let dH = this.CompParam(atts, nm, !pDflt);
+                if (dH) getArgs.push([nm, dH]);
+            }
 
         let slotElm: HTMLElement, Slot: Signature;
         for (let node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE 
-                && (Slot = signature.Slots.get((slotElm = (node as HTMLElement)).localName))
+                && (Slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName))
                 && slotElm.localName != 'content'
             ) {
                 slotBldrs.get(slotElm.localName).push(
@@ -1989,7 +1993,7 @@ class RCompiler {
             let modifs = this.CompAttribs(atts);
             getArgs.push([RestParam.nm, 
                 () => modifs.map(
-                    ({mt, name, depV}) => ({mt, name, value: depV()})
+                    ({mt, nm, depV}) => ({mt, nm, value: depV()})
                 )]
             );
         }
@@ -1999,10 +2003,10 @@ class RCompiler {
 
         return async function INSTANCE(this: RCompiler, area: Area) {
             let svEnv = env,
-                cdef = env.constructs.get(name),
+                cdef = env.constructs.get(nm),
                 {range, subArea, bInit} = PrepArea(srcElm, area);
             if (!cdef) return;
-            bReadOnly = true;
+            bReadOnly = 1;
             let args = range.value ||= {};
             for (let [nm, dGet, dSet] of getArgs)
                 if (!dSet)
@@ -2012,10 +2016,10 @@ class RCompiler {
                 else if (dGet)
                     args[nm].V = dGet();
             
-            bReadOnly = false;
+            bReadOnly = 0;
             env = cdef.constructEnv;
             try {
-                for (let {nm, pDflt} of signature.Params)
+                for (let {nm, pDflt} of signat.Params)
                     if (args[nm] === u)
                         args[nm] = pDflt();
                 for (let template of cdef.templates) 
@@ -2029,17 +2033,17 @@ class RCompiler {
     static regInline = /^(button|input|img)$/;
     private async CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
-        let name = srcElm.localName.replace(/\.+$/, ''),
+        let nm = srcElm.localName.replace(/\.+$/, ''),
             preWs = this.wspc
             , postWs: WSpc;
 
-        if (this.mPreformatted.has(name)) {
+        if (this.mPreformatted.has(nm)) {
             this.wspc = WSpc.preserve; postWs = WSpc.block;
         }
-        else if (RCompiler.regBlock.test(name)) {
-            postWs = this.wspc = this.rspc = WSpc.block
-        }
-        else if (RCompiler.regInline.test(name)) {  // Inline-block
+        else if (RCompiler.regBlock.test(nm))
+            postWs = this.wspc = this.rspc = WSpc.block;
+        
+        else if (RCompiler.regInline.test(nm)) {  // Inline-block
             this.wspc = this.rspc = WSpc.block;
             postWs = WSpc.inline;
         }
@@ -2051,18 +2055,18 @@ class RCompiler {
         let modifs = this.CompAttribs(atts)
 
         // Compile the given childnodes into a routine that builds the actual childnodes
-            , childnodesBuilder = await this.CompChildNodes(srcElm);
+            , childnodesBldr = await this.CompChildNodes(srcElm);
 
         if (postWs)
             this.wspc = postWs;
 
         // Now the runtime action
-        let builder: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
-            let {range: {node}, childArea, bInit} = PrepElm(srcElm, area, name);
+        let bldr: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
+            let {range: {node}, childArea, bInit} = PrepElm(srcElm, area, nm);
             
             if (!area.bRootOnly)
                 // Build children
-                await childnodesBuilder.call(this, childArea);
+                await childnodesBldr.call(this, childArea);
 
             node.removeAttribute('class');
             if ((node as any).handlers)
@@ -2072,99 +2076,105 @@ class RCompiler {
             ApplyMods(node, modifs, bInit);
         };
 
-        builder.ws = (postWs == WSpc.block) || preWs < WSpc.preserve && childnodesBuilder.ws;
+        bldr.ws = postWs == WSpc.block 
+                || preWs < WSpc.preserve && childnodesBldr.ws;
         // true when whitespace befóre this element may be removed
 
-        return builder;
+        return bldr;
     }
 
     private CompAttribs(atts: Atts) { 
         let modifs: Array<Modifier> = []
             , m: RegExpExecArray;
 
-        for (let [aName, aVal] of atts) {
-            aName = aName.replace(/\.+$/,'');
+        for (let [aNm, aVal] of atts) {
             try {
-                if (m = /^on(.*?)\.*$/i.exec(aName))               // Events
+                if (m = /(.*?)\.+$/.exec(aNm))
+                    modifs.push({
+                        mt: MType.Attr,
+                        nm: aNm,
+                        depV: this.CompString(aVal, aNm)
+                    });
+                else if (m = /^on(.*?)\.*$/i.exec(aNm))               // Events
                     modifs.push({
                         mt: MType.Event, 
-                        name: CapitalProp(m[0]), 
-                        depV: this.AddErrH(this.CompHandler(aName, aVal))
+                        nm: CapitalProp(m[0]), 
+                        depV: this.AddErrH(this.CompHandler(aNm, aVal))
                     });
-                else if (m = /^#class[:.](.*)$/.exec(aName))
+                else if (m = /^#class[:.](.*)$/.exec(aNm))
                     modifs.push({
-                        mt: MType.Class, name: m[1],
-                        depV: this.CompJScript<boolean>(aVal, aName)
+                        mt: MType.Class, nm: m[1],
+                        depV: this.CompJScript<boolean>(aVal, aNm)
                     });
-                else if (m = /^#style\.(.*)$/.exec(aName))
+                else if (m = /^#style\.(.*)$/.exec(aNm))
                     modifs.push({
-                        mt: MType.Style, name: CapitalProp(m[1]),
-                        depV: this.CompJScript<unknown>(aVal, aName)
+                        mt: MType.Style, nm: CapitalProp(m[1]),
+                        depV: this.CompJScript<unknown>(aVal, aNm)
                     });
-                else if (m = /^style\.(.*)$/.exec(aName))
+                else if (m = /^style\.(.*)$/.exec(aNm))
                     modifs.push({
-                        mt: MType.Style, name: CapitalProp(m[1]),
-                        depV: this.CompString(aVal, aName)
+                        mt: MType.Style, nm: CapitalProp(m[1]),
+                        depV: this.CompString(aVal, aNm)
                     });
-                else if (aName == '+style')
+                else if (aNm == '+style')
                     modifs.push({
-                        mt: MType.AddToStyle, name: null,
-                        depV: this.CompJScript<object>(aVal, aName)
+                        mt: MType.AddToStyle, nm: aNm,
+                        depV: this.CompJScript<object>(aVal, aNm)
                     });
-                else if (aName == "+class")
+                else if (aNm == "+class")
                     modifs.push({
-                        mt: MType.AddToClassList, name: null,
-                        depV: this.CompJScript<object>(aVal, aName)
+                        mt: MType.AddToClassList, nm: aNm,
+                        depV: this.CompJScript<object>(aVal, aNm)
                     });
-                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aName)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
-                    let name = CapitalProp(m[2])
+                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aNm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                    let nm = CapitalProp(m[2])
                         , setter: Dependent<Handler>;
-                    if (name == 'class') name = 'className'
+                    if (nm == 'class') nm = 'className'
                     try {
                         setter = m[1]=='#' ? null : this.CompJScript<Handler>(
-                            `function(){let ORx=this.${name};if(${aVal}!==ORx)${aVal}=ORx}`, aName);
+                            `function(){let ORx=this.${nm};if(${aVal}!==ORx)${aVal}=ORx}`, aNm);
                     }
                     catch(err) { throw `Invalid left-hand side '${aVal}'`} 
                     
                     if (/[@#]/.test(m[1])) {
-                        let depV = this.CompJScript<Handler>(aVal, aName);
+                        let depV = this.CompJScript<Handler>(aVal, aNm);
                         modifs.push(
-                            /^on/.test(name)
-                            ? { mt: MType.Event, name, depV: this.AddErrH(depV as Dependent<Handler>) }
-                            : { mt: MType.Prop,  name, depV }
+                            /^on/.test(nm)
+                            ? { mt: MType.Event, nm, depV: this.AddErrH(depV as Dependent<Handler>) }
+                            : { mt: MType.Prop,  nm, depV }
                         );
                     }
                     if (/\*/.test(m[1]))
-                        modifs.push({ mt: MType.oncreate, name: 'oncreate', depV: setter });
+                        modifs.push({ mt: MType.oncreate, nm: 'oncreate', depV: setter });
                     if (/\+/.test(m[1]))
-                        modifs.push({ mt: MType.onupdate, name: 'onupdate', depV: setter });
+                        modifs.push({ mt: MType.onupdate, nm: 'onupdate', depV: setter });
                     if (/[@!]/.test(m[1]))
                         modifs.push({mt: MType.Event, 
-                            name: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
+                            nm: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
                             depV: setter});         
                 }
-                else if (m = /^\.\.\.(.*)/.exec(aName)) {
+                else if (m = /^\.\.\.(.*)/.exec(aNm)) {
                     if (aVal) throw 'A rest parameter cannot have a value';
                     modifs.push({
-                        mt: MType.RestArgument, name: null,
+                        mt: MType.RestArgument, nm: aNm,
                         depV: this.CompName(m[1])
                     });
                 }
-                else if (aName == 'src')
+                else if (aNm == 'src')
                     modifs.push({
                         mt: MType.Src,
-                        name: this.FilePath,
-                        depV: this.CompString(aVal, aName),
+                        nm: this.FilePath,
+                        depV: this.CompString(aVal, aNm),
                     });
                 else
                     modifs.push({
                         mt: MType.Attr,
-                        name: aName,
-                        depV: this.CompString(aVal, aName)
+                        nm: aNm,
+                        depV: this.CompString(aVal, aNm)
                     });
             }
             catch (err) {
-                throw(`[${aName}]: ${err}`)
+                throw(`[${aNm}]: ${err}`)
             }
         }
         atts.clear();
@@ -2173,11 +2183,11 @@ class RCompiler {
 
     private CompStyle(srcStyle: HTMLElement)  {
         this.head.appendChild(srcStyle);
-        this.AddedHeaderElements.push(srcStyle);
+        this.AddedHdrElms.push(srcStyle);
     }
 
     private regIS: RegExp;
-    private CompString(data: string, name?: string): Dependent<string> & {fixed?: string} {
+    private CompString(data: string, nm?: string): Dependent<string> & {fixed?: string} {
         let 
         // (We can't use negative lookbehinds; Safari does not support them)
             regIS = this.regIS ||= 
@@ -2187,9 +2197,9 @@ class RCompiler {
                     + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|\\\}|.)*?)\}|$/.source
                     , 'gs'
                 ),
-            generators: Array< string | Dependent<unknown> > = [],
-            ws: WSpc = name || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.wspc
-            , isTrivial = true, bThis = false
+            gens: Array< string | Dependent<unknown> > = [],
+            ws: WSpc = nm || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.wspc
+            , isTriv = true, bThis = false
             , lastIndex = regIS.lastIndex = 0
             , dep: Dependent<string> & {fixed?: string;};;
 
@@ -2202,25 +2212,25 @@ class RCompiler {
                     if (ws < WSpc.preserve) {
                         fixed = fixed.replace(/[ \t\n\r]+/g, ' ');  // Reduce whitespace
                         // We can't use \s for whitespace, because that includes nonbreakable space &nbsp;
-                        if (ws <= WSpc.inlineSpc && !generators.length)
+                        if (ws <= WSpc.inlineSpc && !gens.length)
                             fixed = fixed.replace(/^ /,'');     // No initial whitespace
                         if (this.rspc && !m[2] && regIS.lastIndex == data.length)
                             fixed = fixed.replace(/ $/,'');     // No trailing whitespace
                     }
-                    if (fixed) generators.push( fixed );  
+                    if (fixed) gens.push( fixed );  
                 }
                 if (m[2]) {
-                    let getS = this.CompJScript<string>(m[2], name, '{}');
-                    generators.push( getS );
-                    isTrivial = false;
+                    let getS = this.CompJScript<string>(m[2], nm, '{}');
+                    gens.push( getS );
+                    isTriv = false;
                     bThis ||= getS.bThis;
                 }
                 lastIndex = regIS.lastIndex;
             }
         }
         
-        if (isTrivial) {
-            let s = (generators as Array<string>).join('');
+        if (isTriv) {
+            let s = (gens as Array<string>).join('');
             dep = () => s;
             dep.fixed = s
         } else
@@ -2228,20 +2238,20 @@ class RCompiler {
                 function(this: HTMLElement) {
                     try {
                         let s = "";
-                        for (let gen of generators)
+                        for (let gen of gens)
                             s += typeof gen == 'string' ? gen : gen.call(this) ?? '';
                         return s;
                     }
-                    catch (err) { throw name ? `[${name}]: ${err}` : err }
+                    catch (err) { throw nm ? `[${nm}]: ${err}` : err }
                 }
             :   () => {
                 try {
                     let s = "";
-                    for (let gen of generators)
+                    for (let gen of gens)
                         s += typeof gen == 'string' ? gen : gen() ?? '';
                     return s;
                 }
-                catch (err) { throw name ? `[${name}]: ${err}` : err }
+                catch (err) { throw nm ? `[${nm}]: ${err}` : err }
             };
         dep.bThis = bThis;
         return dep;
@@ -2263,18 +2273,13 @@ class RCompiler {
 
             if (literals)
                 reg += quoteReg(literals);
-            if (m[1]) {     // A capturing group
-                reg += `(.*?)`;
-                lvars.push(this.NewVar(m[1]));
-            }
-            else if (m[0] == '?')
-                reg += '.';
-            else if (m[0] == '*')
-                reg += '.*';
-            else if (m[2])  // An escaped character
-                reg += m[2]
-            else            // A character class or "\{"
-                reg += m[0];
+            reg +=
+                m[1]     // A capturing group
+                    ? (lvars.push(this.NewVar(m[1])), `(.*?)`)
+                : m[0] == '?'   ? '.'
+                : m[0] == '*'   ? '.*'
+                : m[2]          ? m[2] // An escaped character
+                                : m[0] // A character class or "\{"
         }
 
         return {lvars, regex: new RegExp(`^${reg}$`, 'i'), url}; 
@@ -2283,7 +2288,7 @@ class RCompiler {
     private CompParam(atts: Atts, attName: string, bReq?: boolean): Dependent<unknown> {
         let v = atts.get(attName);
         return (
-            v == null ? this.CompAttrExpr(atts, attName, bReq) || dU
+            v == null ? this.CompAttrExpr(atts, attName, bReq)
             : /^on/.test(attName) ? this.CompHandler(attName, v)
             : this.CompString(v, attName)
         );
@@ -2292,13 +2297,13 @@ class RCompiler {
         return this.CompJScript<T>(atts.get(attName, bReq, true),attName);
     }
 
-    private CompHandler(name: string, text: string) {
-        return /^#/.test(name) ? this.CompJScript<Handler>(text, name)
-            : this.CompJScript<Handler>(`function(event){${text}\n}`, name)
+    private CompHandler(nm: string, text: string) {
+        return /^#/.test(nm) ? this.CompJScript<Handler>(text, nm)
+            : this.CompJScript<Handler>(`function(event){${text}\n}`, nm)
     }
     private CompJScript<T>(
         expr: string           // Expression to transform into a function
-        , descript?: string             // To be inserted in an errormessage
+        , descrip?: string             // To be inserted in an errormessage
         , delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dependent<T> {
         if (expr == null) return null;
@@ -2307,28 +2312,28 @@ class RCompiler {
             depExpr = bThis ?
                 `'use strict';(function expr([${this.context}]){return (${expr}\n)})`
                 : `'use strict';([${this.context}])=>(${expr}\n)`
-            , errorInfo = `${descript ? `[${descript}] ` : ''}${delims[0]}${Abbrev(expr,60)}${delims[1]}: `;
+            , errorInfo = `${descrip ? `[${descrip}] ` : ''}${delims[0]}${Abbrev(expr,60)}${delims[1]}: `;
 
         try {
-            let routine = gEval(depExpr) as (env:Environment) => T
-            , depValue = (bThis
+            let rout = gEval(depExpr) as (env:Environment) => T
+            , depV = (bThis
                 ? function (this: HTMLElement) {
-                        try { return routine.call(this, env); } 
+                        try { return rout.call(this, env); } 
                         catch (err) { throw errorInfo + err; }
                     }
                 : () => {
-                        try { return routine(env); } 
+                        try { return rout(env); } 
                         catch (err) { throw errorInfo + err; }
                     }
                 ) as Dependent<T>;
-            depValue.bThis = bThis;
-            return depValue;
+            depV.bThis = bThis;
+            return depV;
         }
         catch (err) { throw errorInfo + err }             // Compiletime error
     }
-    private CompName(name: string): Dependent<unknown> {
-        let i = this.ContextMap.get(name);
-        if (i === u) throw `Unknown name '${name}'`;
+    private CompName(nm: string): Dependent<unknown> {
+        let i = this.ContextMap.get(nm);
+        if (i === u) throw `Unknown name '${nm}'`;
         return () => env[i];
     }
     private compAttrExprList<T>(atts: Atts, attName: string, bReacts?: boolean): Dependent<T[]> {
@@ -2489,16 +2494,16 @@ class Atts extends Map<string,string> {
                 super.set(att.name, att.value);
     }
 
-    public get(name: string, bRequired?: boolean, bHashAllowed?: boolean) {
-        let n = name, value = super.get(n);
+    public get(nm: string, bRequired?: boolean, bHashAllowed?: boolean) {
+        let n = nm, value = super.get(n);
         if (value==null && bHashAllowed) {
-            n = '#' + name;
+            n = '#' + nm;
             value = super.get(n);
         }
         if (value != null)
             super.delete(n);
         else if (bRequired)
-            throw `Missing attribute [${name}]`;
+            throw `Missing attribute [${nm}]`;
         return value;
     }
 
@@ -2567,8 +2572,8 @@ function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
     return s;
 }
 
-function mapNm<V extends {name: string}>(m: Map<string, V>, v:V) {
-    m.set(v.name,v);
+function mapNm<V extends {nm: string}>(m: Map<string, V>, v:V) {
+    m.set(v.nm,v);
 }
 function mapSet<V>(m: Map<string, V>, nm: string, v:V) {
     if (v)
@@ -2601,7 +2606,6 @@ function copyStyleSheets(S: Document, D: Document) {
     }
 }
 
-export let R = new RCompiler();
 
 Object.defineProperties(
     globalThis, {
@@ -2609,12 +2613,6 @@ Object.defineProperties(
         RUpdate:    {get: () => R.RUpdate.bind(R)},
     }
 );
-globalThis.RCompile = RCompile;
-globalThis.RBuild = RBuild;
-export let 
-    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, 
-    RUpdate = globalThis.RUpdate as () => void;
-
 let _range = globalThis.range = function* range(from: number, upto?: number, step: number = 1) {
 	if (upto === u) {
 		upto = from;
@@ -2623,31 +2621,41 @@ let _range = globalThis.range = function* range(from: number, upto?: number, ste
 	for (let i= from; i<upto; i += step)
 		yield i;
 }
+globalThis.RCompile = RCompile;
+globalThis.RBuild = RBuild;
+export let 
+    R = new RCompiler(),
+    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, 
+    RUpdate = globalThis.RUpdate as () => void,
+    docLocation: RVAR<string> & 
+        {   basepath: string;
+            subpath: string; 
+            searchParams: URLSearchParams;
+            search: (key: string, value: string) => void
+        }
+        = RVAR<string>('docLocation', location.href) as any,
+    reroute = globalThis.reroute = 
+        (arg: MouseEvent | string) => {
+            if (typeof arg == 'object') {
+                if (arg.ctrlKey)
+                    return;
+                arg.preventDefault();
+                arg = (arg.target as HTMLAnchorElement).href;
+            }
+            docLocation.V = new URL(arg, location.href).href;
+        };
+
 export {_range as range};
-
-export let docLocation: RVAR<string> & 
-    {   basepath: string;
-        subpath: string; 
-        searchParams: URLSearchParams;
-        search: (key: string, value: string) => void
-    }
-    = RVAR<string>('docLocation', location.href) as any;
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substring(docLocation.basepath.length)});
-docLocation.search = (key: string, val: string) => {
-    let url = new URL(location.href);
-    if (val == null)
-        url.searchParams.delete(key);
-    else
-        url.searchParams.set(key, val);
-    return url.href;
-}
-
-window.addEventListener('popstate', () => {docLocation.V = location.href;} );
-
-function ScrollToHash() {
-    if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.substring(1))?.scrollIntoView()), 6);
-}
+docLocation.search = 
+    (key: string, val: string) => {
+        let url = new URL(location.href);
+        if (val == null)
+            url.searchParams.delete(key);
+        else
+            url.searchParams.set(key, val);
+        return url.href;
+    };
 docLocation.Subscribe( () => {
     if (docLocation.V != location.href) {
         history.pushState(null, null, docLocation.V);
@@ -2656,13 +2664,9 @@ docLocation.Subscribe( () => {
     ScrollToHash();
 }, true);
 
-export let reroute = globalThis.reroute = 
-(arg: MouseEvent | string) => {
-    if (typeof arg != 'string') {
-        if (arg.ctrlKey)
-            return;
-        arg.preventDefault();
-        arg = (arg.target as HTMLAnchorElement).href;
-    }
-    docLocation.V = new URL(arg, location.href).href;
+window.addEventListener('popstate', () => {docLocation.V = location.href;} );
+
+function ScrollToHash() {
+    if (location.hash)
+        setTimeout((() => document.getElementById(location.hash.substring(1))?.scrollIntoView()), 6);
 }

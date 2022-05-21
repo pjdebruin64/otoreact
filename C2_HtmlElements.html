@@ -8,12 +8,15 @@
     <br>They may use <a href="#StringInterpolation">string interpolation</a>, and trailing dots are removed.
 </p>
 <demo #srctext=sampleSqrt></demo>
+<p>
+    Attributes starting withan underscore <code>_</code> are ignored. You can use this to insert comments within HTML tags, or to outcomment any attribute.
+</p>
 
 
 <h2>DOM Properties</h2>
 <p>
     The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
-    <br>Rather than setting an attribute, RHTML allows you to directly set the DOM property, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
+    <br>Rather than setting attributes, RHTML allows you to directly set the DOM properties, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
 </p>
 <p>
     Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
@@ -21,7 +24,7 @@
     <br>Furthermore, there are some DOM properties that are not available as HTML attributes at all.
 </p>
 <p>
-    Documentation of all properties can e.g. be found at <a href="{MDN}Web/API#interfaces">MDN</a> or at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
+    Documentation of all properties can be found at <a href="{MDN}Web/API#interfaces">MDN</a> or partly at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
 </p>
 <p>
     When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
@@ -32,6 +35,10 @@
 <p>
     For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
     <br>Setting <code>#on<i>name</i>="<i>expr</i>"</code> is about the same as <code>on<i>name</i>="return (<i>expr</i>)(event)"</code>.
+</p>
+<p>
+    HTML attribute <code>class</code> is special, because it does not correspond to DOM property <code>class</code>, but rather to property <code>className</code>. This is because <code>class</code> is a reserved word in JavaScript.
+    <br>RHTML, however, allows you to set <code>#class</code> as a synonym for <code>#className</code>
 </p>
 
 <h2>HTML DOM Events</h2>
