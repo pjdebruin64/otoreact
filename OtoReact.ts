@@ -1294,7 +1294,7 @@ class RCompiler {
                         this.wspc = this.rspc = WSpc.block;
                         
                         bldr = async function HEAD(this: RCompiler, area: Area) {
-                            let sub = PrepArea(srcElm, area).subArea;
+                            let sub: Area = PrepArea(srcElm, area).subArea;
                             sub.parent = area.parent.ownerDocument.head;
                             await childBuilder.call(this, sub);
                         }
@@ -2087,61 +2087,61 @@ class RCompiler {
         let modifs: Array<Modifier> = []
             , m: RegExpExecArray;
 
-        for (let [aNm, aVal] of atts) {
+        for (let [nm, V] of atts) {
             try {
-                if (m = /(.*?)\.+$/.exec(aNm))
+                if (m = /(.*?)\.+$/.exec(nm))
                     modifs.push({
                         mt: MType.Attr,
-                        nm: aNm,
-                        depV: this.CompString(aVal, aNm)
+                        nm,
+                        depV: this.CompString(V, nm)
                     });
-                else if (m = /^on(.*?)\.*$/i.exec(aNm))               // Events
+                else if (m = /^on(.*?)\.*$/i.exec(nm))               // Events
                     modifs.push({
                         mt: MType.Event, 
                         nm: CapitalProp(m[0]), 
-                        depV: this.AddErrH(this.CompHandler(aNm, aVal))
+                        depV: this.AddErrH(this.CompHandler(nm, V))
                     });
-                else if (m = /^#class[:.](.*)$/.exec(aNm))
+                else if (m = /^#class[:.](.*)$/.exec(nm))
                     modifs.push({
                         mt: MType.Class, nm: m[1],
-                        depV: this.CompJScript<boolean>(aVal, aNm)
+                        depV: this.CompJScript<boolean>(V, nm)
                     });
-                else if (m = /^#style\.(.*)$/.exec(aNm))
+                else if (m = /^#style\.(.*)$/.exec(nm))
                     modifs.push({
                         mt: MType.Style, nm: CapitalProp(m[1]),
-                        depV: this.CompJScript<unknown>(aVal, aNm)
+                        depV: this.CompJScript<unknown>(V, nm)
                     });
-                else if (m = /^style\.(.*)$/.exec(aNm))
+                else if (m = /^style\.(.*)$/.exec(nm))
                     modifs.push({
                         mt: MType.Style, nm: CapitalProp(m[1]),
-                        depV: this.CompString(aVal, aNm)
+                        depV: this.CompString(V, nm)
                     });
-                else if (aNm == '+style')
+                else if (nm == '+style')
                     modifs.push({
-                        mt: MType.AddToStyle, nm: aNm,
-                        depV: this.CompJScript<object>(aVal, aNm)
+                        mt: MType.AddToStyle, nm,
+                        depV: this.CompJScript<object>(V, nm)
                     });
-                else if (aNm == "+class")
+                else if (nm == "+class")
                     modifs.push({
-                        mt: MType.AddToClassList, nm: aNm,
-                        depV: this.CompJScript<object>(aVal, aNm)
+                        mt: MType.AddToClassList, nm,
+                        depV: this.CompJScript<object>(V, nm)
                     });
-                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aNm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
-                    let nm = CapitalProp(m[2])
+                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+                    let m2 = CapitalProp(m[2])
                         , setter: Dependent<Handler>;
-                    if (nm == 'class') nm = 'className'
+                    if (m2 == 'class') m2 = 'className'
                     try {
                         setter = m[1]=='#' ? null : this.CompJScript<Handler>(
-                            `function(){let ORx=this.${nm};if(${aVal}!==ORx)${aVal}=ORx}`, aNm);
+                            `function(){let ORx=this.${m2};if(${V}!==ORx)${V}=ORx}`, nm);
                     }
-                    catch(err) { throw `Invalid left-hand side '${aVal}'`} 
+                    catch(err) { throw `Invalid left-hand side '${V}'`} 
                     
                     if (/[@#]/.test(m[1])) {
-                        let depV = this.CompJScript<Handler>(aVal, aNm);
+                        let depV = this.CompJScript<Handler>(V, nm);
                         modifs.push(
-                            /^on/.test(nm)
-                            ? { mt: MType.Event, nm, depV: this.AddErrH(depV as Dependent<Handler>) }
-                            : { mt: MType.Prop,  nm, depV }
+                            /^on/.test(m2)
+                            ? { mt: MType.Event, nm: m2, depV: this.AddErrH(depV as Dependent<Handler>) }
+                            : { mt: MType.Prop,  nm: m2, depV }
                         );
                     }
                     if (/\*/.test(m[1]))
@@ -2153,28 +2153,28 @@ class RCompiler {
                             nm: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
                             depV: setter});         
                 }
-                else if (m = /^\.\.\.(.*)/.exec(aNm)) {
-                    if (aVal) throw 'A rest parameter cannot have a value';
+                else if (m = /^\.\.\.(.*)/.exec(nm)) {
+                    if (V) throw 'A rest parameter cannot have a value';
                     modifs.push({
-                        mt: MType.RestArgument, nm: aNm,
+                        mt: MType.RestArgument, nm,
                         depV: this.CompName(m[1])
                     });
                 }
-                else if (aNm == 'src')
+                else if (nm == 'src')
                     modifs.push({
                         mt: MType.Src,
                         nm: this.FilePath,
-                        depV: this.CompString(aVal, aNm),
+                        depV: this.CompString(V, nm),
                     });
                 else
                     modifs.push({
                         mt: MType.Attr,
-                        nm: aNm,
-                        depV: this.CompString(aVal, aNm)
+                        nm,
+                        depV: this.CompString(V, nm)
                     });
             }
             catch (err) {
-                throw(`[${aNm}]: ${err}`)
+                throw(`[${nm}]: ${err}`)
             }
         }
         atts.clear();

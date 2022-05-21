@@ -20,7 +20,6 @@
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
     <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
 
-
     <script>
         const 
             wiki = "https://en.wikipedia.org/wiki/",
@@ -43,22 +42,16 @@
         import {RCompile, RVAR, docLocation} from './OtoReact.js?1';
         let popup = RVAR('popup', {display: 'none'});
 
-        try {
-            RCompile(document.body, {bTiming:true, bAbortOnError: false});
+        RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
             docLocation.Subscribe(() => {
                 document.title =
-                    docLocation.subpath == '' ? "The OtoReact Framework"
-                    : /^routing$/i.test(docLocation.subpath) ? "OtoReact Routing"
-                    : /^otolib$/i.test(docLocation.subpath) ? "The OtoLib library"
-                    : /^download$/i.test(docLocation.subpath) ? "OtoReact Download"
+                    /^(index.html)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                    : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
+                    : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
+                    : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
                     : "Page not found";
             }, true);
-            
-        }
-        catch (err) {
-            document.body.appendChild(document.createTextNode(err))
-        }
 
         let LastModified = null, hdrNoCache = new Headers();
         hdrNoCache.append('Cache-Control', 'no-cache');
@@ -103,7 +96,7 @@
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>
-        <when match="">
+        <when regmatch="^(index.html)?$">
             <pageLayout>
                 <pageHead>
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework

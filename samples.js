@@ -1,5 +1,5 @@
 const sampleGreeting=
-`<define rvar='yourName'></define>
+`<define rvar='yourName'  store=sessionStorage></define>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
