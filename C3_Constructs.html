@@ -272,7 +272,8 @@ Further on, <elm>FOR</elm> can have the following attributes:
                 <br>OtoReact functions are available.
                 <br>OtoReact does not recognize which names have been defined, so it cannot automatically put them in the global scope, but you can tell OtoReact which names to put there by adding an attribute <code>defines</code> just as with <elm>SCRIPT type="otoreact/javascript"</elm> described below.
                 <br>One can use strict mode as above.
-                <br>With attributes <code>defer</code>, execution is postponed till the first time the element is being built.
+                <br>With attribute <code>async</code>, fetching and executing is done asynchronously, but ultimately when the respecive DOM tree is being built.
+                <br>With attribute <code>defer</code>, execution is postponed till the first time the DOM tree is being built.
             </li>
         </ul>
     </dd>
@@ -299,21 +300,24 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <br>Names are not automatically defined in global scope, but one can provide a comma-separated <i>nameList</i> telling which names should be put in global scope.
         <br>OtoReact enforces the use of strict mode.
     </dd>
-
-    <dt><elm>SCRIPT type="otoreact;type=module" src? defines?=<i>nameList</i></elm></dt>
-    <dd>
-        OtoReact asynchronously executes the internal or external script as a JavaScript module.
-        <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when building the respective element.
-        <br>When a <i>nameList</i> is given, then the script is required to export the listed names, and OtoReact will define them in global scope.
-    </dd>
     
     <dt><elm>SCRIPT type="otoreact/local" src? defines?=<i>nameList</i></elm></dt>
-    <dt><elm>SCRIPT type="otoreact/local;type=module" src? defines?=<i>nameList</i></elm></dt>
     <dd>
         O
     </dd>
-    
     <dt><elm>SCRIPT type="otoreact/static" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+
+    </dd>
+    
+
+    <dt><elm>SCRIPT type="otoreact;type=module" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+        OtoReact asynchronously executes the internal or external script as a JavaScript <u>module</u>.
+        <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when building the respective element.
+        <br>When a <i>nameList</i> is given, then the script is required to export the listed names, and OtoReact will define them in global scope.
+    </dd>
+    <dt><elm>SCRIPT type="otoreact/local;type=module" src? defines?=<i>nameList</i></elm></dt>
     <dt><elm>SCRIPT type="otoreact/static;type=module" src? defines?=<i>nameList</i></elm></dt>
     <dd>
 

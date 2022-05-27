@@ -1445,7 +1445,7 @@ class RCompiler {
 
     private async CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        let {type, text, defer} = srcElm
+        let {type, text, defer, async} = srcElm
             , src = atts.get('src')     // Niet srcElm.src
             , defs = atts.get('defines')
             , bOto = /^otoreact\b/i.test(type)
@@ -1484,7 +1484,11 @@ class RCompiler {
             }
             else {
                 let prom = (async() => `${bOto ? "'use strict';":""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
-                if (bOto && !defer)
+                if (async)
+                    // Evaluate asynchronously as soon as the script is fetched
+                    prom = prom.then(txt => void (exports = gEval(txt)));
+                else if (!bOto && !defer)
+                    // Evaluate standard classic scripts without defer immediately
                     exports = gEval(await prom);
 
                 return async function SCRIPT(this: RCompiler) {
