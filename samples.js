@@ -12,7 +12,7 @@ const sampleGreeting=
 </if>`;
 
 const sampleServerData2=
-`<script nomodule 
+`<script type=otoreact 
   defines="ColorTable,toHex,handle,StartStop" >
 // Here we store the data. Columns are:
 // name:string, red:number, green:number, blue:number.
@@ -154,7 +154,7 @@ New participant (Enter):
   Getting "Participants.U" means "Participants" will be marked as changed, even though it is not assigned to. -->`;
 
 const sampleTODO=
-`<script nomodule defines=AddItem>
+`<script type=otoreact defines=AddItem>
     // Define the data model of our todo list
     let TODO = RVAR('TODO',
         [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
@@ -295,7 +295,7 @@ const sampleTableMaker =
 </component>
 
 <!-- Some data -->
-<script nomodule defines=tableData>
+<script type=otoreact defines=tableData>
     const tableData = [
         {name:'Piet', age:18}, 
         {name:'Tine', age:19}
@@ -314,7 +314,7 @@ const sampleTableMaker =
 </tablemaker>`;
 
 const sampleTicTacToe = 
-`<script nomodule defines=TicTacToe>
+`<script type=otoreact defines=TicTacToe>
 
     class TicTacToe {
         constructor() {

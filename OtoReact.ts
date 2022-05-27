@@ -1221,7 +1221,7 @@ class RCompiler {
                     } break;
 
                     case 'script': 
-                        bldr = this.CompScript(srcParent, srcElm as HTMLScriptElement, atts); 
+                        bldr = await this.CompScript(srcParent, srcElm as HTMLScriptElement, atts); 
                         isBlank = 1;
                         break;
 
@@ -1443,19 +1443,21 @@ class RCompiler {
         }
     }
 
-    private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
+    private async CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        let {type, text} = srcElm
+        let {type, text, defer} = srcElm
             , src = atts.get('src')     // Niet srcElm.src
             , defs = atts.get('defines')
-            , bMod = /^module$/i.test(type)
+            , bOto = /^otoreact\b/i.test(type)
+            , bMod = /^module$|;\s*type=("?)module\1$/i.test(type)
             , bCls = /^((text|application)\/javascript)?$/i.test(type)
             //, sOType = /^otoreact\/(imports|local|global|static)$|/.exec(sType)[1];
-            , lvars = this.NewVars(defs);
+            , lvars = this.NewVars(defs)
+            , exports: Array<unknown>;
         
         atts.clear();
 
-        if ( (srcElm.noModule || this.Settings.bRunScripts) && (bMod || bCls)) {
+        if (this.Settings.bRunScripts && (bMod || bCls) || bOto) {
             if (bMod) {
                 let prom: Promise<Object> =
                     src
@@ -1472,7 +1474,7 @@ class RCompiler {
                         )
                     ).finally(() => URL.revokeObjectURL(src));
                 return async function SCRIPT(this: RCompiler) {
-                    let exports = await prom;
+                    exports = await prom;
                     for (let init of lvars) {
                         if (!(init.nm in exports))
                             throw `'${init.nm}' is not exported by this script`;
@@ -1481,22 +1483,20 @@ class RCompiler {
                 }
             }
             else {
-                let prom = src ? this.FetchText(src) : (async() => text)()
-                    , exports: Array<unknown>;
+                let prom = (async() => `${bOto ? "'use strict';":""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                if (bOto && !defer)
+                    exports = gEval(await prom);
 
                 return async function SCRIPT(this: RCompiler) {
-                    if (!exports) {
-                        let text = await prom;
-                        exports = gEval(`'use strict'\n;${text}\n;[${defs}]`) as Array<unknown>;
-                    }
+                    if (!exports)
+                        exports = gEval(await prom);
+                    
                     let i=0;
                     for (let init of lvars)
                         init()(exports[i++]);
                 }
             }
         }
-        else if (defs)
-            throw `You must add 'nomodule' if this script has to define OtoReact variables`;
     }
 
     public async CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
@@ -1812,7 +1812,7 @@ class RCompiler {
                 , bldr: DOMBuilder;
             switch (child.nodeName) {
                 case 'SCRIPT':
-                    bldr = this.CompScript(srcElm, child as HTMLScriptElement, childAtts);
+                    bldr = await this.CompScript(srcElm, child as HTMLScriptElement, childAtts);
                     break;
                 case 'STYLE':
                     if (bEncaps)

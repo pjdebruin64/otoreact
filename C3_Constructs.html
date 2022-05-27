@@ -238,7 +238,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=Scripts><{}SCRIPT defines?></h2>
+<h2 id=Scripts><{}SCRIPT type? src? defines?></h2>
 <p>
     Scripts can be included almost anywhere in your application, either embedded or through an external <code>src</code> reference.
 </p>
@@ -249,33 +249,76 @@ Further on, <elm>FOR</elm> can have the following attributes:
     You have to be aware that scripts included in the main document, except those tagged with <code>nomodule</code>, are automatically executed by the browser before OtoReact has had any opportunity to intervene.
 </p>
 <p>
-    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript module.
+    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript <a href="{MDN}Web/JavaScript/Guide/Modules"><i>module</i></a>.
 </p>
-<p>This gives you the following alternatives.</p>
+<p>
+    Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact add a few extra options.
+    <br>Together, you have the following alternatives:
+</p>
 <dl>
-    <dt><elm>SCRIPT [type="text/javascript"] src?</elm> in main file:</dt>
+    <dt><elm>SCRIPT src?</elm></dt>
+    <dt><elm>SCRIPT type="text/javascript" src?</elm></dt>
     <dd>
-        Scripts in the main document file with <code>type="text/javascript"</code> or just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
-        <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
-        <br>So they cannot execute OtoReact functions like <code>RVAR</code>, until OtoReact has been loaded.
-        <br>Names defined in a classic script are automatically put in the global environment and are available in RHTML code.
-        <br>Classic JavaScript is somewhat sloppy about some mistakes and error-prone constructs. One can invoke <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> by placing the statement <code>"use strict";</code> (quotes included) at the beginning of the script, which turns these mistakes and unwanted constructs into errors.
+        <ul>
+            <li>
+                When these elements occur <i>in the main document file</i>, the browser will execute the internal or external script as <u>classic</u> JavaScript <i>while parsing the file</i>.
+                <br>That is <i>before</i> OtoReact has been loaded, so they cannot immediately execute OtoReact functions like <code>RVAR</code>.
+                <br>Any names defined in the script are automatically put in the global scope and are available in RHTML code.
+                <br>One can use <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> by placing the statement <code>"use strict";</code> or <code>'use strict';</code> (quotes included) at the beginning of the script.
+                <br>One can add <code>async</code> or <code>defer</code> as described on <a href="{MDN}Web/HTML/Element/script">MDN</a>.
+            </li>
+            <li>
+                <i>Outside</i> the main file, in included or imported RHTML files, OtoReact will execute these internal or external scripts as classic JavaScript <i>while compiling the file</i>.
+                <br>OtoReact functions are available.
+                <br>OtoReact does not recognize which names have been defined, so it cannot automatically put them in the global scope, but you can tell OtoReact which names to put there by adding an attribute <code>defines</code> just as with <elm>SCRIPT type="otoreact/javascript"</elm> described below.
+                <br>One can use strict mode as above.
+                <br>With attributes <code>defer</code>, execution is postponed till the first time the element is being built.
+            </li>
+        </ul>
     </dd>
 
-    <dt><elm>SCRIPT type="module" src?</elm> in main file:</dt>
+    <dt><elm>SCRIPT type="module" src?</elm></dt>
     <dd>
-        Scripts in the main document file with <code>type=module</code> are treated as a JavaScript <u>module</u>.
-        <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
-        <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
-        <br>Names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+        <ul>
+            <li>
+                When this element occurs <i>in the main document file</i>, the browser will asynchronously execute the internal or external script as a JavaScript <u>module</u>. Multiple module scripts are executed in order of appearance.
+                <br>That means that it will be executed after the whole document has been parsed and, assuming that you import and call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but <i>before</i> the document has been built.
+                <br>To execute OtoReact functions, one can either import the functions from OtoReact.js, or invoke them from global scope.
+                <br>Names defined in a JavaScript module are not automatically put in the global scope. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+                <br>Modules use strict mode automatically.
+            </li>
+            <li>
+                <i>Outside</i> the main file, OtoReact will execute these scripts as JavaScript modules.
+            </li>
+        </ul>
+    </dd>
+
+    <dt><elm>SCRIPT type="otoreact" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+        OtoReact asynchronously fetches the internal or external script, and executes it as <i>classic</i> JavaScript <i>the first time the element is being built</i>.
+        <br>Names are not automatically defined in global scope, but one can provide a comma-separated <i>nameList</i> telling which names should be put in global scope.
+        <br>OtoReact enforces the use of strict mode.
+    </dd>
+
+    <dt><elm>SCRIPT type="otoreact;type=module" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+        OtoReact asynchronously executes the internal or external script as a JavaScript module.
+        <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when building the respective element.
+        <br>When a <i>nameList</i> is given, then the script is required to export the listed names, and OtoReact will define them in global scope.
+    </dd>
+    
+    <dt><elm>SCRIPT type="otoreact/local" src? defines?=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="otoreact/local;type=module" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+        O
+    </dd>
+    
+    <dt><elm>SCRIPT type="otoreact/static" src? defines?=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="otoreact/static;type=module" src? defines?=<i>nameList</i></elm></dt>
+    <dd>
+
     </dd>
 </dl>
-Outside the main document file, i.e. in included files or imported libraries, OtoReact will executes scripts of the types above during compilation:
-<ul>
-    <li>
-        
-    </li>
-</ul>
 
 <!--
 <dl>
