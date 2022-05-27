@@ -861,7 +861,7 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^(?:((?:this)?reacts?on)|#?on(create|update)+|#?on(?:(error)-?|success))$/;
+    static genAtts = /^#?(?:((?:this)?reacts?on)|on(create|update)+|on(?:(error)-?|success))$/;
     private async CompElm(srcParent: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
         ): Promise<[DOMBuilder, ChildNode, number?]> {
         let atts =  new Atts(srcElm),
@@ -913,7 +913,7 @@ class RCompiler {
 
                     case 'if':
                     case 'case': {
-                        let bHiding = CBool(atts.get('hiding')),                         
+                        let bHiding = atts.getB('hiding'),
                             getVal = this.CompAttrExpr<string>(atts, 'value'),
                             caseNodes: Array<{
                                 node: HTMLElement,
@@ -967,7 +967,7 @@ class RCompiler {
                                     case 'IF':
                                     case 'THEN':
                                         cond = this.CompAttrExpr<unknown>(atts, 'cond');
-                                        not = CBool(atts.get('not')) || false;
+                                        not = atts.getB('not') || false;
                                         patt =
                                             (p = atts.get('match')) != null
                                                 ? this.CompPattern(p)
@@ -1081,8 +1081,9 @@ class RCompiler {
 
                     case 'import': {
                         let src = this.GetURL(atts.get('src', true))
+                            , bIncl = atts.getB('include')
                             , vars: Array<LVar & {i?:number}> = this.NewVars(atts.get('defines'))
-                            , bAsync = CBool(atts.get('async'))
+                            , bAsync = atts.getB('async')
                             , listImports = new Array<Signature>()
                             , promModule = RModules.get(src);
                         
@@ -1136,11 +1137,11 @@ class RCompiler {
                                 clientSig.prom = prom;
                         }
                         
-                        bldr = async function IMPORT(this: RCompiler) {
+                        bldr = async function IMPORT(this: RCompiler, reg: Area) {
                             let [bldr] = await promModule
                                 , saveEnv = env
                                 , MEnv = env = NewEnv();
-                            await bldr({parent: document.createDocumentFragment()});
+                            await bldr(bIncl ? reg : {parent: document.createDocumentFragment()});
                             env = saveEnv;
                             
                             for (let {nm} of listImports)
@@ -1158,7 +1159,7 @@ class RCompiler {
                             , getHashes = this.compAttrExprList<unknown>(atts, 'hash')
                             , bodyBuilder = await this.CompChildNodes(srcElm);
                         
-                        bldr = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, CBool(atts.get('renew')));
+                        bldr = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, atts.getB('renew'));
 
                         if (getHashes) {
                             let b = bldr;
@@ -1240,7 +1241,7 @@ class RCompiler {
                             saved = this.SaveCont();
                         try {
                             let
-                                bEncaps = CBool(atts.get('encapsulate')),
+                                bEncaps = atts.getB('encapsulate'),
                                 setVars = this.NewVars(atts.get('params')),
                                 setWin = this.NewVar(atts.get('window')),
                                 docBuilder = await RC.CompChildNodes(srcElm),
@@ -1444,51 +1445,49 @@ class RCompiler {
 
     private CompScript(this:RCompiler, srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
-        let bMod = atts.get('type')?.toLowerCase() == 'module'
-            , bNoMod = atts.get('nomodule') != null
+        let {type, text} = srcElm
+            , src = atts.get('src')     // Niet srcElm.src
             , defs = atts.get('defines')
-            , src = atts.get('src')
-            , bldr: DOMBuilder;
+            , bMod = /^module$/i.test(type)
+            , bCls = /^((text|application)\/javascript)?$/i.test(type)
+            //, sOType = /^otoreact\/(imports|local|global|static)$|/.exec(sType)[1];
+            , lvars = this.NewVars(defs);
+        
+        atts.clear();
 
-        if ( bNoMod || this.Settings.bRunScripts) {
-            let script = srcElm.text+'\n'
-                , lvars = this.NewVars(defs)
-                , exports: Object;
-            bldr = async function SCRIPT(this: RCompiler) {
-                if (!(bMod || bNoMod || defs || this.Settings.bRunScripts)) {
-                    if (!exports) {
-                        let e = srcElm.cloneNode(true) as HTMLScriptElement;
-                        document.head.appendChild(e); // 
-                        this.AddedHdrElms.push(e);
-                        exports = {};
-                    }
-                }
-                else if (bMod) {
-                    // Execute the script now
-                    if (!exports) {
-                        if (src) 
-                            exports = await import(this.GetURL(src));
-                        else
-                            try {
-                                script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
-                                // Thanks https://stackoverflow.com/a/67359410/2061591
-                                exports = await import(
-                                    URL.createObjectURL(new Blob([script], {type: 'application/javascript'}))
-                                );
-                            }
-                            finally { URL.revokeObjectURL(src); }
-                    }
+        if ( (srcElm.noModule || this.Settings.bRunScripts) && (bMod || bCls)) {
+            if (bMod) {
+                let prom: Promise<Object> =
+                    src
+                    ? import(this.GetURL(src))
+                    : import(
+                        src = URL.createObjectURL(
+                            new Blob(
+                                [ text.replace(
+                                    /(\sfrom\s*['"])([^'"]*)(['"])/g,
+                                    (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`
+                                ) ]
+                                , {type: 'text/javascript'}
+                            )
+                        )
+                    ).finally(() => URL.revokeObjectURL(src));
+                return async function SCRIPT(this: RCompiler) {
+                    let exports = await prom;
                     for (let init of lvars) {
                         if (!(init.nm in exports))
                             throw `'${init.nm}' is not exported by this script`;
                         init()(exports[init.nm]);
                     }
                 }
-                else  {
+            }
+            else {
+                let prom = src ? this.FetchText(src) : (async() => text)()
+                    , exports: Array<unknown>;
+
+                return async function SCRIPT(this: RCompiler) {
                     if (!exports) {
-                        if (src)
-                            script = await this.FetchText(src);
-                        exports = gEval(`'use strict'\n;${script};[${defs}]\n`) as Array<unknown>;
+                        let text = await prom;
+                        exports = gEval(`'use strict'\n;${text}\n;[${defs}]`) as Array<unknown>;
                     }
                     let i=0;
                     for (let init of lvars)
@@ -1498,8 +1497,6 @@ class RCompiler {
         }
         else if (defs)
             throw `You must add 'nomodule' if this script has to define OtoReact variables`;
-        atts.clear();
-        return bldr;
     }
 
     public async CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
@@ -1516,7 +1513,7 @@ class RCompiler {
                 
                 let getRange = this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', true),
                 getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
-                bReacting = CBool(atts.get('reacting') ?? atts.get('reactive')) || !!getUpdatesTo,
+                bReacting = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
                 initVar = this.NewVar(varName),
@@ -1755,7 +1752,7 @@ class RCompiler {
             varNm     = rv || atts.get('let') || atts.get('var', true),
             getVal    = this.CompParam(atts, 'value') || dU,
             getStore    = rv && this.CompAttrExpr<Store>(atts, 'store'),
-            bReact      = CBool(atts.get('reacting') ?? atts.get('updating')),
+            bReact      = atts.getB('reacting') || atts.getB('updating'),
             newVar      = this.NewVar(varNm);
         
         return [async function DEF(this: RCompiler, area) {
@@ -1805,7 +1802,7 @@ class RCompiler {
     private async CompComponent(srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
         let builders: [DOMBuilder, ChildNode][] = [],
-            bEncaps = CBool(atts.get('encapsulate')),
+            bEncaps = atts.getB('encapsulate'),
             styles: Node[] = [],
             {wspc} = this
             , signats: Array<Signature> = [], elmTemplate: HTMLTemplateElement;
@@ -2506,6 +2503,20 @@ class Atts extends Map<string,string> {
             throw `Missing attribute [${nm}]`;
         return value;
     }
+    public getB(nm: string) { 
+        let s = this.get(nm);
+        if (s != null)
+            switch (s.toLowerCase()) {
+                case "":
+                case "yes":
+                case "true":
+                    return true;
+                case "no":
+                case "false":
+                    return false;
+            }
+        return null;
+    }
 
     public ChkNoAttsLeft() {  
         if (super.size)
@@ -2553,23 +2564,6 @@ function Abbrev(s: string, maxLength: number) {
     return (maxLength && s.length > maxLength
         ? s.substring(0, maxLength - 3) + "..."
         : s);
-}
-
-function CBool(s: string|boolean, valOnEmpty: boolean = true): boolean {
-    if (typeof s == 'string')
-        switch (s.toLowerCase()) {
-            case "yes":
-            case "true":
-                return true;
-            case "no":
-            case "false":
-                return false;
-            case "":
-                return valOnEmpty;
-            default:
-                return null;
-        }
-    return s;
 }
 
 function mapNm<V extends {nm: string}>(m: Map<string, V>, v:V) {
@@ -2656,10 +2650,10 @@ docLocation.search =
             url.searchParams.set(key, val);
         return url.href;
     };
-docLocation.Subscribe( () => {
-    if (docLocation.V != location.href) {
-        history.pushState(null, null, docLocation.V);
-    }
+docLocation.Subscribe( loc => {
+    if (loc != location.href)
+        history.pushState(null, null, loc);
+    
     docLocation.searchParams = new URLSearchParams(location.search);
     ScrollToHash();
 }, true);

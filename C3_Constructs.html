@@ -249,26 +249,36 @@ Further on, <elm>FOR</elm> can have the following attributes:
     You have to be aware that scripts included in the main document, except those tagged with <code>nomodule</code>, are automatically executed by the browser before OtoReact has had any opportunity to intervene.
 </p>
 <p>
-    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, and that OtoReact is imported as a JavaScript module.
+    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript module.
 </p>
-<p>This gives you the followingalternatives.</p>
+<p>This gives you the following alternatives.</p>
 <dl>
-    <dt><elm>SCRIPT src?</elm> in main file:</dt>
+    <dt><elm>SCRIPT [type="text/javascript"] src?</elm> in main file:</dt>
     <dd>
-        Scripts in the main document file with just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
+        Scripts in the main document file with <code>type="text/javascript"</code> or just <elm>SCRIPT</elm> are treated as <u>classic</u> JavaScript.
         <br>That means that they will be executed as soon as they are parsed, and that is <i>before</i> OtoReact has been loaded.
         <br>So they cannot execute OtoReact functions like <code>RVAR</code>, until OtoReact has been loaded.
         <br>Names defined in a classic script are automatically put in the global environment and are available in RHTML code.
+        <br>Classic JavaScript is somewhat sloppy about some mistakes and error-prone constructs. One can invoke <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> by placing the statement <code>"use strict";</code> (quotes included) at the beginning of the script, which turns these mistakes and unwanted constructs into errors.
     </dd>
 
-    <dt><elm>SCRIPT type=module src?</elm> in main file:</dt>
+    <dt><elm>SCRIPT type="module" src?</elm> in main file:</dt>
     <dd>
         Scripts in the main document file with <code>type=module</code> are treated as a JavaScript <u>module</u>.
         <br>That means that it will be executed after the whole document has been parsed and, assuming that you call OtoReact at the top of your document, <i>after</i> OtoReact has been loaded and has compiled your document, but before the document has been built.
         <br>So one can immediately call OtoReact functions like <code>RVAR</code>.
         <br>Names defined in a JavaScript module are not automatically put in the global environment. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
     </dd>
+</dl>
+Outside the main document file, i.e. in included files or imported libraries, OtoReact will executes scripts of the types above during compilation:
+<ul>
+    <li>
+        
+    </li>
+</ul>
 
+<!--
+<dl>
     <dt>
         <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere;
         <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>:
@@ -306,6 +316,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         <br>These are always skipped by the browser, and always executed by OtoReact.
     </dd>
 </dl>
+-->
 
 <h2 id=React><{}REACT on? hash? renew?></h2>
 <pre class=sourcecode>

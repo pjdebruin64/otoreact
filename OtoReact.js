@@ -657,7 +657,7 @@ class RCompiler {
                     case 'if':
                     case 'case':
                         {
-                            let bHiding = CBool(atts.get('hiding')), getVal = this.CompAttrExpr(atts, 'value'), caseNodes = [], body = [], bThen = false;
+                            let bHiding = atts.getB('hiding'), getVal = this.CompAttrExpr(atts, 'value'), caseNodes = [], body = [], bThen = false;
                             for (let node of srcElm.childNodes) {
                                 if (node.nodeType == Node.ELEMENT_NODE)
                                     switch (node.nodeName) {
@@ -690,7 +690,7 @@ class RCompiler {
                                         case 'IF':
                                         case 'THEN':
                                             cond = this.CompAttrExpr(atts, 'cond');
-                                            not = CBool(atts.get('not')) || false;
+                                            not = atts.getB('not') || false;
                                             patt =
                                                 (p = atts.get('match')) != null
                                                     ? this.CompPattern(p)
@@ -792,7 +792,7 @@ class RCompiler {
                         break;
                     case 'import':
                         {
-                            let src = this.GetURL(atts.get('src', true)), vars = this.NewVars(atts.get('defines')), bAsync = CBool(atts.get('async')), listImports = new Array(), promModule = RModules.get(src);
+                            let src = this.GetURL(atts.get('src', true)), bIncl = atts.getB('include'), vars = this.NewVars(atts.get('defines')), bAsync = atts.getB('async'), listImports = new Array(), promModule = RModules.get(src);
                             for (let child of srcElm.children) {
                                 let sign = this.ParseSignat(child);
                                 listImports.push(sign);
@@ -829,9 +829,9 @@ class RCompiler {
                                 for (let clientSig of listImports)
                                     clientSig.prom = prom;
                             }
-                            bldr = async function IMPORT() {
+                            bldr = async function IMPORT(reg) {
                                 let [bldr] = await promModule, saveEnv = env, MEnv = env = NewEnv();
-                                await bldr({ parent: document.createDocumentFragment() });
+                                await bldr(bIncl ? reg : { parent: document.createDocumentFragment() });
                                 env = saveEnv;
                                 for (let { nm } of listImports)
                                     DefConstruct(MEnv.constructs.get(nm));
@@ -844,7 +844,7 @@ class RCompiler {
                     case 'react':
                         {
                             let getRvars = this.compAttrExprList(atts, 'on', true), getHashes = this.compAttrExprList(atts, 'hash'), bodyBuilder = await this.CompChildNodes(srcElm);
-                            bldr = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, CBool(atts.get('renew')));
+                            bldr = this.GetREACT(srcElm, 'on', bodyBuilder, getRvars, atts.getB('renew'));
                             if (getHashes) {
                                 let b = bldr;
                                 bldr = async function HASH(area) {
@@ -908,7 +908,7 @@ class RCompiler {
                         {
                             let newVar = this.NewVar(atts.get('name', true)), RC = this, saved = this.SaveCont();
                             try {
-                                let bEncaps = CBool(atts.get('encapsulate')), setVars = this.NewVars(atts.get('params')), setWin = this.NewVar(atts.get('window')), docBuilder = await RC.CompChildNodes(srcElm), docDef = (docEnv) => {
+                                let bEncaps = atts.getB('encapsulate'), setVars = this.NewVars(atts.get('params')), setWin = this.NewVar(atts.get('window')), docBuilder = await RC.CompChildNodes(srcElm), docDef = (docEnv) => {
                                     docEnv = CloneEnv(docEnv);
                                     return {
                                         async render(W, args) {
@@ -1087,53 +1087,37 @@ class RCompiler {
         }
     }
     CompScript(srcParent, srcElm, atts) {
-        let bMod = atts.get('type')?.toLowerCase() == 'module', bNoMod = atts.get('nomodule') != null, defs = atts.get('defines'), src = atts.get('src'), bldr;
-        if (bNoMod || this.Settings.bRunScripts) {
-            let script = srcElm.text + '\n', lvars = this.NewVars(defs), exports;
-            bldr = async function SCRIPT() {
-                if (!(bMod || bNoMod || defs || this.Settings.bRunScripts)) {
-                    if (!exports) {
-                        let e = srcElm.cloneNode(true);
-                        document.head.appendChild(e);
-                        this.AddedHdrElms.push(e);
-                        exports = {};
-                    }
-                }
-                else if (bMod) {
-                    if (!exports) {
-                        if (src)
-                            exports = await import(this.GetURL(src));
-                        else
-                            try {
-                                script = script.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`);
-                                exports = await import(URL.createObjectURL(new Blob([script], { type: 'application/javascript' })));
-                            }
-                            finally {
-                                URL.revokeObjectURL(src);
-                            }
-                    }
+        let { type, text } = srcElm, src = atts.get('src'), defs = atts.get('defines'), bMod = /^module$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), lvars = this.NewVars(defs);
+        atts.clear();
+        if ((srcElm.noModule || this.Settings.bRunScripts) && (bMod || bCls)) {
+            if (bMod) {
+                let prom = src
+                    ? import(this.GetURL(src))
+                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
+                return async function SCRIPT() {
+                    let exports = await prom;
                     for (let init of lvars) {
                         if (!(init.nm in exports))
                             throw `'${init.nm}' is not exported by this script`;
                         init()(exports[init.nm]);
                     }
-                }
-                else {
+                };
+            }
+            else {
+                let prom = src ? this.FetchText(src) : (async () => text)(), exports;
+                return async function SCRIPT() {
                     if (!exports) {
-                        if (src)
-                            script = await this.FetchText(src);
-                        exports = gEval(`'use strict'\n;${script};[${defs}]\n`);
+                        let text = await prom;
+                        exports = gEval(`'use strict'\n;${text}\n;[${defs}]`);
                     }
                     let i = 0;
                     for (let init of lvars)
                         init()(exports[i++]);
-                }
-            };
+                };
+            }
         }
         else if (defs)
             throw `You must add 'nomodule' if this script has to define OtoReact variables`;
-        atts.clear();
-        return bldr;
     }
     async CompFor(srcParent, srcElm, atts) {
         let varName = atts.get('let') ?? atts.get('var'), ixName = atts.get('index'), saved = this.SaveCont();
@@ -1146,7 +1130,7 @@ class RCompiler {
                     prevNm = 'previous';
                 if (nextNm == '')
                     nextNm = 'next';
-                let getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = CBool(atts.get('reacting') ?? atts.get('reactive')) || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(ixName), initPrev = this.NewVar(prevNm), initNext = this.NewVar(nextNm), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = await this.CompChildNodes(srcElm);
+                let getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(ixName), initPrev = this.NewVar(prevNm), initNext = this.NewVar(nextNm), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = await this.CompChildNodes(srcElm);
                 return async function FOR(area) {
                     let { range, subArea } = PrepArea(srcElm, area, ''), { parent } = subArea, before = subArea.before !== u ? subArea.before : range.Next, iterable = getRange(), pIter = async (iter) => {
                         let svEnv = SaveEnv();
@@ -1317,7 +1301,7 @@ class RCompiler {
         for (let C of srcElm.childNodes)
             if (C.nodeType != Node.TEXT_NODE || !/^\s*$/.test(C.data))
                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
-        let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', true), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = CBool(atts.get('reacting') ?? atts.get('updating')), newVar = this.NewVar(varNm);
+        let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', true), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = atts.getB('reacting') || atts.getB('updating'), newVar = this.NewVar(varNm);
         return [async function DEF(area) {
                 let { range, bInit } = PrepArea(srcElm, area);
                 if (bInit || bReact) {
@@ -1359,7 +1343,7 @@ class RCompiler {
         return signat;
     }
     async CompComponent(srcElm, atts) {
-        let builders = [], bEncaps = CBool(atts.get('encapsulate')), styles = [], { wspc } = this, signats = [], elmTemplate;
+        let builders = [], bEncaps = atts.getB('encapsulate'), styles = [], { wspc } = this, signats = [], elmTemplate;
         for (let child of Array.from(srcElm.children)) {
             let childAtts = new Atts(child), bldr;
             switch (child.nodeName) {
@@ -1566,60 +1550,60 @@ class RCompiler {
     }
     CompAttribs(atts) {
         let modifs = [], m;
-        for (let [aNm, aVal] of atts) {
+        for (let [nm, V] of atts) {
             try {
-                if (m = /(.*?)\.+$/.exec(aNm))
+                if (m = /(.*?)\.+$/.exec(nm))
                     modifs.push({
                         mt: 0,
-                        nm: aNm,
-                        depV: this.CompString(aVal, aNm)
+                        nm,
+                        depV: this.CompString(V, nm)
                     });
-                else if (m = /^on(.*?)\.*$/i.exec(aNm))
+                else if (m = /^on(.*?)\.*$/i.exec(nm))
                     modifs.push({
                         mt: 5,
                         nm: CapitalProp(m[0]),
-                        depV: this.AddErrH(this.CompHandler(aNm, aVal))
+                        depV: this.AddErrH(this.CompHandler(nm, V))
                     });
-                else if (m = /^#class[:.](.*)$/.exec(aNm))
+                else if (m = /^#class[:.](.*)$/.exec(nm))
                     modifs.push({
                         mt: 3, nm: m[1],
-                        depV: this.CompJScript(aVal, aNm)
+                        depV: this.CompJScript(V, nm)
                     });
-                else if (m = /^#style\.(.*)$/.exec(aNm))
+                else if (m = /^#style\.(.*)$/.exec(nm))
                     modifs.push({
                         mt: 4, nm: CapitalProp(m[1]),
-                        depV: this.CompJScript(aVal, aNm)
+                        depV: this.CompJScript(V, nm)
                     });
-                else if (m = /^style\.(.*)$/.exec(aNm))
+                else if (m = /^style\.(.*)$/.exec(nm))
                     modifs.push({
                         mt: 4, nm: CapitalProp(m[1]),
-                        depV: this.CompString(aVal, aNm)
+                        depV: this.CompString(V, nm)
                     });
-                else if (aNm == '+style')
+                else if (nm == '+style')
                     modifs.push({
-                        mt: 6, nm: aNm,
-                        depV: this.CompJScript(aVal, aNm)
+                        mt: 6, nm,
+                        depV: this.CompJScript(V, nm)
                     });
-                else if (aNm == "+class")
+                else if (nm == "+class")
                     modifs.push({
-                        mt: 7, nm: aNm,
-                        depV: this.CompJScript(aVal, aNm)
+                        mt: 7, nm,
+                        depV: this.CompJScript(V, nm)
                     });
-                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(aNm)) {
-                    let nm = CapitalProp(m[2]), setter;
-                    if (nm == 'class')
-                        nm = 'className';
+                else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
+                    let m2 = CapitalProp(m[2]), setter;
+                    if (m2 == 'class')
+                        m2 = 'className';
                     try {
-                        setter = m[1] == '#' ? null : this.CompJScript(`function(){let ORx=this.${nm};if(${aVal}!==ORx)${aVal}=ORx}`, aNm);
+                        setter = m[1] == '#' ? null : this.CompJScript(`function(){let ORx=this.${m2};if(${V}!==ORx)${V}=ORx}`, nm);
                     }
                     catch (err) {
-                        throw `Invalid left-hand side '${aVal}'`;
+                        throw `Invalid left-hand side '${V}'`;
                     }
                     if (/[@#]/.test(m[1])) {
-                        let depV = this.CompJScript(aVal, aNm);
-                        modifs.push(/^on/.test(nm)
-                            ? { mt: 5, nm, depV: this.AddErrH(depV) }
-                            : { mt: 1, nm, depV });
+                        let depV = this.CompJScript(V, nm);
+                        modifs.push(/^on/.test(m2)
+                            ? { mt: 5, nm: m2, depV: this.AddErrH(depV) }
+                            : { mt: 1, nm: m2, depV });
                     }
                     if (/\*/.test(m[1]))
                         modifs.push({ mt: 9, nm: 'oncreate', depV: setter });
@@ -1630,29 +1614,29 @@ class RCompiler {
                             nm: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput',
                             depV: setter });
                 }
-                else if (m = /^\.\.\.(.*)/.exec(aNm)) {
-                    if (aVal)
+                else if (m = /^\.\.\.(.*)/.exec(nm)) {
+                    if (V)
                         throw 'A rest parameter cannot have a value';
                     modifs.push({
-                        mt: 8, nm: aNm,
+                        mt: 8, nm,
                         depV: this.CompName(m[1])
                     });
                 }
-                else if (aNm == 'src')
+                else if (nm == 'src')
                     modifs.push({
                         mt: 2,
                         nm: this.FilePath,
-                        depV: this.CompString(aVal, aNm),
+                        depV: this.CompString(V, nm),
                     });
                 else
                     modifs.push({
                         mt: 0,
-                        nm: aNm,
-                        depV: this.CompString(aVal, aNm)
+                        nm,
+                        depV: this.CompString(V, nm)
                     });
             }
             catch (err) {
-                throw (`[${aNm}]: ${err}`);
+                throw (`[${nm}]: ${err}`);
             }
         }
         atts.clear();
@@ -1832,7 +1816,7 @@ class RCompiler {
     }
 }
 RCompiler.iNum = 0;
-RCompiler.genAtts = /^(?:((?:this)?reacts?on)|#?on(create|update)+|#?on(?:(error)-?|success))$/;
+RCompiler.genAtts = /^#?(?:((?:this)?reacts?on)|on(create|update)+|on(?:(error)-?|success))$/;
 RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
 RCompiler.regInline = /^(button|input|img)$/;
 export async function RFetch(input, init) {
@@ -1936,6 +1920,20 @@ class Atts extends Map {
             throw `Missing attribute [${nm}]`;
         return value;
     }
+    getB(nm) {
+        let s = this.get(nm);
+        if (s != null)
+            switch (s.toLowerCase()) {
+                case "":
+                case "yes":
+                case "true":
+                    return true;
+                case "no":
+                case "false":
+                    return false;
+            }
+        return null;
+    }
     ChkNoAttsLeft() {
         if (super.size)
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
@@ -1967,22 +1965,6 @@ function Abbrev(s, maxLength) {
     return (maxLength && s.length > maxLength
         ? s.substring(0, maxLength - 3) + "..."
         : s);
-}
-function CBool(s, valOnEmpty = true) {
-    if (typeof s == 'string')
-        switch (s.toLowerCase()) {
-            case "yes":
-            case "true":
-                return true;
-            case "no":
-            case "false":
-                return false;
-            case "":
-                return valOnEmpty;
-            default:
-                return null;
-        }
-    return s;
 }
 function mapNm(m, v) {
     m.set(v.nm, v);
@@ -2049,10 +2031,9 @@ docLocation.search =
             url.searchParams.set(key, val);
         return url.href;
     };
-docLocation.Subscribe(() => {
-    if (docLocation.V != location.href) {
-        history.pushState(null, null, docLocation.V);
-    }
+docLocation.Subscribe(loc => {
+    if (loc != location.href)
+        history.pushState(null, null, loc);
     docLocation.searchParams = new URLSearchParams(location.search);
     ScrollToHash();
 }, true);

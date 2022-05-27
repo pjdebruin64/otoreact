@@ -187,6 +187,7 @@ export interface RVAR<T = unknown> extends _RVAR<T> {
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
     get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
+    getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
 declare let _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
