@@ -50,7 +50,7 @@
 Explanation:
 <ul>
     <li>
-        <elm>define rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
+        <elm>DEFINE rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
         <ul>
             <li><code>yourName.V</code> denotes the value of the variable.</li>
         </ul>
@@ -63,6 +63,21 @@ Explanation:
     </li>
     <li>
         <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code> are embedded expressions. The rendered document will contain the value of the expression between the braces.
+    </li>
+</ul>
+
+<h4>Multiplication tables</h4>
+<demo #srctext="demoTables"></demo>
+Explanation:
+<ul>
+    <li>
+        <elm>DEF rvar=maxY ...</elm> is an abbreviation of <elm>DEFINE ...</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to be persisted in sessionStorage.
+    </li>
+    <li>
+        Attributing <elm>INPUT type=number !valueAsNumber=maxY.V</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
+    </li>
+    <li>
+        <elm>FOR let=y of="range(1,maxY.V+1)"</elm> lets local variable <code>y</code> iterate through the values of <code>range(1,maxY.V+1)</code>, which are the numbers 1 to maxY.V.
     </li>
 </ul>
 
@@ -386,6 +401,7 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
     <li><code>localStorage</code>, meaning that the value will be preserved in local browser storage and restored when the user returns to the same site in the same browser on the same machine</li>
     <li>Any other object that supports the <code>setItem</code> and <code>getItem</code> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
+        <br>It could be an object that saves values to a database.
     </li>
 </ul>
 <p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>.</p>

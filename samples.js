@@ -1,15 +1,15 @@
 const sampleGreeting=
-`<define rvar='yourName'  store=sessionStorage></define>
+`<DEFINE rvar='yourName' store=sessionStorage></DEFINE>
 <p>
     What's your name?
     <input type=text @value="yourName.V">
 </p>
-<if cond="yourName.V">
+<IF cond="yourName.V">
     <p>
         Nice to meet you, {yourName.V}.
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
-</if>`;
+</IF>`;
 
 const sampleServerData2=
 `<script type=otoreact 
@@ -649,3 +649,33 @@ const demoCheckbox=
 <button onclick="check.V = null">Set to indeterminate</button>
 
  <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
+
+const demoTables =
+`<style>
+  * {
+    text-align: center;
+  }
+  div.flex {
+    display: flex; flex-wrap: wrap;
+    gap: 2ex; justify-content: center;
+  }
+  input { text-align: right; width: 8ex; }
+</style>
+
+<DEF rvar=maxY #value=10 store=sessionStorage></DEF>
+<DEF rvar=maxX #value=10 store=sessionStorage></DEF>
+
+<p>
+  Number of tables: <input type=number #value=maxY.V !valueAsNumber=maxY.V>
+  Number of rows: <input type=number #value=maxX.V !valueAsNumber=maxX.V>
+</p>
+
+<div class=flex>
+  <FOR let=y of="range(1,maxY.V+1)">
+      <div>
+          <FOR let=x of="range(1,maxX.V+1)">
+              <div>{x} x {y} = {x * y}</div>
+          </FOR>
+      </div>
+  </FOR>
+</div>`
