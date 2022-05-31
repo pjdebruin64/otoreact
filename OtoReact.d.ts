@@ -95,11 +95,12 @@ declare class RCompiler {
     private AddedHdrElms;
     FilePath: string;
     RootElm: ParentNode;
-    constructor(RC?: RCompiler);
+    constructor(RC?: RCompiler, bClr?: boolean);
     private restoreActions;
     private SaveCont;
     private RestoreCont;
     private NewVar;
+    private SetVar;
     private NewVars;
     private AddConstruct;
     Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): Promise<void>;
@@ -132,7 +133,7 @@ declare class RCompiler {
     private GetREACT;
     private CallWithHandling;
     private CompScript;
-    CompFor(this: RCompiler, srcParent: ParentNode, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
+    CompFor(this: RCompiler, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
     private CompDefine;
     private ParseSignat;
     private CompComponent;

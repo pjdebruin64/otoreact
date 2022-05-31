@@ -643,7 +643,9 @@ const demoCheckbox=
 `<import src="OtoLib.html"><checkbox></checkbox></import>
 
 <def rvar="check" #value="null"></def>
-<checkbox @value="check.V">Label</checkbox>
-<br><button onclick="check.V = null">Set to indeterminate</button>
+
+<checkbox @value="check.V">Click me</checkbox>
+<br>
+<button onclick="check.V = null">Set to indeterminate</button>
 
  <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;

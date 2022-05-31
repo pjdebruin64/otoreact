@@ -308,7 +308,7 @@ function DefConstruct(C) {
 }
 let updCnt = 0;
 class RCompiler {
-    constructor(RC) {
+    constructor(RC, bClr) {
         this.num = RCompiler.iNum++;
         this.cRvars = new Map();
         this.restoreActions = [];
@@ -323,15 +323,17 @@ class RCompiler {
         this.bUpdate = false;
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
+        this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
+        this.RC = RC || (RC = this);
+        this.FilePath = RC.FilePath;
+        this.head = RC.head || document.head;
+        if (bClr)
+            RC = this;
         this.context = RC?.context || "";
         this.ContextMap = RC ? new Map(RC.ContextMap) : new Map();
         this.CSignatures = RC ? new Map(RC.CSignatures) : new Map();
-        this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
-        this.RC = RC || (RC = this);
         this.AddedHdrElms = RC.AddedHdrElms || [];
-        this.head = RC.head || document.head;
         this.StyleBefore = RC.StyleBefore;
-        this.FilePath = RC.FilePath;
     }
     SaveCont() {
         return this.restoreActions.length;
@@ -341,9 +343,9 @@ class RCompiler {
             this.restoreActions.pop()();
     }
     NewVar(nm) {
-        let init;
+        let lv;
         if (!nm)
-            init = (() => (_) => { });
+            lv = ((_) => { });
         else {
             nm = CheckIdentifier(nm);
             let i = this.ContextMap.get(nm);
@@ -356,20 +358,25 @@ class RCompiler {
                     this.ContextMap.delete(nm);
                     this.context = prevCont;
                 });
-                init = (() => {
+                lv = ((v) => {
                     envActions.push(() => { env.length = i; });
-                    return (v) => { env[i] = v; };
+                    env[i] = v;
                 });
             }
             else
-                init = (() => {
+                lv = ((v) => {
                     let prev = env[i];
                     envActions.push(() => { env[i] = prev; });
-                    return (v) => { env[i] = v; };
+                    env[i] = v;
                 });
+            lv.I = i;
         }
-        init.nm = nm;
-        return init;
+        lv.nm = nm;
+        return lv;
+    }
+    SetVar(lv, v) {
+        if (lv.I >= 0)
+            env[lv.I] = v;
     }
     NewVars(varlist) {
         return (varlist
@@ -614,7 +621,7 @@ class RCompiler {
         Iter.ws = builders[0][0].ws;
         return Iter;
     }
-    async CompElm(srcParent, srcElm, bUnhide) {
+    async CompElm(srcPrnt, srcElm, bUnhide) {
         let atts = new Atts(srcElm), reacts = [], genMods = [], depOnerr, depOnsucc, bldr, elmBldr, isBlank, m;
         if (bUnhide)
             atts.set('#hidden', 'false');
@@ -758,8 +765,8 @@ class RCompiler {
                                             let saved = SaveEnv(), i = 0;
                                             try {
                                                 if (choosenAlt.patt)
-                                                    for (let lvar of choosenAlt.patt.lvars)
-                                                        lvar()((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[++i]));
+                                                    for (let lv of choosenAlt.patt.lvars)
+                                                        lv((choosenAlt.patt.url ? decodeURIComponent : (r) => r)(matchResult[++i]));
                                                 await this.CallWithHandling(choosenAlt.builder, choosenAlt.node, subArea);
                                             }
                                             finally {
@@ -772,7 +779,7 @@ class RCompiler {
                         break;
                     case 'for':
                     case 'foreach':
-                        bldr = await this.CompFor(srcParent, srcElm, atts);
+                        bldr = await this.CompFor(srcElm, atts);
                         break;
                     case 'include':
                         {
@@ -792,21 +799,29 @@ class RCompiler {
                         break;
                     case 'import':
                         {
-                            let src = this.GetURL(atts.get('src', true)), bIncl = atts.getB('include'), vars = this.NewVars(atts.get('defines')), bAsync = atts.getB('async'), listImports = new Array(), promModule = RModules.get(src);
+                            let src = atts.get('src', true), bIncl = atts.getB('include'), vars = this.NewVars(atts.get('defines')), bAsync = atts.getB('async'), listImports = new Array(), promModule = RModules.get(src);
                             for (let child of srcElm.children) {
                                 let sign = this.ParseSignat(child);
                                 listImports.push(sign);
                                 this.AddConstruct(sign);
                             }
                             if (!promModule) {
-                                promModule = this.FetchText(src)
-                                    .then(async (textContent) => {
-                                    let parsedDoc = parser.parseFromString(textContent, 'text/html'), body = parsedDoc.body, C = new RCompiler(this);
-                                    if (body.firstElementChild.tagName == 'MODULE')
-                                        body = body.firstElementChild;
-                                    C.FilePath = this.GetPath(src);
-                                    C.Settings.bRunScripts = true;
-                                    let bldr = await C.CompIter(null, concIterable(parsedDoc.head.children, body.children));
+                                let C = new RCompiler(this, true);
+                                C.Settings.bRunScripts = true;
+                                let mod = document.getElementById(src);
+                                promModule = mod
+                                    ? processModule(mod.childNodes)
+                                    : this.FetchText(src)
+                                        .then(textContent => {
+                                        let parsedDoc = parser.parseFromString(textContent, 'text/html'), { body } = parsedDoc;
+                                        if (body.firstElementChild.tagName == 'MODULE')
+                                            body = body.firstElementChild;
+                                        C.FilePath = this.GetPath(src);
+                                        return processModule(concIterable(parsedDoc.head.childNodes, body.childNodes));
+                                    });
+                                RModules.set(src, promModule);
+                                async function processModule(nodes) {
+                                    let bldr = await C.CompIter(null, nodes);
                                     for (let clientSig of listImports) {
                                         let signat = C.CSignatures.get(clientSig.nm);
                                         if (!signat)
@@ -818,8 +833,7 @@ class RCompiler {
                                         if ((V.i = C.ContextMap.get(V.nm)) == u)
                                             throw `Module does not define '${V.nm}'`;
                                     return [bldr.bind(C), C.CSignatures];
-                                });
-                                RModules.set(src, promModule);
+                                }
                             }
                             if (!bAsync) {
                                 let prom = promModule.then(([_, CSigns]) => {
@@ -835,8 +849,8 @@ class RCompiler {
                                 env = saveEnv;
                                 for (let { nm } of listImports)
                                     DefConstruct(MEnv.constructs.get(nm));
-                                for (let init of vars)
-                                    init()(MEnv[init.i]);
+                                for (let lv of vars)
+                                    lv(MEnv[lv.i]);
                             };
                             isBlank = 1;
                         }
@@ -893,7 +907,7 @@ class RCompiler {
                         }
                         break;
                     case 'script':
-                        bldr = await this.CompScript(srcParent, srcElm, atts);
+                        bldr = await this.CompScript(srcPrnt, srcElm, atts);
                         isBlank = 1;
                         break;
                     case 'style':
@@ -906,7 +920,7 @@ class RCompiler {
                         break;
                     case 'document':
                         {
-                            let newVar = this.NewVar(atts.get('name', true)), RC = this, saved = this.SaveCont();
+                            let docVar = this.NewVar(atts.get('name', true)), RC = this, saved = this.SaveCont();
                             try {
                                 let bEncaps = atts.getB('encapsulate'), setVars = this.NewVars(atts.get('params')), setWin = this.NewVar(atts.get('window')), docBuilder = await RC.CompChildNodes(srcElm), docDef = (docEnv) => {
                                     docEnv = CloneEnv(docEnv);
@@ -914,9 +928,9 @@ class RCompiler {
                                         async render(W, args) {
                                             let svEnv = env, i = 0;
                                             env = docEnv;
-                                            for (let init of setVars)
-                                                init()(args[i++]);
-                                            setWin()(W);
+                                            for (let lv of setVars)
+                                                lv(args[i++]);
+                                            setWin(W);
                                             try {
                                                 await docBuilder.call(RC, { parent: W.document.body });
                                             }
@@ -946,7 +960,7 @@ class RCompiler {
                                     };
                                 };
                                 bldr = async function DOCUMENT() {
-                                    newVar()(docDef(env));
+                                    docVar(docDef(env));
                                 };
                                 isBlank = 1;
                             }
@@ -1090,8 +1104,8 @@ class RCompiler {
         let { type, text, defer, async } = srcElm, src = atts.get('src'), defs = atts.get('defines'), bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), sLoc = mOto && mOto[2], bUpd = atts.getB('updating'), varlist = defs ? defs.split(',') : [], { context } = this, lvars = sLoc && this.NewVars(defs), exp, defNames = lvars ?
             function () {
                 let i = 0;
-                for (let init of lvars)
-                    init()(exp[i++]);
+                for (let lv of lvars)
+                    lv(exp[i++]);
             }
             : function () {
                 let i = 0;
@@ -1139,30 +1153,32 @@ class RCompiler {
             }
         }
     }
-    async CompFor(srcParent, srcElm, atts) {
-        let varName = atts.get('let') ?? atts.get('var'), ixName = atts.get('index'), saved = this.SaveCont();
+    async CompFor(srcElm, atts) {
+        let lvName = atts.get('let') ?? atts.get('var'), ixName = atts.get('index'), saved = this.SaveCont();
         if (ixName == '')
             ixName = 'index';
         try {
-            if (varName != null) {
+            if (lvName != null) {
                 let prevNm = atts.get('previous'), nextNm = atts.get('next');
                 if (prevNm == '')
                     prevNm = 'previous';
                 if (nextNm == '')
                     nextNm = 'next';
-                let getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo, initVar = this.NewVar(varName), initIndex = this.NewVar(ixName), initPrev = this.NewVar(prevNm), initNext = this.NewVar(nextNm), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBuilder = await this.CompChildNodes(srcElm);
+                let getRange = this.CompAttrExpr(atts, 'of', true), getUpdatesTo = this.CompAttrExpr(atts, 'updates'), bReacting = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo, loopVar = this.NewVar(lvName), ixVar = this.NewVar(ixName), prevVar = this.NewVar(prevNm), nextVar = this.NewVar(nextNm), getKey = this.CompAttrExpr(atts, 'key'), getHash = this.CompAttrExpr(atts, 'hash'), bodyBldr = await this.CompChildNodes(srcElm);
                 return async function FOR(area) {
                     let { range, subArea } = PrepArea(srcElm, area, ''), { parent } = subArea, before = subArea.before !== u ? subArea.before : range.Next, iterable = getRange(), pIter = async (iter) => {
                         let svEnv = SaveEnv();
                         try {
-                            let keyMap = range.value || (range.value = new Map()), newMap = new Map(), setVar = initVar(), setInd = initIndex();
+                            let keyMap = range.value || (range.value = new Map()), newMap = new Map();
+                            loopVar();
+                            ixVar();
                             if (iter) {
                                 if (!(iter[Symbol.iterator] || iter[Symbol.asyncIterator]))
                                     throw `[of]: Value (${iter}) is not iterable`;
                                 let idx = 0;
                                 for await (let item of iter) {
-                                    setVar(item);
-                                    setInd(idx);
+                                    this.SetVar(loopVar, item);
+                                    this.SetVar(ixVar, idx);
                                     let hash = getHash && getHash(), key = getKey?.() ?? hash;
                                     if (key != null && newMap.has(key))
                                         throw `Key '${key}' is not unique`;
@@ -1170,8 +1186,10 @@ class RCompiler {
                                     idx++;
                                 }
                             }
-                            let nextChild = range.child, setPrev = initPrev(), setNext = initNext(), iterator = newMap.entries(), nextIterator = nextNm ? newMap.values() : null, prevItem, nextItem, prevRange = null, childArea;
+                            let nextChild = range.child, iterator = newMap.entries(), nextIterator = nextNm ? newMap.values() : null, prevItem, nextItem, prevRange = null, childArea;
                             subArea.parentR = range;
+                            prevVar();
+                            nextVar();
                             if (nextIterator)
                                 nextIterator.next();
                             while (1) {
@@ -1192,7 +1210,7 @@ class RCompiler {
                                     subArea.range = null;
                                     subArea.prevR = prevRange;
                                     subArea.before = nextChild?.FirstOrNext || before;
-                                    ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${varName}(${idx})`));
+                                    ({ range: childRange, subArea: childArea } = PrepArea(null, subArea, `${lvName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
                                             throw `Duplicate key '${key}'`;
@@ -1227,7 +1245,7 @@ class RCompiler {
                                             break;
                                         }
                                     childRange.next = nextChild;
-                                    childRange.text = `${varName}(${idx})`;
+                                    childRange.text = `${lvName}(${idx})`;
                                     if (prevRange)
                                         prevRange.next = childRange;
                                     else
@@ -1251,17 +1269,16 @@ class RCompiler {
                                                 rvar._Subscribers = childRange.rvar._Subscribers;
                                         }
                                     }
-                                    setVar(rvar || item);
-                                    setInd(idx);
-                                    setPrev(prevItem);
-                                    if (nextIterator)
-                                        setNext(nextItem);
-                                    await bodyBuilder.call(this, childArea);
+                                    this.SetVar(loopVar, rvar || item);
+                                    this.SetVar(ixVar, idx);
+                                    this.SetVar(prevVar, prevItem);
+                                    this.SetVar(nextVar, nextItem);
+                                    await bodyBldr.call(this, childArea);
                                     if (rvar)
                                         if (childRange.rvar)
                                             assignEnv(childRange.subs.env, env);
                                         else
-                                            rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBuilder, childRange.child));
+                                            rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBldr, childRange.child));
                                     childRange.rvar = rvar;
                                 }
                                 prevItem = item;
@@ -1295,13 +1312,14 @@ class RCompiler {
                 let nm = atts.get('of', true, true).toLowerCase(), slot = this.CSignatures.get(nm);
                 if (!slot)
                     throw `Missing attribute [let]`;
-                let initInd = this.NewVar(ixName), bodyBldr = await this.CompChildNodes(srcElm);
+                let ixVar = this.NewVar(ixName), bodyBldr = await this.CompChildNodes(srcElm);
                 return async function FOREACH_Slot(area) {
-                    let { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(nm), setInd = initInd();
+                    let { subArea } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.constructs.get(nm);
+                    ixVar();
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
-                            setInd(idx++);
+                            this.SetVar(ixVar, idx++);
                             mapNm(env.constructs, { nm: nm, templates: [slotBldr], constructEnv: slotDef.constructEnv });
                             await bodyBldr.call(this, subArea);
                         }
@@ -1321,7 +1339,7 @@ class RCompiler {
         for (let C of srcElm.childNodes)
             if (C.nodeType != Node.TEXT_NODE || !/^\s*$/.test(C.data))
                 throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
-        let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', true), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = atts.getB('reacting') || atts.getB('updating'), newVar = this.NewVar(varNm);
+        let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', true), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = atts.getB('reacting') || atts.getB('updating'), lv = this.NewVar(varNm);
         return [async function DEF(area) {
                 let { range, bInit } = PrepArea(srcElm, area);
                 if (bInit || bReact) {
@@ -1334,7 +1352,7 @@ class RCompiler {
                     else
                         range.value = v;
                 }
-                newVar()(range.value);
+                lv(range.value);
             }, rv];
     }
     ParseSignat(elmSignat) {
@@ -1442,11 +1460,11 @@ class RCompiler {
                 try {
                     for (let [nm, templates] of mSlotTemplates)
                         DefConstruct({ nm, templates, constructEnv: slotEnv });
-                    for (let [nm, lvar] of lvars) {
+                    for (let [nm, lv] of lvars) {
                         let arg = args[nm], dflt;
                         if (arg === u && (dflt = signat.Params[i]?.pDflt))
                             arg = dflt();
-                        lvar()(arg);
+                        lv(arg);
                         i++;
                     }
                     if (bEncaps) {

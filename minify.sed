@@ -19,7 +19,7 @@ s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`.*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\
 # Remove whitespace in expressions in interpolated strings
 t repeat    # Needed to clear previous test result
 : repeat
-s/(`[^`]*\$\{([^{} ]|\{[^{}]*\})*) +/\1/
+#s/(`[^`]*\$\{('(\\'|[^'])*'|\"(\\"|[^\"])*\"|\{[^{}]*\}|[a-z]+ |[^{} ])*) +/\1/
 t repeat
 
 s/;+$//       # Remove semicolons at end of line

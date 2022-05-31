@@ -700,20 +700,27 @@ allows you to include another RHTML file as if it were inserted into the main fi
 </p>
 
 
-<h2 id=MODULE><{}MODULE name?></h2>
-A <elm>MODULE</elm> encapsulates a series of components, definitions, scripts and styles(?), that may be imported at other places using <elm>IMPORT</elm>.
+<h2 id=MODULE><{}MODULE id?></h2>
+<elm>MODULE</elm> encapsulates a series of components, definitions, scripts and styles(?), that may be imported at other places using <elm>IMPORT</elm>.
 <p>
-    A <elm>MODULE</elm> has (currently) to be saved in a separate file. The given <code>name</code> is not used.
+    A <elm>MODULE</elm> can either be saved in a separate file, or it may be appended to or included anywhere in the main file.
 </p>
 
 <h2 id=Import><{}IMPORT src defines? include?></h2>
 <pre class=sourcecode>
-<{}IMPORT async? src="<i>URL</i>" defines?="<i>nameList</i>" include?>
+<{}IMPORT async? src="<i>src</i>" defines?="<i>nameList</i>" include?>
     <i>Signatures</i>
 <{}/IMPORT>
 </pre>
-imports a number of components defined in a <elm>module</elm>, loaded from URL <code>src</code>.
-<br>There are two variants:
+imports a number of components defined in a <elm>module</elm>.
+<p>
+    The module may reside either:
+</p>
+<ul>
+    <li>Anywhere in the main file with an <code>id</code> being exactly equal to <i>src</i></li>
+    <li>Or in a separate file loaded from URL <i>src</i>.</li>
+</ul>
+There are two variants:
 <ul>
     <li>
         With the <code class=sourcecode>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.

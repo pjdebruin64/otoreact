@@ -9,12 +9,14 @@
     <meta name="viewport" content="width=device-width">
     <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications"
     <link rel=preload href="OtoReact.js"            as=script crossorigin>
-    <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
-    <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
     <link rel=preload href="KoninklijkeOtolift.png" as=image>
-    <link rel=prefetch href="C2_HtmlElements.html"  as=fetch crossorigin>
-    <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
-    <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
+    <!--
+        <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
+        <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
+        <link rel=prefetch href="C2_HtmlElements.html"  as=fetch crossorigin>
+        <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
+        <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
+    -->
     <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
     <link rel="stylesheet"      href="index.css">
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
@@ -86,7 +88,6 @@
     <script type=module>
         import {RCompile, RVAR, docLocation} from './OtoReact.js?2';
         let popup = RVAR('popup', {display: 'none'});
-debugger;
         RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
         docLocation.Subscribe(() => {
@@ -118,9 +119,10 @@ debugger;
     </script>
     
 </head>
-<body hidden onclick="popup.V={display:'none'}" style.cursor=default>
+<body onclick="popup.V={display:'none'}" style.cursor=default>
+    <script>document.body.hidden=true</script>
 
-    <import async src="Lib_Components.html">
+    <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href? #target? ...rest><content></content></a>
         
@@ -128,28 +130,32 @@ debugger;
         <demo #srctext?="''" #bshow=true #editable?=true rvar?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
-        <pageLayout>
-            <pageHead></pageHead>
-            <leftbar></leftbar>
-            <content>
-                <h1 id?><content></content></h1>
-                <h2 id?><content></content></h2>
-                <h3 id?><content></content></h3>
-            </content>
-        </pageLayout>
+        <pageLayout></pageLayout>
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>
         <when regmatch="^(index.html)?$">
             <pageLayout>
                 <pageHead>
-                    <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework{localStorage.getItem('PJ') && '.'}
+                    <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
                 </pageHead>
 
-                <section><include src="C1_Introduction.html"></include></section>
-                <section><include src="C2_HtmlElements.html"></include></section>
-                <section><include src="C3_Constructs.html"></include></section>
-                <section><include src="C4_Scripts.html"></include></section>
+                <section>
+                    <!-- <include src="C1_Introduction.html"></include> -->
+                    <!--#include file="C1_Introduction.html"-->
+                </section>
+                <section>
+                    <!-- <include src="C2_HtmlElements.html"></include> -->
+                    <!--#include file="C2_HtmlElements.html"-->
+                </section>
+                <section>
+                    <!-- <include src="C3_Constructs.html"></include> -->
+                    <!--#include file="C3_Constructs.html"-->
+                </section>
+                <section>
+                    <!-- <include src="C4_Scripts.html"></include> -->
+                    <!--#include file="C4_Scripts.html"-->
+                </section>
             </pageLayout>
         </when>
         <when match="routing">
@@ -186,5 +192,7 @@ debugger;
         You can find more about me on my <a href="https://www.linkedin.com/in/peter-de-bruin-trautmann/">LinkedIn profile</a>,
         <br>and on my <a href="http://www.peterdebruin.net">personal homepage</a> in Dutch
     </div>
+
 </body>
 </html>
+<!--#include file="Lib_Components.html"-->
