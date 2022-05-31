@@ -1087,32 +1087,54 @@ class RCompiler {
         }
     }
     async CompScript(srcParent, srcElm, atts) {
-        let { type, text, defer } = srcElm, src = atts.get('src'), defs = atts.get('defines'), bOto = /^otoreact\b/i.test(type), bMod = /^module$|;\s*type=("?)module\1$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), lvars = this.NewVars(defs), exports;
+        let { type, text, defer, async } = srcElm, src = atts.get('src'), defs = atts.get('defines'), bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), sLoc = mOto && mOto[2], bUpd = atts.getB('updating'), varlist = defs ? defs.split(',') : [], { context } = this, lvars = sLoc && this.NewVars(defs), exp, defNames = lvars ?
+            function () {
+                let i = 0;
+                for (let init of lvars)
+                    init()(exp[i++]);
+            }
+            : function () {
+                let i = 0;
+                for (let nm of varlist)
+                    globalThis[nm] = exp[i++];
+            };
         atts.clear();
-        if (this.Settings.bRunScripts && (bMod || bCls) || bOto) {
-            if (bMod) {
+        if (this.Settings.bRunScripts && (bMod || bCls) || mOto) {
+            if (mOto && mOto[3]) {
+                let prom = (async () => gEval(`'use strict';([${context}])=>{${src ? await this.FetchText(src) : text}\n;return[${defs}]}`))();
+                return async function LSCRIPT(area) {
+                    let { range, bInit } = PrepArea(srcElm, area);
+                    exp = bUpd || bInit ? range.result = (await prom)(env) : range.result;
+                    defNames();
+                };
+            }
+            else if (bMod) {
                 let prom = src
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\sfrom\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => `${p1}${this.GetURL(p2)}${p3}`)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
-                return async function SCRIPT() {
-                    exports = await prom;
-                    for (let init of lvars) {
-                        if (!(init.nm in exports))
-                            throw `'${init.nm}' is not exported by this script`;
-                        init()(exports[init.nm]);
+                return async function MSCRIPT() {
+                    if (!exp) {
+                        let e = await prom;
+                        exp = varlist.map(nm => {
+                            if (!(nm in e))
+                                throw `'${nm}' is not exported by this script`;
+                            return e[nm];
+                        });
                     }
+                    defNames();
                 };
             }
             else {
-                let prom = (async () => `${bOto ? "'use strict';" : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
-                if (bOto && !defer)
-                    exports = gEval(await prom);
+                let prom = (async () => `${mOto ? "'use strict';" : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                if (src && async)
+                    prom = prom.then(txt => void (exp = gEval(txt)));
+                else if (!mOto && !defer)
+                    exp = gEval(await prom);
                 return async function SCRIPT() {
-                    if (!exports)
-                        exports = gEval(await prom);
-                    let i = 0;
-                    for (let init of lvars)
-                        init()(exports[i++]);
+                    let txt = await prom;
+                    if (!exp)
+                        exp = gEval(txt);
+                    defNames();
                 };
             }
         }

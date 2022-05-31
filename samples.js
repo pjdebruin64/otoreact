@@ -314,50 +314,46 @@ const sampleTableMaker =
 </tablemaker>`;
 
 const sampleTicTacToe = 
-`<script type=otoreact defines=TicTacToe>
+`<script type="otoreact/local" defines="board,toMove,outcome,ClearAll,Move,CheckWinner">
+    let
+      board =    RVAR(),           //: Array<Array<{P: '◯'|'✕'}>>
+      toMove =   RVAR(null, '✕'), //: '◯' | '✕'
+      outcome =  RVAR(),           //: '◯' | '✕' | true
+      count = 0;
 
-    class TicTacToe {
-        constructor() {
-            this.board =     RVAR('board');        //: Array<Array<{P: '◯'|'✕'}>>
-            this.toMove =    RVAR('toMove', '✕'); //: '◯' | '✕'
-            this.outcome =   RVAR('outcome');      //: '◯' | '✕' | true
-            this.count = 0;
+    ClearAll();
 
-            this.ClearAll();
+    function ClearAll() {
+        board.V = Board();
+        outcome.V = null;
+        count = 0;
+        
+        function Cell() {return {P: null}; }
+        function Row()  {return [Cell(), Cell(), Cell()]; }
+        function Board(){return [Row(), Row(), Row()]; }
+    }
+
+    function Move(cell) {
+        if (outcome.V || cell.P) // Move not allowed
+          return;
+        cell.U.P = toMove.V;
+        count++;
+        toMove.V = (toMove.V=='✕' ? '◯' : '✕');
+        outcome.V = CheckWinner(board.V) || count==9;
+    }
+
+    function CheckWinner(b) {
+        function CheckRow(c1, c2, c3) {
+            return (c1.P == c2.P && c2.P == c3.P && c1.P);
         }
-
-        ClearAll() {
-            this.board.V = Board();
-            this.outcome.V = null;
-            this.count = 0;
-            
-            function Cell() {return {P: null}; }
-            function Row()  {return [Cell(), Cell(), Cell()]; }
-            function Board(){return [Row(), Row(), Row()]; }
+        let w = null;
+        for (let i=0;i<3;i++) {
+            w = w || CheckRow(...b[i]);
+            w = w || CheckRow(b[0][i], b[1][i], b[2][i]);
         }
-
-        Move(cell) {
-            if (this.outcome.V || cell.P) // Move not allowed
-              return;
-            cell.U.P = this.toMove.V;
-            this.count++;
-            this.toMove.V = (this.toMove.V=='✕' ? '◯' : '✕');
-            this.outcome.V = this.CheckWinner(this.board.V) || this.count==9;
-        }
-
-        CheckWinner(b) {
-            function CheckRow(c1, c2, c3) {
-                return (c1.P == c2.P && c2.P == c3.P && c1.P);
-            }
-            let w = null;
-            for (let i=0;i<3;i++) {
-                w = w || CheckRow(...b[i]);
-                w = w || CheckRow(b[0][i], b[1][i], b[2][i]);
-            }
-            for (let i=-1;i<2;i+=2)
-                w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
-            return w;
-        }
+        for (let i=-1;i<2;i+=2)
+            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
+        return w;
     }
 </script>
 
@@ -378,33 +374,31 @@ const sampleTicTacToe =
     <b>Tic-Tac-Toe</b>
   </div>
 
-  <define var=T #value="new TicTacToe()"></define>
-  <table. class=tic-tac-toe
-        reacton=T.board>
-    <for let=row #of="T.board.V">
+  <table. class=tic-tac-toe reacton=board>
+    <for let=row #of="board.V">
       <tr.>
-        <for let=cell #of=row updates=T.board>
-          <td. onclick="T.Move(cell)"
+        <for let=cell #of=row updates=board>
+          <td. onclick="Move(cell)"
            >{cell.P || ''}</td.>
         </for>
       </tr.>
     </for>
   </table.>
   <div>
-    <p reacton=T.outcome,T.toMove>
+    <p reacton=outcome,toMove>
       <case>
-        <when #cond="T.outcome.V===true">
+        <when #cond="outcome.V===true">
           <b>It's a draw.</b>
         </when>
-        <when #cond="T.outcome.V">
-          <b>The winner is: <large>{T.outcome.V}</large></b>
+        <when #cond="outcome.V">
+          <b>The winner is: <large>{outcome.V}</large></b>
         </when>
         <else>
-          Player to move: {T.toMove.V}
+          Player to move: {toMove.V}
         </else>
       </case>
     </p>
-    <button onclick="T.ClearAll()">Clear</button>
+    <button onclick="ClearAll()">Clear</button>
   </div>
 </div>`;
 
@@ -480,7 +474,7 @@ const sampleFormatting =
     </dd>
 
     <dt>Day.js</dt>
-    <script src="./dayjs.min.js"></script>
+    <script async src="./dayjs.min.js"></script>
     <dd>
         Today is {dayjs(today).format('MMM D')}.
     </dd>

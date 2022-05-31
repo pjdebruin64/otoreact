@@ -76,23 +76,27 @@
         function gtag(){
             if(r) dataLayer.push(arguments);
         }
-        gtag('js', new Date());
-        gtag('config', 'G-T23W7PMPX4');
+        if (r) {
+            /* Global site tag (gtag.js) - Google Analytics */
+            document.write('<script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"><' + '/script>')
+            gtag('js', new Date());
+            gtag('config', 'G-T23W7PMPX4');
+        }
     </script>
     <script type=module>
         import {RCompile, RVAR, docLocation} from './OtoReact.js?2';
         let popup = RVAR('popup', {display: 'none'});
-
+debugger;
         RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
-            docLocation.Subscribe(() => {
-                document.title =
-                    /^(index.html)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
-                    : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
-                    : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
-                    : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
-                    : "Page not found";
-            }, true);
+        docLocation.Subscribe(() => {
+            document.title =
+                /^(index.html)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
+                : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
+                : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
+                : "Page not found";
+        }, true);
 
         let LastModified = null, hdrNoCache = new Headers();
         hdrNoCache.append('Cache-Control', 'no-cache');
@@ -112,12 +116,9 @@
         }
         setInterval(CheckForUpdates, 5 * 60000);
     </script>
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"></script>
+    
 </head>
 <body hidden onclick="popup.V={display:'none'}" style.cursor=default>
-    <!--<script type="otoreact" src="./test.js"></script>-->
-    <script type='otoreact;type="module"'></script>
 
     <import async src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->

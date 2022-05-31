@@ -260,16 +260,16 @@ Browser-based JavaScript also has a distinction between <i>classic</i> JavaScrip
 <p>RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.</p>
 <p>These are introduced by the following RHTML constructs:</p>
 <ul>
-    <li><elm>DEFINE</elm> and <elm>SCRIPT define</elm> constructs introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag</li>.
-    <li><elm>FOR</elm>, <elm>CASE value</elm> with capturing, and in <elm>COMPONENT</elm> templates with parameters</li> introduce local variables visible within the <u>construct</u> block.
+    <li><elm>DEFINE</elm> and <elm>SCRIPT type="otoreact/local"</elm> constructs introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag.</li>
+    <li><elm>FOR</elm>, <elm>CASE value</elm> with capturing, and <elm>COMPONENT</elm> templates with parameters introduce local variables visible within the <u>construct</u> block.</li>
 </ul>
 <p>
     RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
 </p>
-<p>RHTML local variables are <u>not</u> visible within <elm>SCRIPT</elm> embedded or external scripts; these are executed just once in global scope.</p>
+<p>RHTML local variables are <u>not</u> visible within other <elm>SCRIPT</elm> embedded or external scripts; these are executed just once in global scope.</p>
 
 <h4>Global variables in RHTML</h4>
-Global variables are visible in RHTM Linline scripts, of course.
+Global variables are visible in RHTML inline scripts, of course.
 <p>
     Global variables are preferably created as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
 </p>
