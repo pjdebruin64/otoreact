@@ -45,10 +45,11 @@ function StartStop() {
     padding: 0px 4px;
     text-align: center;
     max-width: 8em; overflow:hidden;
+    font-size: small;
   }
 </style>
 
-<div style="height:50ex; overflow-y:scroll;">
+<div style="height:80ex; overflow-y:scroll;">
 <!-- Now we build our table! 
 The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>. OtoReact removes these dots. -->
 <table. class=colorTable>

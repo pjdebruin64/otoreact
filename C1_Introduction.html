@@ -24,16 +24,18 @@
     <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
 </p>
 <ul>
-    <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.
+    <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
+    <li>Reactive HTML is based on HTML; JavaScript is needed <i>only for data manipulation and event handling</i>.
+        <br>Even <a href="#Component">components</a> are defined and instantiated without a single line of JavaScript.</li>
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
-        <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.
-    <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.
-    <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.
+        <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.</li>
+    <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.</li>
+    <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
     <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
         <ul>
             <li>Components are defined right within the HTML, without needing any JavaScript statements</li>
-            <li>Components are leightweight and have local scope</li>
+            <li>Components are lightweight and have local scope</li>
             <li>Components can be (mutually) recursive</li>
             <li>Component definitions can be nested</li>
         </ul>
@@ -59,7 +61,7 @@ Explanation:
         <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and all document content that reacts on it.
     </li>
     <li>
-        <elm>if cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
+        <elm>IF cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
     </li>
     <li>
         <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code> are embedded expressions. The rendered document will contain the value of the expression between the braces.
@@ -71,7 +73,7 @@ Explanation:
 Explanation:
 <ul>
     <li>
-        <elm>DEF rvar=maxY ...</elm> is an abbreviation of <elm>DEFINE ...</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to be persisted in sessionStorage.
+        <elm>DEF rvar=maxY ...</elm> is an abbreviation of <elm>DEFINE ...</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to persist in <code>sessionStorage</code>.
     </li>
     <li>
         Attributing <elm>INPUT type=number !valueAsNumber=maxY.V</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
@@ -87,7 +89,7 @@ The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
 
 <h4>Working with server data</h4>
 <p id=colorTable>Here is an example of dynamically building a table based on server data, with a bit of animation as well:</p>
-<demo #srctext="sampleServerData2" #bShow=false></demo>                                
+<demo #srctext="sampleServerData2" #bShow=true></demo>                                
 
 
 <h3>Remarks</h3>
@@ -127,7 +129,7 @@ OtoReact does not provide server-side functionality. You need other tooling for 
 
 <h4>Use file extension .html, not .rhtml</h4>
 By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
-<p>Note that that file extension ".rhtml" is sometimes used for HTML files with embedded <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> instructions, that are to be processed by the server-side Ruby on Rails engine.
+<p>Using ".rhtml" might cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
 
 <h2>Setup</h2>
 <ol>
@@ -165,7 +167,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
 </p>
 <p>
-    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`${null}`</code> yields <code>"null"</code>.
+    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
 </p>
 <p>
     To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
@@ -224,6 +226,7 @@ Note: We write construct names in uppercase and attribute names in lowercase her
 
 <h2>RHTML functions</h2>
 The OtoReact module makes the following functions available for import. They are added to the global environment as well.
+<br>The question marks indicate optional arguments.
 <ul>
     <li>
         <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
@@ -244,7 +247,6 @@ The OtoReact module makes the following functions available for import. They are
         <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
     </li>
 </ul>
-The question marks indicate optional arguments.
 <p>
     All of these are exported by the OtoReact module. TypeScript type declarations are available on the <a href="download" #onclick=reroute>download page</a>.
 </p>
@@ -343,19 +345,19 @@ Global variables are visible in RHTML inline scripts, of course.
 </p>
 
 <h4>Properties and methods</h4>
-<p>A reactive variable <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
+<p>An RVAR <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
 <dl>
     <dt><code class=sourcecode>x.V</code></dt>
     <dd>
         To get or set the value of an RVAR <code>x</code>, one writes <code>x.V</code>.
-        <br>When <code>x.V</code> is set to a different value than it had, the variable is marked as dirty, and all RHTML code that reacts on it will be updated.
+        <br>When <code>x.V</code> is set to a different value than it had, the RVAR is marked as dirty, and all RHTML code that reacts on it will be updated.
     </dd>
     <dt><code class=sourcecode>x.U</code></dt>
     <dd>
-        When you modify not the value of a variable, but properties of the value, you may want the variable to be marked as dirty as well.
-        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the variable.
+        When you modify not the value of a RVAR, but properties of the value, you may want the RVAR to be marked as dirty as well.
+        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the RVAR.
         <p>E.g., if <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> or <code>x.U[i] = e</code> to add an or modify an array element, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.</p>
-        <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the variable as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the variable will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
+        <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the RVAR as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the RVAR will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
         <p>
             Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty even when the value is equal to the previous value.
         </p>
