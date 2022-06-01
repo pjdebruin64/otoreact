@@ -33,16 +33,23 @@
     When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
 </p>
 <p>
-    Notes: for properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>}"</code>.
+    There are two special cases:
 </p>
-<p>
-    For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.
-    <br>Setting <code>#on<i>name</i>="<i>expr</i>"</code> is about the same as <code>on<i>name</i>="return (<i>expr</i>)(event)"</code>.
-</p>
-<p>
-    HTML attribute <code>class</code> is special, because it does not correspond to DOM property <code>class</code>, but rather to property <code>className</code>. This is because <code>class</code> is a reserved word in JavaScript.
-    <br>RHTML, however, allows you to set <code>#class</code> as a synonym for <code>#className</code>
-</p>
+<ul>
+    <li>
+        HTML attribute <code>class</code> corresponds not to DOM property <code>class</code> (because that's a reserved word in JavaScript), but rather to property <code>className</code>.
+        <br>RHTML however allows you to simply set <code>#class</code>, which translates to <code>#classname</code>.
+    </li>
+    <li>
+        <a href="{MDN}Web/API/HTMLInputElement">HTMLInputElement</a> DOM property <code>valueAsNumber</code> returns the numeric value of a number type input element, but cannot be set, which would make it unusable for two-way binding.
+        <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code>, so one can use two-way binding on this property.
+    </li>
+</ul>
+Notes:
+<ul>
+    <li>For properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>\}"</code>.</li>
+    <li>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.</li>
+</ul>
 
 <h2>HTML DOM Events</h2>
 <p>

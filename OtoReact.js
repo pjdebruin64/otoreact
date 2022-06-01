@@ -281,9 +281,9 @@ function ApplyMod(elm, mt, nm, val, bCreate) {
             break;
     }
 }
-function ApplyMods(elm, modifiers, bCreate) {
+function ApplyMods(elm, modifs, bCreate) {
     bReadOnly = 1;
-    for (let { mt, nm, depV } of modifiers)
+    for (let { mt, nm, depV } of modifs)
         try {
             let value = depV.bThis ? depV.call(elm) : depV();
             ApplyMod(elm, mt, nm, value, bCreate);
@@ -1588,45 +1588,27 @@ class RCompiler {
     }
     CompAttribs(atts) {
         let modifs = [], m;
+        function addM(mt, nm, depV) {
+            if (mt == 1)
+                nm = altProps[nm] || nm;
+            modifs.push({ mt, nm, depV });
+        }
         for (let [nm, V] of atts) {
             try {
                 if (m = /(.*?)\.+$/.exec(nm))
-                    modifs.push({
-                        mt: 0,
-                        nm,
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(0, nm, this.CompString(V, nm));
                 else if (m = /^on(.*?)\.*$/i.exec(nm))
-                    modifs.push({
-                        mt: 5,
-                        nm: CapitalProp(m[0]),
-                        depV: this.AddErrH(this.CompHandler(nm, V))
-                    });
+                    addM(5, CapitalProp(m[0]), this.AddErrH(this.CompHandler(nm, V)));
                 else if (m = /^#class[:.](.*)$/.exec(nm))
-                    modifs.push({
-                        mt: 3, nm: m[1],
-                        depV: this.CompJScript(V, nm)
-                    });
+                    addM(3, m[1], this.CompJScript(V, nm));
                 else if (m = /^#style\.(.*)$/.exec(nm))
-                    modifs.push({
-                        mt: 4, nm: CapitalProp(m[1]),
-                        depV: this.CompJScript(V, nm)
-                    });
+                    addM(4, CapitalProp(m[1]), this.CompJScript(V, nm));
                 else if (m = /^style\.(.*)$/.exec(nm))
-                    modifs.push({
-                        mt: 4, nm: CapitalProp(m[1]),
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(4, CapitalProp(m[1]), this.CompString(V, nm));
                 else if (nm == '+style')
-                    modifs.push({
-                        mt: 6, nm,
-                        depV: this.CompJScript(V, nm)
-                    });
+                    addM(6, nm, this.CompJScript(V, nm));
                 else if (nm == "+class")
-                    modifs.push({
-                        mt: 7, nm,
-                        depV: this.CompJScript(V, nm)
-                    });
+                    addM(7, nm, this.CompJScript(V, nm));
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
                     let m2 = CapitalProp(m[2]), setter;
                     if (m2 == 'class')
@@ -1639,39 +1621,27 @@ class RCompiler {
                     }
                     if (/[@#]/.test(m[1])) {
                         let depV = this.CompJScript(V, nm);
-                        modifs.push(/^on/.test(m2)
-                            ? { mt: 5, nm: m2, depV: this.AddErrH(depV) }
-                            : { mt: 1, nm: m2, depV });
+                        if (/^on/.test(m2))
+                            addM(5, m2, this.AddErrH(depV));
+                        else
+                            addM(1, m2, depV);
                     }
                     if (/\*/.test(m[1]))
-                        modifs.push({ mt: 9, nm: 'oncreate', depV: setter });
+                        addM(9, 'oncreate', setter);
                     if (/\+/.test(m[1]))
-                        modifs.push({ mt: 10, nm: 'onupdate', depV: setter });
+                        addM(10, 'onupdate', setter);
                     if (/[@!]/.test(m[1]))
-                        modifs.push({ mt: 5,
-                            nm: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput',
-                            depV: setter });
+                        addM(5, /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', setter);
                 }
                 else if (m = /^\.\.\.(.*)/.exec(nm)) {
                     if (V)
                         throw 'A rest parameter cannot have a value';
-                    modifs.push({
-                        mt: 8, nm,
-                        depV: this.CompName(m[1])
-                    });
+                    addM(8, nm, this.CompName(m[1]));
                 }
                 else if (nm == 'src')
-                    modifs.push({
-                        mt: 2,
-                        nm: this.FilePath,
-                        depV: this.CompString(V, nm),
-                    });
+                    addM(2, this.FilePath, this.CompString(V, nm));
                 else
-                    modifs.push({
-                        mt: 0,
-                        nm,
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(0, nm, this.CompString(V, nm));
             }
             catch (err) {
                 throw (`[${nm}]: ${err}`);
@@ -1687,11 +1657,9 @@ class RCompiler {
     CompString(data, nm) {
         let regIS = this.regIS || (this.regIS = new RegExp(/(\\[${])|/.source
             + (this.Settings.bDollarRequired ? /\$/ : /\$?/).source
-            + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|\\\}|.)*?)\}|$/.source, 'gs')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.wspc, isTriv = true, bThis = false, lastIndex = regIS.lastIndex = 0, dep;
-        ;
-        while (regIS.lastIndex < data.length) {
-            let m = regIS.exec(data);
-            if (!m[1]) {
+            + /\{((\{(\{.*?\}|.)*?\}|'(\\'|.)*?'|"(\\"|.)*?"|`(\\`|.)*?`|\\\}|.)*?)\}|$/.source, 'gs')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.wspc, isTriv = true, bThis = false, lastIndex = regIS.lastIndex = 0, dep, m;
+        while (1)
+            if (!(m = regIS.exec(data))[1]) {
                 let fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
                 if (fixed) {
                     fixed = fixed.replace(/\\([${}\\])/g, '$1');
@@ -1705,6 +1673,8 @@ class RCompiler {
                     if (fixed)
                         gens.push(fixed);
                 }
+                if (lastIndex == data.length)
+                    break;
                 if (m[2]) {
                     let getS = this.CompJScript(m[2], nm, '{}');
                     gens.push(getS);
@@ -1713,11 +1683,9 @@ class RCompiler {
                 }
                 lastIndex = regIS.lastIndex;
             }
-        }
         if (isTriv) {
             let s = gens.join('');
-            dep = () => s;
-            dep.fixed = s;
+            (dep = () => s).fixed = s;
         }
         else
             dep = bThis ?
@@ -1977,7 +1945,7 @@ class Atts extends Map {
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-let regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
+let altProps = { "class": "className", valueAsNumber: "value" }, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
 function CheckIdentifier(nm) {
     if (!regIdent.test(nm = nm.trim()))
         throw `Invalid identifier '${nm}'`;

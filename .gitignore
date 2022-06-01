@@ -1,10 +1,6 @@
 error.html
 test.js
-tsconfig.tsbuildinfo
-<<<<<<< HEAD
-=======
 OtoReact.js
->>>>>>> Subscribers-as-closures
-tsconfig.tsbuildinfo~Subscribers-as-closures
 Publish/*
 *.inc
+tsconfig.tsbuildinfo

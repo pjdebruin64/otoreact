@@ -49,10 +49,10 @@ function StartStop() {
   }
 </style>
 
-<div style="height:80ex; overflow-y:scroll;">
+<div style="height:80ex; width:100%; overflow-y:scroll;">
 <!-- Now we build our table! 
 The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>. OtoReact removes these dots. -->
-<table. class=colorTable>
+<table. class=colorTable style.margin="auto">
 
   <!-- Table caption -->
   <caption.>Web Colors 
@@ -587,13 +587,13 @@ const demoScoping=
 <define var=A #value="10"></define>
 <define var=F #value="(x) => A+x"></define>
 
-<p style="border: 1px solid; padding:2px">
+<p>
     Now A = { A }, F(1) = { F(1) }
 </p>
 
-<p>
+<p style="border: 1px solid; padding:2px">
     <define var=A #value=20></define>
-    Here A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
+    Here we have a new A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
 </p>
 
 <p>Here A = {A} again.</p>`
@@ -667,8 +667,10 @@ const demoTables =
 <DEF rvar=maxX #value=10 store=sessionStorage></DEF>
 
 <p>
-  Number of tables: <input type=number #value=maxY.V !valueAsNumber=maxY.V>
-  Number of rows: <input type=number #value=maxX.V !valueAsNumber=maxX.V>
+  Number of tables:
+    <input type=number @valueAsNumber=maxY.V>
+  Number of rows:
+    <input type=number @valueAsNumber=maxX.V>
 </p>
 
 <div class=flex>

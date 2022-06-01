@@ -433,10 +433,10 @@ function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate
             break;
     }
 }
-function ApplyMods(elm: HTMLElement, modifiers: Modifier[], bCreate?: boolean) {
+function ApplyMods(elm: HTMLElement, modifs: Modifier[], bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
     bReadOnly= 1;
-    for (let {mt, nm, depV} of modifiers)
+    for (let {mt, nm, depV} of modifs)
         try {
             let value = depV.bThis ? depV.call(elm) : depV();    // Evaluate the dependent value in the current environment
             // See what to do with it
@@ -2121,46 +2121,40 @@ class RCompiler {
     private CompAttribs(atts: Atts) { 
         let modifs: Array<Modifier> = []
             , m: RegExpExecArray;
+        function addM(mt: MType, nm: string, depV: Dependent<unknown>){
+            if (mt == MType.Prop)
+                nm = altProps[nm] || nm;
+            modifs.push({mt, nm, depV});
+        }
 
         for (let [nm, V] of atts) {
             try {
                 if (m = /(.*?)\.+$/.exec(nm))
-                    modifs.push({
-                        mt: MType.Attr,
-                        nm,
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(MType.Attr, nm, this.CompString(V, nm));
                 else if (m = /^on(.*?)\.*$/i.exec(nm))               // Events
-                    modifs.push({
-                        mt: MType.Event, 
-                        nm: CapitalProp(m[0]), 
-                        depV: this.AddErrH(this.CompHandler(nm, V))
-                    });
+                    addM(MType.Event, CapitalProp(m[0]),
+                        this.AddErrH(this.CompHandler(nm, V))
+                    );
                 else if (m = /^#class[:.](.*)$/.exec(nm))
-                    modifs.push({
-                        mt: MType.Class, nm: m[1],
-                        depV: this.CompJScript<boolean>(V, nm)
-                    });
+                    addM(MType.Class, m[1],
+                        this.CompJScript<boolean>(V, nm)
+                    );
                 else if (m = /^#style\.(.*)$/.exec(nm))
-                    modifs.push({
-                        mt: MType.Style, nm: CapitalProp(m[1]),
-                        depV: this.CompJScript<unknown>(V, nm)
-                    });
+                    addM(MType.Style, CapitalProp(m[1]),
+                        this.CompJScript<unknown>(V, nm)
+                    );
                 else if (m = /^style\.(.*)$/.exec(nm))
-                    modifs.push({
-                        mt: MType.Style, nm: CapitalProp(m[1]),
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(MType.Style, CapitalProp(m[1]),
+                        this.CompString(V, nm)
+                    );
                 else if (nm == '+style')
-                    modifs.push({
-                        mt: MType.AddToStyle, nm,
-                        depV: this.CompJScript<object>(V, nm)
-                    });
+                    addM(MType.AddToStyle, nm,
+                        this.CompJScript<object>(V, nm)
+                    );
                 else if (nm == "+class")
-                    modifs.push({
-                        mt: MType.AddToClassList, nm,
-                        depV: this.CompJScript<object>(V, nm)
-                    });
+                    addM(MType.AddToClassList, nm,
+                        this.CompJScript<object>(V, nm)
+                    );
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                     let m2 = CapitalProp(m[2])
                         , setter: Dependent<Handler>;
@@ -2173,40 +2167,27 @@ class RCompiler {
                     
                     if (/[@#]/.test(m[1])) {
                         let depV = this.CompJScript<Handler>(V, nm);
-                        modifs.push(
-                            /^on/.test(m2)
-                            ? { mt: MType.Event, nm: m2, depV: this.AddErrH(depV as Dependent<Handler>) }
-                            : { mt: MType.Prop,  nm: m2, depV }
-                        );
+                        if (/^on/.test(m2))
+                            addM(MType.Event, m2, this.AddErrH(depV as Dependent<Handler>));
+                        else
+                            addM(MType.Prop, m2, depV);
                     }
                     if (/\*/.test(m[1]))
-                        modifs.push({ mt: MType.oncreate, nm: 'oncreate', depV: setter });
+                        addM(MType.oncreate, 'oncreate', setter);
                     if (/\+/.test(m[1]))
-                        modifs.push({ mt: MType.onupdate, nm: 'onupdate', depV: setter });
+                        addM(MType.onupdate, 'onupdate', setter);
                     if (/[@!]/.test(m[1]))
-                        modifs.push({mt: MType.Event, 
-                            nm: /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
-                            depV: setter});         
+                        addM(MType.Event, /!!|@@/.test(m[1]) ? 'onchange' : 'oninput', 
+                            setter);         
                 }
                 else if (m = /^\.\.\.(.*)/.exec(nm)) {
                     if (V) throw 'A rest parameter cannot have a value';
-                    modifs.push({
-                        mt: MType.RestArgument, nm,
-                        depV: this.CompName(m[1])
-                    });
+                    addM(MType.RestArgument, nm, this.CompName(m[1]) );
                 }
                 else if (nm == 'src')
-                    modifs.push({
-                        mt: MType.Src,
-                        nm: this.FilePath,
-                        depV: this.CompString(V, nm),
-                    });
+                    addM(MType.Src, this.FilePath, this.CompString(V, nm) );
                 else
-                    modifs.push({
-                        mt: MType.Attr,
-                        nm,
-                        depV: this.CompString(V, nm)
-                    });
+                    addM(MType.Attr, nm, this.CompString(V, nm) );
             }
             catch (err) {
                 throw(`[${nm}]: ${err}`)
@@ -2229,18 +2210,18 @@ class RCompiler {
                 new RegExp(
                     /(\\[${])|/.source
                     + (this.Settings.bDollarRequired ? /\$/ : /\$?/).source
-                    + /\{((\{(\{.*?\}|.)*?\}|'.*?'|".*?"|`.*?`|\\\}|.)*?)\}|$/.source
+                    + /\{((\{(\{.*?\}|.)*?\}|'(\\'|.)*?'|"(\\"|.)*?"|`(\\`|.)*?`|\\\}|.)*?)\}|$/.source
                     , 'gs'
                 ),
             gens: Array< string | Dependent<unknown> > = [],
             ws: WSpc = nm || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.wspc
             , isTriv = true, bThis = false
             , lastIndex = regIS.lastIndex = 0
-            , dep: Dependent<string> & {fixed?: string;};;
+            , dep: Dependent<string> & {fixed?: string}
+            , m: RegExpExecArray;
 
-        while (regIS.lastIndex < data.length) {
-            let m = regIS.exec(data);
-            if (!m[1]) {
+        while (1)
+            if (!(m = regIS.exec(data))[1]) {
                 let fixed = lastIndex < m.index ? data.substring(lastIndex, m.index) : null;
                 if (fixed) {
                     fixed = fixed.replace(/\\([${}\\])/g, '$1'); // Replace '\{' etc by '{'
@@ -2254,6 +2235,8 @@ class RCompiler {
                     }
                     if (fixed) gens.push( fixed );  
                 }
+                if (lastIndex == data.length)
+                    break;
                 if (m[2]) {
                     let getS = this.CompJScript<string>(m[2], nm, '{}');
                     gens.push( getS );
@@ -2262,12 +2245,10 @@ class RCompiler {
                 }
                 lastIndex = regIS.lastIndex;
             }
-        }
         
         if (isTriv) {
             let s = (gens as Array<string>).join('');
-            dep = () => s;
-            dep.fixed = s
+            ((dep = () => s) as any).fixed = s
         } else
             dep = bThis ?
                 function(this: HTMLElement) {
@@ -2562,7 +2543,8 @@ class Atts extends Map<string,string> {
     }
 }
 
-let regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+let altProps = {"class": "className", valueAsNumber: "value"}
+    , regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/
     , regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
 
 function CheckIdentifier(nm: string) {

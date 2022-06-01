@@ -5,5 +5,6 @@ if "%Dest%"=="" SET Dest=..\..\test\otoreact\
 copy OtoReact.d.ts %Dest%
 copy OtoReact.ts %Dest%
 copy *.html %Dest%
+copy *.shtml %Dest%
 copy *.css  %Dest%
 copy samples.js %Dest%
