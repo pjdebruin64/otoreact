@@ -1927,25 +1927,15 @@ class Atts extends Map {
         return value;
     }
     getB(nm) {
-        let s = this.get(nm);
-        if (s != null)
-            switch (s.toLowerCase()) {
-                case "":
-                case "yes":
-                case "true":
-                    return true;
-                case "no":
-                case "false":
-                    return false;
-            }
-        return null;
+        let m = /^((no|false)|yes|true)?$/i.exec(this.get(nm));
+        return m && !m[2];
     }
     ChkNoAttsLeft() {
         if (super.size)
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-let altProps = { "class": "className", valueAsNumber: "value" }, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
+let altProps = { "class": "className", valueAsNumber: "value" }, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z', regCapit = new RegExp(`(html|uri)|(${words})|.`, "g");
 function CheckIdentifier(nm) {
     if (!regIdent.test(nm = nm.trim()))
         throw `Invalid identifier '${nm}'`;
@@ -1953,14 +1943,13 @@ function CheckIdentifier(nm) {
         throw `Reserved keyword '${nm}'`;
     return nm;
 }
-let words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z', regCapitalize = new RegExp(`(html|uri)|(${words})|.`, "g");
 function CapitalProp(lcName) {
-    let bHadWord;
-    return lcName.replace(regCapitalize, (w, p1, p2) => {
+    let bHadW;
+    return lcName.replace(regCapit, (w, p1, p2) => {
         let r = p1 ? w.toUpperCase()
-            : bHadWord ? w.substring(0, 1).toUpperCase() + w.substring(1)
+            : bHadW ? w.substring(0, 1).toUpperCase() + w.substring(1)
                 : w;
-        bHadWord = p2;
+        bHadW = p2;
         return r;
     });
 }

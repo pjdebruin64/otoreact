@@ -12,12 +12,14 @@ const sampleGreeting=
 </IF>`;
 
 const sampleServerData2=
-`<script type=otoreact 
-  defines="ColorTable,toHex,handle,StartStop" >
-// Here we store the data. Columns are:
-// name:string, red:number, green:number, blue:number.
+`<!-- We tell OtoReact to define these names in global scope. -->
+<script type=otoreact defines="ColorTable,toHex,handle,StartStop" >
+
+// Here we store the data as an Array<{name:string, red:number, green:number, blue:number}>
 const ColorTable = RVAR( null,
-  /* Fetch the data! */
+  /* Asynchronously fetch the data!
+    When the data has been received, the RVAR will be updated and the table will be drawn.
+   */
   RFetch("webColors.json").then(response => response.json())
 );
 
@@ -25,17 +27,17 @@ const ColorTable = RVAR( null,
 function toHex(n){ 
   return n.toString(16).toUpperCase().padStart(2,'0');
 }
+
 /* Rotation */
 let handle=RVAR();
 
 function StartStop() {
-  if (handle.V) {
-    clearInterval(handle.V); handle.V=0;
-  } else
-    handle.V = setInterval(() => {
-      // Modify the data model, triggering a DOM update:
-      ColorTable.U.push(ColorTable.V.shift());
-    }, 330);
+  handle.V =
+    ( handle.V
+    ? clearInterval(handle.V)
+    // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
+    : setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
+    );
 }
 </script>
 
@@ -49,9 +51,11 @@ function StartStop() {
   }
 </style>
 
-<div style="height:80ex; width:100%; overflow-y:scroll;">
+<div style="height:100ex; width:100%; overflow-y:scroll;">
 <!-- Now we build our table! 
-The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>. OtoReact removes these dots. -->
+    The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>.
+    OtoReact removes these dots.
+-->
 <table. class=colorTable style.margin="auto">
 
   <!-- Table caption -->
@@ -68,23 +72,22 @@ The dots behind element names are needed because HTML does not allow <FOR> as a 
     <th.>Hex</th.>
   </tr.>
 
-  <tbody.>
-    <!-- Detail records -->
-    <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
-      <tr. 
-        style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
-        #style.color = "C.green<148 ? 'white' : 'black'"
-      >
-        <td.>{C.name}</td.>
-        <td.>{C.red}</td.>
-        <td.>{C.green}</td.>
-        <td.>{C.blue}</td.>
-        <td.>
-          #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
-        </td.>
-      </tr.>
-    </FOR>
-  </tbody.>
+  <!-- Detail records -->
+  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+    <tr. 
+      style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+      #style.color = "C.green<148 ? 'white' : 'black'"
+    >
+      <td.>{C.name}</td.>
+      <td.>{C.red}</td.>
+      <td.>{C.green}</td.>
+      <td.>{C.blue}</td.>
+      <td.>
+        #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+      </td.>
+    </tr.>
+  </FOR>
+
 </table.>
 </div>`;
 
@@ -653,14 +656,13 @@ const demoCheckbox=
 
 const demoTables =
 `<style>
-  * {
-    text-align: center;
-  }
-  div.flex {
-    display: flex; flex-wrap: wrap;
-    gap: 2ex; justify-content: center;
-  }
+  *     { text-align: center; }
   input { text-align: right; width: 8ex; }
+
+  div.flex {
+      display: flex; flex-wrap: wrap;
+      gap: 2ex; justify-content: center;
+  }
 </style>
 
 <DEF rvar=maxY #value=10 store=sessionStorage></DEF>

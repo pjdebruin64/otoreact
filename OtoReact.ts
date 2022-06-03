@@ -2522,19 +2522,9 @@ class Atts extends Map<string,string> {
             throw `Missing attribute [${nm}]`;
         return value;
     }
-    public getB(nm: string) { 
-        let s = this.get(nm);
-        if (s != null)
-            switch (s.toLowerCase()) {
-                case "":
-                case "yes":
-                case "true":
-                    return true;
-                case "no":
-                case "false":
-                    return false;
-            }
-        return null;
+    public getB(nm: string): boolean { 
+        let m = /^((no|false)|yes|true)?$/i.exec(this.get(nm));
+        return m && !m[2];
     }
 
     public ChkNoAttsLeft() {  
@@ -2545,7 +2535,16 @@ class Atts extends Map<string,string> {
 
 let altProps = {"class": "className", valueAsNumber: "value"}
     , regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/
-    , regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/;
+    , regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/
+// Capitalization of event names, element property names, and style property names.
+// The first character that FOLLOWS on one of these words will be capitalized.
+// In this way, we don't have to list all words that occur as property name final words.
+    , words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z'
+// Not: auto, on
+// Beware of spcial cases like "inputmode" and "tabindex"
+// "valueAsNumber" has "as" as word, but "basis" not
+// Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
+    , regCapit = new RegExp(`(html|uri)|(${words})|.`, "g");
 
 function CheckIdentifier(nm: string) {
     // Anders moet het een geldige JavaScript identifier zijn
@@ -2556,23 +2555,14 @@ function CheckIdentifier(nm: string) {
     return nm;
 }
 
-// Capitalization of event names, element property names, and style property names.
-// The first character that FOLLOWS on one of these words will be capitalized.
-// In this way, we don't have to list all words that occur as property name final words.
-let words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z'
-// Not: auto, on
-// Beware of spcial cases like "inputmode" and "tabindex"
-// "valueAsNumber" has "as" as word, but "basis" not
-// Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
-, regCapitalize = new RegExp(`(html|uri)|(${words})|.`, "g");
 function CapitalProp(lcName: string) {
-    let bHadWord:boolean;
-    return lcName.replace(regCapitalize, (w, p1, p2) => {
+    let bHadW:boolean;
+    return lcName.replace(regCapit, (w, p1, p2) => {
         let r = 
             p1 ? w.toUpperCase()
-            : bHadWord ? w.substring(0,1).toUpperCase() + w.substring(1)
+            : bHadW ? w.substring(0,1).toUpperCase() + w.substring(1)
             : w;
-        bHadWord = p2;
+        bHadW = p2;
         return r;
     });
 }

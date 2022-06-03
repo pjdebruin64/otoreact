@@ -21,10 +21,11 @@
 }
 @media screen {
     section:not(:first)    { content-visibility: auto; }
-    section:nth-of-type(1) {min-height: 7000px;}
+    section:nth-of-type(1) {min-height: 4000px;}
     section:nth-of-type(2) {min-height: 2700px;}
-    section:nth-of-type(3) {min-height: 12500px;}
-    section:nth-of-type(4) {min-height: 2800px;}
+    section:nth-of-type(3) {min-height: 4000px;}
+    section:nth-of-type(4) {min-height: 12500px;}
+    section:nth-of-type(5) {min-height: 2800px;}
 }
 .OtoRed { color: var(--OtoRed); }
 .sample {
