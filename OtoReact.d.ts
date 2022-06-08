@@ -31,6 +31,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     child: Range;
     next: Range;
     parentR?: Range;
+    hdrR?: Range;
     constructor(node: NodeType, area: Area, text?: string);
     toString(): string;
     result?: any;

@@ -1,15 +1,30 @@
 const sampleGreeting=
-`<DEFINE rvar='yourName' store=sessionStorage></DEFINE>
+`<DEFINE rvar='yourName'></DEFINE>
+
 <p>
     What's your name?
     <input type=text @value="yourName.V">
 </p>
+
 <IF cond="yourName.V">
     <p>
         Nice to meet you, {yourName.V}.
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
-</IF>`;
+</IF>`
+  , fileGreeting = 
+`<!DOCTYPE html>
+<html>
+    <head>
+        <script type=module src="OtoReact.js"></script>
+    </head>
+    <body hidden type=rhtml>
+        <!-- Here goes your RHTML -->
+        
+${sampleGreeting.replace(/^/gm, "\t")}
+    </body>
+</html>
+`;
 
 const sampleServerData2=
 `<!-- We tell OtoReact to define these names in global scope. -->

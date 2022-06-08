@@ -6,10 +6,13 @@
         id=sampleGreeting>
         <RHTML #srctext=sampleGreeting></RHTML>
     </div>
-    <div style="height: fit-content; width: fit-content;">
+    <div 
+        style="height: fit-content; width: fit-content;">
         <RHTML #srctext=sampleTicTacToe></RHTML>
     </div>
 </div>
+
+<pre class=sourcecode #innerHTML="ColorCode(fileGreeting)"></pre>
 
 <h2>What is it?</h2>
 
@@ -50,7 +53,7 @@
 <p>
     The tiny example above on the left is the result of the following piece of Reactive HTML:
 </p>
-<pre class=sourcecode #innerHTML="ColorCode(sampleGreeting)"></pre>
+<demo #srcText="sampleGreeting"></demo>
 Explanation:
 <ul>
     <li>
@@ -69,6 +72,8 @@ Explanation:
         <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code> are embedded expressions. The rendered document will contain the value of the expression between the braces.
     </li>
 </ul>
+
+You can modify the source code above and see the result immediately.
 
 <h3>Multiplication tables</h3>
 <demo #srctext="demoTables"></demo>
@@ -141,23 +146,17 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
         <br>It's less than 50 kilobyte, and has no dependencies at all.
     </li>
     <li>
-        Import the OtoReact compiler into your application:
-        <pre class=sourcecode>import \{ RCompile \} from './OtoReact.js';</pre>
+        Include the OtoReact compiler into your application:
+        <pre class=sourcecode><{}script type=module src="OtoReact.js"><{}/script></pre>
     </li>
     <li>
-        Invoke the compiler on the part(s) of your page you wish to be reactive, e.g.:
-        <pre class=sourcecode>RCompile( document.body );</pre>
-        Both code lines can either be placed right into you HTML file:
-        <pre>
-<{}script type=module>
-    import \{ RCompile } from './OtoReact.js';
-    RCompile( document.body );
-<{}/script></pre>
-        , or inside a JavaScript (or TypeScript) module you load from your HTML file.
+        Mark the body element of your document:
+        <pre class=sourcecode><{}body type="rhtml"></pre>
+        , then OtoReact will compile and render it at the first event cycle.
     </li>
     <li>
         You may also want to hide all or part of your application until it has been built, e.g. by using:
-    <code class=sourcecode><{}body hidden></code>.
+    <code class=sourcecode><{}body type="rhtml" hidden></code>.
         <br>RCompile will unhide its argument after it has been built.
     </li>
 </ol>

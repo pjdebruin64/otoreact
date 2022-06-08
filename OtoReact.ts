@@ -45,6 +45,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     child: Range;           // Linked list of children (null=empty)
     next: Range = null;     // Next item in linked list
     parentR?: Range;
+    hdrR?: Range;
 
     /* For a range corresponding to a DOM node, the child ranges will correspond to child nodes of the DOM node.
     */
@@ -147,35 +148,35 @@ let dU: Dependent<any> = () => u;
 function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
     nWipe?: 1|2,  // 1=wipe when result has changed; 2=wipe always
     result?: any,
-) : {range: Range, subArea:Area, bInit: boolean}
+) : {range: Range, sub:Area, bInit: boolean}
 {
     let {parent, range} = area,
-        subArea: Area = {parent, range: null }
+        sub: Area = {parent, range: null }
         , bInit = !range;
     if (bInit) {
-        subArea.source = area.source;
-        subArea.before = area.before;
+        sub.source = area.source;
+        sub.before = area.before;
         if (srcElm) text = srcElm.localName + (text && ' ') + text;
         
-        UpdPrevRange(area, range = subArea.parentR = new Range(null, area, text));
+        UpdPrevRange(area, range = sub.parentR = new Range(null, area, text));
         range.result = result;
     }
     else {
-        subArea.range = range.child;
+        sub.range = range.child;
         area.range = range.next;
 
         if (nWipe && (nWipe==2 || result != range.result)) {
             range.result = result;
             range.erase(parent);                 
             range.child = null;
-            subArea.range = null;
-            subArea.before = range.Next;
-            subArea.parentR = range;
+            sub.range = null;
+            sub.before = range.Next;
+            sub.parentR = range;
             bInit = true;
         }
     }
     
-    return {range, subArea, bInit};
+    return {range, sub, bInit};
 }
 function UpdPrevRange(area: Area, range: Range) {
     let r: Range
@@ -867,19 +868,22 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^#?(?:((?:this)?reacts?on)|on(create|update)+|on(?:(error)-?|success))$/;
+    static genAtts = /^(?:#?(?:((?:this)?reacts?on)|on(create|update)+|on((error)-?|success))|##cond)$/;
     private async CompElm(srcPrnt: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
         ): Promise<[DOMBuilder, ChildNode, number?]> {
         let atts =  new Atts(srcElm),
             reacts: Array<{attNm: string, rvars: Dependent<RVAR[]>}> = [],
             genMods: Array<{attNm: string, text: string, hndlr?: Dependent<Handler>, C?: boolean, U?: boolean}> = [],
+            dIf: Dependent<boolean>, raLength = this.restoreActions.length,
             
             depOnerr: Dependent<Handler> & {bBldr?: boolean}
             , depOnsucc: Dependent<Handler>
-            , bldr: DOMBuilder, elmBldr: DOMBuilder, isBlank: number
+            , bldr: DOMBuilder, elmBldr: DOMBuilder
+            , isBl: number  // Is the currently generated DOM blank
             , m: RegExpExecArray;
         if (bUnhide) atts.set('#hidden', 'false');        
         try {
+            dIf = this.CompAttrExpr(atts, 'if');
             for (let attNm of atts.keys())
                 if (m = RCompiler.genAtts.exec(attNm))
                     if (m[1])       // (?:this)?reacts?on)
@@ -888,7 +892,7 @@ class RCompiler {
                         genMods.push({attNm, text: atts.get(attNm), C:/c/.test(attNm), U:/u/.test(attNm)});
                     else {          // #?on(?:(error)-?|success)
                         let dep = this.CompHandler(attNm, atts.get(attNm));
-                        if (m[3])   // #?onerror-?
+                        if (m[4])   // #?onerror-?
                             ((depOnerr = dep) as typeof depOnerr).bBldr = !/-$/.test(attNm);
                         else depOnsucc = dep;
                     }
@@ -914,7 +918,7 @@ class RCompiler {
                             });
                         }
                         
-                        isBlank = 1;
+                        isBl = 1;
                     } break;
 
                     case 'if':
@@ -1038,8 +1042,8 @@ class RCompiler {
                                 }
                                 else {
                                     // This is the regular CASE                                
-                                    let {subArea, bInit} = PrepArea(srcElm, area, '', 1, choosenAlt);
-                                    if (choosenAlt && (bInit || !area.bRootOnly)) {
+                                    let {sub, bInit} = PrepArea(srcElm, area, '', 1, choosenAlt);
+                                    if (choosenAlt && (!area.bRootOnly || bInit)) {
                                         let saved = SaveEnv(), i = 0;
                                         try {
                                             if (choosenAlt.patt)
@@ -1049,7 +1053,7 @@ class RCompiler {
                                                         (matchResult[++i])
                                                     );
 
-                                            await this.CallWithHandling(choosenAlt.builder, choosenAlt.node, subArea );
+                                            await this.CallWithHandling(choosenAlt.builder, choosenAlt.node, sub );
                                         } finally { RestoreEnv(saved) }
                                     }
                                 }
@@ -1164,7 +1168,7 @@ class RCompiler {
                             for (let lv of vars)
                                 lv(MEnv[lv.i]);
                         };
-                        isBlank = 1;
+                        isBl = 1;
 
                     } break;
 
@@ -1178,12 +1182,12 @@ class RCompiler {
                         if (getHashes) {
                             let b = bldr;
                             bldr = async function HASH(this: RCompiler, area: Area) {
-                                let {subArea, range} = PrepArea(srcElm, area, 'hash')
+                                let {sub, range} = PrepArea(srcElm, area, 'hash')
                                     , hashes = getHashes();
 
                                 if (!range.value || hashes.some((hash, i) => hash !== range.value[i])) {
                                     range.value = hashes;
-                                    await b.call(this, subArea);
+                                    await b.call(this, sub);
                                 }
                             }
                             bldr.ws = b.ws;
@@ -1222,7 +1226,7 @@ class RCompiler {
                                     await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, false);
                                     range.hdrElms = R.AddedHdrElms;
                                     
-                                    /* R.StyleBefore = subArea.marker; */
+                                    /* R.StyleBefore = sub.marker; */
                                     await R.Build({parent: shadowRoot, range: null
                                         , parentR: new Range(null, null, 'Shadow')});
                                 }
@@ -1236,17 +1240,17 @@ class RCompiler {
 
                     case 'script': 
                         bldr = await this.CompScript(srcPrnt, srcElm as HTMLScriptElement, atts); 
-                        isBlank = 1;
+                        isBl = 1;
                         break;
 
                     case 'style':
                         this.CompStyle(srcElm);
-                        isBlank = 1;
+                        isBl = 1;
                         break;
 
                     case 'component': 
                         bldr = await this.CompComponent(srcElm, atts);
-                        isBlank = 1;
+                        isBl = 1;
                         break;
 
                     case 'document': {
@@ -1299,7 +1303,7 @@ class RCompiler {
                             bldr = async function DOCUMENT(this: RCompiler) {
                                 docVar(docDef(env));
                             }
-                            isBlank = 1;
+                            isBl = 1;
                         }
                         finally { this.RestoreCont(saved); }
                     } break;
@@ -1309,17 +1313,17 @@ class RCompiler {
                         this.wspc = this.rspc = WSpc.block;
                         
                         bldr = async function HEAD(this: RCompiler, area: Area) {
-                            let sub: Area = PrepArea(srcElm, area).subArea;
+                            let {sub} = PrepArea(srcElm, area);
                             sub.parent = area.parent.ownerDocument.head;
                             await childBuilder.call(this, sub);
                         }
                         this.wspc = wspc;
-                        isBlank = 1;
+                        isBl = 1;
                     } break;
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        bldr = await this.CompHTMLElement(srcElm, atts); 
+                        bldr = await this.CompHTMLElement(srcElm, atts);
                         break;
                 }
                 atts.ChkNoAttsLeft();
@@ -1359,6 +1363,17 @@ class RCompiler {
                         );
             }
         }
+        if (dIf) {
+            if (this.restoreActions.length > raLength)
+                throw `'#if' is not possible for declarations`;
+            let b = bldr;
+            bldr = function hif(this: RCompiler, area: Area) {
+                let c = dIf(),
+                    {sub} = PrepArea(srcElm, area, '', 1, c)
+                if (c)
+                    return b.call(this, sub)
+            }
+        }
 
         for (let {attNm, rvars} of reacts)
             bldr = this.GetREACT(srcElm, attNm, bldr, rvars);
@@ -1377,28 +1392,28 @@ class RCompiler {
     ): DOMBuilder{
         let  updateBuilder: DOMBuilder = 
             ( bRenew
-                ? function renew(this: RCompiler, subArea: Area) {
-                    return builder.call(this, PrepArea(srcElm, subArea, 'renew', 2).subArea);
+                ? function renew(this: RCompiler, sub: Area) {
+                    return builder.call(this, PrepArea(srcElm, sub, 'renew', 2).sub);
                 }
             : /^this/.test(attName)
-                ? function reacton(this: RCompiler, subArea: Area) {
-                    subArea.bRootOnly = true;
-                    return builder.call(this, subArea);
+                ? function reacton(this: RCompiler, sub: Area) {
+                    sub.bRootOnly = true;
+                    return builder.call(this, sub);
                 }
             : builder
             );
 
         async function REACT(this: RCompiler, area: Area) {
             
-            let range: Range, subArea: Area, bInit: boolean;
+            let range: Range, sub: Area, bInit: boolean;
             // All constructs should create at least one new range
             //if (getRvars) {
-                ({range, subArea, bInit} = PrepArea(srcElm, area, attName));
-                area = subArea;
+                ({range, sub, bInit} = PrepArea(srcElm, area, attName));
+                area = sub;
             //}
 
             if (bRenew)
-                area = PrepArea(srcElm, area, 'renew', 2).subArea;
+                area = PrepArea(srcElm, area, 'renew', 2).sub;
 
             await builder.call(this, area);
 
@@ -1407,7 +1422,7 @@ class RCompiler {
                     , subscriber: Subscriber, pVars: RVAR[]
                     , i = 0;
                 if (bInit)
-                    subscriber = this.Subscriber(subArea, updateBuilder, range.child, );
+                    subscriber = this.Subscriber(sub, updateBuilder, range.child, );
                 else {
                     ({subscriber, rvars: pVars} = range.value);
                     assignEnv(subscriber.env, env);
@@ -1572,9 +1587,9 @@ class RCompiler {
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
-                    let {range, subArea} = PrepArea(srcElm, area, ''),
-                        {parent} = subArea,
-                        before = subArea.before !== u ? subArea.before : range.Next,
+                    let {range, sub} = PrepArea(srcElm, area, ''),
+                        {parent} = sub,
+                        before = sub.before !== u ? sub.before : range.Next,
                         iterable = getRange()
                     
                         , pIter = async (iter: Iterable<Item>) => {
@@ -1610,7 +1625,7 @@ class RCompiler {
                                 , prevItem: Item, nextItem: Item
                                 , prevRange: Range = null,
                                 childArea: Area;
-                            subArea.parentR = range;
+                            sub.parentR = range;
                             prevVar(); nextVar();
 
                             if (nextIterator) nextIterator.next();
@@ -1634,10 +1649,10 @@ class RCompiler {
 
                                 if (bInit) {
                                     // Item has to be newly created
-                                    subArea.range = null;
-                                    subArea.prevR = prevRange;
-                                    subArea.before = nextChild?.FirstOrNext || before;
-                                    ({range: childRange, subArea: childArea} = PrepArea(null, subArea, `${lvName}(${idx})`));
+                                    sub.range = null;
+                                    sub.prevR = prevRange;
+                                    sub.before = nextChild?.FirstOrNext || before;
+                                    ({range: childRange, sub: childArea} = PrepArea(null, sub, `${lvName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
                                             throw `Duplicate key '${key}'`;
@@ -1684,9 +1699,9 @@ class RCompiler {
                                         prevRange.next = childRange;
                                     else
                                         range.child = childRange;
-                                    subArea.range = childRange;
-                                    childArea = PrepArea(null, subArea, '').subArea;
-                                    subArea.parentR = null;
+                                    sub.range = childRange;
+                                    childArea = PrepArea(null, sub, '').sub;
+                                    sub.parentR = null;
                                 }
                                 childRange.prev = prevRange;
                                 prevRange = childRange;
@@ -1760,7 +1775,7 @@ class RCompiler {
                 //srcParent.removeChild(srcElm);
 
                 return async function FOREACH_Slot(this: RCompiler, area: Area) {
-                    let {subArea} = PrepArea(srcElm, area),
+                    let {sub} = PrepArea(srcElm, area),
                         saved= SaveEnv(),
                         slotDef = env.constructs.get(nm);
                     ixVar();
@@ -1769,7 +1784,7 @@ class RCompiler {
                         for (let slotBldr of slotDef.templates) {
                             this.SetVar(ixVar, idx++);
                             mapNm(env.constructs, {nm: nm, templates: [slotBldr], constructEnv: slotDef.constructEnv});
-                            await bodyBldr.call(this, subArea);
+                            await bodyBldr.call(this, sub);
                         }
                     }
                     finally {
@@ -2039,7 +2054,7 @@ class RCompiler {
         return async function INSTANCE(this: RCompiler, area: Area) {
             let svEnv = env,
                 cdef = env.constructs.get(nm),
-                {range, subArea, bInit} = PrepArea(srcElm, area);
+                {range, sub, bInit} = PrepArea(srcElm, area);
             if (!cdef) return;
             bReadOnly = 1;
             let args = range.value ||= {};
@@ -2058,7 +2073,7 @@ class RCompiler {
                     if (args[nm] === u)
                         args[nm] = pDflt();
                 for (let template of cdef.templates) 
-                    await template.call(this, subArea, args, slotBldrs, svEnv);
+                    await template.call(this, sub, args, slotBldrs, svEnv);
             }
             finally {env = svEnv;}
         }
@@ -2674,3 +2689,8 @@ function ScrollToHash() {
     if (location.hash)
         setTimeout((() => document.getElementById(location.hash.substring(1))?.scrollIntoView()), 6);
 }
+
+setTimeout(() =>
+    /^rhtml$/i.test(document.body.getAttribute('type'))
+        && RCompile(document.body)
+, 0);

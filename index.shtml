@@ -36,7 +36,7 @@
                 mTag.replace(/\s(?:on|#)\w+\s*=\s*(?:".*?"|'.*?')|(\{(?:\{.*?\}|.)*?\})/gs
                     , (m,mExpr) => mExpr ? `<span class=otored>${m}</span>` : m)
             }</span>`;
-        globalThis.ColorCode = function ColorCode(html) {
+        function ColorCode(html) {
             return `<div style='color:black'>${
                 html.replace(
                     /[<&]/g, c => mapping[c]
@@ -60,15 +60,6 @@
                 )
             }</div>`;
         }
-        /*
-        const orgFetch = globalThis.fetch;
-        globalThis.fetch = function(url, init) {
-            if (url != "webColors.json") throw "Calling 'fetch' is not allowed in these demo's";
-            return orgFetch(url, init);
-        }
-        delete globalThis.XMLHttpRequest;
-        delete globalThis.import;
-        */
     </script>
     <script src="samples.js?1" defer></script>
     <script>
@@ -99,6 +90,7 @@
                 : "Page not found";
         }, true);
 
+        // Auto-check for updates
         let LastModified = null, hdrNoCache = new Headers();
         hdrNoCache.append('Cache-Control', 'no-cache');
         async function CheckForUpdates() {
@@ -197,6 +189,6 @@
         <br>and on my <a href="http://www.peterdebruin.net">personal homepage</a> in Dutch
     </div>
 
-</body>
+    <!--#include file="Lib_Components.html"-->
+  </body>
 </html>
-<!--#include file="Lib_Components.html"-->

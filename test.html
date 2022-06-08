@@ -1,18 +1,22 @@
 <!DOCTYPE html>
-<script type=module>
-    import {RCompile} from './OtoReact.js';
-    RCompile(document.body);
-</script>
-<define rvar='yourName' store=sessionStorage></define>
-<pre #innerHTML=yourName.V *innerText=yourName.V></pre>
-<p>
-    What's your name?
-    <input type=text @value="yourName.V">
-</p>
-<if cond="yourName.V">
-    <p>
-        Nice to meet you, {yourName.V}.
-        <br>By the way, your name consists of {yourName.V.length} characters.
-    </p>
-</if>
-<hr>
+<html>
+    <head>
+        <script type=module src="OtoReact.js"></script>
+        <script type="module">
+            let yourName=RVAR('yourName')
+        </script>
+    </head>
+    <body hidden type=rhtml>
+        <!-- Here goes your RHTML -->
+        <p>
+            What's your name?
+            <input type=text @value="yourName.V">
+        </p>
+        <if cond="yourName.V" reacton="yourName">
+            <p>
+                Nice to meet you, {yourName.V}.
+                <br>By the way, your name consists of {yourName.V.length} characters.
+            </p>
+        </if>
+    </body>
+</html>
