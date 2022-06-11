@@ -37,16 +37,14 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
-    erased?: boolean;
     hash?: Hash;
     key?: Key;
     prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
-    iSub?: Subscriber<Item>;
-    updated?: number;
-    subs?: Subscriber;
+    subs?: Subscriber<Item>;
     rvars?: RVAR[];
+    updated?: number;
     get First(): ChildNode;
     get Next(): ChildNode;
     get FirstOrNext(): ChildNode;
@@ -112,6 +110,7 @@ declare class RCompiler {
     Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
+    private AllAreas;
     private Builder;
     private bCompiled;
     private wspc;

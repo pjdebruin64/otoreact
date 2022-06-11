@@ -17,8 +17,6 @@ class Range {
         this.node = node;
         this.text = text;
         this.next = null;
-        if (!node)
-            this.child = null;
         if (area && !area.parentR?.node)
             this.parentR = area.parentR;
     }
@@ -60,19 +58,17 @@ class Range {
         })(this);
     }
     erase(parent) {
-        let { node, child } = this;
+        let { node, child, subs, rvars } = this;
         if (node && parent) {
             parent.removeChild(node);
             parent = null;
         }
-        this.child = null;
+        if (rvars)
+            for (let rvar of rvars)
+                rvar._Subscribers.delete(subs);
+        this.child = this.parentR = null;
         while (child) {
             child.erase(child.newParent || parent);
-            child.erased = true;
-            child.parentR = null;
-            if (child.rvars)
-                for (let rvar of child.rvars)
-                    rvar._Subscribers.delete(child.subs);
             child = child.next;
         }
     }
@@ -94,6 +90,7 @@ function PrepArea(srcElm, area, text = '', nWipe, result) {
         if (nWipe && (nWipe == 2 || result != range.result)) {
             range.result = result;
             range.erase(parent);
+            range.child = null;
             sub.range = null;
             sub.before = range.Next;
             sub.parentR = range;
@@ -315,6 +312,7 @@ class RCompiler {
         this.cRvars = new Map();
         this.restoreActions = [];
         this.mPreformatted = new Set(['pre']);
+        this.AllAreas = [];
         this.bCompiled = false;
         this.wspc = 1;
         this.rspc = 1;
@@ -416,9 +414,9 @@ class RCompiler {
         let sArea = {
             parent, bRootOnly,
             range,
-        }, subEnv = { env: CloneEnv(env), onerr, onsucc }, subs = async () => {
+        }, subEnv = { env: CloneEnv(env), onerr, onsucc }, subscriber = async () => {
             let { range } = sArea, save = { env, onerr, onsucc };
-            if ((range.updated || 0) < updCnt && !range.erased) {
+            if ((range.updated || 0) < updCnt) {
                 ({ env, onerr, onsucc } = subEnv);
                 range.updated = updCnt;
                 builtNodeCnt++;
@@ -430,10 +428,10 @@ class RCompiler {
                 }
             }
         };
-        subs.sArea = sArea;
-        subs.ref = range;
-        subs.env = subEnv.env;
-        return subs;
+        subscriber.sArea = sArea;
+        subscriber.ref = range;
+        subscriber.env = subEnv.env;
+        return subscriber;
     }
     async Build(area) {
         let saveR = R, { parentR } = area;
@@ -442,6 +440,7 @@ class RCompiler {
         builtNodeCnt++;
         await this.Builder(area);
         let subs = this.Subscriber(area, this.Builder, parentR?.child || area.prevR);
+        this.AllAreas.push(subs);
         R = saveR;
     }
     AddDirty(sub) {
@@ -589,15 +588,15 @@ class RCompiler {
         if (!builders.length)
             return null;
         let Iter = async function Iter(area, start = 0) {
-            let i = 0, toSubscribe = [];
+            let i = 0, toSubscr = [];
             if (!area.range) {
                 for (let [bldr] of builders) {
                     i++;
                     await bldr.call(this, area);
                     if (bldr.auto)
-                        toSubscribe.push(this.Subscriber(area, Iter, area.prevR, i));
+                        toSubscr.push(this.Subscriber(area, Iter, area.prevR, i));
                 }
-                for (let subs of toSubscribe) {
+                for (let subs of toSubscr) {
                     let { sArea } = subs, r = sArea.range, rvar = r.value;
                     if (!rvar._Subscribers.size && r.next) {
                         (sArea.range = r.next).updated = 0;
@@ -1056,13 +1055,12 @@ class RCompiler {
             if (getRvars) {
                 let rvars = getRvars(), subs, pVars, i = 0;
                 if (bInit)
-                    subs = this.Subscriber(sub, updateBuilder, range.child);
+                    subs = range.subs = this.Subscriber(sub, updateBuilder, range.child);
                 else {
                     ({ subs, rvars: pVars } = range);
                     assignEnv(subs.env, env);
                 }
                 range.rvars = rvars;
-                range.subs = subs;
                 for (let rvar of rvars) {
                     if (pVars) {
                         let pvar = pVars[i++];
@@ -1281,9 +1279,9 @@ class RCompiler {
                                     await bodyBldr.call(this, childArea);
                                     if (rvar)
                                         if (childRange.rvar)
-                                            assignEnv(childRange.iSub.env, env);
+                                            assignEnv(childRange.subs.env, env);
                                         else
-                                            rvar.Subscribe(childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child));
+                                            rvar.Subscribe(childRange.subs = this.Subscriber(childArea, bodyBldr, childRange.child));
                                     childRange.rvar = rvar;
                                 }
                                 prevItem = item;
@@ -1913,10 +1911,8 @@ class _RVAR {
         for (let sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (!sub.sArea?.range?.erased)
-                this.RC.AddDirty(b = sub);
             else
-                this._Subscribers.delete(sub);
+                this.RC.AddDirty(b = sub);
         if (b)
             this.RC.RUpdate();
     }

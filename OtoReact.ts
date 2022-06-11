@@ -70,10 +70,12 @@ class Range<NodeType extends ChildNode = ChildNode> {
     hash?: Hash; key?: Key; prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
-    subs?: Subscriber<Item>;
+    iSub?: Subscriber<Item>;
 
     // For reactive elements
     updated?: number;
+    subs?: Subscriber;
+    rvars?: RVAR[];
 
     public get First(): ChildNode {
         let f: ChildNode
@@ -123,7 +125,10 @@ class Range<NodeType extends ChildNode = ChildNode> {
         while (child) {
             child.erase(child.newParent || parent);
             child.erased = true;
-            child.parentR = null;
+            child.parentR = null;                
+            if (child.rvars)
+                for (let rvar of child.rvars)
+                    rvar._Subscribers.delete(child.subs);
             child = child.next;
         }
     }
@@ -167,8 +172,7 @@ function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
 
         if (nWipe && (nWipe==2 || result != range.result)) {
             range.result = result;
-            range.erase(parent);                 
-            range.child = null;
+            range.erase(parent); 
             sub.range = null;
             sub.before = range.Next;
             sub.parentR = range;
@@ -609,9 +613,11 @@ class RCompiler {
                 range,
             },
             subEnv = {env: CloneEnv(env), onerr, onsucc},
-            subscriber: Subscriber = async () => {
+            subs: Subscriber = async () => {
                 let {range} = sArea, save = {env, onerr, onsucc};
-                if (!range.erased && (range.updated || 0) < updCnt) {
+                if ((range.updated || 0) < updCnt && !range.erased)
+                {
+
                     ({env, onerr, onsucc} = subEnv);
                     range.updated = updCnt;
                     builtNodeCnt++;
@@ -621,11 +627,11 @@ class RCompiler {
                     finally {({env, onerr, onsucc} = save)}
                 }
             };
-        subscriber.sArea = sArea;
-        subscriber.ref = range;
-        subscriber.env = subEnv.env;
+        subs.sArea = sArea;
+        subs.ref = range;
+        subs.env = subEnv.env;
 
-        return subscriber;
+        return subs;
     }
 
     public async Build(area: Area) {
@@ -635,12 +641,10 @@ class RCompiler {
         builtNodeCnt++;
         await this.Builder(area);
         let subs = this.Subscriber(area, this.Builder, parentR?.child || area.prevR);
-        this.AllAreas.push(subs);
         R = saveR;        
     }
 
     public Settings: FullSettings;
-    private AllAreas: Subscriber[] = [];
     private Builder: DOMBuilder;
     private bCompiled = false;
 
@@ -1403,23 +1407,23 @@ class RCompiler {
 
             if (getRvars) {
                 let rvars = getRvars()
-                    , subscriber: Subscriber, pVars: RVAR[]
+                    , subs: Subscriber, pVars: RVAR[]
                     , i = 0;
                 if (bInit)
-                    subscriber = this.Subscriber(sub, updateBuilder, range.child, );
+                    subs = this.Subscriber(sub, updateBuilder, range.child, );
                 else {
-                    ({subscriber, rvars: pVars} = range.value);
-                    assignEnv(subscriber.env, env);
+                    ({subs, rvars: pVars} = range);
+                    assignEnv(subs.env, env);
                 }
-                range.value = {rvars, subscriber};
+                range.rvars = rvars; range.subs = subs;
                 for (let rvar of rvars) {
                     if (pVars) {
                         let pvar = pVars[i++];
                         if (rvar==pvar)
                             continue;
-                        pvar._Subscribers.delete(subscriber);
+                        pvar._Subscribers.delete(subs);
                     }
-                    try { rvar.Subscribe(subscriber); }
+                    try { rvar.Subscribe(subs); }
                     catch { throw `[${attName}] This is not an RVAR`; }
                 }
             }
@@ -1717,10 +1721,10 @@ class RCompiler {
 
                                     if (rvar)
                                         if (childRange.rvar)
-                                            assignEnv(childRange.subs.env, env);
+                                            assignEnv(childRange.iSub.env, env);
                                         else
                                             rvar.Subscribe(
-                                                childRange.subs = this.Subscriber(childArea, bodyBldr, childRange.child)
+                                                childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child)
                                             );
                                     childRange.rvar = rvar
                                 }
