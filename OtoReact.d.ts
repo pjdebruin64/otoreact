@@ -31,7 +31,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     child: Range;
     next: Range;
     parentR?: Range;
-    hdrR?: Range;
+    newParent?: Node;
     constructor(node: NodeType, area: Area, text?: string);
     toString(): string;
     result?: any;
@@ -104,7 +104,7 @@ declare class RCompiler {
     private SetVar;
     private NewVars;
     private AddConstruct;
-    Compile(elm: ParentNode, settings?: Settings, bIncludeSelf?: boolean): Promise<void>;
+    Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
     Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
@@ -158,6 +158,7 @@ declare class RCompiler {
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
+    fetchModule(src: string, bInclHead?: boolean): Promise<Iterable<ChildNode>>;
 }
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 interface Store {

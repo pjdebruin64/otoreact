@@ -48,7 +48,9 @@ pre {
     margin: 1ex 2vw; 
     white-space: pre-wrap;
 }
-pre.sourcecode { font-size: 10pt; }
+pre.sourcecode { 
+    font-size: 10pt; 
+}
 pre, code, elm {
     font: var(--Code);
     color: darkblue;

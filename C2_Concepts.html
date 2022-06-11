@@ -1,5 +1,7 @@
+<MODULE id="C2_Concepts.html">
 <h1>RHTML Concepts</h1>
-
+This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of some features.
+<br>So on first reading, please skip the details.
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
@@ -10,10 +12,10 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 
 <p>If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.</p>
 <p>
-    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
+    To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
 </p>
 <p>
-    To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
+    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
 </p>
 <p>
     You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
@@ -23,7 +25,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 <p>Within JavaScript, you can of course use the JavaScript syntax for <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>, using backquotes and dollar signs:</p>
 <pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
 
-<h2>RHTML Constructs Overview</h2>
+<h2 id="ConstructsOverview">RHTML Constructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
@@ -60,7 +62,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 Note: We write construct names in uppercase and attribute names in lowercase here, but as in HTML, both are case independent.
 
 
-<h2>RHTML functions</h2>
+<h2 id="Functions">RHTML functions</h2>
 The OtoReact module makes the following functions available for import. They are added to the global environment as well.
 <br>The question marks indicate optional arguments.
 <ul>
@@ -89,7 +91,7 @@ The OtoReact module makes the following functions available for import. They are
 
 
 <h2 id=Variables>Local and global variables, 'globalThis'</h2>
-JavaScript in a browser environment distinguishes between local variables, module variables and global variables:
+Ordinary JavaScript in a browser environment distinguishes between local variables, module variables and global variables:
 <ul>
     <li>
         Local variables are visible within a single block <code>\{ &hellip; \}</code> of JavaScript code
@@ -403,3 +405,4 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         When an event handler or some other piece of JavaScript doesn't work as expected, you might insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, to get a breakpoint at that point when the browser development tool is opened.
     </li>
 </ul>
+</MODULE>

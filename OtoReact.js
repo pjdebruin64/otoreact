@@ -60,17 +60,17 @@ class Range {
         })(this);
     }
     erase(parent) {
-        if (this.node)
-            parent.removeChild(this.node);
-        else {
-            let { child } = this;
-            this.child = null;
-            while (child) {
-                child.erase(parent);
-                child.erased = true;
-                child.parentR = null;
-                child = child.next;
-            }
+        let { node, child } = this;
+        if (node && parent) {
+            parent.removeChild(node);
+            parent = null;
+        }
+        this.child = null;
+        while (child) {
+            child.erase(child.newParent || parent);
+            child.erased = true;
+            child.parentR = null;
+            child = child.next;
         }
     }
 }
@@ -144,7 +144,7 @@ export async function RCompile(elm, settings) {
         let { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (docLocation.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         R.RootElm = elm;
-        await R.Compile(elm, {}, true);
+        await R.Compile(elm);
         ToBuild.push({ parent: elm.parentElement, source: elm, range: null });
         if (R.Settings.bBuild)
             await RBuild();
@@ -380,8 +380,7 @@ class RCompiler {
     }
     NewVars(varlist) {
         return (varlist
-            ? varlist.split(',')
-                .map(nm => this.NewVar(nm))
+            ? varlist.split(',').map(nm => this.NewVar(nm.trim()))
             : []);
     }
     AddConstruct(S) {
@@ -389,17 +388,16 @@ class RCompiler {
         mapNm(this.CSignatures, S);
         this.restoreActions.push(() => mapSet(this.CSignatures, S.nm, savedC));
     }
-    async Compile(elm, settings = {}, bIncludeSelf = false) {
+    async Compile(elm, settings = {}, childnodes) {
         let t0 = performance.now(), savedR = R;
         Object.assign(this.Settings, settings);
         for (let tag of this.Settings.preformatted)
             this.mPreformatted.add(tag.toLowerCase());
         try {
             R = this;
-            this.Builder =
-                bIncludeSelf
-                    ? (await this.CompElm(elm.parentElement, elm, true))[0]
-                    : await this.CompChildNodes(elm);
+            this.Builder = childnodes
+                ? await this.CompChildNodes(elm, childnodes)
+                : (await this.CompElm(elm.parentElement, elm, true))[0];
             this.bCompiled = true;
         }
         finally {
@@ -706,7 +704,7 @@ class RCompiler {
                                                         ? this.CompPattern(p, true)
                                                         : (p = atts.get('regmatch')) != null
                                                             ? { regex: new RegExp(p, 'i'),
-                                                                lvars: (atts.get('captures')?.split(',') || []).map(this.NewVar.bind(this))
+                                                                lvars: this.NewVars(atts.get('captures'))
                                                             }
                                                             : null;
                                             if (bHiding && patt?.lvars.length)
@@ -782,12 +780,15 @@ class RCompiler {
                     case 'foreach':
                         bldr = await this.CompFor(srcElm, atts);
                         break;
+                    case 'module':
+                        atts.get('id');
+                        break;
                     case 'include':
                         {
                             let src = atts.get('src', true), C = new RCompiler(this);
                             C.FilePath = this.GetPath(src);
                             let task = (async () => {
-                                await C.Compile(parser.parseFromString(await this.FetchText(src), 'text/html').body, { bRunScripts: true }, false);
+                                await C.Compile(null, { bRunScripts: true }, await this.fetchModule(src));
                             })();
                             bldr =
                                 async function INCLUDE(area) {
@@ -809,19 +810,8 @@ class RCompiler {
                             if (!promModule) {
                                 let C = new RCompiler(this, true);
                                 C.Settings.bRunScripts = true;
-                                let mod = document.getElementById(src);
-                                promModule = mod
-                                    ? processModule(mod.childNodes)
-                                    : this.FetchText(src)
-                                        .then(textContent => {
-                                        let parsedDoc = parser.parseFromString(textContent, 'text/html'), { body } = parsedDoc;
-                                        if (body.firstElementChild.tagName == 'MODULE')
-                                            body = body.firstElementChild;
-                                        C.FilePath = this.GetPath(src);
-                                        return processModule(concIterable(parsedDoc.head.childNodes, body.childNodes));
-                                    });
-                                RModules.set(src, promModule);
-                                async function processModule(nodes) {
+                                C.FilePath = this.GetPath(src);
+                                promModule = this.fetchModule(src, true).then(async (nodes) => {
                                     let bldr = await C.CompIter(null, nodes);
                                     for (let clientSig of listImports) {
                                         let signat = C.CSignatures.get(clientSig.nm);
@@ -834,7 +824,8 @@ class RCompiler {
                                         if ((V.i = C.ContextMap.get(V.nm)) == u)
                                             throw `Module does not define '${V.nm}'`;
                                     return [bldr.bind(C), C.CSignatures];
-                                }
+                                });
+                                RModules.set(src, promModule);
                             }
                             if (!bAsync) {
                                 let prom = promModule.then(([_, CSigns]) => {
@@ -892,7 +883,7 @@ class RCompiler {
                                         }
                                         R.FilePath = this.FilePath;
                                         (R.head = shadowRoot).innerHTML = '';
-                                        await R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, false);
+                                        await R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, tempElm.childNodes);
                                         range.hdrElms = R.AddedHdrElms;
                                         await R.Build({ parent: shadowRoot, range: null,
                                             parentR: new Range(null, null, 'Shadow') });
@@ -977,7 +968,9 @@ class RCompiler {
                             bldr = async function HEAD(area) {
                                 let { sub } = PrepArea(srcElm, area);
                                 sub.parent = area.parent.ownerDocument.head;
+                                sub.before = null;
                                 await childBuilder.call(this, sub);
+                                sub.prevR.newParent = sub.parent;
                             };
                             this.wspc = wspc;
                             isBl = 1;
@@ -1029,7 +1022,7 @@ class RCompiler {
                 throw `'#if' is not possible for declarations`;
             let b = bldr;
             bldr = function hif(area) {
-                let c = dIf(), { sub } = PrepArea(srcElm, area, '', 1, c);
+                let c = !!dIf(), { sub } = PrepArea(srcElm, area, '', 1, c);
                 if (c)
                     return b.call(this, sub);
             };
@@ -1042,7 +1035,7 @@ class RCompiler {
         elmBldr.ws = bldr.ws;
         return [elmBldr, srcElm];
     }
-    GetREACT(srcElm, attName, builder, getRvars, bRenew = false) {
+    GetREACT(srcElm, attName, builder, getRvars, bRenew) {
         let updateBuilder = (bRenew
             ? function renew(sub) {
                 return builder.call(this, PrepArea(srcElm, sub, 'renew', 2).sub);
@@ -1830,6 +1823,18 @@ class RCompiler {
     }
     async FetchText(src) {
         return await (await RFetch(this.GetURL(src))).text();
+    }
+    async fetchModule(src, bInclHead) {
+        let mod = document.getElementById(src);
+        if (!mod) {
+            let doc = parser.parseFromString(await this.FetchText(src), 'text/html');
+            mod = doc.body;
+            if (mod.firstElementChild.tagName == 'MODULE')
+                mod = mod.firstElementChild;
+            if (bInclHead)
+                return concIterable(doc.head.childNodes, mod.childNodes);
+        }
+        return mod.childNodes;
     }
 }
 RCompiler.iNum = 0;

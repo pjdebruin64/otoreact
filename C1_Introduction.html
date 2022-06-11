@@ -1,3 +1,4 @@
+<MODULE id="C1_Introduction.html">
 <h1 id=Introduction>Introduction</h1>
 
 <div style="display: grid; grid-template-columns: auto auto ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
@@ -11,8 +12,26 @@
         <RHTML #srctext=sampleTicTacToe></RHTML>
     </div>
 </div>
+<h2>Summary</h2>
+<div style="display: grid; grid-template-columns: auto auto; gap: 5%;">
+    <div>
+        <p>
+            OtoReact is a library that brings reactivity straight into your HTML file.
+            <br>The tiny application above is the result of this piece of Reactive HTML:
+        </p>
 
-<pre class=sourcecode #innerHTML="ColorCode(fileGreeting)"></pre>
+        <pre class=sourcecode #innerHTML="ColorCode(sampleGreeting)" style.margion="auto"></pre>
+    </div>
+    <div>
+        <p>
+            The Reactive HTML is placed in a HTML document that loads the OtoReact library, e.g. like this: 
+        </p>
+        <pre class=sourcecode #innerHTML="ColorCode(fileTemplate)" style.margion="auto"></pre>
+        <p>
+            This code is served to the browser and that's all.
+        </p>
+    </div>
+</div>
 
 <h2>What is it?</h2>
 
@@ -29,20 +48,20 @@
     <b>OtoReact</i></b> is a small and fast framework to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
 </p>
 <ul>
-    <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
     <li>Reactive HTML is based on HTML; JavaScript is needed <i>only for data manipulation and event handling</i>.
-        <br>Even <a href="#Component">components</a> are defined and instantiated without a single line of JavaScript.</li>
+        <br>Even <a href="#Component">components</a> are defined in HTML without a single line of JavaScript.</li>
+    <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
-        <br>Just a text editor and access to a web server (<i>any</i> web server) suffice.</li>
+        <br>Just a text editor (like <a href="https://code.visualstudio.com/">Visual Studio Code</a>) suffices.</li>
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.</li>
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
     <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
         <ul>
             <li>Components are defined right within the HTML, without needing any JavaScript statements</li>
-            <li>Components are lightweight and have local scope</li>
+            <li>Components are lightweight and have local scope.</li>
             <li>Components can be (mutually) recursive</li>
-            <li>Component definitions can be nested</li>
+            <li>Component definitions can be nested: a component definition can contain its own local component definitions</li>
         </ul>
     </li>
     <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.</li>
@@ -54,7 +73,9 @@
     The tiny example above on the left is the result of the following piece of Reactive HTML:
 </p>
 <demo #srcText="sampleGreeting"></demo>
-Explanation:
+
+You can modify the source code and see the result immediately.
+<p>Explanation:</p>
 <ul>
     <li>
         <elm>DEFINE rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
@@ -73,11 +94,10 @@ Explanation:
     </li>
 </ul>
 
-You can modify the source code above and see the result immediately.
-
 <h3>Multiplication tables</h3>
 <demo #srctext="demoTables"></demo>
-Explanation:
+Feel free to increment the numbers!
+<p>Explanation:</p>
 <ul>
     <li>
         <elm>DEF rvar=maxY …</elm> is an abbreviation of <elm>DEFINE …</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to persist in <code>sessionStorage</code>.
@@ -89,7 +109,6 @@ Explanation:
         <elm>FOR let=y of="range(1,maxY.V+1)"</elm> lets local variable <code>y</code> iterate through the values of <code>range(1,maxY.V+1)</code>, which are the numbers 1 to maxY.V.
     </li>
 </ul>
-Feel free to increment the numbers!
 
 <h3>Tic-Tac-Toe</h3>
 The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
@@ -139,7 +158,7 @@ OtoReact does not provide server-side functionality. You need other tooling for 
 By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
 <p>Using ".rhtml" might cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
 
-<h2>Setup</h2>
+<h2>Document setup</h2>
 <ol>
     <li>
         Download OtoReact.js from the <a href="download" #onclick="reroute">download page</a> and place it somewhere on your server.
@@ -150,14 +169,23 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
         <pre class=sourcecode><{}script type=module src="OtoReact.js"><{}/script></pre>
     </li>
     <li>
-        Mark the body element of your document:
-        <pre class=sourcecode><{}body type="rhtml"></pre>
-        , then OtoReact will compile and render it at the first event cycle.
+        Mark the body element of your document with <code class=sourcecode>type="rhtml"</code>:
+        <pre><{}body type="rhtml"></pre>
+        , then OtoReact will implicitly compile and render the document body at the first event cycle.
     </li>
     <li>
         You may also want to hide all or part of your application until it has been built, e.g. by using:
-    <code class=sourcecode><{}body type="rhtml" hidden></code>.
-        <br>RCompile will unhide its argument after it has been built.
+    <code><{}body type="rhtml" hidden></code>.
+        <br>OtoReact will unhide its target after it has been built.
     </li>
 </ol>
-That's all! A complete file is shown on the <a href="download#App" #onclick="reroute">download page</a>.
+Or, instead of step 2 and 3, one can explicitly call the OtoReact compiler using the <a href="#Functions"><code>RCompile</code> function</a>:
+<pre>
+<{}script type=module>
+    import \{RCompile, RVAR} from './OtoReact.js';
+    RCompile(document.body);
+<{}/pre></pre>
+This allows one to compile one or more parts of your document, instead of the whole document body, and it allows one to specify additional options
+
+<p>That's all!</p>
+</MODULE>

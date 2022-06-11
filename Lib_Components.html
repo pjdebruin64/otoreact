@@ -94,29 +94,6 @@
             </content>
         </pageLayout>
 
-        <script defines="TOC">
-            let num = 0;
-            class TOC {
-                constructor () {
-                    this.num = ++num;
-                    this.numbers = [0,0,0];
-                    this.contents = RVAR(null, []);
-                }
-                getNr(level) {
-                    this.numbers[level]++;
-                    this.numbers[level+1] = 0;
-                    let result = '';
-                    for (let i=0; i<=level; i++)
-                        if (result||this.numbers[i])
-                            result += `.${this.numbers[i]}`;
-                    return result.substring(1);
-                }
-                addContent(level, headElm) {
-                    this.contents.U.push({level, id: headElm.id, text: headElm.textContent });
-                }
-            }
-        </script>
-
         <style>
             body    {
                 margin: 0px;
@@ -210,9 +187,29 @@
                 nav.topbar, .narrow-only {display: none}
             }
         </style>
+        <script type="otoreact/static" defines="num">
+            let num = 0;
+        </script>
 
         <template>
-            <def var=toc #value="new TOC()"></def>
+            <script type="otoreact/local" defines="pNum, contents, getNr, addContent">
+                let pNum = ++num,
+                    numbers = [0,0,0],
+                    contents = RVAR(null, []);
+                    
+                function getNr(level) {
+                    numbers[level]++;
+                    numbers[level+1] = 0;
+                    let result = '';
+                    for (let i=0; i<=level; i++)
+                        if (result||numbers[i])
+                            result += `.${numbers[i]}`;
+                    return result.substring(1);
+                }
+                function addContent(level, headElm) {
+                    contents.U.push({level, id: headElm.id, text: headElm.textContent });
+                }
+            </script>
             <div class=pageLayout>
                 <header>
                         <div style="padding-left: 40px">
@@ -247,19 +244,6 @@
                             <a href="https://forum.otoreact.dev/">Forum</a>
                         </nav>
                 </header>
-                <nav id=TOC>
-                    <center style="background-color: orange;">
-                        <b><i>Table of Contents</i></b>
-                    </center>
-                    <for let=item #of=toc.contents.V reacton="toc.contents,docLocation">
-                        <a. #class:chapter="item.level == 0"
-                            href="#{item.id}">
-                            {item.text}
-                        </a.>
-                    </for>
-                    
-                    <leftbar></leftbar>
-                </nav>
                 <main style.position="relative">
                     <button class="nav narrow-only"
                         style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;" >
@@ -269,19 +253,32 @@
                     <content>
                         <!-- Inside the content, the following construsts are available: -->
                         <h1 id>
-                            <def var=nr #value="toc.getNr(0)"></def>
-                            <h1. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
+                            <def var=nr #value="getNr(0)"></def>
+                            <h1. #id="id||`s${pNum}.${nr}`" onCreate="addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
                         </h1>
                         <h2 id>
-                            <def var=nr #value="toc.getNr(1)"></def>
-                            <h2. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                            <def var=nr #value="getNr(1)"></def>
+                            <h2. #id="id||`s${pNum}.${nr}`" onCreate="addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                         </h2>
                         <h3 id>
-                            <def var=nr #value="toc.getNr(2)"></def>
-                            <h3. #id="id||`s${toc.num}.${nr}`" onCreate="toc.addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                            <def var=nr #value="getNr(2)"></def>
+                            <h3. #id="id||`s${pNum}.${nr}`" onCreate="addContent(2, this)">{nr} &nbsp;<content></content></h3.>
                         </h3>
                     </content>
                 </main>
+                <nav name=TOC>
+                    <center style="background-color: orange;" oncreateupdate="debugger">
+                        <b><i>Table of Contents</i></b>
+                    </center>
+                    <for let=item #of=contents.V reacton="contents,docLocation" key="item">
+                        <a. #class:chapter="item.level == 0"
+                            href="#{item.id}">
+                            {item.text}
+                        </a.>
+                    </for>
+                    
+                    <leftbar></leftbar>
+                </nav>
             </div>
         </template>
     </component>

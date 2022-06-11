@@ -1,3 +1,4 @@
+<MODULE id="C4_Constructs.html">
 <h1>RHTML Constructs</h1>
 
 N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
@@ -86,7 +87,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
 <dl>
     <dt><code>match="<i>pattern</i>"</code></dt>
     <dd>
-        The value is matched against the given simple pattern, which may contain the following wildcards:
+        The value is matched against the given 'simple pattern', which may contain the following wildcards:
         <ul>
             <li><code>?</code> matches any single character</li>
             <li><code>*</code> matches any string of characters</li>
@@ -110,7 +111,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
     <dt><code>regmatch="<i>regExp</i>" captures?="<i>nameList</i>"</code></dt>
     <dd>
         <i>regExp</i> can be any JavaScript <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Cheatsheet">regular expression pattern</a>.
-        <p>The match succeeds when any substring of the string value matches against <i>regExp</i>.</p>
+        <p>The match succeeds when a substring of the string value matches against <i>regExp</i>.</p>
         <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</a> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
     </dd>
 </dl>
@@ -817,8 +818,8 @@ By default, all styling rules attached to the parent document are copied to the 
 <demo #srctext=sampleDocument></demo>
 
 <h2><{}RHEAD></h2>
-Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and updated as needed.
-<p><i>Note: <elm>RHEAD</elm> is currently not working properly within a conditional block of RHTML.</i></p>
+Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and are updated or removed as needed.
 <p>
     You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
 </p>
+</MODULE>

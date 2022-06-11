@@ -7,7 +7,7 @@
     -->
     <title>The OtoReact Framework</title>
     <meta name="viewport" content="width=device-width">
-    <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications"
+    <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications">
     <link rel=preload href="OtoReact.js"            as=script crossorigin>
     <link rel=preload href="KoninklijkeOtolift.png" as=image>
     <!--
@@ -31,11 +31,23 @@
     
         // Colorcoding
         const mapping = {'<': '&lt;', '&': '&amp;'};
-        const markTag = (mTag) =>
-            `<span class=mTag>${
-                mTag.replace(/\s(?:on|#)\w+\s*=\s*(?:".*?"|'.*?')|(\{(?:\{.*?\}|.)*?\})/gs
-                    , (m,mExpr) => mExpr ? `<span class=otored>${m}</span>` : m)
-            }</span>`;
+        const markJScript = (script) =>
+                `<span style='color:purple'>${
+                    script.replace(/\/[^\/](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+                        , (m,mComm) => mComm ? `<span class=demoGreen>${m}</span>` : m
+                    )
+                }</span>`
+            , markTag = (mTag) =>
+                `<span class=mTag>${
+                    mTag.replace(/(\s(?:on|[#*+!@])\w+\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gs
+                        , (_,a1,a2,a3,a4,mExpr) => 
+                            mExpr ? `<span class=otored>${mExpr}</span>` 
+                            : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
+                            : `${a1}${markJScript(a2)}`    
+                        )
+                }</span>`
+            ;
+
         function ColorCode(html) {
             return `<div style='color:black'>${
                 html.replace(
@@ -51,7 +63,7 @@
                             ( mComm ? `<span class=demoGreen>${m}</span>`   // Mark HTML comments
                             : mScriptTag ? 
                                     markTag(mScriptOpen)                    // Mark <script> tag
-                                    + mScriptBody.replace(/\/\/[^\n]*|\/\*.*?\*\//gs, '<span class=demoGreen>$&</span>')
+                                    + markJScript(mScriptBody)
                                     + markTag(mScriptClose)
                             : mTag  ? markTag(m)
                             : mExpr ? `<span class=otored>${m}</span>`
@@ -61,7 +73,7 @@
             }</div>`;
         }
     </script>
-    <script src="samples.js?1" defer></script>
+    <script src="samples.js" defer></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         if (location.search == '??') localStorage.setItem('PJ', 'true')
@@ -77,13 +89,13 @@
         }
     </script>
     <script type=module>
-        import {RCompile, RVAR, docLocation} from './OtoReact.js?2';
+        import {RCompile, RVAR, docLocation} from './OtoReact.js';
         let popup = RVAR('popup', {display: 'none'});
         RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
         docLocation.Subscribe(() => {
             document.title =
-                /^(index.html)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                /^$/.test(docLocation.subpath) ? "The OtoReact Framework"
                 : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
                 : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
                 : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
@@ -126,30 +138,30 @@
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>
-        <when regmatch="^(index.html)?$">
+        <when match="">
             <pageLayout>
                 <pageHead>
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
                 </pageHead>
 
                 <section>
-                    <!-- <include src="C1_Introduction.html"></include> -->
+                    <include src="C1_Introduction.html"></include>
                     <!--#include file="C1_Introduction.html"-->
                 </section>
                 <section>
-                    <!-- <include src="C2_Concepts.html"></include> -->
+                    <include src="C2_Concepts.html"></include>
                     <!--#include file="C2_Concepts.html"-->
                 </section>
                 <section>
-                    <!-- <include src="C3_HtmlElements.html"></include> -->
+                    <include src="C3_HtmlElements.html"></include>
                     <!--#include file="C3_HtmlElements.html"-->
                 </section>
                 <section>
-                    <!-- <include src="C4_Constructs.html"></include> -->
+                    <include src="C4_Constructs.html"></include>
                     <!--#include file="C4_Constructs.html"-->
                 </section>
                 <section>
-                    <!-- <include src="C5_Scripts.html"></include> -->
+                    <include src="C5_Scripts.html"></include>
                     <!--#include file="C5_Scripts.html"-->
                 </section>
             </pageLayout>

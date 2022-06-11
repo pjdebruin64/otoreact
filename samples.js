@@ -1,27 +1,31 @@
 const sampleGreeting=
-`<DEFINE rvar='yourName'></DEFINE>
+`<!-- Create a local reactive variable (RVAR) to receive the entered name -->
+<DEFINE rvar='yourName'></DEFINE>
 
 <p>
     What's your name?
+    <!-- The value of the RVAR ('yourName.V') is bound to the value of the input element -->
     <input type=text @value="yourName.V">
 </p>
 
-<IF cond="yourName.V">
+<!-- If yourName.V is nonempty, -->
+<IF #cond="yourName.V">
+    <!-- then we show: -->
     <p>
-        Nice to meet you, {yourName.V}.
+        Nice to meet you, {yourName.V}. <!-- yourName.V is inserted here -->
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
 </IF>`
-  , fileGreeting = 
+  , fileTemplate = 
 `<!DOCTYPE html>
 <html>
     <head>
         <script type=module src="OtoReact.js"></script>
     </head>
     <body hidden type=rhtml>
+
         <!-- Here goes your RHTML -->
-        
-${sampleGreeting.replace(/^/gm, "\t")}
+
     </body>
 </html>
 `;
@@ -691,9 +695,9 @@ const demoTables =
 </p>
 
 <div class=flex>
-  <FOR let=y of="range(1,maxY.V+1)">
+  <FOR let=y #of="range(1,maxY.V+1)">
       <div>
-          <FOR let=x of="range(1,maxX.V+1)">
+          <FOR let=x #of="range(1,maxX.V+1)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>
