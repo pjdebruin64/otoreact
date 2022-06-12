@@ -37,7 +37,6 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
-    erased?: boolean;
     hash?: Hash;
     key?: Key;
     prev?: Range;
@@ -74,9 +73,11 @@ declare type ConstructDef = {
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
-    _Subscribers?: Set<Subscriber>;
+    _Subscribers: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
+    store?: any;
+    Save?: () => void;
     readonly U?: T;
 };
 interface Item {
@@ -116,9 +117,11 @@ declare class RCompiler {
     private bCompiled;
     private wspc;
     private rspc;
-    DirtyVars: Set<RVAR<unknown>>;
-    private DirtySubs;
-    AddDirty(sub: Subscriber): void;
+    DirtyVars: Set<{
+        _Subscribers: Set<Subscriber>;
+        store?: any;
+        Save?: () => void;
+    }>;
     private bUpdating;
     private bUpdate;
     private handleUpdate;
@@ -168,7 +171,7 @@ interface Store {
 }
 declare class _RVAR<T = unknown> {
     private RC;
-    private store?;
+    store?: Store;
     private storeName;
     constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _Value;

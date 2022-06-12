@@ -64,7 +64,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
-    erased?: boolean;
 
     // Only for FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
@@ -124,7 +123,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
         this.child = null;
         while (child) {
             child.erase(child.newParent || parent);
-            child.erased = true;
             child.parentR = null;                
             if (child.rvars)
                 for (let rvar of child.rvars)
@@ -349,9 +347,11 @@ type Template =
     => Promise<void>;
 
 export type RVAR_Light<T> = T & {
-    _Subscribers?: Set<Subscriber>;
+    _Subscribers: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub:Subscriber) => void;
+    store?: any;
+    Save?: () => void;
     readonly U?: T;
 };
 
@@ -615,7 +615,7 @@ class RCompiler {
             subEnv = {env: CloneEnv(env), onerr, onsucc},
             subs: Subscriber = async () => {
                 let {range} = sArea, save = {env, onerr, onsucc};
-                if ((range.updated || 0) < updCnt && !range.erased)
+                if ((range.updated || 0) < updCnt)
                 {
 
                     ({env, onerr, onsucc} = subEnv);
@@ -651,11 +651,7 @@ class RCompiler {
     private wspc = WSpc.block;
     private rspc: number|boolean = 1;
     
-    public DirtyVars = new Set<RVAR>();
-    private DirtySubs = new Map<{}, Subscriber>();
-    public AddDirty(sub: Subscriber) {
-        this.DirtySubs.set(sub.ref, sub)
-    }
+    public DirtyVars = new Set<{_Subscribers: Set<Subscriber>; store?: any; Save?: () => void}>();
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
@@ -682,27 +678,25 @@ class RCompiler {
         do {
             this.bUpdate = false;
             this.bUpdating = true;
-            let saveR = R, subs = this.DirtySubs;
+            let saveR = R; R = this;
             try {
-                for (let rvar of this.DirtyVars)
-                    rvar.Save();
-                this.DirtyVars.clear();
-                
-                if (subs.size) {
-                    R = this;
-                    this.start = performance.now();
-                    builtNodeCnt = 0;
-                    this.DirtySubs = new Map();
-                    for (let sub of subs.values())
-                        try { await sub(); }
-                        catch (err) {
-                            let msg = `ERROR: `+err;
-                            console.log(msg);
-                            window.alert(msg);
-                        }
-                    
-                    this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+                while (this.DirtyVars.size) {
+                    let dv = this.DirtyVars;
+                    this.DirtyVars = new Set();
+                    for (let rv of dv) {
+                        if (rv.store)
+                            rv.Save();
+                        for (let subs of rv._Subscribers)
+                            if (!subs.bImm)
+                                try { await subs(); }
+                                catch (err) {
+                                    let msg = `ERROR: `+err;
+                                    console.log(msg);
+                                    window.alert(msg);
+                                }
+                    }
                 }
+                this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
             }
             finally { 
                 R = saveR;this.bUpdating = false;
@@ -737,8 +731,7 @@ class RCompiler {
                 {get:
                     () => {
                         if (!bReadOnly) {
-                            for (let sub of t._Subscribers)
-                                RC.AddDirty(sub);
+                            RC.DirtyVars.add(t);
                             if (t._UpdatesTo?.length)
                                 for (let rvar of t._UpdatesTo)
                                     rvar.SetDirty();
@@ -1705,7 +1698,7 @@ class RCompiler {
                                         if (item === childRange.rvar)
                                             rvar = item;
                                         else {
-                                            rvar = this.RVAR_Light(item as object, getUpdatesTo && [getUpdatesTo()])
+                                            rvar = this.RVAR_Light(item as RVAR_Light<unknown>, getUpdatesTo && [getUpdatesTo()])
                                             if (childRange.rvar)
                                                 rvar._Subscribers = childRange.rvar._Subscribers 
                                         }
@@ -2433,7 +2426,7 @@ class _RVAR<T = unknown>{
         private RC: RCompiler,
         name?: string, 
         initialValue?: T | Promise<T>, 
-        private store?: Store,
+        public store?: Store,
         private storeName: string = `RVAR_${name}`,
     ) {
         if (name) globalThis[name] = this;
@@ -2499,18 +2492,11 @@ class _RVAR<T = unknown>{
     set U(t: T) { this._Value = t; this.SetDirty(); }
 
     public SetDirty() {
-        if (this.store)
-            this.RC.DirtyVars.add(this);
-        let b: Subscriber;
+        this.RC.DirtyVars.add(this);
         for (let sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (!sub.sArea?.range?.erased)
-                this.RC.AddDirty(b = sub);
-            else
-                this._Subscribers.delete(sub);
-        if (b)
-            this.RC.RUpdate();
+        this.RC.RUpdate();
     }
 
     public Save() {

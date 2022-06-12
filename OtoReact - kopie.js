@@ -558,7 +558,8 @@ class RCompiler {
                         bldr =
                             [fixed
                                     ? async (area) => PrepCharData(area, fixed)
-                                    : async (area) => PrepCharData(area, getText()), srcNode,
+                                    : async (area) => PrepCharData(area, getText()),
+                                srcNode,
                                 fixed == ' '];
                         if (this.wspc < 4)
                             this.wspc = /\s$/.test(str) ? 2 : 3;

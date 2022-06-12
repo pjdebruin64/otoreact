@@ -138,7 +138,7 @@
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>
-        <when match="">
+        <when regmatch="^(index.shtml)?$">
             <pageLayout>
                 <pageHead>
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework

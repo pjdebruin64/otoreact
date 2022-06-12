@@ -68,7 +68,6 @@ class Range {
         this.child = null;
         while (child) {
             child.erase(child.newParent || parent);
-            child.erased = true;
             child.parentR = null;
             if (child.rvars)
                 for (let rvar of child.rvars)
@@ -319,7 +318,6 @@ class RCompiler {
         this.wspc = 1;
         this.rspc = 1;
         this.DirtyVars = new Set();
-        this.DirtySubs = new Map();
         this.bUpdating = false;
         this.bUpdate = false;
         this.handleUpdate = null;
@@ -418,7 +416,7 @@ class RCompiler {
             range,
         }, subEnv = { env: CloneEnv(env), onerr, onsucc }, subs = async () => {
             let { range } = sArea, save = { env, onerr, onsucc };
-            if ((range.updated || 0) < updCnt && !range.erased) {
+            if ((range.updated || 0) < updCnt) {
                 ({ env, onerr, onsucc } = subEnv);
                 range.updated = updCnt;
                 builtNodeCnt++;
@@ -444,9 +442,6 @@ class RCompiler {
         let subs = this.Subscriber(area, this.Builder, parentR?.child || area.prevR);
         R = saveR;
     }
-    AddDirty(sub) {
-        this.DirtySubs.set(sub.ref, sub);
-    }
     RUpdate() {
         this.bUpdate = true;
         if (!this.bUpdating && !this.handleUpdate)
@@ -464,27 +459,28 @@ class RCompiler {
         do {
             this.bUpdate = false;
             this.bUpdating = true;
-            let saveR = R, subs = this.DirtySubs;
+            let saveR = R;
+            R = this;
             try {
-                for (let rvar of this.DirtyVars)
-                    rvar.Save();
-                this.DirtyVars.clear();
-                if (subs.size) {
-                    R = this;
-                    this.start = performance.now();
-                    builtNodeCnt = 0;
-                    this.DirtySubs = new Map();
-                    for (let sub of subs.values())
-                        try {
-                            await sub();
-                        }
-                        catch (err) {
-                            let msg = `ERROR: ` + err;
-                            console.log(msg);
-                            window.alert(msg);
-                        }
-                    this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+                while (this.DirtyVars.size) {
+                    let dv = this.DirtyVars;
+                    this.DirtyVars = new Set();
+                    for (let rv of dv) {
+                        if (rv.store)
+                            rv.Save();
+                        for (let subs of rv._Subscribers)
+                            if (!subs.bImm)
+                                try {
+                                    await subs();
+                                }
+                                catch (err) {
+                                    let msg = `ERROR: ` + err;
+                                    console.log(msg);
+                                    window.alert(msg);
+                                }
+                    }
                 }
+                this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
             }
             finally {
                 R = saveR;
@@ -505,8 +501,7 @@ class RCompiler {
             let { RC } = this;
             Object.defineProperty(t, 'U', { get: () => {
                     if (!bReadOnly) {
-                        for (let sub of t._Subscribers)
-                            RC.AddDirty(sub);
+                        RC.DirtyVars.add(t);
                         if (t._UpdatesTo?.length)
                             for (let rvar of t._UpdatesTo)
                                 rvar.SetDirty();
@@ -559,7 +554,8 @@ class RCompiler {
                         bldr =
                             [fixed
                                     ? async (area) => PrepCharData(area, fixed)
-                                    : async (area) => PrepCharData(area, getText()), srcNode,
+                                    : async (area) => PrepCharData(area, getText()),
+                                srcNode,
                                 fixed == ' '];
                         if (this.wspc < 4)
                             this.wspc = /\s$/.test(str) ? 2 : 3;
@@ -1907,18 +1903,11 @@ class _RVAR {
     }
     set U(t) { this._Value = t; this.SetDirty(); }
     SetDirty() {
-        if (this.store)
-            this.RC.DirtyVars.add(this);
-        let b;
+        this.RC.DirtyVars.add(this);
         for (let sub of this._Subscribers)
             if (sub.bImm)
                 sub(this._Value);
-            else if (!sub.sArea?.range?.erased)
-                this.RC.AddDirty(b = sub);
-            else
-                this._Subscribers.delete(sub);
-        if (b)
-            this.RC.RUpdate();
+        this.RC.RUpdate();
     }
     Save() {
         this.store.setItem(this.storeName, JSON.stringify(this._Value));
