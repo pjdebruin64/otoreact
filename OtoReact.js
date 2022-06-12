@@ -72,6 +72,8 @@ class Range {
             if (child.rvars)
                 for (let rvar of child.rvars)
                     rvar._Subscribers.delete(child.subs);
+            if (child.onDest)
+                child.onDest.call(child.node);
             child = child.next;
         }
     }
@@ -319,7 +321,6 @@ class RCompiler {
         this.rspc = 1;
         this.DirtyVars = new Set();
         this.bUpdating = false;
-        this.bUpdate = false;
         this.handleUpdate = null;
         this.sourceNodeCount = 0;
         this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
@@ -443,7 +444,6 @@ class RCompiler {
         R = saveR;
     }
     RUpdate() {
-        this.bUpdate = true;
         if (!this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
@@ -451,42 +451,39 @@ class RCompiler {
             }, 5);
     }
     async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating) {
-            this.bUpdate = true;
+        if (!this.bCompiled || this.bUpdating)
             return;
-        }
-        updCnt++;
-        do {
-            this.bUpdate = false;
-            this.bUpdating = true;
-            let saveR = R;
-            R = this;
-            try {
-                while (this.DirtyVars.size) {
-                    let dv = this.DirtyVars;
-                    this.DirtyVars = new Set();
-                    for (let rv of dv) {
-                        if (rv.store)
-                            rv.Save();
-                        for (let subs of rv._Subscribers)
-                            if (!subs.bImm)
-                                try {
-                                    await subs();
-                                }
-                                catch (err) {
-                                    let msg = `ERROR: ` + err;
-                                    console.log(msg);
-                                    window.alert(msg);
-                                }
-                    }
+        this.bUpdating = true;
+        let saveR = R;
+        R = this;
+        try {
+            builtNodeCnt = 0;
+            this.start = performance.now();
+            while (this.DirtyVars.size) {
+                updCnt++;
+                let dv = this.DirtyVars;
+                this.DirtyVars = new Set();
+                for (let rv of dv) {
+                    if (rv.store)
+                        rv.Save();
+                    for (let subs of rv._Subscribers)
+                        if (!subs.bImm)
+                            try {
+                                await subs();
+                            }
+                            catch (err) {
+                                let msg = `ERROR: ` + err;
+                                console.log(msg);
+                                window.alert(msg);
+                            }
                 }
-                this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
             }
-            finally {
-                R = saveR;
-                this.bUpdating = false;
-            }
-        } while (this.bUpdate);
+            this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
+        }
+        finally {
+            R = saveR;
+            this.bUpdating = false;
+        }
     }
     RVAR(nm, value, store, subs, storeName) {
         let r = new _RVAR(this.RC, nm, value, store, storeName);
@@ -554,8 +551,7 @@ class RCompiler {
                         bldr =
                             [fixed
                                     ? async (area) => PrepCharData(area, fixed)
-                                    : async (area) => PrepCharData(area, getText()),
-                                srcNode,
+                                    : async (area) => PrepCharData(area, getText()), srcNode,
                                 fixed == ' '];
                         if (this.wspc < 4)
                             this.wspc = /\s$/.test(str) ? 2 : 3;
@@ -616,7 +612,7 @@ class RCompiler {
         return Iter;
     }
     async CompElm(srcPrnt, srcElm, bUnhide) {
-        let atts = new Atts(srcElm), reacts = [], genMods = [], dIf, raLength = this.restoreActions.length, depOnerr, depOnsucc, bldr, elmBldr, isBl, m;
+        let atts = new Atts(srcElm), reacts = [], genMods = [], dIf, raLength = this.restoreActions.length, dOnDest, depOnerr, depOnsucc, bldr, elmBldr, isBl, m;
         if (bUnhide)
             atts.set('#hidden', 'false');
         try {
@@ -625,14 +621,17 @@ class RCompiler {
                 if (m = RCompiler.genAtts.exec(attNm))
                     if (m[1])
                         reacts.push({ attNm, rvars: this.compAttrExprList(atts, attNm, true) });
-                    else if (m[2])
-                        genMods.push({ attNm, text: atts.get(attNm), C: /c/.test(attNm), U: /u/.test(attNm) });
                     else {
-                        let dep = this.CompHandler(attNm, atts.get(attNm));
-                        if (m[4])
-                            (depOnerr = dep).bBldr = !/-$/.test(attNm);
-                        else
-                            depOnsucc = dep;
+                        let txt = atts.get(attNm);
+                        if (m[2])
+                            genMods.push({ attNm, txt, C: !!m[3], U: !!m[4], D: !!m[5] });
+                        else {
+                            let hndlr = this.CompHandler(attNm, txt);
+                            if (m[7])
+                                (depOnerr = hndlr).bBldr = !/-$/.test(attNm);
+                            else
+                                depOnsucc = hndlr;
+                        }
                     }
             let constr = this.CSignatures.get(srcElm.localName);
             if (constr)
@@ -962,11 +961,12 @@ class RCompiler {
                             let childBuilder = await this.CompChildNodes(srcElm), { wspc } = this;
                             this.wspc = this.rspc = 1;
                             bldr = async function HEAD(area) {
-                                let { sub } = PrepArea(srcElm, area);
+                                let { sub, bInit } = PrepArea(srcElm, area);
                                 sub.parent = area.parent.ownerDocument.head;
                                 sub.before = null;
                                 await childBuilder.call(this, sub);
-                                sub.prevR.newParent = sub.parent;
+                                if (bInit)
+                                    sub.prevR.newParent = sub.parent;
                             };
                             this.wspc = wspc;
                             isBl = 1;
@@ -979,7 +979,7 @@ class RCompiler {
                 atts.ChkNoAttsLeft();
             }
             for (let g of genMods)
-                g.hndlr = this.CompHandler(g.attNm, g.text);
+                g.hndlr = this.CompHandler(g.attNm, g.txt);
         }
         catch (err) {
             throw OuterOpenTag(srcElm) + ' ' + err;
@@ -1007,10 +1007,13 @@ class RCompiler {
             bldr = async function ON(area) {
                 let r = area.range;
                 await b.call(this, area);
-                for (let g of genMods)
+                for (let g of genMods) {
+                    if (g.D && !r)
+                        area.prevR.onDest = g.hndlr();
                     if (r ? g.U : g.C)
                         g.hndlr().call((r ? r.node : area.prevR?.node)
                             || area.parent);
+                }
             };
         }
         if (dIf) {
@@ -1835,7 +1838,7 @@ class RCompiler {
     }
 }
 RCompiler.iNum = 0;
-RCompiler.genAtts = /^(?:#?(?:((?:this)?reacts?on)|on(create|update)+|on((error)-?|success))|##cond)$/;
+RCompiler.genAtts = /^#?(?:((?:this)?reacts?on)|on((create)|(update)|(destroy))+|on((error)-?|success))$/;
 RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
 RCompiler.regInline = /^(button|input|img)$/;
 export async function RFetch(input, init) {

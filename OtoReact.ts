@@ -64,6 +64,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    onDest?: Handler;
 
     // Only for FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
@@ -127,6 +128,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
             if (child.rvars)
                 for (let rvar of child.rvars)
                     rvar._Subscribers.delete(child.subs);
+            if (child.onDest)
+                child.onDest.call(child.node);
             child = child.next;
         }
     }
@@ -655,11 +658,8 @@ class RCompiler {
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
-    private bUpdate = false;
     private handleUpdate: number = null;
     RUpdate() {
-        this.bUpdate = true;
-
         if (!this.bUpdating && !this.handleUpdate)
             this.handleUpdate = setTimeout(() => {
                 this.handleUpdate = null;
@@ -669,40 +669,36 @@ class RCompiler {
 
     public start: number;
     async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating) { 
-            this.bUpdate = true;
+        if (!this.bCompiled || this.bUpdating)
             return;
-        }
-        updCnt++;
-        
-        do {
-            this.bUpdate = false;
-            this.bUpdating = true;
-            let saveR = R; R = this;
-            try {
-                while (this.DirtyVars.size) {
-                    let dv = this.DirtyVars;
-                    this.DirtyVars = new Set();
-                    for (let rv of dv) {
-                        if (rv.store)
-                            rv.Save();
-                        for (let subs of rv._Subscribers)
-                            if (!subs.bImm)
-                                try { await subs(); }
-                                catch (err) {
-                                    let msg = `ERROR: `+err;
-                                    console.log(msg);
-                                    window.alert(msg);
-                                }
-                    }
+    
+        this.bUpdating = true;
+        let saveR = R; R = this;
+        try {
+            builtNodeCnt = 0;
+            this.start =performance.now();
+            while (this.DirtyVars.size) {
+                updCnt++;
+                let dv = this.DirtyVars;
+                this.DirtyVars = new Set();
+                for (let rv of dv) {
+                    if (rv.store)
+                        rv.Save();
+                    for (let subs of rv._Subscribers)
+                        if (!subs.bImm)
+                            try { await subs(); }
+                            catch (err) {
+                                let msg = `ERROR: `+err;
+                                console.log(msg);
+                                window.alert(msg);
+                            }
                 }
-                this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
             }
-            finally { 
-                R = saveR;this.bUpdating = false;
-            }
+            this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
         }
-        while (this.bUpdate)
+        finally { 
+            R = saveR;this.bUpdating = false;
+        }
     }
 
     /* A "responsive variable" is a variable which listeners can subscribe to. */
@@ -863,13 +859,14 @@ class RCompiler {
         return Iter;
     }
 
-    static genAtts = /^(?:#?(?:((?:this)?reacts?on)|on(create|update)+|on((error)-?|success))|##cond)$/;
+    static genAtts = /^#?(?:((?:this)?reacts?on)|on((create)|(update)|(destroy))+|on((error)-?|success))$/;
     private async CompElm(srcPrnt: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
         ): Promise<[DOMBuilder, ChildNode, number?]> {
         let atts =  new Atts(srcElm),
             reacts: Array<{attNm: string, rvars: Dependent<RVAR[]>}> = [],
-            genMods: Array<{attNm: string, text: string, hndlr?: Dependent<Handler>, C?: boolean, U?: boolean}> = [],
+            genMods: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
             dIf: Dependent<boolean>, raLength = this.restoreActions.length,
+            dOnDest:Dependent<Handler>,
             
             depOnerr: Dependent<Handler> & {bBldr?: boolean}
             , depOnsucc: Dependent<Handler>
@@ -883,13 +880,16 @@ class RCompiler {
                 if (m = RCompiler.genAtts.exec(attNm))
                     if (m[1])       // (?:this)?reacts?on)
                         reacts.push({attNm, rvars: this.compAttrExprList<RVAR>(atts, attNm, true)});
-                    else if (m[2])  // #?on(create|update)+
-                        genMods.push({attNm, text: atts.get(attNm), C:/c/.test(attNm), U:/u/.test(attNm)});
-                    else {          // #?on(?:(error)-?|success)
-                        let dep = this.CompHandler(attNm, atts.get(attNm));
-                        if (m[4])   // #?onerror-?
-                            ((depOnerr = dep) as typeof depOnerr).bBldr = !/-$/.test(attNm);
-                        else depOnsucc = dep;
+                    else {
+                        let txt = atts.get(attNm);
+                        if (m[2])  // #?on(create|update)+
+                            genMods.push({attNm, txt, C:!!m[3], U:!!m[4], D:!!m[5] });
+                        else { // #?on(?:(error)-?|success)
+                            let hndlr = this.CompHandler(attNm, txt); 
+                            if (m[7])   // #?onerror-?
+                                ((depOnerr = hndlr) as typeof depOnerr).bBldr = !/-$/.test(attNm);
+                            else depOnsucc = hndlr;
+                        }
                     }
             // See if this node is a user-defined construct (component or slot) instance
             let constr = this.CSignatures.get(srcElm.localName);
@@ -1292,11 +1292,12 @@ class RCompiler {
                         this.wspc = this.rspc = WSpc.block;
                         
                         bldr = async function HEAD(this: RCompiler, area: Area) {
-                            let {sub} = PrepArea(srcElm, area);
+                            let {sub, bInit} = PrepArea(srcElm, area);
                             sub.parent = area.parent.ownerDocument.head;
                             sub.before = null;
                             await childBuilder.call(this, sub);
-                            sub.prevR.newParent = sub.parent;
+                            if (bInit)
+                                sub.prevR.newParent = sub.parent;
                         }
                         this.wspc = wspc;
                         isBl = 1;
@@ -1311,7 +1312,7 @@ class RCompiler {
             }
 
             for (let g of genMods)
-                g.hndlr = this.CompHandler(g.attNm, g.text);
+                g.hndlr = this.CompHandler(g.attNm, g.txt);
         }
         catch (err) { 
             throw OuterOpenTag(srcElm) + ' ' + err;
@@ -1336,12 +1337,15 @@ class RCompiler {
             bldr = async function ON(this: RCompiler, area: Area) {
                 let r = area.range;
                 await b.call(this, area);
-                for (let g of genMods)
+                for (let g of genMods) {
+                    if (g.D && !r)
+                        area.prevR.onDest = g.hndlr();
                     if (r ? g.U : g.C)
                         g.hndlr().call(
                             (r ? r.node : area.prevR?.node) 
                             || area.parent
                         );
+                }
             }
         }
         if (dIf) {

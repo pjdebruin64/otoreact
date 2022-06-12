@@ -42,7 +42,7 @@
   <p>
     OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download
     onclick="gtag('event', 'file_download', {value: this.href})"
-    oncontextmenu="gtag('event', 'file_download', {value: this.href})"
+    oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
     >OtoReact.js</a>
   </p>
   <p>
@@ -52,7 +52,9 @@
     Here is the alternative version for older browsers: <a >OtoReact_ES5.js</a>
   <p>
     Here is the OtoLib library: <a href="{src}OtoLib.html" download
-    onclick="gtag('event', 'file_download', {value: this.href})">OtoLib.html</a>
+    onclick="gtag('event', 'file_download', {value: this.href})"
+    oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
+    >OtoLib.html</a>
   </p>
 
 

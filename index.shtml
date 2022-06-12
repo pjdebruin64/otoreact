@@ -188,7 +188,7 @@
         outline: 8px solid white"
         >
             This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a> and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a>.
-            <button onclick="cookiesAck.V=true">OK</button>
+            <button onclick="cookiesAck.V=true">Understood</button>
         </div>
     </if>
     <div 

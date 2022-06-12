@@ -74,26 +74,30 @@ Notes:
 </ul>
 
 
-<h2>RHTML Non-DOM-events</h2>
-RHTML implements some additional events that are not triggered by browser engine but by the OtoReact engine:
+<h2>RHTML pseudo-events</h2>
+RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>
     <dt><code class=sourcecode>oncreate</code></dt>
     <dd>
-        Happens after an element (and its children) has been <i>created</i> (built).
+        Called after an element (and its children) has been <i>created</i> (built).
     </dd>
     <dt><code class=sourcecode>onupdate</code></dt>
     <dd>
-        Happens after an element (and its children) has been <i>updated</i>.
+        Called after an element (and its children) has been <i>updated</i>.
     </dd>
     <dt><code class=sourcecode>oncreateupdate</code></dt>
     <dd>
-        Happens after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
+        Called after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
+    </dd>
+    <dt><code class=sourcecode>ondestroy</code></dt>
+    <dd>
+        Called after an element has been <i>destroyed</i>, i.e. removed from the DOM tree.
     </dd>
 </dl>
 The name <code>event</code> is not available in handlers for these  RHTML events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
 
 <p>
-    These RHTML events may be attached to RHTML constructs. In that case <code>this</code> will be bound to the nearest parent HTMLElement.
+    These pseudo-events may be attached to RHTML constructs too. In that case <code>this</code> will be bound to the nearest parent HTMLElement.
 </p>
 
 <h3 id=onerror>RHTML error handlers</h3>

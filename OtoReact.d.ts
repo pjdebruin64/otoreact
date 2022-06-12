@@ -37,6 +37,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    onDest?: Handler;
     hash?: Hash;
     key?: Key;
     prev?: Range;
@@ -66,6 +67,7 @@ declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     env?: Environment;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
+declare type Handler = (ev: Event) => any;
 declare type ConstructDef = {
     nm: string;
     templates: Template[];
@@ -123,7 +125,6 @@ declare class RCompiler {
         Save?: () => void;
     }>;
     private bUpdating;
-    private bUpdate;
     private handleUpdate;
     RUpdate(): void;
     start: number;
