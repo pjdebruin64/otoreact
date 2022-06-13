@@ -148,14 +148,6 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
             </td>
         </tr>
         <tr>
-            <td>bBuild</td><td>true</td>
-            <td>
-                When true, <code>RCompile</code> will build the DOM output immediately upon compiling.
-                <br>When false, building will be postponed and you must call <code>RBuild()</code> to perform the initial build.
-                <br>This might be useful when you want to compile immediately but postpone all building until external data has been fetched.
-            </td>
-        </tr>
-        <tr>
             <td>bDollarRequired</td><td>false</td>
             <td>
                 When true, a dollar sign is required before <a href="#StringInterpolation">string interpolation</a> braces, and no backslash is needed before other braces within interpolated text.

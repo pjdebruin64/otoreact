@@ -74,6 +74,25 @@ Notes:
 </ul>
 
 
+<h2>RHTML global attributes</h2>
+RHTML recognizes the following attributes on every element and construct.
+<dl>
+    <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
+    <dd>
+
+    </dd>
+    <dt><code class=sourcecode>thisreactson="<i>RVAR-list</i>"</code></dt>
+    <dd>
+        
+    </dd>
+    <dt><code class=sourcecode>#if="<i>condition</i>"</code> or <code>if="<i>condition</i>"</code></dt>
+    <dd>
+        The element or construct with this attribute will be built only when the given condition evaluates to a truthy value.
+        <br>So this is a shorter version of the <a href="#If"><elm>IF</elm>-construct</a> with no elsepart.
+    </dd>
+</dl>
+
+
 <h2>RHTML pseudo-events</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>

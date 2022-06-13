@@ -3,7 +3,6 @@ let defaultSettings = {
     bAbortOnError: false,
     bShowErrors: true,
     bRunScripts: false,
-    bBuild: true,
     basePattern: '/',
     preformatted: [],
     bNoGlobals: false,
@@ -141,34 +140,21 @@ function PrepCharData(area, content, bComm) {
         area.range = range.next;
     }
 }
-let ToBuild = [];
 export async function RCompile(elm, settings) {
     try {
         let { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (docLocation.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         R.RootElm = elm;
         await R.Compile(elm);
-        ToBuild.push({ parent: elm.parentElement, source: elm, range: null });
-        if (R.Settings.bBuild)
-            await RBuild();
-    }
-    catch (err) {
-        window.alert(`OtoReact error: ` + err);
-    }
-}
-export async function RBuild() {
-    R.start = performance.now();
-    builtNodeCnt = 0;
-    try {
-        for (let area of ToBuild)
-            await R.Build(area);
+        R.start = performance.now();
+        builtNodeCnt = 0;
+        await R.Build({ parent: elm.parentElement, source: elm, range: null });
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (err) {
         window.alert(`OtoReact error: ` + err);
     }
-    ToBuild = [];
 }
 function NewEnv() {
     let e = [];
@@ -440,7 +426,6 @@ class RCompiler {
         env = NewEnv();
         builtNodeCnt++;
         await this.Builder(area);
-        let subs = this.Subscriber(area, this.Builder, parentR?.child || area.prevR);
         R = saveR;
     }
     RUpdate() {
@@ -2013,7 +1998,6 @@ let _range = globalThis.range = function* range(from, upto, step = 1) {
         yield i;
 };
 globalThis.RCompile = RCompile;
-globalThis.RBuild = RBuild;
 export let R = new RCompiler(), RVAR = globalThis.RVAR, RUpdate = globalThis.RUpdate, docLocation = RVAR('docLocation', location.href), reroute = globalThis.reroute =
     (arg) => {
         if (typeof arg == 'object') {

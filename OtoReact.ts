@@ -5,7 +5,6 @@ let defaultSettings = {
                             // When false, only the element producing the error will be skipped
     bShowErrors:    true,   // Show runtime errors as text in the DOM output
     bRunScripts:    false,
-    bBuild:         true,
     basePattern:    '/',
     preformatted:   [],
     bNoGlobals:     false,
@@ -239,7 +238,6 @@ function PrepCharData(area: Area, content: string, bComm?: boolean) {
 
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
-let ToBuild: Area[] = [];
 
 export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
     try {
@@ -250,29 +248,17 @@ export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<v
         )
         R.RootElm = elm;
         await R.Compile(elm);
-        ToBuild.push({parent: elm.parentElement, source: elm, range: null});
 
-        if (R.Settings.bBuild)
-            await RBuild();
-    }
-    catch (err) {
-        window.alert(`OtoReact error: `+err);
-    }
-}
-
-export async function RBuild() {
-    R.start = performance.now();
-    builtNodeCnt = 0;
-    try {
-        for (let area of ToBuild)
-            await R.Build(area);
+        // Initial build
+        R.start = performance.now();
+        builtNodeCnt = 0;
+        await R.Build({parent: elm.parentElement, source: elm, range: null});
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (err) {
         window.alert(`OtoReact error: `+err);
     }
-    ToBuild = [];
 }
 
 type SavedContext = number;
@@ -643,7 +629,6 @@ class RCompiler {
         env = NewEnv();
         builtNodeCnt++;
         await this.Builder(area);
-        let subs = this.Subscriber(area, this.Builder, parentR?.child || area.prevR);
         R = saveR;        
     }
 
@@ -2633,7 +2618,6 @@ let _range = globalThis.range = function* range(from: number, upto?: number, ste
 		yield i;
 }
 globalThis.RCompile = RCompile;
-globalThis.RBuild = RBuild;
 export let 
     R = new RCompiler(),
     RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, 

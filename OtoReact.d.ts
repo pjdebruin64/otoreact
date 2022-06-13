@@ -3,7 +3,6 @@ declare let defaultSettings: {
     bAbortOnError: boolean;
     bShowErrors: boolean;
     bRunScripts: boolean;
-    bBuild: boolean;
     basePattern: string;
     preformatted: any[];
     bNoGlobals: boolean;
@@ -59,7 +58,6 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-export declare function RBuild(): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     ref?: {};
     sArea?: Area;
