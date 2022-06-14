@@ -102,6 +102,10 @@
                 : "Page not found";
         }, true);
 
+        let mMobile = window.matchMedia("@media screen and (min-resolution: 150dpi)")
+        let isMobile = RVAR('isMobile', mMobile.matches);
+        //mMobile.addListener(m => {isMobile.V = m.matches});
+
         // Auto-check for updates
         let LastModified = null, hdrNoCache = new Headers();
         hdrNoCache.append('Cache-Control', 'no-cache');
@@ -123,6 +127,7 @@
     </script>
     
 </head>
+<div reacton="isMobile">{isMobile.V ? 'Mobile' : ''}</div>
 <body onclick="popup.V={display:'none'}" style.cursor=default>
     <script>document.body.hidden=true</script>
 
@@ -135,6 +140,8 @@
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout></pageLayout>
+
+        <rhtml_ #srctext ...rest></rhtml_>
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>

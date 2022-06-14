@@ -12,6 +12,13 @@
             ><content></content></a.
         ></template>
     </component>
+
+    <component>
+        <RHTML_ #srctext></RHTML_>
+        <template>
+            <RHTML srctext="<style>button,input \{font-size:83.333%}</style>{srctext}"></RHTML>
+        </template>
+    </component>
         
     <!-- Component to demonstrate RHTML -->
     <component>
@@ -37,7 +44,7 @@
             table.demo > tr > td:nth-child(1) > pre { 
                 color: darkblue;
                 white-space: pre-wrap;
-                font-size: 10pt;
+                font-size: 80%;
                 min-height: 4em;
                 margin: 0px;
             }
@@ -52,7 +59,7 @@
             }
             @media screen and (hover: none) {
                 td.demo {
-                    font-size: 14pt;
+                    _font-size: 14pt;
                 }
             }
         </style>
@@ -73,7 +80,7 @@
                             !innerText="srctext.V"></pre>
                     </td.>
                     <td. class=demo>           
-                        <RHTML reacton=srctext #srctext=srctext.V></RHTML>
+                        <RHTML_ reacton=srctext #srctext="srctext.V"></RHTML_>
                     </td.>
                 </tr.>
             </table.>
@@ -213,7 +220,6 @@
                 }
                 let lastDetails;
                 function addContent(level, headElm) {
-                    debugger;
                     let entry = {level, id: headElm.id, text: headElm.textContent, subs: [] };
                     if (level == 1) lastDetails = entry.subs;
                     (level <= 9 ? contents.U : lastDetails).push(entry);
@@ -255,9 +261,9 @@
                 </header>
                 <main style.position="relative">
                     <button class="nav narrow-only"
-                        style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;" >
-                        <a href="#TOC">↑ Contents ↑</a>
-                    </button>
+                        style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;"
+                        onclick="this.parentElement.nextElementSibling.scrollIntoView()"
+                        >↑ Contents ↑</button>
                     <!-- Here the content of the page definition will be inserted -->
                     <content>
                         <!-- Inside the content, the following construsts are available: -->

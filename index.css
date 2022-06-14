@@ -9,15 +9,16 @@
     _text-size-adjust: 185%;     /* This applies to phones */
 }
 
+button {font-size: 87%;}
+
 @media screen and (min-resolution: 150dpi) {
-    :root {
-        font-size: 38px;
-    }
+    :root { font-size: 36px; }
+    button, input { font-size: 80% !important; }
 }
 
 @media print {
     :root { font-size: 10pt; }
-    button { font-size: 6.5pt !important; }
+    :root button, :root input { font-size: 6.5pt !important; }
 }
 @media screen {
     section:not(:first)    { content-visibility: auto; }
@@ -49,7 +50,7 @@ pre {
     white-space: pre-wrap;
 }
 pre.sourcecode { 
-    font-size: 10pt; 
+    font-size: 75%;
 }
 pre, code, elm {
     font: var(--Code);

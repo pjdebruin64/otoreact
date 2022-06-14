@@ -421,7 +421,7 @@ const sampleTicTacToe =
         </else>
       </case>
     </p>
-    <button onclick="ClearAll()">Clear</button>
+    <button onclick="ClearAll()" class="x">Clear</button>
   </div>
 </div>`;
 
