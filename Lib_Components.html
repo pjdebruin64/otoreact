@@ -113,6 +113,7 @@
             div.pageLayout > *{
                 box-shadow:0 0 0 4px lightgray;
                 padding: 8px 4px;
+                scrollbar-width: 3vw;
             }
             div.pageLayout > header    { 
                 grid-row: 1;
@@ -126,6 +127,9 @@
             }
             div.pageLayout > nav {
                 grid-row: 2;
+            }
+            
+            div.pageLayout > nav > nav {
                 column-width: 15em;
                 line-height: 1.25;
             }
@@ -133,23 +137,33 @@
                 font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
                 font-size: 87.5%;
             }
-            div.pageLayout > nav > a,
-            div.pageLayout > nav > details,
-            div.pageLayout > nav > details > a {
+            div.pageLayout > nav  a,
+            div.pageLayout > nav  details,
+            div.pageLayout > nav  details > a {
                 display: block;
                 border: none;
                 padding-left: 1ex;
                 text-indent: -1ex;
             }
-            div.pageLayout > nav > a:not(.chapter) {
+            div.pageLayout > nav  a:not(.chapter) {
                 padding-left: 1ex;
             }
-            div.pageLayout > nav > a.chapter {
+            div.pageLayout > nav  a.chapter {
                 margin-top: 1.5ex; margin-bottom: .75ex;
                 font-weight: bold;
             }
             div.pageLayout > main { 
                 grid-row: 3;
+            }
+
+            @media screen and (max-width: 1250px) {
+                div.pageLayout > nav {
+                    max-height: 100vh;
+                    overflow-y: auto;
+                }
+                div.pageLayout > nav > div {
+                    column-count: 2;
+                }
             }
             
             @media screen and (min-width: 1250px) {
@@ -262,7 +276,7 @@
                 <main style.position="relative">
                     <button class="nav narrow-only"
                         style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;"
-                        onclick="this.parentElement.nextElementSibling.scrollIntoView()"
+                        onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
                     <!-- Here the content of the page definition will be inserted -->
                     <content>
@@ -281,7 +295,8 @@
                         </h3>
                     </content>
                 </main>
-                <nav name=TOC>
+                <nav id=TOC>
+                    <nav>
                     <component><entry #item></entry>
                         <template>
                             <a. #class:chapter="item.level == 0"
@@ -290,7 +305,7 @@
                             </a.>
                         </template>
                     </component>
-                    <center style="background-color: orange;" oncreateupdate="debugger">
+                    <center style="background-color: orange;">
                         <b><i>Table of Contents</i></b>
                     </center>
                     <for let=item #of=contents.V reacton="contents,docLocation" key="item">
@@ -310,7 +325,7 @@
                     </for>
                     
                     <leftbar></leftbar>
-                </nav>
+                </nav></nav>
             </div>
         </template>
     </component>

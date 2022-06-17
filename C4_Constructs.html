@@ -12,7 +12,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     Otherwise, it is an error when a construct instance has unknown attributes.
 </p>
 
-<h2 id=define><{}DEFINE var #value>, Local Variables</h2>
+<h2 id=DEFINE><{}DEFINE var #value>, Local Variables</h2>
 <pre class=sourcecode>
 <elm>DEFINE var=<i>name</i> #value="<i>expression</i>"</elm><elm>/DEFINE</elm>
 </pre>
@@ -46,7 +46,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 </p>
 <demo #srctext=demoScoping></demo>
 
-<h2 id=Case><{}CASE> <{}WHEN cond> <{}ELSE></h2>
+<h2 id=CASE><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
 <{}CASE hiding?>
     <{}WHEN cond="<i>expr</i>"> <i>WhenPart</i> <{}/WHEN>
@@ -118,7 +118,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
 
-<h2 id=If><{}IF cond> <{}THEN> <{}ELSE></h2>
+<h2 id=IF><{}IF cond> <{}THEN> <{}ELSE></h2>
 <pre class=sourcecode>
 <{}IF cond="<i>expr</i>">
     <i>ThenPart</i>
@@ -144,7 +144,7 @@ is the same as:
 </p>
 
 
-<h2 id=For><{}FOR let of index?></h2>
+<h2 id=FOR><{}FOR let of index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
     <i>BodyPart</i>
@@ -239,7 +239,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=Scripts><{}SCRIPT type? src? defines?></h2>
+<h2 id=SCRIPT><{}SCRIPT type? src? defines?></h2>
 <p>
     Scripts can be included almost anywhere in your application, either embedded or through an external <code>src</code> reference.
 </p>
@@ -270,7 +270,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
             <li>
                 <i>Outside</i> the main file, in included or imported RHTML files, OtoReact will execute the internal or external script as classic JavaScript <i>while compiling the file</i>.
                 <br>OtoReact functions are available.
-                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, as with <code>type="module"</code>, or switch to <elm>SCRIPT type="otoreact" defines?=<i>nameList</i></elm>.
+                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, as with <code>type="module"</code>, or switch to <elm>SCRIPT type="otoreact" defines?="<i>nameList</i>"</elm>.
                 <br>One can use strict mode as above.
                 <br>With attribute <code>async</code>, fetching and executing is done asynchronously, and awaited for when the respective DOM tree is being built.
                 <br>With attribute <code>defer</code>, execution is postponed till the first time the DOM tree is being built.
@@ -294,14 +294,15 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </ul>
     </dd>
 
-    <dt><elm>SCRIPT type="<b>otoreact</b>" src? defines?=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact</b>" src? defines?="<i>nameList</i>"</elm>,
+        <br><elm>SCRIPT type="<b>otoreact/global</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
-        <br>Names are not automatically defined in global scope, but one can provide a comma-separated <i>nameList</i> telling which names should be put in global scope.
+        <br>Names are not automatically defined in global scope, but one can provide a comma-separated <code>defines="<i>nameList</i>"</code> telling which names should be put in global scope.
         <br>OtoReact invokes strict mode automatically.
     </dd>
     
-    <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
         <br>Names listed in <i>nameList</i> are not put in global scope, but are defined <i>as OtoReact local variables</i>.
@@ -310,7 +311,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </p>
     </dd>    
     
-    <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?=<i>nameList</i> updating?</elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?="<i>nameList</i>" updating?</elm></dt>
     <dd>
         This type of script is executed <i>every time</i> the surrounding RHTML is being built.
         <br>With attribute <code>updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
@@ -320,13 +321,13 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </p>
     </dd>
 
-    <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously executes the internal or external script as a JavaScript <u>module</u>.
         <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when first building the DOM tree.
         <br>When a <i>nameList</i> is given, then the script is required to <u>export</u> the listed names, and OtoReact will define them <i>in global scope</i>.
     </dd>
-    <dt><elm>SCRIPT type="<b>otoreact/static; type=module</b>" src? defines=<i>nameList</i></elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact/static; type=module</b>" src? defines="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously executes the internal or external script as a JavaScript <u>module</u>.
         <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when first building the DOM tree.
@@ -375,7 +376,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
 </dl>
 -->
 
-<h2 id=React><{}REACT on? hash? renew?></h2>
+<h2 id=REACT><{}REACT on? hash? renew?></h2>
 <pre class=sourcecode>
 <elm>REACT on=<i>RVARlist</i></elm>
     <i>Content</i>
@@ -393,16 +394,8 @@ specifies that the given content should <i>react on</i> changes to any of the li
     An <elm>REACT</elm> element without content will not produce any DOM elements, and can be useful to insert <code>oncreate</code> or <code>onupdate</code> handlers in between elements.
 </p>
 
-<h2 id=reacton>reacton, thisreactson</h2>
-One can add RHTML attribute <code class=sourcecode>reacton="<i>RVARlist</i>"</code>, or <code>reactson="<i>RVARlist</i>"</code>, to any source element or construct. This is the same as including the element within <elm>REACT on=<i>RVARlist</i></elm>.
-<p id=thisreactson>
-    RHTML attribute <code class=sourcecode>thisreactson="<i>RVARlist</i>"</code> specifies that only properties of the element or construct itself, but <i>not its children</i>, should react on changes to the RVARs. This is faster of course.
-</p>
 
-<div id=TicTacToe></div>
-<demo #bShow=false #srctext=sampleTicTacToe></demo>
-
-<h2 id=Component><{}COMPONENT encapsulate?></h2>
+<h2 id=COMPONENT><{}COMPONENT encapsulate?></h2>
 <p>
 <elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
 <br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts and local definitions, and a component <i>template</i>:
@@ -670,7 +663,7 @@ Here is a component which allows one to define tables column by column:
 <demo #bShow=false #srctext=sampleTableMaker></demo>
 
 
-<h2 id=Include><{}INCLUDE src></h2>
+<h2 id=INCLUDE><{}INCLUDE src></h2>
 <code class=sourcecode><elm>INCLUDE src="<i>URL</i>"</elm><elm>/INCLUDE</elm></code>
 allows you to include another RHTML file as if it were inserted into the main file.
 <ul>
@@ -706,7 +699,7 @@ allows you to include another RHTML file as if it were inserted into the main fi
 <p>A <elm>MODULE</elm> can either be saved in a separate file, or it may be included anywhere in the main file.
 <br>It may even be appended to the end of the main file; the HTML parser will insert it at the end of the document body.</p>
 
-<h2 id=Import><{}IMPORT src defines? include?></h2>
+<h2 id=IMPORT><{}IMPORT src defines? include?></h2>
 <pre class=sourcecode>
 <{}IMPORT async? src="<i>src</i>" defines?="<i>nameList</i>" include?>
     <i>Signatures</i>
@@ -778,9 +771,9 @@ In the following demo you can enter a piece of (R)HTML and compare how it is par
 
 <demo #srcText=demoRendering></demo>
 
-<h2 id=Document><{}DOCUMENT></h2>
+<h2 id=DOCUMENT><{}DOCUMENT></h2>
 <pre class=sourcecode>
-    <{}DOCUMENT name=<i>docName</i> params?=<i>nameList</i> window?=<i>windowVar</i> encapsulate?>
+    <{}DOCUMENT name=<i>docName</i> params?="<i>nameList</i>" window?=<i>windowVar</i> encapsulate?>
         <i>content</i>
     <{}/DOCUMENT>
 </pre>
@@ -817,7 +810,7 @@ By default, all styling rules attached to the parent document are copied to the 
 
 <demo #srctext=sampleDocument></demo>
 
-<h2><{}RHEAD></h2>
+<h2 id=RHEAD><{}RHEAD></h2>
 Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and are updated or removed as needed.
 <p>
     You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.

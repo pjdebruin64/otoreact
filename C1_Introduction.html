@@ -3,7 +3,7 @@
 
 <div style="display: grid; grid-template-columns: auto auto ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
     <div class=sample 
-        style="min-width: 380px; min-height: 110px;" 
+        style="min-width: 380px; min-height: 13ex;" 
         id=sampleGreeting>
         <RHTML_ #srctext=sampleGreeting></RHTML_>
     </div>
@@ -12,7 +12,7 @@
         <RHTML_ #srctext=sampleTicTacToe></RHTML_>
     </div>
 </div>
-<h2>Summary</h2>
+<h2 id="Summary">Summary</h2>
 <div style="display: grid; grid-template-columns: auto auto; gap: 5%;">
     <div>
         <p>
@@ -51,14 +51,14 @@
 </p>
 <ul>
     <li>Reactive HTML is based on HTML; JavaScript is needed <i>only for data manipulation and event handling</i>.
-        <br>Even <a href="#Component">components</a> are defined in HTML without a single line of JavaScript.</li>
+        <br>Even <a href="#COMPONENT">components</a> are defined in HTML without a single line of JavaScript.</li>
     <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
         <br>Just a text editor (like <a href="https://code.visualstudio.com/">Visual Studio Code</a>) suffices.</li>
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.</li>
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
-    <li>Reactive HTML has a powerful <a href="#Component">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
+    <li>Reactive HTML has a powerful <a href="#COMPONENT">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
         <ul>
             <li>Components are defined right within the HTML, without needing any JavaScript statements</li>
             <li>Components are lightweight and have local scope.</li>
@@ -96,7 +96,7 @@ You can modify the source code and see the result immediately.
     </li>
 </ul>
 
-<h3>Multiplication tables</h3>
+<h3 id="Multiplication">Multiplication tables</h3>
 <demo #srctext="demoTables"></demo>
 Feel free to increment the numbers!
 <p>Explanation:</p>
@@ -112,8 +112,10 @@ Feel free to increment the numbers!
     </li>
 </ul>
 
-<h3>Tic-Tac-Toe</h3>
-The Tic-Tac-Toe source code is shown <a href="#reacton">here</a>.
+<h3 id=TicTacToe>Tic-Tac-Toe</h3>
+
+Study the source code after you have read more of this documentation.
+<demo #bShow=false #srctext=sampleTicTacToe></demo>
 
 
 <h3>Working with server data</h3>

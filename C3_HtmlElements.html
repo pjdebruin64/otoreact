@@ -17,7 +17,7 @@
 </p>
 
 
-<h2>DOM Properties</h2>
+<h2>DOM Properties: #</h2>
 <p>
     The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
     <br>Rather than setting attributes, RHTML allows you to directly set the DOM properties, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
@@ -52,7 +52,7 @@ Notes:
     <li>For events, setting <code>on<i>name</i>="<i>script</i>"</code> is completely the same as <code>#on<i>name</i>="(event) => \{ <i>script</i> }"</code>.</li>
 </ul>
 
-<h2>HTML DOM Events</h2>
+<h2 id="Events">HTML DOM Events</h2>
 <p>
     In HTML, attributes whose name starts with "on" are not normal attributes but event handlers: pieces of JavaScript that will be executed when some event happens.
     <br>They may contain the name <code>event</code> which represents an object containing more information about the event.
@@ -68,58 +68,92 @@ Notes:
         RHTML event handlers may contain RHTML local variables; these will be bound to their values. Assignments to these variables (but not to their properties) are ignored.
     </li>
     <li>
-        As a bonus, the keyword <code>this</code> in RHTML event handlers is bound to the current HTMLElement object.
+        As a bonus, the keyword <code>this</code> in all RHTML event handlers is bound to the current HTMLElement object.
         <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
+    </li>
+    <li>
+        When the handler initiates an asynchronous operation, it may <code>return</code> the resulting Promise. If the asynchronous operation would fail, the error can be caught by an <a href=#onerror>RHTML onerror handler</a>.
     </li>
 </ul>
 
 
-<h2>RHTML global attributes</h2>
-RHTML recognizes the following attributes on every element and construct.
+<h3>DOM Event Properties</h3>
+For each DOM event, say <code>onclick</code>, there is a corresponding DOM property that can be set with <code>#onclick</code>:
+<ul>
+    <li>
+        Setting <code>onclick="<i>Statements</i>"</code> is the same as <code>#onclick="(event) => \{ <i>Statements</i> \}"</code>
+    </li>
+    <li>
+        Setting <code>#onclick="<i>handlerFunction</i>"</code> is the same as <code>onclick="return (<i>handlerFunction</i>)(event);"</code>
+    </li>
+</ul>
+
+
+<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if</h2>
+RHTML recognizes the following global attributes on every element and construct.
 <dl>
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-
+        This tells otoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
+        <p>
+            For RVAR's created by calling <a href="#RVAR">RVAR()</a>, this is compulsory.
+            <br>For RVAR's created by <a href=#DEFINE><elm>DEFINE rvar</elm></a>, this is optional.
+        </p>
+        <p>
+            The items in <i>RVAR-list</i> may be expressions rather than just names.
+        </p>
+        <p>
+            Samples of using <code>reacton</code> are in the <a href="#TicTacToe">Tic-Tac-Toe demo</a>.
+        </p>
+       
     </dd>
     <dt><code class=sourcecode>thisreactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-        
+        This tells OtoReact that <i>only the attributes</i> of the current node itself should react on the listed RVAR's. Not its contents, unless specified otherwise.
     </dd>
     <dt><code class=sourcecode>#if="<i>condition</i>"</code> or <code>if="<i>condition</i>"</code></dt>
     <dd>
         The element or construct with this attribute will be built only when the given condition evaluates to a truthy value.
-        <br>So this is a shorter version of the <a href="#If"><elm>IF</elm>-construct</a> with no elsepart.
+        <br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
     </dd>
 </dl>
 
-
-<h2>RHTML pseudo-events</h2>
+When you want to apply these attributes to a range of nodes at once, you can enclose them in <a href=#REACT><elm>REACT &hellip;</elm></a>.
+<h2>RHTML pseudo-events: oncreate, onupdate, ondestroy</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>
     <dt><code class=sourcecode>oncreate</code></dt>
     <dd>
-        Called after an element (and its children) has been <i>created</i> (built).
+        Executed after an element (and its children) has been <i>created</i> (built).
     </dd>
     <dt><code class=sourcecode>onupdate</code></dt>
     <dd>
-        Called after an element (and its children) has been <i>updated</i>.
-    </dd>
-    <dt><code class=sourcecode>oncreateupdate</code></dt>
-    <dd>
-        Called after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
+        Executed after an element (and its children) has been <i>updated</i>.
     </dd>
     <dt><code class=sourcecode>ondestroy</code></dt>
     <dd>
-        Called after an element has been <i>destroyed</i>, i.e. removed from the DOM tree.
+        Executed after an element has been <i>destroyed</i>, i.e. removed from the DOM tree.
+    </dd>
+    <dt>Combinations of these, notably <code class=sourcecode>oncreateupdate</code></dt>
+    <dd>
+        Executed after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
     </dd>
 </dl>
-The name <code>event</code> is not available in handlers for these  RHTML events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
+The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
 
 <p>
     These pseudo-events may be attached to RHTML constructs too. In that case <code>this</code> will be bound to the nearest parent HTMLElement.
 </p>
 
-<h3 id=onerror>RHTML error handlers</h3>
+<p>
+    As with <a href=#Events>DOM events</a>, one can write <code>#on&hellip;="&hellip;"</code> to specify a function to be called, instead of a block of statements to be executed.
+</p>
+
+<p>
+    If you want these routines to be executed <i>before</i> an element is created etc., then insert an extra node <a href="#REACT"><elm>REACT</elm></a> before that element, and attach the routines to that node.
+</p>
+
+<h3 id=onerror>RHTML onerror, onsuccess</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
 <p>
     RHTML allows you to set an error handler for <i>all</i> error cases at once, as follows.
@@ -128,10 +162,10 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
 <dl>
     <dt><code class=sourcecode>onerror</code></dt>
     <dd>
-        Happens whenever an (uncaught) error occurs in the following situations:
+        Executed whenever an (uncaught) error occurs in the following situations:
         <ol>
             <li>
-                During any synchronous DOM event handler attached to the current element or any of its HTML children, including HTML elements created by RHTML components defined outside the current element
+                During any synchronous DOM event handler attached to the current element or any of its HTML descendants
             </li>
             <li>
                 During the asynchronous execution of a <code>Promise</code> returned by a DOM event handler, i.e. when the Promise is rejected.
@@ -141,20 +175,20 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
                 While creating or updating the current element or its children
             </li>
             <li>
-                While resolving an asynchronously defined local variable value, see <a href="#define"><elm>DEFINE</elm></a>.
+                While resolving an asynchronously defined local variable value, see <a href="#DEFINE"><elm>DEFINE</elm></a>.
             </li>
         </ol>
         The name <code>event</code> is bound to the error value (usually a string).
     </dd>
     <dt><code class=sourcecode>onerror-</code></dt>
     <dd>
-        Happens in situations 1 and 2 listed for <code>onerror</code>, so not while creating or updating an element.
+        Executed in situations 1 and 2 listed for <code>onerror</code>, so not while creating or updating an element.
     </dd>
     <dt><code class=sourcecode>onsuccess</code></dt>
     <dd>
         <ol>
-            <li>Happens when any (synchronous) DOM event handler terminates without throwing an uncaught error.</li>
-            <li>If the handler returns a <code>Promise</code>, then <code>onsuccess</code> happens only after the promise succeeds ("is fulfilled").</li>
+            <li>Executed when any (synchronous) DOM event handler terminates without throwing an uncaught error.</li>
+            <li>If the handler returns a <code>Promise</code>, then <code>onsuccess</code> is executed only after the promise succeeds ("is fulfilled").</li>
         </ol>
         If you use <code>onerror</code> to assign errormessages to an RVAR to be shown in your document,
         then you can use <code>onsuccess</code> to reset that message.
@@ -223,7 +257,7 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
 <demo #srctext=sampleInlineStyles></demo>
 
 
-<h2 id=TwoWayBinding>Output and Two-way Bindings</h2>
+<h2 id=TwoWayBinding>Output and Two-way Bindings: @*!+</h2>
 DOM properties are not static but can change. RHTML allows four variants of output binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions): <code>*</code>, <code>+</code>, <code>!</code> and <code>!!</code>.
 <br>Valid assignment targets are expressions that can be assigned to: global variables, array elements, and object properties, including RVAR values.
 <dl>

@@ -16,7 +16,7 @@ declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
     auto?: boolean;
 };
 declare type Area = {
-    range?: Range;
+    rng?: Range;
     parent: Node;
     before?: ChildNode;
     source?: ChildNode;
@@ -46,6 +46,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     updated?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
+    wins?: Window[];
     get First(): ChildNode;
     get Next(): ChildNode;
     get FirstOrNext(): ChildNode;
@@ -110,7 +111,7 @@ declare class RCompiler {
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
-    Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
+    Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
     private Builder;
@@ -170,12 +171,14 @@ interface Store {
 }
 declare class _RVAR<T = unknown> {
     private RC;
+    name?: string;
     store?: Store;
-    private storeName;
+    private storeName?;
     constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
-    private _Value;
+    private _val;
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
+    private get _sNm();
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
@@ -196,11 +199,11 @@ declare class Atts extends Map<string, string> {
     getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
-declare let _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
+declare let _rng: (from: number, count?: number, step?: number) => Generator<number, void, unknown>;
 export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
     search: (key: string, value: string) => void;
 }, reroute: (arg: MouseEvent | string) => void;
-export { _range as range };
+export { _rng as range };

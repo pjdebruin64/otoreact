@@ -33,7 +33,7 @@
         const mapping = {'<': '&lt;', '&': '&amp;'};
         const markJScript = (script) =>
                 `<span style='color:purple'>${
-                    script.replace(/\/[^\/](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+                    script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
                         , (m,mComm) => mComm ? `<span class=demoGreen>${m}</span>` : m
                     )
                 }</span>`
@@ -95,7 +95,7 @@
 
         docLocation.Subscribe(() => {
             document.title =
-                /^$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
                 : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
                 : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
                 : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"

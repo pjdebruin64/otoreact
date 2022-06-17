@@ -72,7 +72,7 @@ function StartStop() {
 
 <div style="height:100ex; width:100%; overflow-y:scroll;">
 <!-- Now we build our table! 
-    The dots behind element names are needed because HTML does not allow <FOR> as a child of <TABLE>.
+    The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
 <table. class=colorTable style.margin="auto">
@@ -92,7 +92,7 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+  <FOR let=C #of="ColorTable.V" hash=C reacton=ColorTable>
     <tr. 
       style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
       #style.color = "C.green<148 ? 'white' : 'black'"
@@ -102,7 +102,7 @@ function StartStop() {
       <td.>{C.green}</td.>
       <td.>{C.blue}</td.>
       <td.>
-        #{toHex(C.red)}{toHex(C.green)}{toHex(C.blue)}
+        #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
       </td.>
     </tr.>
   </FOR>
@@ -337,17 +337,20 @@ const sampleTableMaker =
 </tablemaker>`;
 
 const sampleTicTacToe = 
-`<script type="otoreact/local" defines="board,toMove,outcome,ClearAll,Move,CheckWinner">
+`<!-- By using a local script, multiple instances of this game will have their own state -->
+<script type="otoreact/local" 
+  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
+>
     let
-      board =    RVAR(),           //: Array<Array<{P: '◯'|'✕'}>>
-      toMove =   RVAR(null, '✕'), //: '◯' | '✕'
-      outcome =  RVAR(),           //: '◯' | '✕' | true
-      count = 0;
-
-    ClearAll();
+      board =    RVAR(),           // State of the board
+      toMove =   RVAR(null, '✕'), // Player to move: '◯' or '✕'
+      outcome =  RVAR(),    // Player that has won, or boolean true when it's a draw
+      count = 0;            // Number of moves made
 
     function ClearAll() {
+        // Initialize the board as an array of arrays of objects {P: '◯' | '✕'}
         board.V = Board();
+        // Reset the outcome
         outcome.V = null;
         count = 0;
         
@@ -356,30 +359,37 @@ const sampleTicTacToe =
         function Board(){return [Row(), Row(), Row()]; }
     }
 
+    ClearAll();
+
     function Move(cell) {
+        // Play a move, when allowed
         if (outcome.V || cell.P) // Move not allowed
           return;
-        cell.U.P = toMove.V;
-        count++;
-        toMove.V = (toMove.V=='✕' ? '◯' : '✕');
-        outcome.V = CheckWinner(board.V) || count==9;
+        cell.U.P = toMove.V; // Update the cell
+        toMove.V = (toMove.V=='✕' ? '◯' : '✕'); // Set next player to move
+        count++;   // Count moves
+        outcome.V = CheckWinner(board.V) || count==9; // Check end of game
     }
 
     function CheckWinner(b) {
-        function CheckRow(c1, c2, c3) {
-            return (c1.P == c2.P && c2.P == c3.P && c1.P);
-        }
+        // Check if there is a winner
         let w = null;
         for (let i=0;i<3;i++) {
-            w = w || CheckRow(...b[i]);
-            w = w || CheckRow(b[0][i], b[1][i], b[2][i]);
+            w = w || CheckRow(...b[i]);   // Horizontal row
+            w = w || CheckRow(b[0][i], b[1][i], b[2][i]); // Vertical row
         }
-        for (let i=-1;i<2;i+=2)
-            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]);
+        for (let i=-1;i<=1;i+=2)
+            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]); // Diagonal row
         return w;
-    }
+
+        function CheckRow(c1, c2, c3) {
+            // Return the result when the three cells have the same state
+            return (c1.P == c2.P && c2.P == c3.P && c1.P);
+        }
+  }
 </script>
 
+<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
 <style>
     table.tic-tac-toe {
         width: fit-content; margin:1ex
@@ -393,20 +403,24 @@ const sampleTicTacToe =
 
 <div style="display:grid; grid-template-columns: auto 120pt;
         background-color: white; ">
+  <!-- Caption -->
   <div style="grid-column: 1/3; text-align: center;">
     <b>Tic-Tac-Toe</b>
   </div>
 
+  <!-- Show the board -->
   <table. class=tic-tac-toe reacton=board>
+          <!-- This table should react on the RVAR 'board'. -->
     <for let=row #of="board.V">
       <tr.>
-        <for let=cell #of=row updates=board>
+        <for let=cell #of=row reacting>
           <td. onclick="Move(cell)"
-           >{cell.P || ''}</td.>
+           >{cell.P}</td.>
         </for>
       </tr.>
     </for>
   </table.>
+  <!-- Show either the outcome, or the player to move -->
   <div>
     <p reacton=outcome,toMove>
       <case>
@@ -421,7 +435,7 @@ const sampleTicTacToe =
         </else>
       </case>
     </p>
-    <button onclick="ClearAll()" class="x">Clear</button>
+    <button onclick="ClearAll()">Clear</button>
   </div>
 </div>`;
 
@@ -695,9 +709,9 @@ const demoTables =
 </p>
 
 <div class=flex>
-  <FOR let=y #of="range(1,maxY.V+1)">
+  <FOR let=y #of="range(1,maxY.V)">
       <div>
-          <FOR let=x #of="range(1,maxX.V+1)">
+          <FOR let=x #of="range(1,maxX.V)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>

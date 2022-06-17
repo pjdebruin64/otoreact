@@ -1351,7 +1351,7 @@ class RCompiler {
         }
         if (dIf) {
             if (this.restoreActions.length > raLength)
-                throw `'#if' is not possible for declarations`;
+                throw `'#IF' is not possible for declarations`;
             let b = bldr;
             bldr = function hif(this: RCompiler, area: Area) {
                 let c = !!dIf(),

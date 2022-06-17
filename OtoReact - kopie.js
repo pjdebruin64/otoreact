@@ -1018,7 +1018,7 @@ class RCompiler {
         }
         if (dIf) {
             if (this.restoreActions.length > raLength)
-                throw `'#if' is not possible for declarations`;
+                throw `'#IF' is not possible for declarations`;
             let b = bldr;
             bldr = function hif(area) {
                 let c = !!dIf(), { sub } = PrepArea(srcElm, area, '', 1, c);

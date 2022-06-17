@@ -50,7 +50,7 @@ pre {
     white-space: pre-wrap;
 }
 pre.sourcecode { 
-    font-size: 75%;
+    font-size: 85%;
 }
 pre, code, elm {
     font: var(--Code);

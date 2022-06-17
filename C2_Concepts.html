@@ -3,16 +3,23 @@
 This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of some features.
 <br>So on first reading, please skip the details.
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
-All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces.
+All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>.
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
+
 <p>
     The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
 </p>
-<p>If you prefer, you may add a dollar sign as in JavaScript, like <code>1 + 1 = $\{1 + 1}</code>.</p>
-
-<p>If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.</p>
 <p>
     To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
+</p>
+
+<p>Within JavaScript, you can of course use the <a href="{MDN}Web/JavaScript/Reference/Template_literals"></a>JavaScript syntax for template literals</a>, using backquotes and dollar signs:</p>
+<pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
+<p>
+    If you prefer, you may add a dollar sign in RHTML as well, like <code>1 + 1 = $\{1 + 1}</code>.
+</p>
+<p>
+    If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.
 </p>
 <p>
     Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
@@ -22,40 +29,37 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 </p>
 <demo #srctext="sampleBraces"></demo>
 
-<p>Within JavaScript, you can of course use the JavaScript syntax for <a href="{MDN}Web/JavaScript/Reference/Template_literals">template literals</a>, using backquotes and dollar signs:</p>
-<pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
-
 <h2 id="ConstructsOverview">RHTML Constructs Overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
-        <a href=#Define><elm>DEFINE</elm></a> introduces a local variable or reactive variable
+        <a href=#DEFINE><elm>DEFINE</elm></a> introduces a local variable or reactive variable
     </li>
     <li>
-        <a href=#If><elm>IF</elm></a> specifies a conditional block of RHTML
+        <a href=#IF><elm>IF</elm></a> specifies a conditional block of RHTML
     </li>
     <li>
-        <a href=#Case><elm>CASE</elm></a> specifies a series of alternative conditional blocks of RHTML
+        <a href=#CASE><elm>CASE</elm></a> specifies a series of alternative conditional blocks of RHTML
     </li>
     <li>
-        <a href=#For><elm>FOR</elm></a> specifies a repeating block of RHTML, with a number of additional features
+        <a href=#FOR><elm>FOR</elm></a> specifies a repeating block of RHTML, with a number of additional features
     </li>
     <li>
-        <a href=#Component><elm>COMPONENT</elm></a> defines a user-defined construct.
+        <a href=#COMPONENT><elm>COMPONENT</elm></a> defines a user-defined construct.
         <br>Components may be recursive and may have <i>slots</i>, which are themselves full-fledged constructs.
     </li>
     <li>
-        <a href=Import><elm>IMPORT</elm></a> asynchronously imports components defined in a separate file (a <i>module</i>) into your application
+        <a href=#IMPORT><elm>IMPORT</elm></a> asynchronously imports components defined in a separate file (a <i>module</i>) into your application
     </li>
     <li>
-        <a href=#Include><elm>INCLUDE</elm></a> asynchronously includes a separate RHTML file into your application
+        <a href=#INCLUDE><elm>INCLUDE</elm></a> asynchronously includes a separate RHTML file into your application
     </li>
     <li>
         <a href=#RHTML><elm>RHTML</elm></a> dynamically compiles a string as RHTML.
         <br>This is used in the demo component you see on this page.
     </li>
     <li>
-        <a href=#React><elm>REACT on</elm></a> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
+        <a href=#REACT><elm>REACT on</elm></a> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
         <br>The RHTML attribute <code>reacton</code> does the same thing.
     </li>
 </ul>
@@ -70,13 +74,14 @@ The OtoReact module makes the following functions available for import. They are
         <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
     </li>
     <li>
-        <code>RVAR(name?, initialValue?, store?)</code> creates a reactive variable
+        <code>RVAR(name?, initialValue?, store?)</code> creates a <a href="#RVAR">reactive variable</a>.
     </li>
     <li>
-        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>
+        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
     </li>
     <li id=rangeFunction>
-        <code>range(start?, stop, step?)</code> yields an iterable range of numerical values, analogous to the <a href="https://docs.python.org/3/library/stdtypes.html#range">Python range type</a>. You can use this with <elm>FOR</elm>.
+        <code>range(start?, count, step?)</code> yields an iterable range of <i>count</i> numerical values: <i>start</i>, <i>start</i>+<i>step</i>, &hellip;, <i>start</i>+(<i>count</i>-1) * <i>step</i>.
+        <br>You can use this with <a href=#FOR><elm>FOR</elm></a>.
     </li>
     <li id=RFetch>
         <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
@@ -105,7 +110,7 @@ Ordinary JavaScript in a browser environment distinguishes between local variabl
         </ul>
     </li>
 </ul>
-Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#Scripts>section on <code>script</code></a>.
+Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#SCRIPT>section on <code>script</code></a>.
 
 <h4>RHTML local variables</h4>
 <p>RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.</p>
@@ -122,16 +127,23 @@ Browser-based JavaScript also has a distinction between <i>classic</i> JavaScrip
 <h4>Global variables in RHTML</h4>
 Global variables are visible in RHTML inline scripts, of course.
 <p>
-    Global variables are preferably created as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
+    Global variables are created:
 </p>
-<pre>
-    globalThis.<i>varName</i> = <i>value</i>;
-</pre>
-<p>
-    In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
-</p>
+<ul>
+    <li>
+        Either as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
+        <pre>
+            globalThis.<i>varName</i> = <i>value</i>;
+        </pre>
+        In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
+    </li>
+    <li>
+        Or by using the <code>defines</code> attribute of <a href="#SCRIPT"><elm>SCRIPT type="otoreact"</elm></a>.
+    </li>
+</ul>
+    
 
-<h2 id=RVAR>RVAR: Reactive VARiable's</h2>
+<h2 id=RVAR>RVAR's: Reactive VARiable's</h2>
 <p>
     Reactive variables (RVAR's) are objects containing variable data on which RHTML elements may react.
     <br>Anytime the value of an RVAR changes, the reacting elements will be updated.
@@ -141,7 +153,7 @@ Global variables are visible in RHTML inline scripts, of course.
 </p>
 <ul>
     <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename = `RVAR_$\{name\}`)</code> from JavaScript,</li>
-    <li>or by using the <a href=#define><elm>define rvar</elm></a> construct.</li>
+    <li>or by using the <a href=#DEFINE><elm>define rvar</elm></a> construct.</li>
 </ul>
 
 <h4>RVAR arguments</h4>
@@ -174,9 +186,9 @@ Global variables are visible in RHTML inline scripts, of course.
 </dl>
 
 <p>
-    You may or must inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <a href=#React><elm>REACT</elm> element</a> or the <a href=#reacton><code>reacton</code> attribute</a>, see below.
+    You may or must inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <a href=#REACT><elm>REACT</elm> element</a> or the <a href=#GlobalAtts><code>reacton</code> attribute</a>, see below.
     <br>For RVAR's created by calling <code>RVAR()</code>, this is necessary.
-    <br>For RVAR's created by <elm>define rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code following the <elm>define rvar</elm>, i.e. the range where the RVAR is visible, <u>will implicitly react</u> on the RVAR.
+    <br>For RVAR's created by <elm>DEFINE rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code following the <elm>DEFINE rvar</elm>, i.e. the range where the RVAR is visible, <u>will implicitly react</u> on the RVAR.
 </p>
 
 <h4>Properties and methods</h4>
@@ -231,7 +243,7 @@ Global variables are visible in RHTML inline scripts, of course.
 </dl>
 
 
-<h4 id=Persistence>Persistence</h4>
+<h3 id=Persistence>Persistence</h4>
 When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
 <p><code>store</code> can be:</p>
 <ul>
@@ -244,13 +256,13 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
 <p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>.</p>
 
 <p>
-    An as example, enter your name at the <a href=#Introduction>top of this introduction</a>, reload the page, and note that your name has persisted.
+    An example using <code>sessionStorage</code> can be found in the <a href="#Multiplication">Multiplication demo</a>: modify the numbers; then either reload the page or modify the source code, which triggers a reload too, and see that the modified numbers have persisted.
 </p>
 
 <h2>Scripts in RHTML</h2>
 <p>
     Scripts can be included anywhere using the <elm>SCRIPT</elm> element just as in HTML.
-    <br>They will be executed once, but the moment of execution depends on the script type, see <a href="#Scripts">Scripts</a>.
+    <br>They will be executed once, but the moment of execution depends on the script type, see <a href="#SCRIPT">Scripts</a>.
 </p>
 <p>
     Scripts in OtoReact can export variables, so that these variables are locally visible in RHTML code.
@@ -261,14 +273,14 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
     <br>There is an example of this in the <a href="#TicTacToe">Tic-Tac-Toe demo</a> below.
 </p>
 <p>
-    See <a href="#Scripts">Scripts</a> for details about <elm>SCRIPT</elm> in RHTML.
+    See <a href="#SCRIPT">Scripts</a> for details about <elm>SCRIPT</elm> in RHTML.
 </p>
 
 
 <h2>Style Sheets</h2>
 Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
 <p>
-    Styles sheets have global effect, except inside an 'isolated' <a href=#Component>component</a> or inside <elm>RHTML</elm> text.
+    Styles sheets have global effect, except inside an 'isolated' <a href=#COMPONENT>component</a> or inside <elm>RHTML</elm> text.
     <br>There is no provision for local style sheets yet. To use local styling, just add local class names to each styling rule.
 </p>
 <p>
