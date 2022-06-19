@@ -107,7 +107,7 @@ declare class RCompiler {
     private NewVar;
     private SetVar;
     private NewVars;
-    private AddConstruct;
+    private AddConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;

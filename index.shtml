@@ -141,7 +141,7 @@
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout></pageLayout>
 
-        <rhtml_ #srctext ...rest></rhtml_>
+        <RHTML #srctext ...rest></RHTML>
     </import>
 
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>

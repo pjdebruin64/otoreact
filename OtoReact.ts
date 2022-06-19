@@ -563,12 +563,14 @@ class RCompiler {
             );
     }
 
-    private AddConstruct(S: Signature) {
-        let savedC = this.CSignatures.get(S.nm);
-        mapNm(this.CSignatures, S);
-        this.restoreActions.push(() => 
-            mapSet(this.CSignatures, S.nm, savedC)
-        );
+    private AddConstructs(listS: Iterable<Signature>) {
+        for (let S of listS) {
+            let savedC = this.CSignatures.get(S.nm);
+            mapNm(this.CSignatures, S);
+            this.restoreActions.push(() => 
+                mapSet(this.CSignatures, S.nm, savedC)
+            );
+        }
     }
 
     // Compile a source tree into an ElmBuilder
@@ -1089,8 +1091,9 @@ class RCompiler {
                         for (let child of srcElm.children) {
                             let sign = this.ParseSignat(child);
                             listImports.push(sign);
-                            this.AddConstruct(sign);
                         }
+
+                        this.AddConstructs(listImports);
                             
                         if (!promModule) {
                             let C = new RCompiler(this, true);
@@ -1843,6 +1846,7 @@ class RCompiler {
 
         let builders: [DOMBuilder, ChildNode][] = [],
             bEncaps = atts.getB('encapsulate'),
+            bRecurs = atts.getB('recursive'),
             styles: Node[] = [],
             {wspc} = this
             , signats: Array<Signature> = [], elmTemplate: HTMLTemplateElement;
@@ -1859,7 +1863,6 @@ class RCompiler {
                         styles.push(child);
                     else
                         this.CompStyle(child);
-                    
                     break;
                 case 'DEFINE': case 'DEF':
                     [bldr] = this.CompDefine(child, childAtts);
@@ -1886,8 +1889,8 @@ class RCompiler {
         if (!signats.length) throw `Missing signature`;
         if (!elmTemplate) throw 'Missing <TEMPLATE>';
 
-        for (let signat of signats)
-            this.AddConstruct(signat);
+        if (bRecurs)
+            this.AddConstructs(signats);
                
         let nm = signats[0].nm,
         // Deze builder bouwt de component-instances op
@@ -1896,12 +1899,16 @@ class RCompiler {
                     false, bEncaps, styles)
             ];
 
+        if (!bRecurs)
+           this.AddConstructs(signats);
+
         this.wspc = wspc;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
             let constr: ConstructDef = {nm, templates};
-            DefConstruct(constr);
+            if (bRecurs)
+                DefConstruct(constr);
             let saved = SaveEnv();
             try {
                 for (let [bldr, srcNode] of builders)
@@ -1913,6 +1920,8 @@ class RCompiler {
                 constr.constructEnv = CloneEnv(env);     // Contains circular reference to construct
             }
             finally { RestoreEnv(saved) }
+            if (!bRecurs)
+                DefConstruct(constr);
         };
     }
 
@@ -1928,8 +1937,8 @@ class RCompiler {
             for (let {mode,nm} of signat.Params)
                 lvars.push([nm, this.NewVar(myAtts.get(mode + nm, bNewNames) || nm)]);
 
-            for (let S of signat.Slots.values())
-                this.AddConstruct(S);
+            this.AddConstructs(signat.Slots.values());
+            
             if (!atts)
                 myAtts.ChkNoAttsLeft();
             this.wspc = this.rspc = WSpc.block;

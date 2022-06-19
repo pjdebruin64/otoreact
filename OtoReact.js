@@ -372,10 +372,12 @@ class RCompiler {
             ? varlist.split(',').map(nm => this.NewVar(nm.trim()))
             : []);
     }
-    AddConstruct(S) {
-        let savedC = this.CSignatures.get(S.nm);
-        mapNm(this.CSignatures, S);
-        this.restoreActions.push(() => mapSet(this.CSignatures, S.nm, savedC));
+    AddConstructs(listS) {
+        for (let S of listS) {
+            let savedC = this.CSignatures.get(S.nm);
+            mapNm(this.CSignatures, S);
+            this.restoreActions.push(() => mapSet(this.CSignatures, S.nm, savedC));
+        }
     }
     async Compile(elm, settings = {}, childnodes) {
         let t0 = performance.now(), savedR = R;
@@ -788,8 +790,8 @@ class RCompiler {
                             for (let child of srcElm.children) {
                                 let sign = this.ParseSignat(child);
                                 listImports.push(sign);
-                                this.AddConstruct(sign);
                             }
+                            this.AddConstructs(listImports);
                             if (!promModule) {
                                 let C = new RCompiler(this, true);
                                 C.Settings.bRunScripts = true;
@@ -1376,7 +1378,7 @@ class RCompiler {
         return signat;
     }
     async CompComponent(srcElm, atts) {
-        let builders = [], bEncaps = atts.getB('encapsulate'), styles = [], { wspc } = this, signats = [], elmTemplate;
+        let builders = [], bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), styles = [], { wspc } = this, signats = [], elmTemplate;
         for (let child of Array.from(srcElm.children)) {
             let childAtts = new Atts(child), bldr;
             switch (child.nodeName) {
@@ -1419,15 +1421,18 @@ class RCompiler {
             throw `Missing signature`;
         if (!elmTemplate)
             throw 'Missing <TEMPLATE>';
-        for (let signat of signats)
-            this.AddConstruct(signat);
+        if (bRecurs)
+            this.AddConstructs(signats);
         let nm = signats[0].nm, templates = [
             await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, false, bEncaps, styles)
         ];
+        if (!bRecurs)
+            this.AddConstructs(signats);
         this.wspc = wspc;
         return async function COMPONENT(area) {
             let constr = { nm, templates };
-            DefConstruct(constr);
+            if (bRecurs)
+                DefConstruct(constr);
             let saved = SaveEnv();
             try {
                 for (let [bldr, srcNode] of builders)
@@ -1437,6 +1442,8 @@ class RCompiler {
             finally {
                 RestoreEnv(saved);
             }
+            if (!bRecurs)
+                DefConstruct(constr);
         };
     }
     async CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
@@ -1444,8 +1451,7 @@ class RCompiler {
         try {
             for (let { mode, nm } of signat.Params)
                 lvars.push([nm, this.NewVar(myAtts.get(mode + nm, bNewNames) || nm)]);
-            for (let S of signat.Slots.values())
-                this.AddConstruct(S);
+            this.AddConstructs(signat.Slots.values());
             if (!atts)
                 myAtts.ChkNoAttsLeft();
             this.wspc = this.rspc = 1;
