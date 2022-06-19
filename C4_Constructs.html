@@ -427,7 +427,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
     </li>
     <li>
         With attribute <code class="sourcecode">encapsulate</code>, the generated content will be encapsulated, meaning mainly that the component can contain its own styling rules, independent of the main document.
-        <br>See <a href=#Encapsulate>encapsulate</a> for details.
+        See <a href=#Encapsulate>encapsulate</a> for details.
     </li>
     <li>
         Component templates can contain nested component definitions.
@@ -553,19 +553,14 @@ The component instance may contain templates for each of the slots of the compon
     </li>
     <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
     <li>
-        When the component signature contains a slot named <elm>CONTENT</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
+        When the component signature contains a slot named <elm>content</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
     </li>
 </ul>
 
-Had the slot in our example been named <elm>content</elm> in stead of <elm>rbody</elm>, then the instance would have looked like:
-<pre>
-<comm>Component instance</comm>
-<{}repeat #count=7 num>
-  <comm>Content slot template</comm>
-  <{}p>This is <{}u>paragraph \{num}<{}/u>.<{}/p>
-<{}/repeat>
+Now in this case, the slot is named <elm>content</elm> indeed, so we can shorten the component instance to:
+<pre #innerHTML="ColorCode(C4)"></pre>
 </pre>
-Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>num</code>.
+Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>#num</code>.
 
 <p>Putting it all together, we get:</p>
 <demo #srctext=sampleComponent1></demo>
@@ -602,9 +597,9 @@ Here is a to-do application, which splits the collection of items into those don
 </demo>
 
 <h4>A recursive component</h4>
-<p>Components may be recursive, i.e. refer to themselve.
+<p>Components may be recursive, i.e. refer to themselve, when the attribute <code>recursive</code> is specified.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
-<demo #bShow=false #srctext=sampleRecursion></demo>
+<demo #srctext=sampleRecursion></demo>
 
 <h4 id="Redefining">Redefining HTML elements</h4>
 <p>Components may redefine HTML elements. To refer to the original element, add a dot to the tag name.

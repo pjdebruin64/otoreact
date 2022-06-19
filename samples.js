@@ -225,15 +225,15 @@ const sampleTODO=
 </p>`;
 
 const sampleRecursion=
-`<component>
+`<component recursive>
   <showList #arg></showList>
 
   <style>
-      .flex-container {
+      .showList {
           display: flex; flex-wrap: wrap; align-items: center;
           background-color: gray;
       }
-      .flex-container > div {
+      .showList > div {
           background-color: #f1f1f1;
           margin: 4px; padding: 8px; font-size: 18px;
       }
@@ -242,7 +242,7 @@ const sampleRecursion=
   <template>
       <case>
           <when #cond="Array.isArray(arg)">
-              <div class=flex-container>
+              <div class=showList>
                   <for let=item #of=arg>
                       <div>
                           <!-- Recursive invocation -->
@@ -473,23 +473,28 @@ const C1=
 `  <!-- Component signature with parameter -->
   <repeat #count>
     <!-- Slot signature with parameter -->
-    <rbody #num></rbody>
+    <content #num></content>
   </repeat>`,
 C2 =
 `  <!-- Component template -->
   <template>
-    <for let=i #of="range(count)">
+    <for let=i #of="range(1,count)">
         <!-- Slot instance -->
-        <rbody #num="i+1"></rbody>
+        <content #num="i"></content>
     </for>
   </template>`,
 C3 =
 `<!-- Component instance -->
 <repeat #count=7>
   <!-- Slot template -->
-  <rbody #num>
+  <content #num>
     <p>This is <u>paragraph {num}</u>.</p>
-  </rbody>
+  </content>
+</repeat>`,
+C4 =
+`<!-- Component instance and slot instance in one -->
+<repeat #count=7 #num>
+    <p>This is <u>paragraph {num}</u>.</p>
 </repeat>`,
 
 sampleComponent1 =
@@ -501,7 +506,7 @@ ${C2}
 </component>
 
 
-${C3}`;
+${C4}`;
 
 const sampleFormatting =
 `<define var=today #value="new Date()"></define>
