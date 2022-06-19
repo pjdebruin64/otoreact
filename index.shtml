@@ -73,7 +73,7 @@
             }</div>`;
         }
     </script>
-    <script src="samples.js" defer></script>
+    <script src="samples.js?" defer></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         if (location.search == '??') localStorage.setItem('PJ', 'true')

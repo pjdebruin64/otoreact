@@ -115,7 +115,7 @@
             div.pageLayout > *{
                 box-shadow:0 0 0 4px lightgray;
                 padding: 8px 4px;
-                scrollbar-width: 3vw;
+                _scrollbar-width: 3vw;
             }
             div.pageLayout > header    { 
                 grid-row: 1;
@@ -158,9 +158,9 @@
                 grid-row: 3;
             }
 
-            @media screen and (max-width: 1250px) {
+            @media screen and (max-width: 1200px) {
                 div.pageLayout > nav {
-                    max-height: 100vh;
+                    max-height: 75vh;
                     overflow-y: auto;
                 }
                 div.pageLayout > nav > div {
@@ -168,7 +168,7 @@
                 }
             }
             
-            @media screen and (min-width: 1250px) {
+            @media screen and (min-width: 1200px) {
                 div.pageLayout  {
                     grid-template-columns: 16em 1fr;
                     grid-template-rows: min-content 1fr;

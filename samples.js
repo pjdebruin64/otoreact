@@ -262,19 +262,19 @@ const sampleRecursion=
     value="[1, [2,3,4], [[41,42],5], 'Otolift']"
     store=sessionStorage
 ></define>
-<p>JavaScript list: <input type=text @value="list.V" size=40></p>
+<p>JavaScript list: <input type=text @value="list.V" size=35></p>
 <showList #arg="eval(list.V)"></showList>
 <p>You can modify the list definition above and see the result.</p>`;
 
 const sampleRedefineA =
 `<component>
-  <a href #target? ...rest><content></content></a>
+  <a href #target? ...rest><contents></contents></a>
 
   <template><a. #href="href"
     #target="!target && /^http/i.test(href) ? '_blank' : target"
     ...rest
-    ><content>
-  </content></a.></template>
+    ><contents>
+  </contents></a.></template>
 </component>
 
 This link opens in a blank window:
@@ -462,7 +462,7 @@ const sampleStyleTemplate =
 </style.>
 
 <h2>Section 1</h2>
-Content
+Contents
 <h2>Section 2</h2>
 
 <button onclick="Hue.V = Math.random()*360">
@@ -473,23 +473,23 @@ const C1=
 `  <!-- Component signature with parameter -->
   <repeat #count>
     <!-- Slot signature with parameter -->
-    <content #num></content>
+    <contents #num></contents>
   </repeat>`,
 C2 =
 `  <!-- Component template -->
   <template>
     <for let=i #of="range(1,count)">
         <!-- Slot instance -->
-        <content #num="i"></content>
+        <contents #num="i"></contents>
     </for>
   </template>`,
 C3 =
 `<!-- Component instance -->
 <repeat #count=7>
   <!-- Slot template -->
-  <content #num>
+  <contents #num>
     <p>This is <u>paragraph {num}</u>.</p>
-  </content>
+  </contents>
 </repeat>`,
 C4 =
 `<!-- Component instance and slot instance in one -->
@@ -557,24 +557,24 @@ const sampleRadioGroup=
 `<component>
     <!-- Radiogroup signature -->
   <radiogroup name @value>
-    <content>
+    <contents>
       <radiobutton #value onclick? ...rest>
-        <content></content>
+        <contents></contents>
       </radiobutton>
-    </content>
+    </contents>
   </radiogroup>
 
   <template @value=groupValue>
-    <content>
+    <contents>
       <radiobutton #value onclick ...rest>
         <label style.cursor=pointer>
           <input type=radio #name=name #value=value
             #checked="value == groupValue.V"
             onclick="groupValue.V = value; onclick()" ...rest>
-          <content></content>
+          <contents></contents>
         </label>
       </radiobutton>
-    </content>
+    </contents>
   </template>
 </component>
 

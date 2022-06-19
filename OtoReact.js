@@ -1495,7 +1495,7 @@ class RCompiler {
     async CompInstance(srcElm, atts, signat) {
         if (signat.prom)
             await signat.prom;
-        let { nm, RestParam } = signat, contentSlot = signat.Slots.get('content'), getArgs = [], slotBldrs = new Map();
+        let { nm, RestParam } = signat, contSlot = signat.Slots.get('contents') || signat.Slots.get('content'), getArgs = [], slotBldrs = new Map();
         for (let nm of signat.Slots.keys())
             slotBldrs.set(nm, []);
         for (let { mode, nm, pDflt } of signat.Params)
@@ -1514,13 +1514,12 @@ class RCompiler {
         let slotElm, Slot;
         for (let node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE
-                && (Slot = signat.Slots.get((slotElm = node).localName))
-                && slotElm.localName != 'content') {
+                && (Slot = signat.Slots.get((slotElm = node).localName))) {
                 slotBldrs.get(slotElm.localName).push(await this.CompTemplate(Slot, slotElm, slotElm, true));
                 srcElm.removeChild(node);
             }
-        if (contentSlot)
-            slotBldrs.get('content').push(await this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts));
+        if (contSlot)
+            slotBldrs.get(contSlot.nm).push(await this.CompTemplate(contSlot, srcElm, srcElm, true, false, null, atts));
         if (RestParam) {
             let modifs = this.CompAttribs(atts);
             getArgs.push([RestParam.nm,

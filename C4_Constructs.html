@@ -490,7 +490,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for the <elm>CONTENT</elm> slot.
+            There is one special slot name, <elm>CONTENTS</elm>. When a component signature contains a <elm>CONTENTS</elm> or <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
         </li>
     </ul>
 </p>
@@ -553,11 +553,11 @@ The component instance may contain templates for each of the slots of the compon
     </li>
     <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
     <li>
-        When the component signature contains a slot named <elm>content</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
+        When the component signature contains a slot named <elm>contents</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this contents slot
     </li>
 </ul>
 
-Now in this case, the slot is named <elm>content</elm> indeed, so we can shorten the component instance to:
+Now in this case, the slot is named <elm>contents</elm> indeed, so we can shorten the component instance to:
 <pre #innerHTML="ColorCode(C4)"></pre>
 </pre>
 Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>#num</code>.
@@ -610,7 +610,7 @@ To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 
 <h4>Slots within slots</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
-    <br>This is particularly useful for components with a <elm>CONTENT</elm> slot. The component may provide new or redefined constructs, that are available only within the content of component instances, and that may provide interaction with the component.
+    <br>This is particularly useful for components with a <elm>CONTENTS</elm> slot. The component may provide new or redefined constructs, that are available only within the contents of component instances, and that may provide interaction with the component.
 </p>
 <p>
     This documentation website uses such subslots to redefine <elm>H1</elm>, <elm>H2</elm> within the context of a particular page, so that the given section titles are automatically entered into the table of contents of that page.
@@ -633,16 +633,16 @@ Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
         <elm>radiogroup</elm> has a parameter 'name' which will be the common name of all radio buttons in the group, and a two-way parameter '@value', that will provide <i>and</i> receive the value of the selected radio button.
     </li>
     <li>
-        <elm>radiogroup</elm> has a slot <elm>content</elm> so that the component output can include the content of any radiogroup instance.
+        <elm>radiogroup</elm> has a slot <elm>contentS</elm> so that the component output can include the contents of any radiogroup instance.
     </li>
     <li>
-        Slot <elm>content</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance content.
+        Slot <elm>contents</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance contents.
     </li>
     <li>
         <elm>radiobutton</elm> has parameter '#value' that defines the value of the current button, and an optional 'onclick' handler so that component instances can specify this handler without overwriting the 'onclick' handler set by the component template, and a rest parameter '...rest' that will be passed on to the <elm>input type=radio</elm> radio button element.
     </li>
     <li>
-        <elm>radiobutton</elm> has a slot <elm>content</elm>, that defines the label content for the current button.
+        <elm>radiobutton</elm> has a slot <elm>contents</elm>, that defines the label content for the current button.
     </li>
 </ul>
 

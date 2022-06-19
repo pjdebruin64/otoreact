@@ -1938,7 +1938,7 @@ class RCompiler {
                 lvars.push([nm, this.NewVar(myAtts.get(mode + nm, bNewNames) || nm)]);
 
             this.AddConstructs(signat.Slots.values());
-            
+
             if (!atts)
                 myAtts.ChkNoAttsLeft();
             this.wspc = this.rspc = WSpc.block;
@@ -1993,7 +1993,7 @@ class RCompiler {
         if (signat.prom)
             await signat.prom;
         let {nm, RestParam} = signat,
-            contentSlot = signat.Slots.get('content'),
+            contSlot = signat.Slots.get('contents') || signat.Slots.get('content'),
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             slotBldrs = new Map<string, Template[]>();
 
@@ -2022,7 +2022,6 @@ class RCompiler {
         for (let node of Array.from(srcElm.childNodes))
             if (node.nodeType == Node.ELEMENT_NODE 
                 && (Slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName))
-                && slotElm.localName != 'content'
             ) {
                 slotBldrs.get(slotElm.localName).push(
                     await this.CompTemplate(Slot, slotElm, slotElm, true)
@@ -2030,9 +2029,9 @@ class RCompiler {
                 srcElm.removeChild(node);
             }
             
-        if (contentSlot)
-            slotBldrs.get('content').push(
-                await this.CompTemplate(contentSlot, srcElm, srcElm, true, false, null, atts)
+        if (contSlot)
+            slotBldrs.get(contSlot.nm).push(
+                await this.CompTemplate(contSlot, srcElm, srcElm, true, false, null, atts)
             );
 
         if (RestParam) {
