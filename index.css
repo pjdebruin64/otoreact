@@ -12,7 +12,7 @@
 button {font-size: 87%;}
 
 @media screen and (min-resolution: 150dpi) {
-    :root { font-size: 36px; }
+    :root { font-size: 32px; }
     button, input { font-size: 80% !important; }
 }
 

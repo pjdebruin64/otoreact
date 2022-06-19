@@ -94,7 +94,7 @@ RHTML recognizes the following global attributes on every element and construct.
 <dl>
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-        This tells otoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
+        This tells OtoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
         <p>
             For RVAR's created by calling <a href="#RVAR">RVAR()</a>, this is compulsory.
             <br>For RVAR's created by <a href=#DEFINE><elm>DEFINE rvar</elm></a>, this is optional.
@@ -118,7 +118,9 @@ RHTML recognizes the following global attributes on every element and construct.
     </dd>
 </dl>
 
-When you want to apply these attributes to a range of nodes at once, you can enclose them in <a href=#REACT><elm>REACT &hellip;</elm></a>.
+When you want to apply these attributes to a range of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
+
+
 <h2>RHTML pseudo-events: oncreate, onupdate, ondestroy</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>

@@ -140,6 +140,7 @@ function PrepCharData(area, content, bComm) {
         area.rng = rng.next;
     }
 }
+let childWins = new Set();
 export async function RCompile(elm, settings) {
     try {
         let { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
@@ -148,7 +149,9 @@ export async function RCompile(elm, settings) {
         await R.Compile(elm);
         R.start = performance.now();
         builtNodeCnt = 0;
-        await R.Build({ parent: elm.parentElement, source: elm, rng: null });
+        let area = { parent: elm.parentElement, source: elm, rng: null };
+        await R.Build(area);
+        window.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
@@ -307,7 +310,7 @@ class RCompiler {
         this.rspc = 1;
         this.DirtyVars = new Set();
         this.bUpdating = false;
-        this.handleUpdate = null;
+        this.hUpdate = null;
         this.sourceNodeCount = 0;
         this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
         this.RC = RC || (RC = this);
@@ -421,7 +424,7 @@ class RCompiler {
         return subs;
     }
     async Build(area) {
-        let saveR = R, { parentR } = area;
+        let saveR = R;
         R = this;
         env = NewEnv();
         builtNodeCnt++;
@@ -429,9 +432,9 @@ class RCompiler {
         R = saveR;
     }
     RUpdate() {
-        if (!this.bUpdating && !this.handleUpdate)
-            this.handleUpdate = setTimeout(() => {
-                this.handleUpdate = null;
+        if (!this.bUpdating && !this.hUpdate)
+            this.hUpdate = setTimeout(() => {
+                this.hUpdate = null;
                 this.DoUpdate();
             }, 5);
     }
@@ -914,9 +917,10 @@ class RCompiler {
                                                 }
                                             },
                                             open(target, features, ...args) {
-                                                let W = window.open('', target, features);
+                                                let W = window.open('', target, features), i = childWins.add(W);
                                                 W.addEventListener('keydown', function (event) { if (event.key == 'Escape')
                                                     this.close(); });
+                                                W.addEventListener('close', () => childWins.delete(W));
                                                 if (!bEncaps)
                                                     copyStyleSheets(document, W.document);
                                                 this.render(W, args);

@@ -241,6 +241,7 @@ function PrepCharData(area: Area, content: string, bComm?: boolean) {
 
 type FullSettings = typeof defaultSettings;
 type Settings = Partial<FullSettings>;
+let childWins=new Set<Window>();
 
 export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<void> { 
     try {
@@ -255,7 +256,10 @@ export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<v
         // Initial build
         R.start = performance.now();
         builtNodeCnt = 0;
-        await R.Build({parent: elm.parentElement, source: elm, rng: null});
+        let area: Area = {parent: elm.parentElement, source: elm, rng: null};
+        await R.Build(area);
+        window.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
+        //window.addEventListener('pagehide', ()=>{for(let w of childWins)w.close()});
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
@@ -627,7 +631,7 @@ class RCompiler {
     }
 
     public async Build(area: Area) {
-        let saveR = R, {parentR} = area;
+        let saveR = R;
         R = this;
         env = NewEnv();
         builtNodeCnt++;
@@ -646,11 +650,11 @@ class RCompiler {
 
     // Bijwerken van alle elementen die afhangen van reactieve variabelen
     private bUpdating = false;
-    private handleUpdate: number = null;
+    private hUpdate: number = null;
     RUpdate() {
-        if (!this.bUpdating && !this.handleUpdate)
-            this.handleUpdate = setTimeout(() => {
-                this.handleUpdate = null;
+        if (!this.bUpdating && !this.hUpdate)
+            this.hUpdate = setTimeout(() => {
+                this.hUpdate = null;
                 this.DoUpdate();
             }, 5);
     }
@@ -689,7 +693,7 @@ class RCompiler {
         }
     }
 
-    /* A "responsive variable" is a variable which listeners can subscribe to. */
+    /* A "responsive variable" is a variable that listeners can subscribe to. */
     RVAR<T>(
         nm?: string, 
         value?: T | Promise<T>, 
@@ -1248,11 +1252,11 @@ class RCompiler {
                                         },
                                         open(target?: string, features?: string, ...args: unknown[]) {
                                             let W = window.open('', target, features)
-                                                //, i = rng.wins.push(W);
+                                                , i = childWins.add(W);
                                             W.addEventListener('keydown', 
                                                 function(this: Window,event:KeyboardEvent) {if(event.key=='Escape') this.close();}
                                             );
-                                            //W.addEventListener('close', function(this: Window) {delete rng.wins[i]})
+                                            W.addEventListener('close', () => childWins.delete(W))
                                             // Copy all style sheet rules
                                             if (!bEncaps)
                                                 copyStyleSheets(document, W.document);

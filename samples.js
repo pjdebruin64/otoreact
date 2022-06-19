@@ -129,7 +129,7 @@ const sampleGreeting2 =
   <!-- The "@" introduces a two-way binding for the input element.
   Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
-<if cond="yourName.V">
+<if #cond="yourName.V">
   <p> Nice to meet you, {yourName.V}.
     <br>By the way, your name consists of {yourName.V.length} 
         characters.
@@ -200,9 +200,9 @@ const sampleTODO=
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item of=TODO.V key=item reacton=TODO reactive>
+            <for let=item #of=TODO.V #key=item #reacton=TODO reactive>
                 <!-- 'bdone' must be in lowercase -->
-                <if cond='item[1] == bdone'>
+                <if #cond='item[1] == bdone'>
                     <label style="display: block">
                       <input type=checkbox @checked='item.U[1]'> 
                       {item[0]}
@@ -226,35 +226,36 @@ const sampleTODO=
 
 const sampleRecursion=
 `<component>
-<showList #arg></showList>
-<style>
-    .flex-container {
-        display: flex; flex-wrap: wrap; align-items: center;
-        background-color: gray;
-    }
-    .flex-container > div {
-        background-color: #f1f1f1;
-        margin: 4px; padding: 8px; font-size: 18px;
-    }
-</style>
+  <showList #arg></showList>
 
-<template>
-    <case>
-        <when #cond="Array.isArray(arg)">
-            <div class=flex-container>
-                <for let=item #of=arg>
-                    <div>
-                        <!-- Recursive invocation -->
-                        <showList #arg=item></showList>
-                    </div>
-                </for>
-            </div>
-        </when>
-        <else>
-            {arg}
-        </else>
-    </case>
-</template>
+  <style>
+      .flex-container {
+          display: flex; flex-wrap: wrap; align-items: center;
+          background-color: gray;
+      }
+      .flex-container > div {
+          background-color: #f1f1f1;
+          margin: 4px; padding: 8px; font-size: 18px;
+      }
+  </style>
+
+  <template>
+      <case>
+          <when #cond="Array.isArray(arg)">
+              <div class=flex-container>
+                  <for let=item #of=arg>
+                      <div>
+                          <!-- Recursive invocation -->
+                          <showList #arg=item></showList>
+                      </div>
+                  </for>
+              </div>
+          </when>
+          <else>
+              {arg}
+          </else>
+      </case>
+  </template>
 </component>   
 
 <define rvar=list 
@@ -267,13 +268,13 @@ const sampleRecursion=
 
 const sampleRedefineA =
 `<component>
-<a href #target? ...rest><content></content></a>
+  <a href #target? ...rest><content></content></a>
 
-<template><a. #href="href"
-  #target="!target && /^http/i.test(href) ? '_blank' : target"
-  ...rest
-  ><content>
-</content></a.></template>
+  <template><a. #href="href"
+    #target="!target && /^http/i.test(href) ? '_blank' : target"
+    ...rest
+    ><content>
+  </content></a.></template>
 </component>
 
 This link opens in a blank window:
@@ -306,7 +307,7 @@ const sampleTableMaker =
                 </for>
             </tr.>
             <!-- Detail rows -->
-            <for let=rec of='datasource'>
+            <for let=rec #of='datasource'>
                 <tr.>
                     <for of=DDEF>
                         <td.><DDEF #item=rec></DDEF></td.>
@@ -391,25 +392,31 @@ const sampleTicTacToe =
 
 <!-- Styles are global; we must use a class to restrict these rules to the current demo -->
 <style>
-    table.tic-tac-toe {
+    div.tic-tac-toe {
+        display:grid; grid-template-columns: auto 120pt;
+        background-color: white;
+    }
+    .tic-tac-toe table {
         width: fit-content; margin:1ex
     }
-    table.tic-tac-toe td {
+    .tic-tac-toe td {
         height:4ex; width: 4ex; padding: 0px;
         border: 2px solid; line-height: 1;
         text-align: center; vertical-align: middle;
     }
+    .tic-tac-toe button {
+        font-size: 80%;
+    }
 </style>
 
-<div style="display:grid; grid-template-columns: auto 120pt;
-        background-color: white; ">
+<div class=tic-tac-toe>
   <!-- Caption -->
   <div style="grid-column: 1/3; text-align: center;">
     <b>Tic-Tac-Toe</b>
   </div>
 
   <!-- Show the board -->
-  <table. class=tic-tac-toe reacton=board>
+  <table. reacton=board>
           <!-- This table should react on the RVAR 'board'. -->
     <for let=row #of="board.V">
       <tr.>
@@ -579,11 +586,9 @@ const sampleRadioGroup=
   <radiobutton value=OtoReact>OtoReact</radiobutton>
 </radiogroup>
 
-<if cond="answer.V">
-  <p>
-    You answered <b>{answer.V}</b>.
-  </p>
-</if>`
+<p #if="answer.V">
+  You answered <b>{answer.V}</b>.
+</p>`
 
 const demoRendering=
 `<style>
@@ -645,7 +650,7 @@ const basicSetup =
     </head>
     <body hidden>
         <!-- Here goes your RHTML -->
-        <FOR let=i of="range(5)">
+        <FOR let=i #of="range(5)">
             <div>Hello world {i}</div>
         </FOR>
     </body>
@@ -660,7 +665,7 @@ const demoRadiogroup=
 
 <def rvar="favColor"></def>
 <radiogroup @value="favColor.V">
-  <for let="C" of="['Red', 'Lime', 'SkyBlue', 'Pink']">
+  <for let="C" #of="['Red', 'Lime', 'SkyBlue', 'Pink']">
     <radiobutton #value="C">{C}</radiobutton>
   </for>
   <br>

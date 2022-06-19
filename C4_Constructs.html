@@ -397,7 +397,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
 
 <h2 id=COMPONENT><{}COMPONENT encapsulate?></h2>
 <p>
-<elm>COMPONENT</elm> defines a new user-defined construct, or custom element.
+<elm>COMPONENT</elm> introduces a new user-defined construct, or custom element.
 <br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts and local definitions, and a component <i>template</i>:
 <pre class=sourcecode>
 <{}COMPONENT encapsulate?>
@@ -797,6 +797,7 @@ Any scripts within <i>content</i> are executed within the same browsing context 
     <dd>
         The construct content is rendered in a separate browser window, using the optionally specified <i>target</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given <i>args</i>.
         <br>The method returns a reference to the opened window.
+        <br>All windows opened through this method are closed when the user leaves the current RHTML application (provided the browser supports the <a href="{MDN}Web/API/Window/pagehide_event">pagehide event</a>).
     </dd>
     <dt><code><i>docName</i>.print(...<i>args</i>)</code></dt>
     <dd>

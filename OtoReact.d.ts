@@ -124,7 +124,7 @@ declare class RCompiler {
         Save?: () => void;
     }>;
     private bUpdating;
-    private handleUpdate;
+    private hUpdate;
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
