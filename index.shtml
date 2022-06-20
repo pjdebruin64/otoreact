@@ -143,7 +143,6 @@
 
         <RHTML #srctext ...rest></RHTML>
     </import>
-
     <case thisreactson=docLocation #value="docLocation.subpath" hiding>
         <when regmatch="^(index.shtml)?$">
             <pageLayout>

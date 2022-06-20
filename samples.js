@@ -36,7 +36,7 @@ const sampleServerData2=
 
 // Here we store the data as an Array<{name:string, red:number, green:number, blue:number}>
 const ColorTable = RVAR( null,
-  /* Asynchronously fetch the data!
+  /* Asynchronously fetch the data.
     When the data has been received, the RVAR will be updated and the table will be drawn.
    */
   RFetch("webColors.json").then(response => response.json())
@@ -71,7 +71,7 @@ function StartStop() {
 </style>
 
 <div style="height:100ex; width:100%; overflow-y:scroll;">
-<!-- Now we build our table! 
+<!-- Now we build our table.
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
@@ -113,9 +113,9 @@ function StartStop() {
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check this }
 <p>
-Null and undefined are not shown: {null} {undefined}.
+Null and undefined are not shown: "{null} {undefined}".
 <br>
-Compare this JavaScript template literal: { \`\${null} \${undefined}\` }.
+Compare this JavaScript template literal: { \`"\${null} \${undefined}"\` }.
 <p>
 Tag <{}br> looks better in source code than &lt;br&gt;`;
 
@@ -340,7 +340,7 @@ const sampleTableMaker =
 const sampleTicTacToe = 
 `<!-- By using a local script, multiple instances of this game will have their own state -->
 <script type="otoreact/local" 
-  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
+  defines="board,toMove,outcome,ClearAll,Move,CheckWinner,count"
 >
     let
       board =    RVAR(),           // State of the board
@@ -420,7 +420,7 @@ const sampleTicTacToe =
           <!-- This table should react on the RVAR 'board'. -->
     <for let=row #of="board.V">
       <tr.>
-        <for let=cell #of=row reacting>
+        <for let=cell #of="row" reacting>
           <td. onclick="Move(cell)"
            >{cell.P}</td.>
         </for>
@@ -700,25 +700,28 @@ const demoCheckbox=
 const demoTables =
 `<style>
   *     { text-align: center; }
-  input { text-align: right; width: 8ex; }
+  input { text-align: right; width: 6ex; }
 
-  div.flex {
+  div.multi {
       display: flex; flex-wrap: wrap;
       gap: 2ex; justify-content: center;
+      margin: 1ex;
   }
 </style>
 
 <DEF rvar=maxY #value=10 store=sessionStorage></DEF>
 <DEF rvar=maxX #value=10 store=sessionStorage></DEF>
 
-<p>
-  Number of tables:
+<div class=multi>
+  <div>Number of tables:
     <input type=number @valueAsNumber=maxY.V>
-  Number of rows:
+  </div>
+  <div>Number of rows:
     <input type=number @valueAsNumber=maxX.V>
-</p>
+  </div>
+</div>
 
-<div class=flex>
+<div class=multi>
   <FOR let=y #of="range(1,maxY.V)">
       <div>
           <FOR let=x #of="range(1,maxX.V)">

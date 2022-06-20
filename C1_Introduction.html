@@ -17,7 +17,7 @@
     <div>
         <p>
             OtoReact is a library that brings reactivity straight into your HTML file.
-            <br>The tiny application above is the result of this piece of Reactive HTML:
+            <br>The tiny application above left is the result of this piece of Reactive HTML:
         </p>
 
         <pre class=sourcecode #innerHTML="ColorCode(sampleGreeting)" style.margion="auto"></pre>
@@ -29,8 +29,8 @@
         <pre class=sourcecode #innerHTML="ColorCode(fileTemplate)" style.margion="auto"></pre>
         <p>
             This code is served to the browser and that's all.
-            <br>Full framework functionality offered by a library.
-            <br>Nothing to install, nothing to compile, nothing to configure.
+            <p>Full framework functionality offered by a library.
+            <p>Nothing to install, nothing to compile, nothing to configure.
         </p>
     </div>
 </div>
@@ -72,7 +72,7 @@
 <h2>Samples</h2>
 <h3>What's your name</h3>
 <p>
-    The tiny example above on the left is the result of the following piece of Reactive HTML:
+    The tiny example above left is the result of the following piece of Reactive HTML:
 </p>
 <demo #srcText="sampleGreeting"></demo>
 
@@ -105,7 +105,7 @@ Feel free to increment the numbers!
         <elm>DEF rvar=maxY …</elm> is an abbreviation of <elm>DEFINE …</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to persist in <code>sessionStorage</code>.
     </li>
     <li>
-        Attributing <elm>INPUT type=number !valueAsNumber=maxY.V</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
+        Attributing <elm>INPUT type=number @valueAsNumber=maxY.V</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
     </li>
     <li>
         <elm>FOR let=y of="range(1,maxY.V)"</elm> lets local variable <code>y</code> iterate through the values of <code>range(1,maxY.V)</code>, which are the numbers 1 to maxY.V.

@@ -17,17 +17,76 @@
       ></iframe>
   </if>
 
+  <h2>Downloads</h2>
+  <table style="border-spacing: .5ex">
+    <tr>
+      <td>OtoReact is basically just a single file which you can download here:</td>
+      <td><a href="{src}OtoReact.js" download
+        onclick="gtag('event', 'file_download', {value: this.href})"
+        oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
+        >OtoReact.js</a></td>
+    </tr>
+    <tr>
+      <td> Here is the alternative version for older browsers:</td>
+      <td><a href="{src}OtoReact_ES5.js" download>OtoReact_ES5.js</a></td>
+    </tr>
+    <tr>
+      <td>if you are using <a href="https://www.typescriptlang.org/">TypeScript</a>, then you may want these type declarations: </td>
+      <td><a href="{src}OtoReact.d.ts" download>OtoReact.d.ts</a></td>
+    </tr>
+    <tr>
+      <td>Here is the OtoLib library:</td>
+      <td><a href="{src}OtoLib.html" download
+        onclick="gtag('event', 'file_download', {value: this.href})"
+        oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
+        >OtoLib.html</a></td>
+    </tr>
+  </table>
+
+  <p>If your application uses <a href="routing">Routing</a> on pathnames, then you need to configure your server to serve the same HTML file on different pathnames.</p>
+  <table style="border-spacing: .5ex">
+    <tr>
+      <td>On Microsoft IIS, it suffices to place this file in your application root: </td>
+      <td><a href="{src}web.config" download>web.config</a></td>
+    </tr>
+    <tr>
+      <td>On Apache HTTP Server, it suffices to place this file in your application root, and rename it to ".htaccess":</td>
+      <td><a href="{src}htaccess.txt">htaccess.txt</a></td>
+    </tr>
+  </table>
+
   <h2>Requirements</h2>
   <h3>Server</h3>
+  
+    Otoreact does not have server requirements: any web (http/https) server serving static files will do, like:
+  <ul>
+    <li>Microsoft <a href="https://www.iis.net/overview">IIS</a> can <a href="https://www.google.com/search?q=enable+iis">easily be enabled</a> on most Windows systems</li>
+    <li><a href="https://httpd.apache.org/">Apache HTTP Server</a> is available for both Windows and Linux</li>
+    <li><a href="https://nginx.org/en/">Nginx</a> also, and takes the least system resources</li>
+  </ul>
   <p>
-    Otoreact does not have any server requirements: any web server serving static files will do.
-    <p>
-      If you need a small local server just for development, then the <a href="https://www.npmjs.com/package/serve">npm 'serve' package</a> will serve you well.
-    </p>
+    If you need a small local server just for development, then some options are:
   </p>
+  <ul>
+    <li>
+      The <a href="https://code.visualstudio.com/">Visual Studio Code</a> editor has plenty of web server extensions that can serve your files during development, and automatically refresh your page when you save changes.
+      <br>The most popular one is <a href=https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer">Live Server</a>
+    </li>
+    <li>
+      The <a href="https://nodejs.org/">node.js</a> package <a href="https://www.npmjs.com/package/serve">serve</a> allows you to temporarily run a small web server
+    </li>
+    <li>
+      In former days, web browsers could open local websites straight from disk without needing an http server.
+      <p>Nowadays, web security rules prohibit this. One can however temporarily disable these rules.</p>
+      <p>For Google Chrome this can be done by running:</p>
+      <pre>"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" --disable-web-security --user-data-dir=%Tmp%</pre>
+      Then drag your html file to the new window, or add its path to the command above.
+    </li>
+  </ul>
+
   <h3>Clients</h3>
   <p>
-    OtoReact is heavy on JavaScript and requires a reasonably modern web browser to run. It does not run in Internet Explorer.
+    OtoReact is written in JavaScript and requires a reasonably modern web browser to run. It does not run in Internet Explorer.
     <br>If you can read this text, then OtoReact is running in your current browser.
   </p>
   <p>
@@ -36,33 +95,6 @@
   <p>
     There is an alternative version compiled for ECMAScript 2015 (ES5) that should run in older browsers supporting ES5.
     <br>Note that OtoReact is not being tested in older browsers, and performance may be bad.
-  </p>
-
-  <h2>Downloads</h2>
-  <p>
-    OtoReact is basically just a single file which you can download here: <a href="{src}OtoReact.js" download
-    onclick="gtag('event', 'file_download', {value: this.href})"
-    oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
-    >OtoReact.js</a>
-  </p>
-  <p>
-    if you are using <a href="https://www.typescriptlang.org/">TypeScript</a>, then you may want these type declarations: <a href="{src}OtoReact.d.ts" download>OtoReact.d.ts</a> 
-  </p>
-  <p>
-    Here is the alternative version for older browsers: <a >OtoReact_ES5.js</a>
-  <p>
-    Here is the OtoLib library: <a href="{src}OtoLib.html" download
-    onclick="gtag('event', 'file_download', {value: this.href})"
-    oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
-    >OtoLib.html</a>
-  </p>
-
-
-  <h3 id=Routing>Routing configuration</h3>
-  <p>
-    If your application uses <a href="routing">Routing</a> on pathnames, then you need to configure your server to serve the same HTML file on different pathnames.
-    <br>On Microsoft IIS, it suffices to place this file in your application root: <a href="{src}web.config" download>web.config</a>
-    <br>On Apache HTTP Server, it suffices to place this file in your application root: <a href="{src}htaccess.txt">htaccess.txt</a> and rename it to ".htaccess".
   </p>
 
   <if cond="locationExternal">

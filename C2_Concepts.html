@@ -2,8 +2,10 @@
 <h1>RHTML Concepts</h1>
 This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of some features.
 <br>So on first reading, please skip the details.
+
+
 <h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
-All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>.
+All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>, which results in the text "1 + 1 = {1 + 1}".
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
 
 <p>

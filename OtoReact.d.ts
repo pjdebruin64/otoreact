@@ -11,9 +11,10 @@ declare let defaultSettings: {
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
 };
+declare type bool = boolean | string | number | object;
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    ws?: boolean;
-    auto?: boolean;
+    ws?: bool;
+    auto?: bool;
 };
 declare type Area = {
     rng?: Range;
@@ -22,7 +23,7 @@ declare type Area = {
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
-    bRootOnly?: boolean;
+    bRootOnly?: bool;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
     node: NodeType;
@@ -62,7 +63,7 @@ export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     ref?: {};
     sArea?: Area;
-    bImm?: boolean;
+    bImm?: bool;
     env?: Environment;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
@@ -97,14 +98,13 @@ declare class RCompiler {
     private cRvars;
     private head;
     private StyleBefore;
-    private AddedHdrElms;
     FilePath: string;
     RootElm: ParentNode;
-    constructor(RC?: RCompiler, bClr?: boolean);
+    constructor(RC?: RCompiler, bClr?: bool);
     private restoreActions;
     private SaveCont;
     private RestoreCont;
-    private NewVar;
+    private NewV;
     private SetVar;
     private NewVars;
     private AddConstructs;
@@ -162,7 +162,7 @@ declare class RCompiler {
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
-    fetchModule(src: string, bInclHead?: boolean): Promise<Iterable<ChildNode>>;
+    fetchModule(src: string, bInclHead?: bool): Promise<Iterable<ChildNode>>;
 }
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 interface Store {
@@ -179,7 +179,7 @@ declare class _RVAR<T = unknown> {
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
+    Subscribe(s: Subscriber<T>, bImmediate?: bool, bInit?: bool): void;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
@@ -195,7 +195,7 @@ export interface RVAR<T = unknown> extends _RVAR<T> {
 }
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
-    get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
+    get(nm: string, bRequired?: bool, bHashAllowed?: bool): string;
     getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
