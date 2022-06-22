@@ -340,7 +340,7 @@ const sampleTableMaker =
 const sampleTicTacToe = 
 `<!-- By using a local script, multiple instances of this game will have their own state -->
 <script type="otoreact/local" 
-  defines="board,toMove,outcome,ClearAll,Move,CheckWinner,count"
+  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
 >
     let
       board =    RVAR(),           // State of the board
@@ -700,7 +700,7 @@ const demoCheckbox=
 const demoTables =
 `<style>
   *     { text-align: center; }
-  input { text-align: right; width: 6ex; }
+  input { text-align: right; width: 8ex; }
 
   div.multi {
       display: flex; flex-wrap: wrap;
@@ -709,7 +709,7 @@ const demoTables =
   }
 </style>
 
-<DEF rvar=maxY #value=10 store=sessionStorage></DEF>
+<DEF rvar=maxY #value=7  store=sessionStorage></DEF>
 <DEF rvar=maxX #value=10 store=sessionStorage></DEF>
 
 <div class=multi>

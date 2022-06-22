@@ -79,17 +79,17 @@
 
         window.dataLayer = window.dataLayer || [];
         if (location.search == '??') localStorage.setItem('PJ', 'true')
-        let r = /otoreact\.dev/i.test(location.host) && !localStorage.getItem('PJ') // &&  myIP!='93.117.200.149';
-        function gtag(){
-            if(r) dataLayer.push(arguments);
-        }
-        if (r) {
+        let ga = globalThis.ga = /otoreact\.dev/i.test(location.host) && !localStorage.getItem('PJ') // &&  myIP!='93.117.200.149';
+        if (ga) {
             /* Global site tag (gtag.js) - Google Analytics */
             document.write('<script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"><' + '/script>')
             gtag('js', new Date());
             gtag('config', 'G-T23W7PMPX4',
             myIP =='93.117.200.149' ? {Company: 'Otolift'} : {}
             );
+        }
+        function gtag(){
+            if(ga) dataLayer.push(arguments);
         }
     </script>
     <script type=module>
@@ -100,6 +100,7 @@
         docLocation.Subscribe(() => {
             document.title =
                 /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
                 : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
                 : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
                 : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
@@ -176,14 +177,17 @@
                 </section>
             </pageLayout>
         </when>
+        <when match="components">
+            <include src="P2_Components.html"></include>
+        </when> 
         <when match="routing">
-            <include src="P2_Routing.html"></include>
+            <include src="P3_Routing.html"></include>
         </when> 
         <when match="otolib">
-            <include src="P3_OtoLib.html"></include>
+            <include src="P4_OtoLib.html"></include>
         </when> 
         <when match="download">
-            <include src="P4_Download.html"></include>
+            <include src="P5_Download.html"></include>
         </when>
         <else>
             Page not found

@@ -162,7 +162,7 @@ declare class RCompiler {
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
-    fetchModule(src: string, bInclHead?: bool): Promise<Iterable<ChildNode>>;
+    fetchModule(src: string): Promise<Iterable<ChildNode>>;
 }
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 interface Store {

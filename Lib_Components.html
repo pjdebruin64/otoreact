@@ -253,7 +253,8 @@
                                     popup.V={display: null, left: `${window.scrollX + rect.left - 250}px`, top: `${window.scrollY + rect.top + 30}px`};
                                     event.stopPropagation();" 
                                 title="More about me">Peter J. de Bruin</a>.
-                            <p>Made possible by:
+                                <p>Made possible by:</p>
+                                <p #if="!ga">Nontracked</p>
                         </div>
                         <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%; white-space: nowrap;">
                             <p>Built with <a href="./" class=OtoRed style.textDecoration=none>OtoReact</a></p>
@@ -267,6 +268,7 @@
                         </div>
                         <nav class=topbar style="grid-area: nav;" reacton=docLocation>
                             <a href="."         #onclick=reroute>Home</a>
+                            <a href="components" #onclick=reroute #if="!ga">Components</a>
                             <a href="routing"   #onclick=reroute>Routing</a>
                             <a href="otolib"    #onclick=reroute>OtoLib</a>
                             <a href="download"  #onclick=reroute>Download</a>                        

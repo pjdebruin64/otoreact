@@ -120,21 +120,23 @@ class Range<NodeType extends ChildNode = ChildNode> {
     }
 
     erase(parent: Node) {
-        let {node, child} = this;
+        let {node, child: ch} = this;
         if (node && parent) {
             parent.removeChild(node);
             parent = null;
         }
         this.child = null;
-        while (child) {
-            child.erase(child.newParent || parent);
-            child.parentR = null;                
-            if (child.rvars)
-                for (let rvar of child.rvars)
-                    rvar._Subscribers.delete(child.subs);
-            if (child.onDest)
-                child.onDest.call(child.node);
-            child = child.next;
+        while (ch) {
+            ch.erase(ch.newParent || parent);
+            ch.parentR = null;                
+            if (ch.rvars)
+                for (let rvar of ch.rvars)
+                    rvar._Subscribers.delete(ch.subs);
+            if (ch.iSub)
+                ch.rvar._Subscribers.delete(ch.iSub);
+            if (ch.onDest)
+                ch.onDest.call(ch.node);
+            ch = ch.next;
         }
     }
 }
@@ -1062,14 +1064,13 @@ class RCompiler {
                     case 'include': {
                         let src = atts.get('src', 1)
                         // Placeholder that will contain a Template when the file has been received
-                            , C: RCompiler = new RCompiler(this);
-                        C.FilePath = this.GetPath(src);
-                        
-                        let task = (async () => {
-                            // Parse the contents of the file
-                            // Compile the parsed contents of the file in the original context
-                            await C.Compile(n, {bRunScripts: true}, await this.fetchModule(src));
-                        })();
+                            , C: RCompiler = new RCompiler(this)
+                            , task = (async () => {
+                                C.FilePath = this.GetPath(src);
+                                // Parse the contents of the file
+                                // Compile the parsed contents of the file in the original context
+                                await C.Compile(n, {bRunScripts: true}, await this.fetchModule(src));
+                            })();
 
                         bldr = 
                             // Runtime routine
@@ -1101,7 +1102,7 @@ class RCompiler {
                             C.Settings.bRunScripts = true;
                             C.FilePath = this.GetPath(src);
 
-                            promModule = this.fetchModule(src, 1).then(async nodes => {
+                            promModule = this.fetchModule(src).then(async nodes => {
                                 let bldr = await C.CompIter(n, nodes);
 
                                 // Check or register the imported signatures
@@ -1356,7 +1357,7 @@ class RCompiler {
             let b = bldr;
             bldr = function hif(this: RCompiler, area: Area) {
                 let c = dIf(),
-                    {sub} = PrepArea(srcElm, area, '', 1, !c)
+                    {sub} = PrepArea(srcElm, area, '#if', 1, !c)
                 if (c)
                     return b.call(this, sub)
             }
@@ -1605,9 +1606,9 @@ class RCompiler {
                                 }
                             }
 
-                            let nextChild = rng.child,
+                            let nxChld = rng.child,
                                 iterator = newMap.entries(),
-                                nextIterator = nextNm ? newMap.values() : null
+                                nextIter = nextNm ? newMap.values() : null
 
                                 , prevItem: Item, nextItem: Item
                                 , prevRange: Range = null,
@@ -1615,30 +1616,32 @@ class RCompiler {
                             sub.parentR = rng;
                             prevVar(); nextVar();
 
-                            if (nextIterator) nextIterator.next();
+                            if (nextIter) nextIter.next();
 
                             while(1) {
-                                let k: Key, v = iterator.next().value;
-                                while (nextChild && !newMap.has(k = nextChild.key)) {
+                                let k: Key, n = iterator.next();
+                                while (nxChld && !newMap.has(k = nxChld.key)) {
                                     if (k != null)
                                         keyMap.delete(k);
-                                    nextChild.erase(parent);
-                                    nextChild.prev = null;
-                                    nextChild = nextChild.next;
+                                    nxChld.erase(parent);
+                                    if (nxChld.iSub)
+                                        nxChld.rvar._Subscribers.delete(nxChld.iSub);
+                                    nxChld.prev = null;
+                                    nxChld = nxChld.next;
                                 }
 
-                                if (!v) break;
-                                let [key, {item, hash, idx}] = v
+                                if (n.done) break;
+                                let [key, {item, hash, idx}] = n.value
                                     , childRange = keyMap.get(key), bInit = !childRange;
 
-                                if (nextIterator)
-                                    nextItem = nextIterator.next().value?.item;
+                                if (nextIter)
+                                    nextItem = nextIter.next().value?.item;
 
                                 if (bInit) {
                                     // Item has to be newly created
                                     sub.rng = null;
                                     sub.prevR = prevRange;
-                                    sub.before = nextChild?.FirstOrNext || before;
+                                    sub.before = nxChld?.FirstOrNext || before;
                                     ({rng: childRange, sub: childArea} = PrepArea(null, sub, `${lvName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
@@ -1651,35 +1654,35 @@ class RCompiler {
                                     // Item already occurs in the series
                                     
                                     if (childRange.fragm) {
-                                        parent.insertBefore(childRange.fragm, nextChild?.FirstOrNext || before);
+                                        parent.insertBefore(childRange.fragm, nxChld?.FirstOrNext || before);
                                         childRange.fragm = null;
                                     }
                                     else
                                         while (1) {
-                                            if (nextChild == childRange)
-                                                nextChild = nextChild.next;
+                                            if (nxChld == childRange)
+                                                nxChld = nxChld.next;
                                             else {
                                                 // Item has to be moved
-                                                if (newMap.get(nextChild.key)?.idx > idx + 2) {
-                                                    let fragm = nextChild.fragm = document.createDocumentFragment();
-                                                    for (let node of nextChild.Nodes())
+                                                if (newMap.get(nxChld.key)?.idx > idx + 2) {
+                                                    let fragm = nxChld.fragm = document.createDocumentFragment();
+                                                    for (let node of nxChld.Nodes())
                                                         fragm.appendChild(node);
                                                     
-                                                    nextChild = nextChild.next;
+                                                    nxChld = nxChld.next;
                                                     continue;
                                                 }
 
                                                 childRange.prev.next = childRange.next;
                                                 if (childRange.next)
                                                     childRange.next.prev = childRange.prev;
-                                                let nextNode = nextChild?.FirstOrNext || before;
+                                                let nextNode = nxChld?.FirstOrNext || before;
                                                 for (let node of childRange.Nodes())
                                                     parent.insertBefore(node, nextNode);
                                             }
                                             break;
                                         }
 
-                                    childRange.next = nextChild;
+                                    childRange.next = nxChld;
                                     childRange.text = `${lvName}(${idx})`;
 
                                     if (prevRange) 
@@ -1722,10 +1725,9 @@ class RCompiler {
                                         if (childRange.rvar)
                                             assignEnv(childRange.iSub.env, env);
                                         else
-                                            rvar.Subscribe(
+                                            (childRange.rvar = rvar).Subscribe(
                                                 childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child)
                                             );
-                                    childRange.rvar = rvar
                                 }
 
                                 prevItem = item;
@@ -2376,7 +2378,7 @@ class RCompiler {
         if (bReacts)
             for (let nm of list.split(','))
                 this.cRvars.set(nm.trim(), 0);
-        return list ? this.CompJScript<T[]>(`[${list}\n]`, attName) : n;
+        return this.CompJScript<T[]>(`[${list}\n]`, attName);
     }
 
     private AddErrH(getHndlr: Dependent<Handler>): Dependent<Handler> {
@@ -2411,16 +2413,15 @@ class RCompiler {
         return await (await RFetch(this.GetURL(src))).text();
     }
 
-    async fetchModule(src: string, bInclHead?: bool): Promise<Iterable<ChildNode>> {
-        let mod = document.getElementById(src);
+    async fetchModule(src: string): Promise<Iterable<ChildNode>> {
+        let mod: Element = document.getElementById(src);
         if (!mod) {
             let doc = parser.parseFromString(await this.FetchText(src), 'text/html') as Document;
             mod = doc.body;
-            if (mod.firstElementChild.tagName == 'MODULE')
-                mod = mod.firstElementChild as HTMLElement;
+            if (mod.firstElementChild?.tagName != 'MODULE')
+                return concIterable(doc.head.childNodes, mod.childNodes);
 
-            if (bInclHead)
-                return concIterable(doc.head.childNodes, mod.childNodes)
+            mod = mod.firstElementChild;
         }
         return mod.childNodes;
     }

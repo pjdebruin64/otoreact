@@ -60,21 +60,23 @@ class Range {
         })(this);
     }
     erase(parent) {
-        let { node, child } = this;
+        let { node, child: ch } = this;
         if (node && parent) {
             parent.removeChild(node);
             parent = null;
         }
         this.child = null;
-        while (child) {
-            child.erase(child.newParent || parent);
-            child.parentR = null;
-            if (child.rvars)
-                for (let rvar of child.rvars)
-                    rvar._Subscribers.delete(child.subs);
-            if (child.onDest)
-                child.onDest.call(child.node);
-            child = child.next;
+        while (ch) {
+            ch.erase(ch.newParent || parent);
+            ch.parentR = null;
+            if (ch.rvars)
+                for (let rvar of ch.rvars)
+                    rvar._Subscribers.delete(ch.subs);
+            if (ch.iSub)
+                ch.rvar._Subscribers.delete(ch.iSub);
+            if (ch.onDest)
+                ch.onDest.call(ch.node);
+            ch = ch.next;
         }
     }
 }
@@ -768,9 +770,8 @@ class RCompiler {
                         break;
                     case 'include':
                         {
-                            let src = atts.get('src', 1), C = new RCompiler(this);
-                            C.FilePath = this.GetPath(src);
-                            let task = (async () => {
+                            let src = atts.get('src', 1), C = new RCompiler(this), task = (async () => {
+                                C.FilePath = this.GetPath(src);
                                 await C.Compile(n, { bRunScripts: true }, await this.fetchModule(src));
                             })();
                             bldr =
@@ -794,7 +795,7 @@ class RCompiler {
                                 let C = new RCompiler(this, 1);
                                 C.Settings.bRunScripts = true;
                                 C.FilePath = this.GetPath(src);
-                                promModule = this.fetchModule(src, 1).then(async (nodes) => {
+                                promModule = this.fetchModule(src).then(async (nodes) => {
                                     let bldr = await C.CompIter(n, nodes);
                                     for (let clientSig of listImports) {
                                         let signat = C.CSignatures.get(clientSig.nm);
@@ -1007,7 +1008,7 @@ class RCompiler {
                 throw `'#IF' is not possible for declarations`;
             let b = bldr;
             bldr = function hif(area) {
-                let c = dIf(), { sub } = PrepArea(srcElm, area, '', 1, !c);
+                let c = dIf(), { sub } = PrepArea(srcElm, area, '#if', 1, !c);
                 if (c)
                     return b.call(this, sub);
             };
@@ -1176,30 +1177,32 @@ class RCompiler {
                                     idx++;
                                 }
                             }
-                            let nextChild = rng.child, iterator = newMap.entries(), nextIterator = nextNm ? newMap.values() : null, prevItem, nextItem, prevRange = null, childArea;
+                            let nxChld = rng.child, iterator = newMap.entries(), nextIter = nextNm ? newMap.values() : null, prevItem, nextItem, prevRange = null, childArea;
                             sub.parentR = rng;
                             prevVar();
                             nextVar();
-                            if (nextIterator)
-                                nextIterator.next();
+                            if (nextIter)
+                                nextIter.next();
                             while (1) {
-                                let k, v = iterator.next().value;
-                                while (nextChild && !newMap.has(k = nextChild.key)) {
+                                let k, n = iterator.next();
+                                while (nxChld && !newMap.has(k = nxChld.key)) {
                                     if (k != null)
                                         keyMap.delete(k);
-                                    nextChild.erase(parent);
-                                    nextChild.prev = null;
-                                    nextChild = nextChild.next;
+                                    nxChld.erase(parent);
+                                    if (nxChld.iSub)
+                                        nxChld.rvar._Subscribers.delete(nxChld.iSub);
+                                    nxChld.prev = null;
+                                    nxChld = nxChld.next;
                                 }
-                                if (!v)
+                                if (n.done)
                                     break;
-                                let [key, { item, hash, idx }] = v, childRange = keyMap.get(key), bInit = !childRange;
-                                if (nextIterator)
-                                    nextItem = nextIterator.next().value?.item;
+                                let [key, { item, hash, idx }] = n.value, childRange = keyMap.get(key), bInit = !childRange;
+                                if (nextIter)
+                                    nextItem = nextIter.next().value?.item;
                                 if (bInit) {
                                     sub.rng = null;
                                     sub.prevR = prevRange;
-                                    sub.before = nextChild?.FirstOrNext || before;
+                                    sub.before = nxChld?.FirstOrNext || before;
                                     ({ rng: childRange, sub: childArea } = PrepArea(null, sub, `${lvName}(${idx})`));
                                     if (key != null) {
                                         if (keyMap.has(key))
@@ -1210,31 +1213,31 @@ class RCompiler {
                                 }
                                 else {
                                     if (childRange.fragm) {
-                                        parent.insertBefore(childRange.fragm, nextChild?.FirstOrNext || before);
+                                        parent.insertBefore(childRange.fragm, nxChld?.FirstOrNext || before);
                                         childRange.fragm = null;
                                     }
                                     else
                                         while (1) {
-                                            if (nextChild == childRange)
-                                                nextChild = nextChild.next;
+                                            if (nxChld == childRange)
+                                                nxChld = nxChld.next;
                                             else {
-                                                if (newMap.get(nextChild.key)?.idx > idx + 2) {
-                                                    let fragm = nextChild.fragm = document.createDocumentFragment();
-                                                    for (let node of nextChild.Nodes())
+                                                if (newMap.get(nxChld.key)?.idx > idx + 2) {
+                                                    let fragm = nxChld.fragm = document.createDocumentFragment();
+                                                    for (let node of nxChld.Nodes())
                                                         fragm.appendChild(node);
-                                                    nextChild = nextChild.next;
+                                                    nxChld = nxChld.next;
                                                     continue;
                                                 }
                                                 childRange.prev.next = childRange.next;
                                                 if (childRange.next)
                                                     childRange.next.prev = childRange.prev;
-                                                let nextNode = nextChild?.FirstOrNext || before;
+                                                let nextNode = nxChld?.FirstOrNext || before;
                                                 for (let node of childRange.Nodes())
                                                     parent.insertBefore(node, nextNode);
                                             }
                                             break;
                                         }
-                                    childRange.next = nextChild;
+                                    childRange.next = nxChld;
                                     childRange.text = `${lvName}(${idx})`;
                                     if (prevRange)
                                         prevRange.next = childRange;
@@ -1268,8 +1271,7 @@ class RCompiler {
                                         if (childRange.rvar)
                                             assignEnv(childRange.iSub.env, env);
                                         else
-                                            rvar.Subscribe(childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child));
-                                    childRange.rvar = rvar;
+                                            (childRange.rvar = rvar).Subscribe(childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child));
                                 }
                                 prevItem = item;
                             }
@@ -1796,7 +1798,7 @@ class RCompiler {
         if (bReacts)
             for (let nm of list.split(','))
                 this.cRvars.set(nm.trim(), 0);
-        return list ? this.CompJScript(`[${list}\n]`, attName) : n;
+        return this.CompJScript(`[${list}\n]`, attName);
     }
     AddErrH(getHndlr) {
         return () => {
@@ -1829,15 +1831,14 @@ class RCompiler {
     async FetchText(src) {
         return await (await RFetch(this.GetURL(src))).text();
     }
-    async fetchModule(src, bInclHead) {
+    async fetchModule(src) {
         let mod = document.getElementById(src);
         if (!mod) {
             let doc = parser.parseFromString(await this.FetchText(src), 'text/html');
             mod = doc.body;
-            if (mod.firstElementChild.tagName == 'MODULE')
-                mod = mod.firstElementChild;
-            if (bInclHead)
+            if (mod.firstElementChild?.tagName != 'MODULE')
                 return concIterable(doc.head.childNodes, mod.childNodes);
+            mod = mod.firstElementChild;
         }
         return mod.childNodes;
     }
