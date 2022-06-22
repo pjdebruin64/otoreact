@@ -4,7 +4,7 @@ This chapter introduces a number of basic RHTML concepts, but it also contains f
 <br>So on first reading, please skip the details.
 
 
-<h2 id=StringInterpolation>String Interpolation: text with embedded expressions</h2>
+<h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>, which results in the text "1 + 1 = {1 + 1}".
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
 
@@ -31,7 +31,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 </p>
 <demo #srctext="sampleBraces"></demo>
 
-<h2 id="ConstructsOverview">RHTML Constructs Overview</h2>
+<h2 id="ConstructsOverview">RHTML constructs overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
@@ -225,13 +225,16 @@ Global variables are visible in RHTML inline scripts, of course.
     <dd>
         Unregisters a routine <code>subs</code> previously registered as a subscriber to <code>x</code>.
     </dd>
-    <dt><code class=sourcecode>x.SetAsync(value)</code></dt>
+    <dt><code class=sourcecode>x.Set(value)</code></dt>
     <dd>
-        Sets the value of <code>x</code> either synchronously, or asynchronously when <code>value</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
+        Sets <code>x.V</code> either synchronously, or asynchronously when <code>value</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
+        <p>
+            When it is a Promise, then <code>x.V</code> will initially be <code>undefined</code>, and when the promise resolves to a value, then <code>x.V</code> will be set to that value.
+        </p>
     </dd>
     <dt><code class=sourcecode>x.Set</code></dt>
     <dd>
-        Provides a routine that sets the value of <code>x</code>, i.e. <code>v => x.SetAsync(v)</code> (or <code>x.SetAsync.bind(x)</code>).
+        Provides a routine that sets the value of <code>x</code>, i.e. <code>v => x.Set(v)</code>.
         <p>
             This is handy to create an errorhandler. E.g., if <code>errMsg</code> is an RVAR that should receive error messages, then you can write <code>doSomething().catch(errMsg.Set)</code> to catch the errors of some asynchronous routine, or you can add an attribute <code>#onerror="errMsg.Set"</code> to catch all errors within a block of RHTML.
         </p>
@@ -279,7 +282,7 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
 </p>
 
 
-<h2>Style Sheets</h2>
+<h2>Style sheets</h2>
 Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
 <p>
     Styles sheets have global effect, except inside an 'isolated' <a href=#COMPONENT>component</a> or inside <elm>RHTML</elm> text.
@@ -291,7 +294,7 @@ Style sheets can be included anywhere using the <elm>STYLE</elm> element as in H
 </p>
 
 
-<h2>How It Works</h2>
+<h2>How it works</h2>
 OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translate the whole chunk of RHTML into one large string of JavaScript.
 <br>Rather:
 <ol>

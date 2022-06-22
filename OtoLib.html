@@ -8,7 +8,7 @@
       <A href #target? ...rest><content></content></A>
     </signature>
 
-    <template><if cond="/^http/i.test(href)">
+    <template><if #cond="/^http/i.test(href)">
       <then><a. #href="href"
         #target="target || '_blank'" ...rest
         ><content></content></a.></then>

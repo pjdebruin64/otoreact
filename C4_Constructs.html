@@ -335,47 +335,6 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<!--
-<dl>
-    <dt>
-        <elm>SCRIPT [type=module] nomodule src? defines?</elm> anywhere;
-        <br>Any <elm>SCRIPT ... </elm> in included files or inside <{}RHTML>:
-    </dt>
-    <dd>
-        Scripts with a <code>nomodule</code> attribute, or included through <elm>INCLUDE</elm> or <elm>IMPORT</elm>, or inside <elm>RHTML</elm> dynamic code like the code demo's in this document, work still different.
-        <br>These are not encountered and executed by the browser at all. Instead, they are executed by OtoReact during or after compilation:
-        <ul>
-            <li>OtoReact functions are available</li>
-            <li>The script may be external (with <code>src</code>) or internal</li>
-            <li>
-                The script may be classic or module.
-                <br>For classic scripts:
-                <ul>
-                    <li>OtoReact modifies the script so that defined names are <b>not automatically global</b></li>
-                    <li>OtoReact executes the script once <b>in <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a></b> during compilation</li>
-                </ul>
-                For module scripts:
-                <ul>
-                    <li>Names are never automatically global</li>
-                    <li>Otoreact executes the script asynchronously while compiling, and awaits the results when building</li>
-                </ul>
-            </li>
-            <li>
-                When there is an attribute <code class=sourcecode>defines="<i>nameList</i>"</code>, specifying a comma-separated list of names defined inside the script, then OtoReact makes these names available <i>as local variables</i> in the RHTML code following the <elm>SCRIPT</elm> element.
-                <br>This works for both classic and module, internal and external scripts.
-                <p>
-                    For module scripts, the names must be marked as exports inside the script.
-                </p>
-            </li>
-        </ul>
-    </dd>
-    <dd>
-        If you don't want the distinction between scripts in the main file and scripts in included files, <b>you can always use <code>nomodule</code></b>.
-        <br>These are always skipped by the browser, and always executed by OtoReact.
-    </dd>
-</dl>
--->
-
 <h2 id=REACT><{}REACT on? hash? renew?></h2>
 <pre class=sourcecode>
 <elm>REACT on=<i>RVARlist</i></elm>
@@ -423,7 +382,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
         <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and contain blocks of RHTML code (or actually <i>templates</i>) for each slot.
     </li>
     <li>
-        With attribute <code class="sourcecode">recursive</code>, the component can be recursive: the template may contain instances of the component itself.
+        With attribute <code class="sourcecode">recursive</code>, the component can be recursive: the template may contain instances of the component itself. Also see <a href="#MutualRecursion">Mutual recursion</a>.
     </li>
     <li>
         With attribute <code class="sourcecode">encapsulate</code>, the generated content will be encapsulated, meaning mainly that the component can contain its own styling rules, independent of the main document.
@@ -437,6 +396,11 @@ specifies that the given content should <i>react on</i> changes to any of the li
         <br>So a nested component definition can use the parameter values of the outer component.
     </li>
 </ul>
+<p>
+    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, both simpler and more powerful.
+</p>
+
+
 <h3 id=Signatures>Signatures</h3>
 <p>
     The first element inside <elm>COMPONENT</elm> is its signature.
@@ -507,8 +471,8 @@ The component template is tagged <elm>template</elm>. E.g.:
         <br>The RVAR value <code><i>name</i>.V</code> will be the value of the assignment target provided in the instance, and whenever a new value is assigned to the RVAR, that value will be assigned to the assignment target as well.
     </li>
     <li>
-        Parameter names <u>may</u> be repeated in the template tag, like: <elm>template #count</elm>.
-        <br>Or they may specify a local variable name, like: <elm>template #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
+        Parameter names <u>may</u> be repeated in the template tag, like <elm>TEMPLATE #count</elm> or <elm>TEMPLATE count</elm>.
+        <br>Or they may specify a local variable name, like: <elm>TEMPLATE #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
     </li>
     <li>Slots of the component (like <elm>rbody</elm>) are available as constructs inside  the template</li>
     <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
@@ -565,8 +529,38 @@ Note how the instance tag <elm>repeat</elm> carries both  the component paramete
 <p>Putting it all together, we get:</p>
 <demo #srctext=sampleComponent1></demo>
 
+
+<h3 id="MutualRecursion">Mutual recursion</h3>
+With the attribute <code class="sourcecode">recursive</code>, the component template may contain instances of the component itself. There is an <a href="#RecursiveSample">example</a> below.
+<p>
+    <i>Mutual recursion</i> between components means a series of <u>multiple</u> component definitions that may contain <u>instances of each other</u>.
+</p>
+<p>
+    Mutual recursion is possible by combining multiple signatures and templates within a single <elm>COMPONENT</elm> construct, like this:
+<pre #innerHTML="ColorCode(`<COMPONENT recursive>
+    <SIGNATURES>
+        <comp1 …> … </comp1>
+        …
+        <compn …> … </compn>
+    </SIGNATURES>
+    …
+    <TEMPLATES>
+        <comp1 …> … </comp1>
+        …
+        <compn …> … </compn>
+    </TEMPLATES>
+</COMPONENT>`)"></pre>
+Notes:
+<ul>
+    <li>Each template is tagged by its component name.</li>
+    <li>There must be exactly one template for each signature.</li>
+    <li>When component parameters are repeated, they should be attached to the specific component name tag.</li>
+    <li>This form of defining multiple components at once is possible for non-recursive components as well.</li>
+</ul>
+
+
 <h3 id=Encapsulate>Encapsulate</h3>
-The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
+The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">encapsulate</code>.
 <ul>
     <li>
         <i>Without</i> <code>encapsulate</code>, instances of the component are <i>replaced</i> by the output of the component template.
@@ -587,7 +581,6 @@ The <elm>COMPONENT</elm> tag may have an attribute <code>encapsulate</code>.
         </p>
     </li>
 </ul>
-Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a quite different syntax.
 
 
 <h3>More examples</h3>
@@ -596,7 +589,7 @@ Here is a to-do application, which splits the collection of items into those don
 <demo #srctext=sampleTODO>
 </demo>
 
-<h4>A recursive component</h4>
+<h4 id="RecursiveSample">A recursive component</h4>
 <p>Components may be recursive, i.e. refer to themselve, when the attribute <code>recursive</code> is specified.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #srctext=sampleRecursion></demo>

@@ -259,7 +259,7 @@ const sampleRecursion=
 </component>   
 
 <define rvar=list 
-    value="[1, [2,3,4], [[41,42],5], 'Otolift']"
+    value="[1, [2,3], [4,[41,[[[42]]]], 5], 'Otolift']"
     store=sessionStorage
 ></define>
 <p>JavaScript list: <input type=text @value="list.V" size=35></p>
@@ -477,12 +477,12 @@ const C1=
   </repeat>`,
 C2 =
 `  <!-- Component template -->
-  <template>
+  <TEMPLATE>
     <for let=i #of="range(1,count)">
         <!-- Slot instance -->
         <contents #num="i"></contents>
     </for>
-  </template>`,
+  </TEMPLATE>`,
 C3 =
 `<!-- Component instance -->
 <repeat #count=7>
@@ -499,11 +499,11 @@ C4 =
 
 sampleComponent1 =
 `<!-- Component definition -->
-<component>
+<COMPONENT>
 ${C1}
 
 ${C2}
-</component>
+</COMPONENT>
 
 
 ${C4}`;

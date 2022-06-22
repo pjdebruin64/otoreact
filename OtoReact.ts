@@ -339,7 +339,7 @@ class Signature {
 }
 
 // A CONSTRUCTDEF is a concrete instance of a signature
-type ConstructDef = {nm: string, templates: Template[], constructEnv?: Environment};
+type ConstructDef = {nm: string, templates: Template[], CEnv?: Environment};
 type Template = 
     (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment)
     => Promise<void>;
@@ -466,7 +466,7 @@ function RestoreEnv(savedEnv: EnvState) {
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(C: ConstructDef) {
+function DefConstr(C: ConstructDef) {
     let {constructs} = env, prevDef = constructs.get(C.nm);
     mapNm(constructs, C);
     envActions.push(() => mapSet(constructs,C.nm, prevDef));
@@ -1138,7 +1138,7 @@ class RCompiler {
                             env = saveEnv;
                             
                             for (let {nm} of listImports)
-                                DefConstruct(MEnv.constructs.get(nm));
+                                DefConstr(MEnv.constructs.get(nm));
                                 
                             for (let lv of vars)
                                 lv(MEnv[lv.i]);
@@ -1218,7 +1218,8 @@ class RCompiler {
                         isBl = 1;
                         break;
 
-                    case 'component': 
+                    case 'component':
+                    case 'components':
                         bldr = await this.CompComponent(srcElm, atts);
                         isBl = 1;
                         break;
@@ -1769,7 +1770,7 @@ class RCompiler {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             this.SetVar(ixVar, idx++);
-                            mapNm(env.constructs, {nm: nm, templates: [slotBldr], constructEnv: slotDef.constructEnv});
+                            mapNm(env.constructs, {nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv});
                             await bodyBldr.call(this, sub);
                         }
                     }
@@ -1802,7 +1803,7 @@ class RCompiler {
                         if (bInit)
                             rng.value = new _RVAR(this.RC, null, v, getStore && getStore(), `RVAR_${rv}`);
                         else
-                            rng.value.SetAsync(v);
+                            rng.value._Set(v);
                     else
                         rng.value = v;
                 }
@@ -1845,7 +1846,9 @@ class RCompiler {
             bRecurs = atts.getB('recursive'),
             styles: Node[] = [],
             {wspc} = this
-            , signats: Array<Signature> = [], elmTemplate: HTMLTemplateElement;
+            , signats: Array<Signature> = []
+            , elmTempl: HTMLElement
+            , bMultiple: bool;
 
         for (let child of Array.from(srcElm.children) as Array<HTMLElement>  ) {
             let childAtts = new Atts(child)
@@ -1866,14 +1869,16 @@ class RCompiler {
                 case 'COMPONENT':
                     bldr = await this.CompComponent(child, childAtts);
                     break;
-                case 'TEMPLATE':
-                    if (elmTemplate) throw 'Double <TEMPLATE>';
-                    elmTemplate = child as HTMLTemplateElement;
-                    break;
-                case 'SIGNATURE':
                 case 'SIGNATURES':
+                case 'SIGNATURE':
                     for (let elm of child.children)
                         signats.push(this.ParseSignat(elm));
+                    break;
+                case 'TEMPLATES':
+                    bMultiple = 1;
+                case 'TEMPLATE':
+                    if (elmTempl) throw 'Double <TEMPLATE>';
+                    elmTempl = child;
                     break;
                 default:
                     if (signats.length) throw `Illegal child element <${child.nodeName}>`;
@@ -1882,18 +1887,27 @@ class RCompiler {
             }
             if (bldr) builders.push([bldr, child]);
         }
-        if (!signats.length) throw `Missing signature`;
-        if (!elmTemplate) throw 'Missing <TEMPLATE>';
+        if (!signats.length) throw `Missing signature(s)`;
+        if (!elmTempl) throw 'Missing template(s)';
 
         if (bRecurs)
             this.AddConstructs(signats);
-               
-        let nm = signats[0].nm,
-        // Deze builder bouwt de component-instances op
-            templates = [
-                await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, 
-                    0, bEncaps, styles)
-            ];
+        
+        let mapS = new Map<string, Signature>(signats.map(S => [S.nm, S]))
+            , templates: Array<ConstructDef> = [];
+        async function AddTemp(C: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
+            let S = mapS.get(nm);
+            if (!S) throw `<${nm}> has no signature`;
+            templates.push({nm, templates: [ await C.CompTemplate(signats[0], prnt, elm, 0, bEncaps, styles) ]})
+            mapS.delete(nm);
+        }
+        if (bMultiple)
+            for (let elm of elmTempl.children as Iterable<HTMLElement>)
+                await AddTemp(this, elm.localName, elm, elm);
+        else
+            await AddTemp(this, signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl);
+        for (let nm of mapS.keys())
+            throw `Signature <${nm}> has no template`;
 
         if (!bRecurs)
            this.AddConstructs(signats);
@@ -1902,9 +1916,9 @@ class RCompiler {
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(this: RCompiler, area: Area) {
-            let constr: ConstructDef = {nm, templates};
+            let constr: ConstructDef[] = templates.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
             if (bRecurs)
-                DefConstruct(constr);
+                constr.forEach(DefConstr);
             let saved = SaveEnv();
             try {
                 for (let [bldr, srcNode] of builders)
@@ -1912,12 +1926,13 @@ class RCompiler {
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
-
-                constr.constructEnv = CloneEnv(env);     // Contains circular reference to construct
+                let CEnv = CloneEnv(env);
+                for(let c of constr)
+                    c.CEnv = CEnv;     // Contains circular reference to construct
             }
             finally { RestoreEnv(saved) }
             if (!bRecurs)
-                DefConstruct(constr);
+                constr.forEach(DefConstr);
         };
     }
 
@@ -1931,7 +1946,7 @@ class RCompiler {
             lvars: Array<[string, LVar]> = [];
         try {
             for (let {mode,nm} of signat.Params)
-                lvars.push([nm, this.NewV(myAtts.get(mode + nm, bNewNames) || nm)]);
+                lvars.push([nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]);
 
             this.AddConstructs(signat.Slots.values());
 
@@ -1949,7 +1964,7 @@ class RCompiler {
                 let saved = SaveEnv(), i = 0;
                 try {
                     for (let [nm, templates] of mSlotTemplates)
-                        DefConstruct({nm, templates, constructEnv: slotEnv});
+                        DefConstr({nm, templates, CEnv: slotEnv});
                     
                     for (let [nm,lv] of lvars){
                         let arg = args[nm], dflt: Dependent<unknown>;
@@ -2002,10 +2017,8 @@ class RCompiler {
                 getArgs.push(
                     attVal
                     ? [nm, this.CompJScript<unknown>(attVal, mode+nm)
-                        , this.CompJScript<Handler>(
-                            `ORx=>{${attVal}=ORx}`,
-                            nm
-                        )]
+                        , this.CompJScript<Handler>(`ORx=>{${attVal}=ORx}`, nm)
+                    ]
                     : [nm, u, ()=>dU ]
                 )
             }
@@ -2058,7 +2071,7 @@ class RCompiler {
                     args[nm].V = dGet();
             
             bReadOnly = 0;
-            env = cdef.constructEnv;
+            env = cdef.CEnv;
             try {
                 for (let {nm, pDflt} of signat.Params)
                     if (args[nm] === u)
@@ -2448,7 +2461,7 @@ class _RVAR<T = unknown>{
             }
             catch{}
 
-        this.SetAsync(initialValue);
+        this._Set(initialValue);
     }
     // The value of the variable
     private _val: T;
@@ -2479,15 +2492,13 @@ class _RVAR<T = unknown>{
             this.SetDirty();
         }
     }
-    SetAsync(t: T | Promise<T>) {
-        if (t instanceof Promise) {
-            this.V = u;
-            t.then(v => {this.V = v}, onerr);
-        } else
-            this.V = t;
+    _Set(t: T | Promise<T>): T | Promise<T> {
+        return t instanceof Promise ?
+            ( (this.V = u), t.then(v => (this.V = v), onerr))
+            : (this.V = t);
     }
     get Set() {
-        return this.SetAsync.bind(this);
+        return this._Set.bind(this);
     }
     get Clear() {
         return () => {this.V=u};

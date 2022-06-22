@@ -294,7 +294,7 @@ function RestoreEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
-function DefConstruct(C) {
+function DefConstr(C) {
     let { constructs } = env, prevDef = constructs.get(C.nm);
     mapNm(constructs, C);
     envActions.push(() => mapSet(constructs, C.nm, prevDef));
@@ -823,7 +823,7 @@ class RCompiler {
                                 await bldr(bIncl ? reg : { parent: document.createDocumentFragment() });
                                 env = saveEnv;
                                 for (let { nm } of listImports)
-                                    DefConstruct(MEnv.constructs.get(nm));
+                                    DefConstr(MEnv.constructs.get(nm));
                                 for (let lv of vars)
                                     lv(MEnv[lv.i]);
                             };
@@ -884,6 +884,7 @@ class RCompiler {
                         isBl = 1;
                         break;
                     case 'component':
+                    case 'components':
                         bldr = await this.CompComponent(srcElm, atts);
                         isBl = 1;
                         break;
@@ -1309,7 +1310,7 @@ class RCompiler {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             this.SetVar(ixVar, idx++);
-                            mapNm(env.constructs, { nm: nm, templates: [slotBldr], constructEnv: slotDef.constructEnv });
+                            mapNm(env.constructs, { nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv });
                             await bodyBldr.call(this, sub);
                         }
                     }
@@ -1337,7 +1338,7 @@ class RCompiler {
                         if (bInit)
                             rng.value = new _RVAR(this.RC, null, v, getStore && getStore(), `RVAR_${rv}`);
                         else
-                            rng.value.SetAsync(v);
+                            rng.value._Set(v);
                     else
                         rng.value = v;
                 }
@@ -1370,7 +1371,7 @@ class RCompiler {
         return signat;
     }
     async CompComponent(srcElm, atts) {
-        let builders = [], bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), styles = [], { wspc } = this, signats = [], elmTemplate;
+        let builders = [], bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), styles = [], { wspc } = this, signats = [], elmTempl, bMultiple;
         for (let child of Array.from(srcElm.children)) {
             let childAtts = new Atts(child), bldr;
             switch (child.nodeName) {
@@ -1390,15 +1391,17 @@ class RCompiler {
                 case 'COMPONENT':
                     bldr = await this.CompComponent(child, childAtts);
                     break;
-                case 'TEMPLATE':
-                    if (elmTemplate)
-                        throw 'Double <TEMPLATE>';
-                    elmTemplate = child;
-                    break;
-                case 'SIGNATURE':
                 case 'SIGNATURES':
+                case 'SIGNATURE':
                     for (let elm of child.children)
                         signats.push(this.ParseSignat(elm));
+                    break;
+                case 'TEMPLATES':
+                    bMultiple = 1;
+                case 'TEMPLATE':
+                    if (elmTempl)
+                        throw 'Double <TEMPLATE>';
+                    elmTempl = child;
                     break;
                 default:
                     if (signats.length)
@@ -1410,39 +1413,53 @@ class RCompiler {
                 builders.push([bldr, child]);
         }
         if (!signats.length)
-            throw `Missing signature`;
-        if (!elmTemplate)
-            throw 'Missing <TEMPLATE>';
+            throw `Missing signature(s)`;
+        if (!elmTempl)
+            throw 'Missing template(s)';
         if (bRecurs)
             this.AddConstructs(signats);
-        let nm = signats[0].nm, templates = [
-            await this.CompTemplate(signats[0], elmTemplate.content, elmTemplate, 0, bEncaps, styles)
-        ];
+        let mapS = new Map(signats.map(S => [S.nm, S])), templates = [];
+        async function AddTemp(C, nm, prnt, elm) {
+            let S = mapS.get(nm);
+            if (!S)
+                throw `<${nm}> has no signature`;
+            templates.push({ nm, templates: [await C.CompTemplate(signats[0], prnt, elm, 0, bEncaps, styles)] });
+            mapS.delete(nm);
+        }
+        if (bMultiple)
+            for (let elm of elmTempl.children)
+                await AddTemp(this, elm.localName, elm, elm);
+        else
+            await AddTemp(this, signats[0].nm, elmTempl.content, elmTempl);
+        for (let nm of mapS.keys())
+            throw `Signature <${nm}> has no template`;
         if (!bRecurs)
             this.AddConstructs(signats);
         this.wspc = wspc;
         return async function COMPONENT(area) {
-            let constr = { nm, templates };
+            let constr = templates.map(C => ({ ...C }));
             if (bRecurs)
-                DefConstruct(constr);
+                constr.forEach(DefConstr);
             let saved = SaveEnv();
             try {
                 for (let [bldr, srcNode] of builders)
                     await this.CallWithHandling(bldr, srcNode, area);
-                constr.constructEnv = CloneEnv(env);
+                let CEnv = CloneEnv(env);
+                for (let c of constr)
+                    c.CEnv = CEnv;
             }
             finally {
                 RestoreEnv(saved);
             }
             if (!bRecurs)
-                DefConstruct(constr);
+                constr.forEach(DefConstr);
         };
     }
     async CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
         let saved = this.SaveCont(), myAtts = atts || new Atts(srcElm), lvars = [];
         try {
             for (let { mode, nm } of signat.Params)
-                lvars.push([nm, this.NewV(myAtts.get(mode + nm, bNewNames) || nm)]);
+                lvars.push([nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]);
             this.AddConstructs(signat.Slots.values());
             if (!atts)
                 myAtts.ChkNoAttsLeft();
@@ -1452,7 +1469,7 @@ class RCompiler {
                 let saved = SaveEnv(), i = 0;
                 try {
                     for (let [nm, templates] of mSlotTemplates)
-                        DefConstruct({ nm, templates, constructEnv: slotEnv });
+                        DefConstr({ nm, templates, CEnv: slotEnv });
                     for (let [nm, lv] of lvars) {
                         let arg = args[nm], dflt;
                         if (arg === u && (dflt = signat.Params[i]?.pDflt))
@@ -1495,7 +1512,8 @@ class RCompiler {
                 let attVal = atts.get(mode + nm, !pDflt);
                 getArgs.push(attVal
                     ? [nm, this.CompJScript(attVal, mode + nm),
-                        this.CompJScript(`ORx=>{${attVal}=ORx}`, nm)]
+                        this.CompJScript(`ORx=>{${attVal}=ORx}`, nm)
+                    ]
                     : [nm, u, () => dU]);
             }
             else if (mode != '...') {
@@ -1533,7 +1551,7 @@ class RCompiler {
                 else if (dGet)
                     args[nm].V = dGet();
             bReadOnly = 0;
-            env = cdef.constructEnv;
+            env = cdef.CEnv;
             try {
                 for (let { nm, pDflt } of signat.Params)
                     if (args[nm] === u)
@@ -1854,7 +1872,7 @@ class _RVAR {
                 return;
             }
             catch { }
-        this.SetAsync(initialValue);
+        this._Set(initialValue);
     }
     get _sNm() { return this.storeName || `RVAR_${this.name}`; }
     Subscribe(s, bImmediate, bInit = bImmediate) {
@@ -1874,16 +1892,13 @@ class _RVAR {
             this.SetDirty();
         }
     }
-    SetAsync(t) {
-        if (t instanceof Promise) {
-            this.V = u;
-            t.then(v => { this.V = v; }, onerr);
-        }
-        else
-            this.V = t;
+    _Set(t) {
+        return t instanceof Promise ?
+            ((this.V = u), t.then(v => (this.V = v), onerr))
+            : (this.V = t);
     }
     get Set() {
-        return this.SetAsync.bind(this);
+        return this._Set.bind(this);
     }
     get Clear() {
         return () => { this.V = u; };

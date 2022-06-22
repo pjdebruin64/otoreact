@@ -75,9 +75,11 @@
     </script>
     <script src="samples.js?" defer></script>
     <script>
+        var myIP = '<!--#echo var="REMOTE_ADDR"-->'
+
         window.dataLayer = window.dataLayer || [];
         if (location.search == '??') localStorage.setItem('PJ', 'true')
-        let r = /otoreact\.dev/i.test(location.host) && !localStorage.getItem('PJ');
+        let r = /otoreact\.dev/i.test(location.host) && !localStorage.getItem('PJ') // &&  myIP!='93.117.200.149';
         function gtag(){
             if(r) dataLayer.push(arguments);
         }
@@ -85,7 +87,9 @@
             /* Global site tag (gtag.js) - Google Analytics */
             document.write('<script async src="https://www.googletagmanager.com/gtag/js?id=G-T23W7PMPX4"><' + '/script>')
             gtag('js', new Date());
-            gtag('config', 'G-T23W7PMPX4');
+            gtag('config', 'G-T23W7PMPX4',
+            myIP =='93.117.200.149' ? {Company: 'Otolift'} : {}
+            );
         }
     </script>
     <script type=module>

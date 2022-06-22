@@ -71,7 +71,7 @@ declare type Handler = (ev: Event) => any;
 declare type ConstructDef = {
     nm: string;
     templates: Template[];
-    constructEnv?: Environment;
+    CEnv?: Environment;
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
@@ -183,7 +183,7 @@ declare class _RVAR<T = unknown> {
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
-    SetAsync(t: T | Promise<T>): void;
+    _Set(t: T | Promise<T>): T | Promise<T>;
     get Set(): any;
     get Clear(): () => void;
     get U(): T;
