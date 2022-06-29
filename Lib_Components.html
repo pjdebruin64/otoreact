@@ -72,8 +72,8 @@
             <table. class=demo>
                 <tr.><th.>
                     <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                    <if #cond=editable>Editable</if> Source Code
-                </th.><th.><if #cond=editable>Live</if> Result</th.></tr.>
+                    <if cond=editable>Editable</if> Source Code
+                </th.><th.><if cond=editable>Live</if> Result</th.></tr.>
                 <tr.>
                     <td.>
                         <pre #class:nodisplay="!rShow.V" reactOn=rShow
@@ -310,7 +310,7 @@
                     <center style="background-color: orange;">
                         <b><i>Table of Contents</i></b>
                     </center>
-                    <for let=item #of=contents.V reacton="contents,docLocation" key="item">
+                    <for let=item of=contents.V reacton="contents,docLocation" key="item">
                         <if cond="item.subs.length">
                             <then>
                                 <details>

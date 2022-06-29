@@ -79,7 +79,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     rvars?: RVAR[];
 
     // For DOCUMENT nodes
-    wins?: Window[];
+    wins?: Set<Window>;
 
     public get First(): ChildNode {
         let f: ChildNode
@@ -263,7 +263,6 @@ export async function RCompile(elm: HTMLElement, settings?: Settings): Promise<v
         let area: Area = {parent: elm.parentElement, source: elm, rng: n};
         await R.Build(area);
         w.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
-        //w.addEventListener('pagehide', ()=>{for(let w of childWins)w.close()});
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
         ScrollToHash();
     }
@@ -682,7 +681,7 @@ class RCompiler {
                         rv.Save();
                     for (let subs of rv._Subscribers)
                         if (!subs.bImm)
-                            try { await subs(); }
+                            try { await subs(rv instanceof _RVAR ? rv.V : rv); }
                             catch (err) {
                                 let msg = `ERROR: `+err;
                                 console.log(msg);
@@ -1227,67 +1226,76 @@ class RCompiler {
 
                     case 'document': {
                         let docVar = this.NewV(atts.get('name', 1)),
-                            RC = this,
-                            saved = this.SaveCont();
-                        try {
-                            let
-                                bEncaps = atts.getB('encapsulate'),
-                                setVars = this.NewVars(atts.get('params')),
-                                setWin = this.NewV(atts.get('window')),
-                                docBuilder = await RC.CompChildNodes(srcElm);
-                            bldr = async function DOCUMENT(this: RCompiler, area: Area) {
-                                let {rng, bInit} = PrepArea(srcElm, area, docVar.name);
-                                if (bInit) {
-                                    let docEnv = CloneEnv(env)
-                                    rng.value = {
-                                        async render(W: Window, args: unknown[]) {
-                                            let svEnv = env, i = 0;
-                                            env = docEnv;
-                                            for (let lv of setVars)
-                                                lv(args[i++]);
-                                            setWin(W);
-                                            try {
-                                                await docBuilder.call(RC, {parent: W.document.body}); 
+                            RC = new RCompiler(this),
+                            bEncaps = atts.getB('encapsulate'),
+                            setVars = RC.NewVars(atts.get('params')),
+                            winV = RC.NewV(atts.get('window')),
+                            docBldr = ((RC.head = document.createElement('DocumentFragment')), await RC.CompChildNodes(srcElm));
+                        bldr = async function DOCUMENT(this: RCompiler, area: Area) {
+                            let {rng, bInit} = PrepArea(srcElm, area, docVar.name);
+                            if (bInit) {
+                                let doc = area.parent.ownerDocument,
+                                    docEnv = CloneEnv(env),
+                                    wins = rng.wins = new Set();
+                                rng.value = {
+                                    async render(W: Window, bInit: bool, args: unknown[]) {
+                                        let svEnv = env, i = 0, D = W.document;
+                                        env = docEnv;
+                                        for (let lv of setVars)
+                                            lv(args[i++]);
+                                        winV(W);
+                                        try {
+                                            if (bInit) {
+                                                // Copy all style sheet rules
+                                                if (!bEncaps)
+                                                    copyStyleSheets(doc, D);
+                                                for (let S of RC.head.childNodes)
+                                                    D.head.append(S.cloneNode(true));
                                             }
-                                            finally {env = svEnv}
-                                        },
-                                        open(target?: string, features?: string, ...args: unknown[]) {
-                                            let W = w.open('', target, features)
-                                                , i = childWins.add(W);
+                                            let area: Area = {parent: D.body, rng: (W as any).rng};
+                                            await docBldr.call(RC, area);
+                                        }
+                                        finally {env = svEnv}
+                                    },
+                                    open(target?: string, features?: string, ...args: unknown[]) {
+                                        let W = w.open('', target || '', features)
+                                            , bInit = !childWins.has(W);
+                                        if (bInit) {
                                             W.addEventListener('keydown', 
                                                 function(this: Window,event:KeyboardEvent) {if(event.key=='Escape') this.close();}
                                             );
-                                            W.addEventListener('close', () => childWins.delete(W))
-                                            // Copy all style sheet rules
-                                            if (!bEncaps)
-                                                copyStyleSheets(document, W.document);
-                                            this.render(W, args);
-                                            return W;
-                                        },
-                                        async print(...args: unknown[]) {
-                                            let iframe = document.createElement('iframe');
-                                            iframe.setAttribute('style','display:none');
-                                            document.body.appendChild(iframe);
-                                            if (!bEncaps)
-                                                copyStyleSheets(document, iframe.contentDocument);
-                                            await this.render(iframe.contentWindow, args);
-                                            iframe.contentWindow.print();
-                                            iframe.remove();
+                                            W.addEventListener('close', () => childWins.delete(W), wins.delete(W))
+                                            childWins.add(W); wins.add(W);
                                         }
-                                    };
-                                    /*
-                                    rng.wins = [];
-                                    rng.onDest = () => {
-                                        for (let W of rng.wins)
-                                            if (W) W.close();
+                                        else
+                                            W.document.body.innerHTML=''
+                                        this.render(W, bInit, args);
+                                        return W;
+                                    },
+                                    async print(...args: unknown[]) {
+                                        let iframe = doc.createElement('iframe');
+                                        iframe.hidden = true;
+                                        doc.body.appendChild(iframe);
+                                        await this.render(iframe.contentWindow, 1, args);
+                                        iframe.contentWindow.print();
+                                        iframe.remove();
+                                    },
+                                    closeAll: () => {
+                                        for (let W of wins)
+                                            W.close();
                                     }
-                                    */
+                                };
+                                /*
+                                rng.wins = [];
+                                rng.onDest = () => {
+                                    for (let W of rng.wins)
+                                        if (W) W.close();
                                 }
-                                docVar(rng.value);
+                                */
                             }
-                            isBl = 1;
+                            docVar(rng.value);
                         }
-                        finally { this.RestoreCont(saved); }
+                        isBl = 1;
                     } break;
 
                     case 'rhead': {
@@ -1900,7 +1908,7 @@ class RCompiler {
         async function AddTemp(C: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
             let S = mapS.get(nm);
             if (!S) throw `<${nm}> has no signature`;
-            templates.push({nm, templates: [ await C.CompTemplate(signats[0], prnt, elm, 0, bEncaps, styles) ]})
+            templates.push({nm, templates: [ await C.CompTemplate(S, prnt, elm, 0, bEncaps, styles) ]})
             mapS.delete(nm);
         }
         if (bMultiple)
@@ -2657,13 +2665,16 @@ let _rng = globalThis.range = function* range(from: number, count?: number, step
 globalThis.RCompile = RCompile;
 export let 
     R = new RCompiler(),
-    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, 
+    RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber<T>, storeName?: string) => RVAR<T>, 
     RUpdate = globalThis.RUpdate as () => void,
     docLocation: RVAR<string> & 
         {   basepath: string;
             subpath: string; 
             searchParams: URLSearchParams;
-            search: (key: string, value: string) => void
+            search(key: string, value: string): string;
+            getSearch(key: string): string;
+            setSearch(key: string, value: string): void;
+            RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
         }
         = RVAR<string>('docLocation', location.href) as any,
     reroute = globalThis.reroute = 
@@ -2678,16 +2689,31 @@ export let
         };
 
 export {_rng as range};
-Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substring(docLocation.basepath.length)});
-docLocation.search = 
-    (key: string, val: string) => {
+
+Object.assign(docLocation, {
+    subPath: () => location.pathname.substring(docLocation.basepath.length),
+    search(key: string, val: string) {
         let url = new URL(location.href);
         if (val == null)
             url.searchParams.delete(key);
         else
             url.searchParams.set(key, val);
         return url.href;
-    };
+    },
+    getSearch(this: typeof docLocation, key: string) {
+        return this.searchParams.get(key);
+    },
+    setSearch(this: typeof docLocation, key: string, val: string) {
+        this.V = this.search(key, val);
+    },
+    RVAR(this: typeof docLocation, key: string, ini?: string, varNm: string = key) {
+        let R = RVAR<string>(varNm, n, n,
+            v => docLocation.setSearch(key, v));
+        docLocation.Subscribe(() => {R.V = this.getSearch(key) ?? ini}, true);
+        return R;
+    }
+});
+
 docLocation.Subscribe( loc => {
     if (loc != location.href)
         history.pushState(null, null, loc);

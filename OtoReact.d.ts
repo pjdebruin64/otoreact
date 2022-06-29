@@ -47,7 +47,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     updated?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
-    wins?: Window[];
+    wins?: Set<Window>;
     get First(): ChildNode;
     get Next(): ChildNode;
     get FirstOrNext(): ChildNode;
@@ -200,10 +200,13 @@ declare class Atts extends Map<string, string> {
     ChkNoAttsLeft(): void;
 }
 declare let _rng: (from: number, count?: number, step?: number) => Generator<number, void, unknown>;
-export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
+export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber<T>, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
-    search: (key: string, value: string) => void;
+    search(key: string, value: string): string;
+    getSearch(key: string): string;
+    setSearch(key: string, value: string): void;
+    RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
 }, reroute: (arg: MouseEvent | string) => void;
 export { _rng as range };

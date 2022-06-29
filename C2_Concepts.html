@@ -339,14 +339,14 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
                 <br>If, e.g., a <elm>table</elm> would contain a <elm>for</elm> loop containing a <elm>tr</elm>:
                 <pre #innertext="
 `<table>
-    <for let=x #of=…>
+    <for let=x of=…>
         <tr> … \{x} … </tr>
     </for>
 </table>`       "></pre>
                 , then the (Chromium) parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
 <pre #innertext="
-`<for let=x #of=…>
+`<for let=x of=…>
 </for>
 <table>
     <tr> … \{x}… </tr>
@@ -355,7 +355,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
                 <br>To get the loop right, OtoReact allows you to put one (or more) dots after any tag name, so the parser won't recognize this as a table and won't interfere:
                 <pre #innertext="
 `<table.>
-    <for let=x #of=…>
+    <for let=x of=…>
         <tr.> … \{x} … </tr.>
     </for>
 </table.>`      "></pre>

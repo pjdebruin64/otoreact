@@ -3,7 +3,6 @@ declare let defaultSettings: {
     bAbortOnError: boolean;
     bShowErrors: boolean;
     bRunScripts: boolean;
-    bBuild: boolean;
     basePattern: string;
     preformatted: any[];
     bNoGlobals: boolean;
@@ -12,18 +11,19 @@ declare let defaultSettings: {
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
 };
+declare type bool = boolean | string | number | object;
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    ws?: boolean;
-    auto?: boolean;
+    ws?: bool;
+    auto?: bool;
 };
 declare type Area = {
-    range?: Range;
+    rng?: Range;
     parent: Node;
     before?: ChildNode;
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
-    bRootOnly?: boolean;
+    bRootOnly?: bool;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
     node: NodeType;
@@ -37,14 +37,17 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    onDest?: Handler;
     hash?: Hash;
     key?: Key;
     prev?: Range;
     fragm?: DocumentFragment;
     rvar?: RVAR_Light<Item>;
-    subs?: Subscriber<Item>;
-    rvars?: RVAR[];
+    iSub?: Subscriber<Item>;
     updated?: number;
+    subs?: Subscriber;
+    rvars?: RVAR[];
+    wins?: Set<Window>;
     get First(): ChildNode;
     get Next(): ChildNode;
     get FirstOrNext(): ChildNode;
@@ -57,24 +60,26 @@ declare type Environment = Array<unknown> & {
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
-export declare function RBuild(): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     ref?: {};
     sArea?: Area;
-    bImm?: boolean;
+    bImm?: bool;
     env?: Environment;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
+declare type Handler = (ev: Event) => any;
 declare type ConstructDef = {
     nm: string;
     templates: Template[];
-    constructEnv?: Environment;
+    CEnv?: Environment;
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 export declare type RVAR_Light<T> = T & {
-    _Subscribers?: Set<Subscriber>;
+    _Subscribers: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
+    store?: any;
+    Save?: () => void;
     readonly U?: T;
 };
 interface Item {
@@ -93,34 +98,33 @@ declare class RCompiler {
     private cRvars;
     private head;
     private StyleBefore;
-    private AddedHdrElms;
     FilePath: string;
     RootElm: ParentNode;
-    constructor(RC?: RCompiler, bClr?: boolean);
+    constructor(RC?: RCompiler, bClr?: bool);
     private restoreActions;
     private SaveCont;
     private RestoreCont;
-    private NewVar;
+    private NewV;
     private SetVar;
     private NewVars;
-    private AddConstruct;
+    private AddConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
-    Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, range: Range, ...args: any[]): Subscriber;
+    Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
-    private AllAreas;
     private Builder;
     private bCompiled;
     private wspc;
     private rspc;
-    DirtyVars: Set<RVAR<unknown>>;
-    private DirtySubs;
-    AddDirty(sub: Subscriber): void;
+    DirtyVars: Set<{
+        _Subscribers: Set<Subscriber>;
+        store?: any;
+        Save?: () => void;
+    }>;
     private bUpdating;
-    private bUpdate;
-    private handleUpdate;
+    private hUpdate;
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
@@ -158,7 +162,7 @@ declare class RCompiler {
     private GetURL;
     private GetPath;
     FetchText(src: string): Promise<string>;
-    fetchModule(src: string, bInclHead?: boolean): Promise<Iterable<ChildNode>>;
+    fetchModule(src: string): Promise<Iterable<ChildNode>>;
 }
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 interface Store {
@@ -167,17 +171,19 @@ interface Store {
 }
 declare class _RVAR<T = unknown> {
     private RC;
-    private store?;
-    private storeName;
+    name?: string;
+    store?: Store;
+    private storeName?;
     constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
-    private _Value;
+    private _val;
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
+    private get _sNm();
+    Subscribe(s: Subscriber<T>, bImmediate?: bool, bInit?: bool): void;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
-    SetAsync(t: T | Promise<T>): void;
+    _Set(t: T | Promise<T>): T | Promise<T>;
     get Set(): any;
     get Clear(): () => void;
     get U(): T;
@@ -189,15 +195,18 @@ export interface RVAR<T = unknown> extends _RVAR<T> {
 }
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
-    get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
+    get(nm: string, bRequired?: bool, bHashAllowed?: bool): string;
     getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
-declare let _range: (from: number, upto?: number, step?: number) => Generator<number, void, unknown>;
-export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
+declare let _rng: (from: number, count?: number, step?: number) => Generator<number, void, unknown>;
+export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber<T>, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
-    search: (key: string, value: string) => void;
+    search(key: string, value: string): string;
+    getSearch(key: string): string;
+    setSearch(key: string, value: string): void;
+    RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
 }, reroute: (arg: MouseEvent | string) => void;
-export { _range as range };
+export { _rng as range };

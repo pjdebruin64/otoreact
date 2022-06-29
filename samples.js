@@ -9,7 +9,7 @@ const sampleGreeting=
 </p>
 
 <!-- If yourName.V is nonempty, -->
-<IF #cond="yourName.V">
+<IF cond="yourName.V">
     <!-- then we show: -->
     <p>
         Nice to meet you, {yourName.V}. <!-- yourName.V is inserted here -->
@@ -92,7 +92,7 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <FOR let=C #of="ColorTable.V" hash=C reacton=ColorTable>
+  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
     <tr. 
       style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
       #style.color = "C.green<148 ? 'white' : 'black'"
@@ -129,7 +129,7 @@ const sampleGreeting2 =
   <!-- The "@" introduces a two-way binding for the input element.
   Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
-<if #cond="yourName.V">
+<if cond="yourName.V">
   <p> Nice to meet you, {yourName.V}.
     <br>By the way, your name consists of {yourName.V.length} 
         characters.
@@ -161,7 +161,7 @@ const sampleParticipants=
 
 <b>Participants:</b>
 <ul>
-    <for let=participant #of="Participants.V">
+    <for let=participant of="Participants.V">
         <li>{participant}</li>
     </for>
 </ul>
@@ -200,9 +200,9 @@ const sampleTODO=
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item #of=TODO.V #key=item #reacton=TODO reactive>
+            <for let=item of=TODO.V key=item reacton=TODO reactive>
                 <!-- 'bdone' must be in lowercase -->
-                <if #cond='item[1] == bdone'>
+                <if cond='item[1] == bdone'>
                     <label style="display: block">
                       <input type=checkbox @checked='item.U[1]'> 
                       {item[0]}
@@ -241,9 +241,9 @@ const sampleRecursion=
 
   <template>
       <case>
-          <when #cond="Array.isArray(arg)">
+          <when cond="Array.isArray(arg)">
               <div class=showList>
-                  <for let=item #of=arg>
+                  <for let=item of=arg>
                       <div>
                           <!-- Recursive invocation -->
                           <showList #arg=item></showList>
@@ -307,7 +307,7 @@ const sampleTableMaker =
                 </for>
             </tr.>
             <!-- Detail rows -->
-            <for let=rec #of='datasource'>
+            <for let=rec of='datasource'>
                 <tr.>
                     <for of=DDEF>
                         <td.><DDEF #item=rec></DDEF></td.>
@@ -418,9 +418,9 @@ const sampleTicTacToe =
   <!-- Show the board -->
   <table. reacton=board>
           <!-- This table should react on the RVAR 'board'. -->
-    <for let=row #of="board.V">
+    <for let=row of="board.V">
       <tr.>
-        <for let=cell #of="row" reacting>
+        <for let=cell of="row" reacting>
           <td. onclick="Move(cell)"
            >{cell.P}</td.>
         </for>
@@ -431,10 +431,10 @@ const sampleTicTacToe =
   <div>
     <p reacton=outcome,toMove>
       <case>
-        <when #cond="outcome.V===true">
+        <when cond="outcome.V===true">
           <b>It's a draw.</b>
         </when>
-        <when #cond="outcome.V">
+        <when cond="outcome.V">
           <b>The winner is: <large>{outcome.V}</large></b>
         </when>
         <else>
@@ -478,7 +478,7 @@ const C1=
 C2 =
 `  <!-- Component template -->
   <TEMPLATE>
-    <for let=i #of="range(1,count)">
+    <for let=i of="range(1,count)">
         <!-- Slot instance -->
         <contents #num="i"></contents>
     </for>
@@ -655,7 +655,7 @@ const basicSetup =
     </head>
     <body hidden>
         <!-- Here goes your RHTML -->
-        <FOR let=i #of="range(5)">
+        <FOR let=i of="range(5)">
             <div>Hello world {i}</div>
         </FOR>
     </body>
@@ -670,7 +670,7 @@ const demoRadiogroup=
 
 <def rvar="favColor"></def>
 <radiogroup @value="favColor.V">
-  <for let="C" #of="['Red', 'Lime', 'SkyBlue', 'Pink']">
+  <for let="C" of="['Red', 'Lime', 'SkyBlue', 'Pink']">
     <radiobutton #value="C">{C}</radiobutton>
   </for>
   <br>
@@ -722,9 +722,9 @@ const demoTables =
 </div>
 
 <div class=multi>
-  <FOR let=y #of="range(1,maxY.V)">
+  <FOR let=y of="range(1,maxY.V)">
       <div>
-          <FOR let=x #of="range(1,maxX.V)">
+          <FOR let=x of="range(1,maxX.V)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>

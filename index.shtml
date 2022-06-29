@@ -39,7 +39,7 @@
                 }</span>`
             , markTag = (mTag) =>
                 `<span class=mTag>${
-                    mTag.replace(/(\s(?:on|[#*+!@])\w+\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gs
+                    mTag.replace(/(\s(?:on\w+|[#*+!@]\w+|cond|of|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gs
                         , (_,a1,a2,a3,a4,mExpr) => 
                             mExpr ? `<span class=otored>${mExpr}</span>` 
                             : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
@@ -127,8 +127,10 @@
             }
             else if (lm != LastModified)
                 location.reload();
+            else
+                settimeout(CheckForUpdates, 5 * 60000);
         }
-        setInterval(CheckForUpdates, 5 * 60000);
+        settimeout(CheckForUpdates, 5 * 60000);
     </script>
     
 </head>
