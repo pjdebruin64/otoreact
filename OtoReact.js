@@ -168,8 +168,8 @@ function NewEnv() {
     return e;
 }
 function CloneEnv(env) {
-    let e = Object.assign(new Array(), env);
-    e.constructs = new Map(env.constructs.entries());
+    let e = Object.assign([], env);
+    e.constructs = new Map(e.constructs.entries());
     return e;
 }
 function assignEnv(target, source) {
@@ -203,7 +203,7 @@ class Signature {
         return r;
     }
 }
-let bReadOnly = 0;
+let bRO = 0;
 function ApplyMod(elm, mt, nm, val, bCreate) {
     switch (mt) {
         case 0:
@@ -277,7 +277,7 @@ function ApplyMod(elm, mt, nm, val, bCreate) {
     }
 }
 function ApplyMods(elm, modifs, bCreate) {
-    bReadOnly = 1;
+    bRO = 1;
     for (let { mt, nm, depV } of modifs)
         try {
             let value = depV.bThis ? depV.call(elm) : depV();
@@ -286,13 +286,13 @@ function ApplyMods(elm, modifs, bCreate) {
         catch (err) {
             throw `[${nm}]: ${err}`;
         }
-    bReadOnly = 0;
+    bRO = 0;
 }
 let RModules = new Map(), env, onerr, onsucc, builtNodeCnt = 0, envActions = [];
 function SaveEnv() {
     return envActions.length;
 }
-function RestoreEnv(savedEnv) {
+function RestEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
@@ -487,7 +487,7 @@ class RCompiler {
             t._UpdatesTo = updatesTo;
             let { RC } = this;
             Object.defineProperty(t, 'U', { get: () => {
-                    if (!bReadOnly) {
+                    if (!bRO) {
                         RC.DirtyVars.add(t);
                         if (t._UpdatesTo?.length)
                             for (let rvar of t._UpdatesTo)
@@ -513,7 +513,7 @@ class RCompiler {
                         await bldr.call(this, area);
                     }
                     finally {
-                        RestoreEnv(savEnv);
+                        RestEnv(savEnv);
                     }
                 }
                 : async () => { };
@@ -754,7 +754,7 @@ class RCompiler {
                                                 await this.CallWithHandling(choosenAlt.bldr, choosenAlt.node, sub);
                                             }
                                             finally {
-                                                RestoreEnv(saved);
+                                                RestEnv(saved);
                                             }
                                         }
                                     }
@@ -1288,7 +1288,7 @@ class RCompiler {
                                 rng.child = null;
                         }
                         finally {
-                            RestoreEnv(svEnv);
+                            RestEnv(svEnv);
                         }
                     };
                     if (iterable instanceof Promise) {
@@ -1325,7 +1325,7 @@ class RCompiler {
                     }
                     finally {
                         mapNm(env.constructs, slotDef);
-                        RestoreEnv(saved);
+                        RestEnv(saved);
                     }
                 };
             }
@@ -1458,17 +1458,16 @@ class RCompiler {
                     c.CEnv = CEnv;
             }
             finally {
-                RestoreEnv(saved);
+                RestEnv(saved);
             }
             if (!bRecurs)
                 constr.forEach(DefConstr);
         };
     }
     async CompTemplate(signat, contentNode, srcElm, bNewNames, bEncaps, styles, atts) {
-        let saved = this.SaveCont(), myAtts = atts || new Atts(srcElm), lvars = [];
+        let saved = this.SaveCont();
         try {
-            for (let { mode, nm } of signat.Params)
-                lvars.push([nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]);
+            let myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]);
             this.AddConstructs(signat.Slots.values());
             if (!atts)
                 myAtts.ChkNoAttsLeft();
@@ -1499,7 +1498,7 @@ class RCompiler {
                     await builder.call(this, area);
                 }
                 finally {
-                    RestoreEnv(saved);
+                    RestEnv(saved);
                 }
             };
         }
@@ -1550,7 +1549,7 @@ class RCompiler {
             let svEnv = env, cdef = env.constructs.get(nm), { rng, sub, bInit } = PrepArea(srcElm, area);
             if (!cdef)
                 return;
-            bReadOnly = 1;
+            bRO = 1;
             let args = rng.value || (rng.value = {});
             for (let [nm, dGet, dSet] of getArgs)
                 if (!dSet)
@@ -1559,12 +1558,9 @@ class RCompiler {
                     args[nm] = RVAR('', dGet && dGet(), null, dSet());
                 else if (dGet)
                     args[nm].V = dGet();
-            bReadOnly = 0;
+            bRO = 0;
             env = cdef.CEnv;
             try {
-                for (let { nm, pDflt } of signat.Params)
-                    if (args[nm] === u)
-                        args[nm] = pDflt();
                 for (let template of cdef.templates)
                     await template.call(this, sub, args, slotBldrs, svEnv);
             }
@@ -1586,7 +1582,7 @@ class RCompiler {
             postWs = 3;
         }
         if (preWs == 4)
-            postWs = 4;
+            postWs = preWs;
         let modifs = this.CompAttribs(atts), childnodesBldr = await this.CompChildNodes(srcElm);
         if (postWs)
             this.wspc = postWs;
@@ -1870,6 +1866,7 @@ class _RVAR {
         this.name = name;
         this.store = store;
         this.storeName = storeName;
+        this._val = u;
         this._Subscribers = new Set();
         if (name)
             globalThis[name] = this;
@@ -1912,7 +1909,7 @@ class _RVAR {
         return () => { this.V = u; };
     }
     get U() {
-        if (!bReadOnly)
+        if (!bRO)
             this.SetDirty();
         return this._val;
     }
@@ -2041,7 +2038,6 @@ export let R = new RCompiler(), RVAR = globalThis.RVAR, RUpdate = globalThis.RUp
     };
 export { _rng as range };
 Object.assign(docLocation, {
-    subPath: () => location.pathname.substring(docLocation.basepath.length),
     search(key, val) {
         let url = new URL(location.href);
         if (val == null)
@@ -2062,6 +2058,7 @@ Object.assign(docLocation, {
         return R;
     }
 });
+Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.substring(docLocation.basepath.length) });
 docLocation.Subscribe(loc => {
     if (loc != location.href)
         history.pushState(null, null, loc);

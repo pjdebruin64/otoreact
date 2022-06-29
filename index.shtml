@@ -128,9 +128,9 @@
             else if (lm != LastModified)
                 location.reload();
             else
-                settimeout(CheckForUpdates, 5 * 60000);
+                setTimeout(CheckForUpdates, 5 * 60000);
         }
-        settimeout(CheckForUpdates, 5 * 60000);
+        setTimeout(CheckForUpdates, 5 * 60000);
     </script>
     
 </head>
@@ -192,7 +192,7 @@
             <include src="P5_Download.html"></include>
         </when>
         <else>
-            Page not found
+            Page '{docLocation.subpath}' not found
         </else>    
     </case>
 

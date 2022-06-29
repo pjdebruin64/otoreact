@@ -65,6 +65,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    //erased?: bool;
     onDest?: Handler;
 
     // Only for FOR-iteraties
@@ -128,7 +129,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
         this.child = null;
         while (ch) {
             ch.erase(ch.newParent || parent);
-            ch.parentR = null;                
+            ch.parentR = null;
+            //ch.erased = 1;
             if (ch.rvars)
                 for (let rvar of ch.rvars)
                     rvar._Subscribers.delete(ch.subs);
@@ -278,8 +280,8 @@ function NewEnv(): Environment {
     return e;
 }
 function CloneEnv(env: Environment): Environment {
-    let e = Object.assign(new Array(), env);
-    e.constructs = new Map(env.constructs.entries());
+    let e: Environment = Object.assign([], env);
+    e.constructs = new Map(e.constructs.entries());
     return e;
 }
 function assignEnv(target: Environment, source: Environment) {
@@ -367,7 +369,7 @@ type Modifier = {
     depV: Dependent<unknown>,
 }
 type RestParameter = Array<{mt: MType, nm: string, value: unknown}>;
-let bReadOnly: boolean|0|1 = 0;
+let bRO: boolean|0|1 = 0;
 
 function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate: boolean) {    
     switch (mt) {
@@ -439,7 +441,7 @@ function ApplyMod(elm: HTMLElement, mt: MType, nm: string, val: unknown, bCreate
 }
 function ApplyMods(elm: HTMLElement, modifs: Modifier[], bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
-    bReadOnly= 1;
+    bRO= 1;
     for (let {mt, nm, depV} of modifs)
         try {
             let value = depV.bThis ? depV.call(elm) : depV();    // Evaluate the dependent value in the current environment
@@ -448,7 +450,7 @@ function ApplyMods(elm: HTMLElement, modifs: Modifier[], bCreate?: boolean) {
         }
         catch (err) { throw `[${nm}]: ${err}` }
     
-    bReadOnly = 0;
+    bRO = 0;
 }
 
 let RModules = new Map<string, Promise<[DOMBuilder,Map<string, Signature>]>>(),
@@ -463,7 +465,7 @@ type EnvState = number;
 function SaveEnv(): EnvState {
     return envActions.length;
 }
-function RestoreEnv(savedEnv: EnvState) {
+function RestEnv(savedEnv: EnvState) { // Restore environment
     for (let j=envActions.length; j>savedEnv; j--)
         envActions.pop()();
 }
@@ -721,7 +723,7 @@ class RCompiler {
             Object.defineProperty(t, 'U',
                 {get:
                     () => {
-                        if (!bReadOnly) {
+                        if (!bRO) {
                             RC.DirtyVars.add(t);
                             if (t._UpdatesTo?.length)
                                 for (let rvar of t._UpdatesTo)
@@ -751,7 +753,7 @@ class RCompiler {
                  async function ChildNodes(this: RCompiler, area) {
                     let savEnv = SaveEnv();
                     try { await bldr.call(this, area); }
-                    finally { RestoreEnv(savEnv); }
+                    finally { RestEnv(savEnv); }
                 }
                 : async ()=>{};
         }
@@ -1045,7 +1047,7 @@ class RCompiler {
                                                     );
 
                                             await this.CallWithHandling(choosenAlt.bldr, choosenAlt.node, sub );
-                                        } finally { RestoreEnv(saved) }
+                                        } finally { RestEnv(saved) }
                                     }
                                 }
                         }
@@ -1742,7 +1744,7 @@ class RCompiler {
                             }
                             if (prevRange) prevRange.next = null; else rng.child = null;
                         }
-                        finally { RestoreEnv(svEnv) }
+                        finally { RestEnv(svEnv) }
                     }
 
                     if (iterable instanceof Promise) {
@@ -1786,7 +1788,7 @@ class RCompiler {
                     }
                     finally {
                         mapNm(env.constructs, slotDef);
-                        RestoreEnv(saved);
+                        RestEnv(saved);
                     }
                 }
             }
@@ -1940,7 +1942,7 @@ class RCompiler {
                 for(let c of constr)
                     c.CEnv = CEnv;     // Contains circular reference to construct
             }
-            finally { RestoreEnv(saved) }
+            finally { RestEnv(saved) }
             if (!bRecurs)
                 constr.forEach(DefConstr);
         };
@@ -1951,12 +1953,14 @@ class RCompiler {
     ): Promise<Template>
     {
         let 
-            saved = this.SaveCont(),
-            myAtts = atts || new Atts(srcElm),
-            lvars: Array<[string, LVar]> = [];
+            saved = this.SaveCont();
         try {
-            for (let {mode,nm} of signat.Params)
-                lvars.push([nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]);
+            let 
+                myAtts = atts || new Atts(srcElm),
+                lvars: Array<[string, LVar]> =
+                    signat.Params.map(
+                        ({mode,nm}) => [nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bNewNames)) || nm)]
+                    );
 
             this.AddConstructs(signat.Slots.values());
 
@@ -1999,7 +2003,7 @@ class RCompiler {
                     }
                     await builder.call(this, area); 
                 }
-                finally { RestoreEnv(saved) }
+                finally { RestEnv(saved) }
             }
         }
         catch (err) {throw `${OuterOpenTag(srcElm)} template: ${err}` }
@@ -2070,7 +2074,7 @@ class RCompiler {
                 cdef = env.constructs.get(nm),
                 {rng, sub, bInit} = PrepArea(srcElm, area);
             if (!cdef) return;
-            bReadOnly = 1;
+            bRO = 1;
             let args = rng.value ||= {};
             for (let [nm, dGet, dSet] of getArgs)
                 if (!dSet)
@@ -2080,12 +2084,10 @@ class RCompiler {
                 else if (dGet)
                     args[nm].V = dGet();
             
-            bReadOnly = 0;
+            bRO = 0;
             env = cdef.CEnv;
             try {
-                for (let {nm, pDflt} of signat.Params)
-                    if (args[nm] === u)
-                        args[nm] = pDflt();
+                //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
                 for (let template of cdef.templates) 
                     await template.call(this, sub, args, slotBldrs, svEnv);
             }
@@ -2113,7 +2115,7 @@ class RCompiler {
         }
         
         if (preWs == WSpc.preserve)
-            postWs = WSpc.preserve;
+            postWs = preWs;
 
         // We turn each given attribute into a modifier on created elements
         let modifs = this.CompAttribs(atts)
@@ -2473,7 +2475,7 @@ class _RVAR<T = unknown>{
         this._Set(initialValue);
     }
     // The value of the variable
-    private _val: T;
+    private _val: T = u;
     // The subscribers
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
@@ -2517,13 +2519,18 @@ class _RVAR<T = unknown>{
     // It will be marked dirty.
     // Set var.U to have the DOM update immediately.
     get U() { 
-        if (!bReadOnly) this.SetDirty();  
+        if (!bRO) this.SetDirty();  
         return this._val }
     set U(t: T) { this._val = t; this.SetDirty(); }
 
     public SetDirty() {
         this.RC.DirtyVars.add(this);
         for (let sub of this._Subscribers)
+        /*
+            if (sub.sArea?.rng?.erased)
+                this._Subscribers.delete(sub);
+            else
+            */
             if (sub.bImm)
                 sub(this._val);
         this.RC.RUpdate();
@@ -2691,7 +2698,6 @@ export let
 export {_rng as range};
 
 Object.assign(docLocation, {
-    subPath: () => location.pathname.substring(docLocation.basepath.length),
     search(key: string, val: string) {
         let url = new URL(location.href);
         if (val == null)
@@ -2713,6 +2719,7 @@ Object.assign(docLocation, {
         return R;
     }
 });
+Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.substring(docLocation.basepath.length)});
 
 docLocation.Subscribe( loc => {
     if (loc != location.href)
