@@ -61,7 +61,6 @@ declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
-    ref?: {};
     sArea?: Area;
     bImm?: bool;
     env?: Environment;
@@ -105,7 +104,7 @@ declare class RCompiler {
     private SaveCont;
     private RestoreCont;
     private NewV;
-    private SetVar;
+    private UpdVar;
     private NewVars;
     private AddConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
@@ -130,7 +129,7 @@ declare class RCompiler {
     DoUpdate(): Promise<void>;
     RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
     private RVAR_Light;
-    private sourceNodeCount;
+    private srcNodeCnt;
     private CompChildNodes;
     private CompIter;
     static genAtts: RegExp;

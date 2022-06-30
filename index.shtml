@@ -135,7 +135,7 @@
     
 </head>
 <div reacton="isMobile">{isMobile.V ? 'Mobile' : ''}</div>
-<body onclick="popup.V={display:'none'}" style.cursor=default>
+<body onclick="popup.V={display:'none'}" style.cursor=default hidden>
     <script>document.body.hidden=true</script>
 
     <import src="Lib_Components.html">
@@ -158,24 +158,21 @@
                 </pageHead>
 
                 <section>
-                    <include src="C1_Introduction.html"></include>
-                    <!--#include file="C1_Introduction.html"-->
+                    <include src="C1_Introduction.html">
+                        <!--#include file="C1_Introduction.html"-->
+                    </include>                    
                 </section>
                 <section>
-                    <include src="C2_Concepts.html"></include>
-                    <!--#include file="C2_Concepts.html"-->
+                    <include src="C2_Concepts.html"><!--#include file="C2_Concepts.html"--></include>
                 </section>
                 <section>
-                    <include src="C3_HtmlElements.html"></include>
-                    <!--#include file="C3_HtmlElements.html"-->
+                    <include src="C3_HtmlElements.html"><!--#include file="C3_HtmlElements.html"--></include>
                 </section>
                 <section>
-                    <include src="C4_Constructs.html"></include>
-                    <!--#include file="C4_Constructs.html"-->
+                    <include src="C4_Constructs.html"><!--#include file="C4_Constructs.html"--></include>
                 </section>
                 <section>
-                    <include src="C5_Scripts.html"></include>
-                    <!--#include file="C5_Scripts.html"-->
+                    <include src="C5_Scripts.html"><!--#include file="C5_Scripts.html"--></include>
                 </section>
             </pageLayout>
         </when>

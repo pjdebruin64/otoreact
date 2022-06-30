@@ -1,4 +1,3 @@
-<MODULE id="C1_Introduction.html">
 <h1 id=Introduction>Introduction</h1>
 
 <div style="display: grid; grid-template-columns: auto auto ; align-items: center; justify-items: center; margin-top:-1em; width:100%">
@@ -72,17 +71,16 @@
 <h2>Samples</h2>
 <h3>What's your name</h3>
 <p>
-    The tiny example above left is the result of the following piece of Reactive HTML:
+    Let's return to the tiny example above left. You can modify the source code below and the modified application will be reloaded immediately.
 </p>
-<demo #srcText="sampleGreeting"></demo>
-
-You can modify the source code and see the result immediately.
+<demo #srcText="sampleGreeting.replace('><', ` store='sessionStorage'><`)"></demo>
 <p>Explanation:</p>
 <ul>
     <li>
         <elm>DEFINE rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
         <ul>
             <li><code>yourName.V</code> denotes the value of the variable.</li>
+            <li>We have now added <code>store='sessionStorage'</code>, which make sure the value persists when the application is reloaded.</li>
         </ul>
     </li>
     <li>
@@ -192,4 +190,3 @@ Or, instead of step 2 and 3, one can explicitly call the OtoReact compiler using
 This allows one to compile one or more parts of your document, instead of the whole document body, and it allows one to specify additional options
 
 <p>That's all!</p>
-</MODULE>

@@ -222,8 +222,13 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
-        "version": "3ce383c9474df8c644f18170186737fa5b3fd0126695f4d6758b2b1d9678fb5c",
-        "signature": "4f537b071de4ba36018a0c678adc08a1ee8770f77af4fe5dc0c476a524d4aa2e",
+        "version": "a712c10061d152d897b6537c4843d2e1914b078230ff4549a4ee7028e3b1609d",
+        "signature": "faa08a6ac07fdca97897e457c0132c4372e08e0b4dd2b8d032a955f106ff9124",
+        "affectsGlobalScope": false
+      },
+      "./otoreact_ok.ts": {
+        "version": "a3365d46c93289194506a408fd1e4cb66d78a7e9452cd0ef7afd004ca059aeda",
+        "signature": "a91a07eda3a91c0f105552111670e3f071eed0d8987f6ff1bd27648de43c0dbc",
         "affectsGlobalScope": false
       },
       "./publish/otoreact.ts": {
@@ -245,6 +250,7 @@
       ],
       "declaration": true,
       "composite": true,
+      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -296,6 +302,7 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./otoreact.ts",
+      "./otoreact_ok.ts",
       "./publish/otoreact.ts"
     ]
   },

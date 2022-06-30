@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type=module src="../OtoReact/OtoReact.js"></script>
+    </head>
+    <body type=rhtml onerror="alert(event)">
+      
+      <component>
+        <signature>
+          <RADIOGROUP name>
+            <content>
+              <RADIOBUTTON></RADIOBUTTON>
+            </content>
+          </RADIOGROUP>
+        </signature>
+        
+        <template name>
+          <!-- A <RADIOGROUP> expands into its content: -->
+          <content>
+            <radiobutton>
+                {`${name}`}
+            </radiobutton>
+          </content>
+        </template>
+      </component>
+
+
+        <def rvar="R"></def>
+
+        <radiogroup name="test">
+          <radiobutton reacton="R"></radiobutton>
+        </radiogroup>
+
+        <button onclick="R.SetDirty()">Update</button>
+    </body>
+</html>

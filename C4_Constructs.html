@@ -1,4 +1,3 @@
-<MODULE id="C4_Constructs.html">
 <h1>RHTML Constructs</h1>
 
 N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>cond</code>, <code>of</code>.
@@ -454,7 +453,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENTS</elm>. When a component signature contains a <elm>CONTENTS</elm> or <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
+            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
         </li>
     </ul>
 </p>
@@ -464,7 +463,7 @@ The component template is tagged <elm>template</elm>. E.g.:
 <pre #innerHTML="ColorCode(C2)"></pre>
 <ul>
     <li>
-        Parameters of the component (like <code>count</code>) are available as local variables inside the template.
+        Parameters of the component (like <code>count</code>) are available <u>as local variables</u> inside the template.
     </li>
     <li>
         The value of the local variable <i>name</i> representing a two-way parameter <code>@<i>name</i></code> will be a new RVAR for each created instance of the component.
@@ -474,7 +473,7 @@ The component template is tagged <elm>template</elm>. E.g.:
         Parameter names <u>may</u> be repeated in the template tag, like <elm>TEMPLATE #count</elm> or <elm>TEMPLATE count</elm>.
         <br>Or they may specify a local variable name, like: <elm>TEMPLATE #count=Count</elm>. This is useful when you want to have uppercase characters in the local variable name, because the parameter name itself, being an attribute name, is always seen as lowercase by the parser.
     </li>
-    <li>Slots of the component (like <elm>rbody</elm>) are available as constructs inside  the template</li>
+    <li>Slots of the component (<elm>content</elm> in this case) are available <u>as constructs</u> inside  the template</li>
     <li>The template of a component with slots may contain <a href="#FORoverSlots">a special kind of FOR-loop</a> which iterates over the slot templates</li>
 </ul>
 
@@ -517,11 +516,11 @@ The component instance may contain templates for each of the slots of the compon
     </li>
     <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
     <li>
-        When the component signature contains a slot named <elm>contents</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this contents slot
+        When the component signature contains a slot named <elm>content</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
     </li>
 </ul>
 
-Now in this case, the slot is named <elm>contents</elm> indeed, so we can shorten the component instance to:
+Now in this case, the slot is named <elm>content</elm> indeed, so we can shorten the component instance to:
 <pre #innerHTML="ColorCode(C4)"></pre>
 </pre>
 Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>#num</code>.
@@ -603,7 +602,7 @@ To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 
 <h4>Slots within slots</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
-    <br>This is particularly useful for components with a <elm>CONTENTS</elm> slot. The component may provide new or redefined constructs, that are available only within the contents of component instances, and that may provide interaction with the component.
+    <br>This is particularly useful for components with a <elm>CONTENT</elm> slot. The component may provide new or redefined constructs, that are available only within the contents of component instances, and that may provide interaction with the component.
 </p>
 <p>
     This documentation website uses such subslots to redefine <elm>H1</elm>, <elm>H2</elm> within the context of a particular page, so that the given section titles are automatically entered into the table of contents of that page.
@@ -626,16 +625,16 @@ Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
         <elm>radiogroup</elm> has a parameter 'name' which will be the common name of all radio buttons in the group, and a two-way parameter '@value', that will provide <i>and</i> receive the value of the selected radio button.
     </li>
     <li>
-        <elm>radiogroup</elm> has a slot <elm>contentS</elm> so that the component output can include the contents of any radiogroup instance.
+        <elm>radiogroup</elm> has a slot <elm>content</elm> so that the component output can include the content of any radiogroup instance.
     </li>
     <li>
-        Slot <elm>contents</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance contents.
+        Slot <elm>content</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance contents.
     </li>
     <li>
         <elm>radiobutton</elm> has parameter '#value' that defines the value of the current button, and an optional 'onclick' handler so that component instances can specify this handler without overwriting the 'onclick' handler set by the component template, and a rest parameter '...rest' that will be passed on to the <elm>input type=radio</elm> radio button element.
     </li>
     <li>
-        <elm>radiobutton</elm> has a slot <elm>contents</elm>, that defines the label content for the current button.
+        <elm>radiobutton</elm> has a slot <elm>content</elm>, that defines the label content for the current button.
     </li>
 </ul>
 
@@ -660,7 +659,11 @@ Here is a component which allows one to define tables column by column:
 allows you to include another RHTML file as if it were inserted into the main file.
 <ul>
     <li>
-        The file is fetched and compiled <i>asynchronously</i>: compiling the main file will continue while the included file is being fetched.
+        If the <elm>INCLUDE</elm> element has any content other than comments or whitespace, then that content is processed and <i>URL</i> is ignored.
+        <br>(This allows a preprocessor to combine all files into one file.)
+    </li>
+    <li>
+        Otherwise, the file is fetched from <i>URL</i> and compiled <i>asynchronously</i>: compiling the main file will continue while the included file is being fetched.
     </li>
     <li>
         <i>URL</i> may not use string interpolation, because the URL is needed at compile time.</p>
@@ -678,18 +681,38 @@ allows you to include another RHTML file as if it were inserted into the main fi
 </pre>
 ("<code>crossorigin</code>" seems incorrect, but Google Chrome requires it.)
 
+<h4>Using Server Side Includes</h4>
 <p>
     A drawback of using <elm>INCLUDE</elm> may be that not all search engines will see the content of the included file.
     <br>Some engines, including Google, do execute JavaScript and will see the full document as it is built by OtoReact, while others won't.
     <br>So if you want all search engines to see the content of your document, then do not use <elm>INCLUDE</elm>.
-    <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes">Server Side Includes</a> to include your file, if your server supports it.
+    <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes">Server Side Includes</a> (SSI) to include your file, if your server supports it.
 </p>
+<p>
+    It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not:
+</p>
+<pre #innerHTML='ColorCode(`<include src="includefile.html">
+    <`+`!--#include file="includefile.html"-->
+</include>`)'></pre>
+<ul>
+    <li>
+        In an environment that does not support SSI, the second line is ignored as a comment, and OtoReact will fetch the file and include its content.
+    </li>
+    <li>
+        In an environment that supports SSI, the server will include the file in place of the second line, and:
+        <ol>
+            <li>All search engines will see its content</li>
+            <li>OtoReact will process the included content rather than fetching the file separately.</li>
+        </ol>
+    </li>
+</ul>
 
 
 <h2 id=MODULE><{}MODULE id?></h2>
-<elm>MODULE</elm> encapsulates a series of components, definitions, scripts and styles, that may be imported at other places using <elm>IMPORT</elm>.
+<elm>MODULE</elm> encapsulates a series of components, definitions, and other content, that may either be imported at other places using <elm>IMPORT</elm>.
 <p>A <elm>MODULE</elm> can either be saved in a separate file, or it may be included anywhere in the main file.
-<br>It may even be appended to the end of the main file; the HTML parser will insert it at the end of the document body.</p>
+<br>It may even be concatenated to the main file; the HTML parser will insert it inside the document body.</p>
+
 
 <h2 id=IMPORT><{}IMPORT src defines? include?></h2>
 <pre class=sourcecode>
@@ -763,6 +786,14 @@ In the following demo you can enter a piece of (R)HTML and compare how it is par
 
 <demo #srcText=demoRendering></demo>
 
+
+<h2 id=RHEAD><{}RHEAD></h2>
+Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and are updated or removed as needed.
+<p>
+    You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
+</p>
+
+
 <h2 id=DOCUMENT><{}DOCUMENT></h2>
 <pre class=sourcecode>
     <{}DOCUMENT name=<i>docName</i> params?="<i>nameList</i>" window?=<i>windowVar</i> encapsulate?>
@@ -788,24 +819,26 @@ Any scripts within <i>content</i> are executed within the same browsing context 
     <dt><code><i>docName</i>.open(<i>target?</i>, <i>windowFeatures?</i>, ...<i>args</i>)</code></dt>
     <dd>
         The construct content is rendered in a separate browser window, using the optionally specified <i>target</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given <i>args</i>.
+        <br>The window gets an <code>onkeydown</code> handler that closes the window when the escape key is pressed.
         <br>The method returns a reference to the opened window.
-        <br>All windows opened through this method are closed when the user leaves the current RHTML application (provided the browser supports the <a href="{MDN}Web/API/Window/pagehide_event">pagehide event</a>).
+        <br>All windows opened through this method are automatically closed when the user leaves the current RHTML application (through the <a href="{MDN}Web/API/Window/pagehide_event">pagehide event</a>).
     </dd>
     <dt><code><i>docName</i>.print(...<i>args</i>)</code></dt>
     <dd>
         The construct content is rendered in an invisible browser window with parameter names bound to the given <i>args</i>, and its browser print dialog is opened.
         <br>After the user has closed the print dialog, the invisible window is closed as well.
     </dd>
+    <dt><code><i>docName</i>.closeAll()</code></dt>
+    <dd>
+        This closes all child windows opened through <code><i>docName</i>.open</code>.
+        <p>
+            You could for example use this in an <code>ondestroy</code> handler, to close all child windows when the document definition is removed from the DOM-tree: <pre #innerHTML='ColorCode(`<document name=docName ondestroy="docName.closeAll()">`)'></pre>
+        </p>
+    </dd>
 </dl>
 
 By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
-<br>You can use <elm>style</elm> to insert styling information, or <elm>RHEAD</elm><elm>LINK &hellip;</elm><elm>/RHEAD</elm> to link an external style sheet.
+<br>Any <elm>style</elm> sheets within the <elm>DOCUMENT</elm> content are excluded from the parent document, and attached to each new child window. 
+<br>Or you can use <elm>RHEAD</elm><elm>LINK &hellip;</elm><elm>/RHEAD</elm> to link an external style sheet.
 
 <demo #srctext=sampleDocument></demo>
-
-<h2 id=RHEAD><{}RHEAD></h2>
-Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and are updated or removed as needed.
-<p>
-    You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
-</p>
-</MODULE>

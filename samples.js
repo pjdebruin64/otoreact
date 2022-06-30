@@ -268,13 +268,13 @@ const sampleRecursion=
 
 const sampleRedefineA =
 `<component>
-  <a href #target? ...rest><contents></contents></a>
+  <a href #target? ...rest><content></content></a>
 
   <template><a. #href="href"
     #target="!target && /^http/i.test(href) ? '_blank' : target"
     ...rest
-    ><contents>
-  </contents></a.></template>
+    ><content>
+  </content></a.></template>
 </component>
 
 This link opens in a blank window:
@@ -473,23 +473,23 @@ const C1=
 `  <!-- Component signature with parameter -->
   <repeat #count>
     <!-- Slot signature with parameter -->
-    <contents #num></contents>
+    <content #num></content>
   </repeat>`,
 C2 =
 `  <!-- Component template -->
   <TEMPLATE>
     <for let=i of="range(1,count)">
         <!-- Slot instance -->
-        <contents #num="i"></contents>
+        <content #num="i"></content>
     </for>
   </TEMPLATE>`,
 C3 =
 `<!-- Component instance -->
 <repeat #count=7>
   <!-- Slot template -->
-  <contents #num>
+  <content #num>
     <p>This is <u>paragraph {num}</u>.</p>
-  </contents>
+  </content>
 </repeat>`,
 C4 =
 `<!-- Component instance and slot instance in one -->
@@ -557,24 +557,24 @@ const sampleRadioGroup=
 `<component>
     <!-- Radiogroup signature -->
   <radiogroup name @value>
-    <contents>
+    <content>
       <radiobutton #value onclick? ...rest>
-        <contents></contents>
+        <content></content>
       </radiobutton>
-    </contents>
+    </content>
   </radiogroup>
 
   <template @value=groupValue>
-    <contents>
+    <content>
       <radiobutton #value onclick ...rest>
         <label style.cursor=pointer>
           <input type=radio #name=name #value=value
             #checked="value == groupValue.V"
             onclick="groupValue.V = value; onclick()" ...rest>
-          <contents></contents>
+          <content></content>
         </label>
       </radiobutton>
-    </contents>
+    </content>
   </template>
 </component>
 

@@ -2,14 +2,14 @@
     <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
     <component>
         <a href? #target? ...rest>
-            <contents></contents>
+            <content></content>
         </a>
         <template><a. #href="href"
             #target="!target && /^http/i.test(href) ? '_blank' : target"
             #style.fontWeight="href == (docLocation.subpath || '.') || href==location.hash ? 'bold' : null"
             #onclick="/^(https?:|#)/i.test(href) ? null : reroute"
             ...rest
-            ><contents></contents></a.
+            ><content></content></a.
         ></template>
     </component>
 
@@ -95,12 +95,12 @@
         <pageLayout>
             <pageHead></pageHead>
             <leftbar></leftbar>
-            <contents>
-                <!-- Within the page contents, h1-h3 are redefined to add the header texts tot the table of contents -->
-                <h1 id?><contents></contents></h1>
-                <h2 id?><contents></contents></h2>
-                <h3 id?><contents></contents></h3>
-            </contents>
+            <content>
+                <!-- Within the page contents, h1-h3 are redefined to add the header texts to the table of contents -->
+                <h1 id?><content></content></h1>
+                <h2 id?><content></content></h2>
+                <h3 id?><content></content></h3>
+            </content>
         </pageLayout>
 
         <style>
@@ -281,21 +281,21 @@
                         onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
                     <!-- Here the contents of the page definition will be inserted -->
-                    <contents>
-                        <!-- Inside the contents, the following construsts are available: -->
+                    <content>
+                        <!-- Inside the content, the following construsts are available: -->
                         <h1 id>
                             <def var=nr #value="getNr(0)"></def>
-                            <h1. #id="id||`s${pNum}.${nr}`" onCreate="addContent(0, this)">{nr}. &nbsp;<contents></contents></h1.>
+                            <h1. #id="id||`s${pNum}.${nr}`" onCreate="addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
                         </h1>
                         <h2 id>
                             <def var=nr #value="getNr(1)"></def>
-                            <h2. #id="id||`s${pNum}.${nr}`" onCreate="addContent(1, this)">{nr} &nbsp;<contents></contents></h2.>
+                            <h2. #id="id||`s${pNum}.${nr}`" onCreate="addContent(1, this)">{nr} &nbsp;<content></content></h2.>
                         </h2>
                         <h3 id>
                             <def var=nr #value="getNr(2)"></def>
-                            <h3. #id="id||`s${pNum}.${nr}`" onCreate="addContent(2, this)">{nr} &nbsp;<contents></contents></h3.>
+                            <h3. #id="id||`s${pNum}.${nr}`" onCreate="addContent(2, this)">{nr} &nbsp;<content></content></h3.>
                         </h3>
-                    </contents>
+                    </content>
                 </main>
                 <nav id=TOC>
                     <nav>
