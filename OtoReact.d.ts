@@ -1,4 +1,4 @@
-declare let defaultSettings: {
+declare const defaultSettings: {
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
