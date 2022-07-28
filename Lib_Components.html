@@ -119,10 +119,10 @@
             div.pageLayout > header    { 
                 grid-row: 1;
                 display: grid; 
-                grid-template-columns: 1fr auto auto; 
+                grid-template-columns: auto auto auto; 
                 grid-template-areas:
-                "title credits logo"
-                "nav   built   logo";
+                "title credits credits logo"
+                "nav   nav     built   logo";
                 align-items: stretch;
                 padding: 8px;
             }
@@ -200,7 +200,8 @@
 
             nav.topbar {
                 display: flex;
-                padding: 1px 41px
+                flex-wrap: wrap;
+                padding: 1px 41px;
             }
             nav.topbar > * {
                 padding: 6px 12px;
@@ -245,7 +246,7 @@
                                 <pageHead></pageHead>
                             </p>
                         </div>
-                        <div style='text-align: right; align-self: start; padding-right: 1ex; font-size:90%; white-space: nowrap;'>
+                        <div style='grid-area: credits; text-align: right; align-self: start; padding-right: 1ex; font-size:90%;'>
                             Created by <a 
                                 onclick="
                                     let rect = this.getBoundingClientRect();
@@ -255,7 +256,7 @@
                                 <p>Made possible by:</p>
                                 <p #if="!ga">Nontracked</p>
                         </div>
-                        <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%; white-space: nowrap;">
+                        <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%;">
                             <p>Built with <a href="./" class=OtoRed style.textDecoration=none>OtoReact</a></p>
                         </div>
                         <div style="grid-area: logo;">
@@ -267,7 +268,7 @@
                         </div>
                         <nav class=topbar style="grid-area: nav;" reacton=docLocation>
                             <a href="."         #onclick=reroute>Home</a>
-                            <a href="components" #onclick=reroute #if="!ga">Components</a>
+                            <a href="components" #onclick=reroute #if="0 && !ga">Components</a>
                             <a href="routing"   #onclick=reroute>Routing</a>
                             <a href="otolib"    #onclick=reroute>OtoLib</a>
                             <a href="download"  #onclick=reroute>Download</a>                        
