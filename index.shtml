@@ -39,7 +39,7 @@
                 }</span>`
             , markTag = (mTag) =>
                 `<span class=mTag>${
-                    mTag.replace(/(\s(?:on\w+|[#*+!@]\w+|cond|of|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gs
+                    mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gsi
                         , (_,a1,a2,a3,a4,mExpr) => 
                             mExpr ? `<span class=otored>${mExpr}</span>` 
                             : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
@@ -71,6 +71,10 @@
                             )
                 )
             }</div>`;
+        }
+
+        function Indent(text, n) {
+            return text.split('\n').map(line => line.padStart(line.length + n)).join('\n');
         }
     </script>
     <script src="samples.js?" defer></script>

@@ -11,6 +11,8 @@ const defaultSettings = {
     bKeepWhiteSpace: false,
     bKeepComments: false,
 }, parser = new DOMParser(), gEval = eval, gFetch = fetch, U = undefined, N = null, w = window;
+function thrower(m) { throw m; }
+;
 w.globalThis || (w.globalThis = w);
 class Range {
     constructor(node, area, text) {
@@ -77,7 +79,7 @@ class Range {
         }
     }
 }
-let dU = () => U;
+let dU = () => U, dumB = async () => { };
 function PrepArea(srcElm, area, text = '', nWipe, result) {
     let { parent, rng } = area, sub = { parent, rng: N }, bInit = !rng;
     if (bInit) {
@@ -513,7 +515,7 @@ class RCompiler {
                         RestEnv(savEnv);
                     }
                 }
-                : async () => { };
+                : dumB;
         }
         finally {
             this.RestoreCont(saved);
@@ -796,7 +798,7 @@ class RCompiler {
                                 C.Settings.bRunScripts = true;
                                 C.FilePath = this.GetPath(src);
                                 promModule = this.fetchModule(src).then(async (nodes) => {
-                                    let bldr = await C.CompIter(N, nodes);
+                                    let bldr = (await C.CompIter(N, nodes)) || dumB;
                                     for (let clientSig of listImports) {
                                         let signat = C.CSignatures.get(clientSig.nm);
                                         if (!signat)
@@ -804,9 +806,9 @@ class RCompiler {
                                         if (bAsync && !clientSig.IsCompatible(signat))
                                             throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat.srcElm.outerHTML}`;
                                     }
-                                    for (let V of vars)
-                                        if ((V.i = C.ContextMap.get(V.nm)) == U)
-                                            throw `Module does not define '${V.nm}'`;
+                                    for (let v of vars)
+                                        if ((v.i = C.ContextMap.get(v.nm)) == U)
+                                            throw `Module does not define '${v.nm}'`;
                                     return [bldr.bind(C), C.CSignatures];
                                 });
                                 RModules.set(src, promModule);
@@ -885,7 +887,6 @@ class RCompiler {
                         isBl = 1;
                         break;
                     case 'component':
-                    case 'components':
                         bldr = await this.CompComponent(srcElm, atts);
                         isBl = 1;
                         break;
@@ -1376,70 +1377,39 @@ class RCompiler {
         return signat;
     }
     async CompComponent(srcElm, atts) {
-        let builders = [], bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), styles = [], { wspc } = this, signats = [], elmTempl, bMultiple;
-        for (let ch of Array.from(srcElm.children)) {
-            let childAtts = new Atts(ch), bldr;
-            switch (ch.nodeName) {
-                case 'SCRIPT':
-                    bldr = await this.CompScript(srcElm, ch, childAtts);
-                    break;
-                case 'STYLE':
-                    if (bEncaps)
-                        styles.push(ch);
-                    else
-                        this.CompStyle(ch);
-                    break;
-                case 'DEFINE':
-                case 'DEF':
-                    [bldr] = this.CompDefine(ch, childAtts);
-                    break;
-                case 'COMPONENT':
-                    bldr = await this.CompComponent(ch, childAtts);
-                    break;
-                case 'SIGNATURES':
-                case 'SIGNATURE':
-                    for (let elm of ch.children)
-                        signats.push(this.ParseSignat(elm));
-                    break;
-                case 'TEMPLATES':
-                    bMultiple = 1;
-                case 'TEMPLATE':
-                    if (elmTempl)
-                        throw 'Double <TEMPLATE>';
-                    elmTempl = ch;
-                    break;
-                default:
-                    if (signats.length)
-                        throw `Illegal child element <${ch.nodeName}>`;
-                    signats.push(this.ParseSignat(ch));
-                    break;
+        let bldr, bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), { wspc } = this, signats = [], templates = [], save = this.SaveCont();
+        try {
+            let arr = Array.from(srcElm.children), elmSign = arr.shift() || thrower('Missing signature(s)'), elmTempl = arr.pop();
+            if (!elmTempl || !/^TEMPLATES?$/.test(elmTempl.nodeName))
+                throw 'Missing template(s)';
+            if (/^SIGNATURES?$/.test(elmSign.nodeName))
+                for (let elm of elmSign.children)
+                    signats.push(this.ParseSignat(elm));
+            else
+                signats.push(this.ParseSignat(elmSign));
+            if (bRecurs)
+                this.AddConstructs(signats);
+            bldr = await this.CompIter(srcElm, arr);
+            let mapS = new Map(signats.map(S => [S.nm, S]));
+            async function AddTemp(C, nm, prnt, elm) {
+                let S = mapS.get(nm);
+                if (!S)
+                    throw `<${nm}> has no signature`;
+                templates.push({ nm, templates: [await C.CompTemplate(S, prnt, elm, 0, bEncaps, [])] });
+                mapS.delete(nm);
             }
-            if (bldr)
-                builders.push([bldr, ch]);
+            if (/S$/.test(elmTempl.nodeName))
+                for (let elm of elmTempl.children)
+                    await AddTemp(this, elm.localName, elm, elm);
+            else
+                await AddTemp(this, signats[0].nm, elmTempl.content, elmTempl);
+            for (let nm of mapS.keys())
+                throw `Signature <${nm}> has no template`;
         }
-        if (!signats.length)
-            throw `Missing signature(s)`;
-        if (!elmTempl)
-            throw 'Missing template(s)';
-        if (bRecurs)
-            this.AddConstructs(signats);
-        let mapS = new Map(signats.map(S => [S.nm, S])), templates = [];
-        async function AddTemp(C, nm, prnt, elm) {
-            let S = mapS.get(nm);
-            if (!S)
-                throw `<${nm}> has no signature`;
-            templates.push({ nm, templates: [await C.CompTemplate(S, prnt, elm, 0, bEncaps, styles)] });
-            mapS.delete(nm);
+        finally {
+            this.RestoreCont(save);
         }
-        if (bMultiple)
-            for (let elm of elmTempl.children)
-                await AddTemp(this, elm.localName, elm, elm);
-        else
-            await AddTemp(this, signats[0].nm, elmTempl.content, elmTempl);
-        for (let nm of mapS.keys())
-            throw `Signature <${nm}> has no template`;
-        if (!bRecurs)
-            this.AddConstructs(signats);
+        this.AddConstructs(signats);
         this.wspc = wspc;
         return async function COMPONENT(area) {
             let constr = templates.map(C => ({ ...C }));
@@ -1447,8 +1417,7 @@ class RCompiler {
                 constr.forEach(DefConstr);
             let saved = SaveEnv();
             try {
-                for (let [bldr, srcNode] of builders)
-                    await this.CallWithHandling(bldr, srcNode, area);
+                bldr && await this.CallWithHandling(bldr, srcElm, area);
                 let CEnv = CloneEnv(env);
                 for (let c of constr)
                     c.CEnv = CEnv;
@@ -1541,7 +1510,7 @@ class RCompiler {
         atts.ChkNoAttsLeft();
         this.wspc = 3;
         return async function INSTANCE(area) {
-            let svEnv = env, { rng, sub, bInit } = PrepArea(srcElm, area), cdef = rng.value || (rng.value = env.constructs.get(nm)), args = rng.result || (rng.result = {});
+            let IEnv = env, { rng, sub, bInit } = PrepArea(srcElm, area), cdef = env.constructs.get(nm), args = rng.result || (rng.result = {});
             if (!cdef)
                 return;
             bRO = 1;
@@ -1556,10 +1525,10 @@ class RCompiler {
             env = cdef.CEnv;
             try {
                 for (let template of cdef.templates)
-                    await template.call(this, sub, args, slotBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(svEnv) : svEnv);
+                    await template.call(this, sub, args, slotBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
             }
             finally {
-                env = svEnv;
+                env = IEnv;
             }
         };
     }
@@ -1864,14 +1833,16 @@ class _RVAR {
         this._Subscribers = new Set();
         if (name)
             globalThis[name] = this;
-        let s = store && store.getItem(this._sNm);
+        let s = store && store.getItem(this._sNm), t = initialValue;
         if (s != N)
             try {
                 this._val = JSON.parse(s);
                 return;
             }
             catch { }
-        this._Set(initialValue);
+        t instanceof Promise ?
+            t.then(v => (this.V = v), onerr)
+            : (this._val = t);
     }
     get _sNm() { return this.storeName || `RVAR_${this.name}`; }
     Subscribe(s, bImmediate, bInit = bImmediate) {

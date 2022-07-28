@@ -201,12 +201,12 @@ Global variables are visible in RHTML inline scripts, of course.
     <dt><code class=sourcecode>x.V</code></dt>
     <dd>
         To get or set the value of an RVAR <code>x</code>, one writes <code>x.V</code>.
-        <br>When <code>x.V</code> is set to a different value than it had, the RVAR is marked as dirty, and all RHTML code that reacts on it will be updated.
+        <br>When <code>x.V</code> is set to a different value than it had before, then the RVAR is marked as dirty, and all RHTML code that reacts on it will be updated.
     </dd>
     <dt><code class=sourcecode>x.U</code></dt>
     <dd>
         When you modify not the value of a RVAR, but properties of the value, you may want the RVAR to be marked as dirty as well.
-        <br>You can do this by writing <code class=sourcecode>x.U</code> to access the value of the RVAR.
+        <br>You can do this by writing <code class=sourcecode>x.U</code> to get the value of the RVAR.
         <p>E.g., if <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> or <code>x.U[i] = e</code> to add an or modify an array element, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.</p>
         <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the RVAR as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the RVAR will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
         <p>
@@ -332,8 +332,8 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
 <h2>Limitations inflicted by the parser</h2>
 Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
 <ul>
-    <li><b>Re-arranged elements</b>
-        <br>The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently</i> rearrange them if they are not.
+    <li><b>Element arrangement</b>
+        <br>The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently rearrange them</i> if they are not.
         <br>Notably:
         <ul>
             <li>Table-related elements TABLE, THEAD, TBODY, TFOOT, TR may only contain appropriate children.
@@ -344,7 +344,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
     <for let=x of=…>
         <tr> … \{x} … </tr>
     </for>
-</table>`       "></pre>
+</table>`"></pre>
                 , then the (Chromium) parser will move the <elm>for</elm> <i>before</i> the <elm>table</elm>, while leaving the <elm>tr</elm> inside.
                 <br>Thus OtoReact sees:
 <pre #innertext="
@@ -370,7 +370,8 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
 `<p> … 
 <if …><ul> … </ul></if>`
                 "></pre>
-                , without closing the <elm>p</elm>, perhaps because you know the parser will automatically close it when needed, or because you didn't know <elm>ul</elm> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> before the <elm>ul</elm> but <i>after</i> the unknown <elm>if</elm>, and the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
+                , without closing the <elm>p</elm>, perhaps because you know the parser will automatically close it when needed, or because you didn't know block-level element <a href="{MDN}Web/HTML/Element/ul"><elm>ul</elm></a> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> before the <elm>ul</elm> but <i>after</i> the <elm>if</elm>, because <elm>if</elm> is unknown to the parser.
+                <br>So the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
                 <pre #innertext="
 `<p> … <if …></if></p>
 <ul> … </ul>`   "></pre>

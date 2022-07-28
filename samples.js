@@ -111,11 +111,11 @@ function StartStop() {
 </div>`;
 
 const sampleBraces =
-`1 + 1 = {1 + 1}  \\{ Check this }
+`1 + 1 = {1 + 1}  \\{ Check }
 <p>
 Null and undefined are not shown: "{null} {undefined}".
 <br>
-Compare this JavaScript template literal: { \`"\${null} \${undefined}"\` }.
+Compare this JavaScript template literal: "{ \`\${null} \${undefined}\` }".
 <p>
 Tag <{}br> looks better in source code than &lt;br&gt;`;
 
@@ -177,10 +177,10 @@ New participant (Enter):
   Getting "Participants.U" means "Participants" will be marked as changed, even though it is not assigned to. -->`;
 
 const sampleTODO=
-`<script type=otoreact defines=AddItem>
+`<script type=otoreact defines=AddItem,TODO>
     // Define the data model of our todo list
     let TODO = RVAR('TODO',
-        [['Visit Joe', true], ['Fishing',false], ['Sleeping',false]]
+        [['Visit Joe', true], ['Fishing',false], ['Sleeping',false], ['Working',false]]
         , sessionStorage
     );
     // Adding an item to the list
@@ -470,39 +470,39 @@ Contents
 </button>`;
 
 const C1=
-`  <!-- Component signature with parameter -->
-  <repeat #count>
+`<!-- Component signature with parameter -->
+<Repeat #count>
     <!-- Slot signature with parameter -->
     <content #num></content>
-  </repeat>`,
+</Repeat>`,
 C2 =
-`  <!-- Component template -->
-  <TEMPLATE>
-    <for let=i of="range(1,count)">
+`<!-- Component template -->
+<TEMPLATE #count=cnt>
+    <FOR let=i  of="range(1, cnt)">
         <!-- Slot instance -->
         <content #num="i"></content>
-    </for>
-  </TEMPLATE>`,
+    </FOR>
+</TEMPLATE>`,
 C3 =
 `<!-- Component instance -->
-<repeat #count=7>
-  <!-- Slot template -->
-  <content #num>
-    <p>This is <u>paragraph {num}</u>.</p>
-  </content>
-</repeat>`,
+<Repeat #count=7>
+    <!-- Slot template -->
+    <content #num>
+        <p>This is <u>paragraph {num}</u>.</p>
+    </content>
+</Repeat>`,
 C4 =
 `<!-- Component instance and slot instance in one -->
-<repeat #count=7 #num>
+<Repeat #count=7 #num>
     <p>This is <u>paragraph {num}</u>.</p>
-</repeat>`,
+</Repeat>`,
 
 sampleComponent1 =
 `<!-- Component definition -->
 <COMPONENT>
-${C1}
+${Indent(C1,4)}
 
-${C2}
+${Indent(C2,4)}
 </COMPONENT>
 
 

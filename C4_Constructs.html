@@ -349,14 +349,86 @@ specifies that the given content should <i>react on</i> changes to any of the li
     With attribute <code class=sourcecode>renew</code>, the given content will never be updated, but will be removed and rebuilt on every update request.
 </p>
 <p>
-    An <elm>REACT</elm> element without content will not produce any DOM elements, and can be useful to insert <code>oncreate</code> or <code>onupdate</code> handlers in between elements.
+    A <elm>REACT</elm> element without content will not produce any DOM elements, and can be useful to insert <code>oncreate</code> or <code>onupdate</code> handlers in between elements.
 </p>
 
 
 <h2 id=COMPONENT><{}COMPONENT recursive? encapsulate?></h2>
+<p><elm>COMPONENT</elm> defines a new user-defined construct, or custom element.</p>
+
+<p>We start with a gentle introduction into components, which is followed by a full descripion of all concepts and features, and some more examples.</p>
+
+<h3><{}Component> introduction</h3>
+
+<script type="otoreact" defines="signat,templ,compTimes,demoTimes">
+let signat=`<TimesTable #rows #factor></TimesTable>`,
+    templ=
+`<div>
+    <FOR let=x of="range(1, R)">
+        <div>{x} x {F} = {x * F}</div>
+    </FOR>
+</div>`,
+    compTimes =
+`<COMPONENT>
+
+    <SIGNATURE>
+        ${signat}
+    </SIGNATURE>
+
+    <TEMPLATE #rows=R #factor=F>
+${Indent(templ,8)}
+    </TEMPLATE>
+
+</COMPONENT>`,
+
+demoTimes =
+`${compTimes}
+
+Here you have a small times table:
+<TimesTable #rows="5" #factor="2"></TimesTable>
+
+<def rvar=factor store=sessionStorage></def>
 <p>
-<elm>COMPONENT</elm> introduces a new user-defined construct, or custom element.
-<br>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts and local definitions, and a component <i>template</i>:
+    What other times table do you want?
+    <input type=number style="width:8ex" @value="factor.V">
+</p>
+
+<if cond="factor.V > 0">
+    <TimesTable #rows="10" #factor="factor.V"></TimesTable>
+</if>
+`;
+</script>
+
+<p>
+    Suppose one wishes to insert a single multiplication table (or 'times table') on multiple places within one application.
+    <br>Then one could want to define a construct (1):
+<pre #innerhtml='ColorCode(signat)'></pre>
+    that is to be replaced by the output of (2):
+<pre #innerhtml='ColorCode(templ)'></pre>
+where <code>R</code> and <code>F</code> are JavaScript variables representing the values of the construct properties <code>#rows</code> and <code>#factor</code>.
+
+<p>
+    HTML expression (1) is called the component 'signature', RHTML code (2) is called its 'template', and <code>#rows</code> and <code>#factor</code> are called its 'parameters'.
+</p>
+<p>
+    This can be done by writing:
+</p>
+<pre #innerhtml='ColorCode(compTimes)'></pre>
+
+<p>The new construct can subsequently be used like:</p>
+<pre #innerhtml='ColorCode(`<TimesTable #rows="5" #factor="2"></TimesTable>`)'></pre>
+This is called an 'instance' of the construct.
+
+<p>Instances are fully reactive:</p>
+<demo #srctext="demoTimes" #bShow="false"></demo>
+
+<p>
+    The parameters in this example 
+</p>
+
+<h3><{}Component> syntax</h3>
+
+<p>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts, local definitions etc., and finally a component <i>template</i>:
 <pre class=sourcecode>
 <{}COMPONENT recursive? encapsulate?>
 
@@ -381,10 +453,10 @@ specifies that the given content should <i>react on</i> changes to any of the li
         <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and contain blocks of RHTML code (or actually <i>templates</i>) for each slot.
     </li>
     <li>
-        With attribute <code class="sourcecode">recursive</code>, the component can be recursive: the template may contain instances of the component itself. Also see <a href="#MutualRecursion">Mutual recursion</a>.
+        With attribute <code class="sourcecode">recursive</code>, the component can be <i>recursive</i>: the template may contain instances of the component itself. Also see <a href="#MutualRecursion">Mutual recursion</a>.
     </li>
     <li>
-        With attribute <code class="sourcecode">encapsulate</code>, the generated content will be encapsulated, meaning mainly that the component can contain its own styling rules, independent of the main document.
+        With attribute <code class="sourcecode">encapsulate</code>, the generated content will be <i>encapsulated</i>, meaning mainly that the component can contain its own styling rules, independent of the main document.
         See <a href=#Encapsulate>encapsulate</a> for details.
     </li>
     <li>
@@ -403,15 +475,15 @@ specifies that the given content should <i>react on</i> changes to any of the li
 <h3 id=Signatures>Signatures</h3>
 <p>
     The first element inside <elm>COMPONENT</elm> is its signature.
-    <br>It is optionally surrounded by <elm>SIGNATURE</elm>.
+    <br>It is <em>optionally</em> surrounded by <elm>SIGNATURE</elm>.
     <br>E.g.:
     <pre #innerHTML="ColorCode(C1)"></pre>
     <ul>
         <li>
-            The tag name of the signature element ('repeat' in this example) defines the name of the component.
+            The tag name of the signature element ('Repeat' in this example) defines the (case-insensitive) name of the component.
         </li>
         <li>
-            Attributes like <code><i>name</i></code>, <code>#<i>name</i></code>, or <code>@<i>name</i></code> of the signature element define the parameters of the component.
+            Attributes like <code><i>name</i></code>, <code>#<i>name</i></code>, or <code>@<i>name</i></code> of the signature element define the <b>parameters</b> of the component.
             <br>Instances of the component must have the same attributes, and these correspond to local variables inside the component template.
             <p>There are special cases:</p>
             <ul>
@@ -419,8 +491,8 @@ specifies that the given content should <i>react on</i> changes to any of the li
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> define <b>optional parameters</b>.
                     <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default.
                     <p>
-                        An empty <i>string</i>: <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
-                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>: <code>#<i>name</i>=" '' "</code>.
+                        An empty string <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
+                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>, like: <code>#<i>name</i>=" '' "</code>.
                     </p>
                     <p>The default default value is <code>undefined</code>.</p>
                 </li>
@@ -446,7 +518,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
                 <br>The slots are available <i>as constructs</i> within the component template.
             </p>
             <p>
-                When building a component instance, the content of any instance child element that matches a slot becomes the (slot) template for the slot instances within the component template
+                When building a component instance, the content of any instance child element that matches a slot name becomes the (slot) template for the slot instances within the component template
             </p>
             <p>
                 As slots have signatures, they can have parameters and slots themselves.
@@ -459,7 +531,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
 </p>
 
 <h3 id=Templates>Templates</h3>
-The component template is tagged <elm>template</elm>. E.g.:
+The component template is tagged <elm>TEMPLATE</elm>, and must be the last element child of <elm>\COMPONENT</elm>. E.g.:
 <pre #innerHTML="ColorCode(C2)"></pre>
 <ul>
     <li>
@@ -516,14 +588,14 @@ The component instance may contain templates for each of the slots of the compon
     </li>
     <li>There may be multiple templates for the same slot. By default these are concatenated.</li>
     <li>
-        When the component signature contains a slot named <elm>content</elm>, then all content of the component instance that is not some (other) slot template, forms a template for this content slot
+        When the component signature contains the special slot name <elm>content</elm>, then all content of the component instance that is not some (other) slot template, forms a template for the <elm>content</elm> slot.
     </li>
 </ul>
 
 Now in this case, the slot is named <elm>content</elm> indeed, so we can shorten the component instance to:
 <pre #innerHTML="ColorCode(C4)"></pre>
 </pre>
-Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the slot parameter name <code>#num</code>.
+Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the <elm>content</elm> slot parameter name <code>#num</code>.
 
 <p>Putting it all together, we get:</p>
 <demo #srctext=sampleComponent1></demo>
@@ -535,8 +607,9 @@ With the attribute <code class="sourcecode">recursive</code>, the component temp
     <i>Mutual recursion</i> between components means a series of <u>multiple</u> component definitions that may contain <u>instances of each other</u>.
 </p>
 <p>
-    Mutual recursion is possible by combining multiple signatures and templates within a single <elm>COMPONENT</elm> construct, like this:
+    Mutual recursion is possible by combining multiple signatures and multiple templates within a single <elm>COMPONENT</elm> definition, like this:
 <pre #innerHTML="ColorCode(`<COMPONENT recursive>
+
     <SIGNATURES>
         <comp1 …> … </comp1>
         …
@@ -548,17 +621,17 @@ With the attribute <code class="sourcecode">recursive</code>, the component temp
         …
         <compn …> … </compn>
     </TEMPLATES>
+
 </COMPONENT>`)"></pre>
 Notes:
 <ul>
     <li>Each template is tagged by its component name.</li>
     <li>There must be exactly one template for each signature.</li>
-    <li>When component parameters are repeated, they should be attached to the specific component name tag.</li>
     <li>This form of defining multiple components at once is possible for non-recursive components as well.</li>
 </ul>
 
 
-<h3 id=Encapsulate>Encapsulate</h3>
+<h3 id=Encapsulate>Encapsulate*</h3>
 The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">encapsulate</code>.
 <ul>
     <li>
@@ -600,7 +673,7 @@ Here is a to-do application, which splits the collection of items into those don
 </demo>
 To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 
-<h4>Slots within slots</h4>
+<h4>Slots within slots*</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
     <br>This is particularly useful for components with a <elm>CONTENT</elm> slot. The component may provide new or redefined constructs, that are available only within the contents of component instances, and that may provide interaction with the component.
 </p>
@@ -609,7 +682,7 @@ To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 </p>
 
 
-<h4>A radio group component</h4>
+<h4>A radio group component*</h4>
 HTML provides radio buttons <elm>input type=radio</elm> bearing a name and a fixed value, and buttons with the same name constitute a group.
 <br>When they are within a <elm>form</elm>, and the form is submitted to the web server, then the value of the currently selected button within each group is sent to the server.
 
@@ -769,7 +842,7 @@ Furthermore:
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
-<h2 id=RHTML><{}RHTML #srctext></h2>
+<h2 id=RHTML><{}RHTML #srctext>*</h2>
 <code class=sourcecode><elm>RHTML #srctext="<i>sourceExpr</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
 <p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
@@ -787,14 +860,14 @@ In the following demo you can enter a piece of (R)HTML and compare how it is par
 <demo #srcText=demoRendering></demo>
 
 
-<h2 id=RHEAD><{}RHEAD></h2>
+<h2 id=RHEAD><{}RHEAD>*</h2>
 Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the current document header, and are updated or removed as needed.
 <p>
     You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
 </p>
 
 
-<h2 id=DOCUMENT><{}DOCUMENT></h2>
+<h2 id=DOCUMENT><{}DOCUMENT>*</h2>
 <pre class=sourcecode>
     <{}DOCUMENT name=<i>docName</i> params?="<i>nameList</i>" window?=<i>windowVar</i> encapsulate?>
         <i>content</i>
