@@ -353,12 +353,12 @@ specifies that the given content should <i>react on</i> changes to any of the li
 </p>
 
 
-<h2 id=COMPONENT><{}COMPONENT recursive? encapsulate?></h2>
+<h2>Introduction to 'components'</h2>
 <p><elm>COMPONENT</elm> defines a new user-defined construct, or custom element.</p>
 
 <p>We start with a gentle introduction into components, which is followed by a full descripion of all concepts and features, and some more examples.</p>
 
-<h3><{}Component> introduction</h3>
+<h3>Signatures, templates, and instances</h3>
 
 <script type="otoreact" defines="signat,templ,compTimes,demoTimes">
 let signat=`<TimesTable #rows #factor></TimesTable>`,
@@ -411,7 +411,7 @@ where <code>R</code> and <code>F</code> are JavaScript variables representing th
     HTML expression (1) is called the component 'signature', RHTML code (2) is called its 'template', and <code>#rows</code> and <code>#factor</code> are called its 'parameters'.
 </p>
 <p>
-    This can be done by writing:
+    The construct can be defined by writing:
 </p>
 <pre #innerhtml='ColorCode(compTimes)'></pre>
 
@@ -422,11 +422,38 @@ This is called an 'instance' of the construct.
 <p>Instances are fully reactive:</p>
 <demo #srctext="demoTimes" #bShow="false"></demo>
 
-<p>
-    The parameters in this example 
+
+<h3>Parameters</h3>
+There are several kinds of parameters, like interpolated strings, JavaScript expressions, event handlers, two-way parameters. These are further described described in the section on <a href="#Signatures">Signatures</a>.
+
+<p>In all cases, parameters represent <i>data</i>.</p>
+
+<h3>Slots</h3>
+Besides parameters, components can have <i>slots</i>.
+<p>Slots represent not data, but a small or large <i>document part
+    
+</i>, including document markup, or even a reactive sub-application.
+<br>A component slot is like a placeholder, to be filled by the user of the component. So an instance of the component must provide definitions of the actual values of the component slots. These definitions are actually templates just like component templates.
 </p>
 
-<h3><{}Component> syntax</h3>
+<p>Slots can have parameters and slots themselves ('subslots'). So a slot is itself characterized by a signature, just as a component.</p>
+
+<p>Inside a component, slots can be instantiated just like used-defined constructs. So in OtoReact, we have three types of constructs:</p>
+<ul>
+    <li>Those defined by OtoReact itself, like <elm>DEFINE</elm>, <elm>CASE</elm>, and <elm>COMPONENT</elm></li>
+    <li>Constructs defined by the user by means of <elm>COMPONENT</elm></li>
+    <li>Inside a (component or slot) template: constructs corresponding to the slots of the construct that's being defined by the template</li>
+</ul>
+
+<p>Now note:</p>
+<ul>
+    <li>A construct signature contains a signature of each contruct slot</li>
+    <li>A construct template can contain instances of each construct slot</li>
+    <li>A construct instance can contain templates for each construct slot</li>
+</ul>
+
+
+<h2 id=COMPONENT><{}COMPONENT recursive? encapsulate?></h2>
 
 <p>A component definition consists of a component <i>signature</i>, optionally one or more style sheets, scripts, local definitions etc., and finally a component <i>template</i>:
 <pre class=sourcecode>
@@ -581,7 +608,7 @@ The component instance may contain templates for each of the slots of the compon
         Slot templates are tagged by the slot name (not by <elm>template</elm>)
     </li>
     <li>
-        Slot templates must be immediate children of the component instance. They are fixed at compile time, so they cannot be inside a <elm>CASE</elm> or some other construct.
+        Slot templates must be direct children of the component instance. They are to be recognized at compile time, so they cannot be inside a <elm>CASE</elm> or some other construct.
     </li>
     <li>
         When the slot signature contains parameters, then these names <u>must</u> be repeated in the slot template tag.
@@ -611,15 +638,15 @@ With the attribute <code class="sourcecode">recursive</code>, the component temp
 <pre #innerHTML="ColorCode(`<COMPONENT recursive>
 
     <SIGNATURES>
-        <comp1 …> … </comp1>
+        <Comp1 …> … </Comp1>
         …
-        <compn …> … </compn>
+        <Compn …> … </Compn>
     </SIGNATURES>
     …
     <TEMPLATES>
-        <comp1 …> … </comp1>
+        <Comp1 …> … </Comp1>
         …
-        <compn …> … </compn>
+        <Compn …> … </Compn>
     </TEMPLATES>
 
 </COMPONENT>`)"></pre>
@@ -647,7 +674,7 @@ The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">enca
             <br>Styling rules and inline styles specifically targeted at the custom element, however, are inherited by the encapsulated content.
         </p>
         <p>
-            The generated custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
+            The internally generated custom element name is <a href="https://html.spec.whatwg.org/multipage/custom-elements.html#valid-custom-element-name">required to contain a hyphen</a>.
             If the component name does not already contain a hyphen, then a prefix 'rhtml-' is prepended.
             <br>This concerns the generated output only, component instances use just the component name, but styling rules targeted at the custom element must use the prefix.
         </p>
