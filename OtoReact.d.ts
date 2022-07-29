@@ -141,10 +141,8 @@ declare class RCompiler {
     private CompDefine;
     private ParseSignat;
     private CompComponent;
-    private CompTemplate;
+    private CompTempl;
     private CompInstance;
-    static regBlock: RegExp;
-    static regInline: RegExp;
     private CompHTMLElement;
     private CompAttribs;
     private CompStyle;

@@ -1377,7 +1377,7 @@ class RCompiler {
         return signat;
     }
     async CompComponent(srcElm, atts) {
-        let bldr, bEncaps = atts.getB('encapsulate'), bRecurs = atts.getB('recursive'), { wspc } = this, signats = [], templates = [], save = this.SaveCont();
+        let bldr, bRecurs = atts.getB('recursive'), { wspc } = this, signats = [], templates = [], { head } = this, encStyles = atts.getB('encapsulate') && (this.head = srcElm.ownerDocument.createDocumentFragment()).children, save = this.SaveCont();
         try {
             let arr = Array.from(srcElm.children), elmSign = arr.shift() || thrower('Missing signature(s)'), elmTempl = arr.pop();
             if (!elmTempl || !/^TEMPLATES?$/.test(elmTempl.nodeName))
@@ -1391,14 +1391,14 @@ class RCompiler {
                 this.AddConstructs(signats);
             bldr = await this.CompIter(srcElm, arr);
             let mapS = new Map(signats.map(S => [S.nm, S]));
-            async function AddTemp(C, nm, prnt, elm) {
+            async function AddTemp(RC, nm, prnt, elm) {
                 let S = mapS.get(nm);
                 if (!S)
                     throw `<${nm}> has no signature`;
-                templates.push({ nm, templates: [await C.CompTemplate(S, prnt, elm, 0, bEncaps, [])] });
+                templates.push({ nm, templates: [await RC.CompTempl(S, prnt, elm, 0, encStyles)] });
                 mapS.delete(nm);
             }
-            if (/S$/.test(elmTempl.nodeName))
+            if (/S/.test(elmTempl.nodeName))
                 for (let elm of elmTempl.children)
                     await AddTemp(this, elm.localName, elm, elm);
             else
@@ -1408,6 +1408,7 @@ class RCompiler {
         }
         finally {
             this.RestoreCont(save);
+            this.head = head;
         }
         this.AddConstructs(signats);
         this.wspc = wspc;
@@ -1429,7 +1430,7 @@ class RCompiler {
                 constr.forEach(DefConstr);
         };
     }
-    async CompTemplate(signat, contentNode, srcElm, bIsSlot, bEncaps, styles, atts) {
+    async CompTempl(signat, contentNode, srcElm, bIsSlot, encStyles, atts) {
         let saved = this.SaveCont();
         try {
             let myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.NewV((myAtts.get(mode + nm) ?? myAtts.get(nm, bIsSlot)) || nm)]);
@@ -1450,10 +1451,10 @@ class RCompiler {
                         lv(arg);
                         i++;
                     }
-                    if (bEncaps) {
+                    if (encStyles) {
                         let { rng: elmRange, childArea, bInit } = PrepElm(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
                         if (bInit)
-                            for (let style of styles)
+                            for (let style of encStyles)
                                 shadow.appendChild(style.cloneNode(true));
                         if (signat.RestParam)
                             ApplyMod(elm, 8, N, args[signat.RestParam.nm], bInit);
@@ -1477,9 +1478,9 @@ class RCompiler {
     async CompInstance(srcElm, atts, signat) {
         if (signat.prom)
             await signat.prom;
-        let { nm, RestParam } = signat, contSlot = signat.Slots.get('contents') || signat.Slots.get('content'), getArgs = [], slotBldrs = new Map();
+        let { nm, RestParam } = signat, contSlot = signat.Slots.get('contents') || signat.Slots.get('content'), getArgs = [], SBldrs = new Map();
         for (let nm of signat.Slots.keys())
-            slotBldrs.set(nm, []);
+            SBldrs.set(nm, []);
         for (let { mode, nm, pDflt } of signat.Params)
             if (mode == '@') {
                 let attVal = atts.get(mode + nm, !pDflt);
@@ -1497,11 +1498,11 @@ class RCompiler {
         let slotElm, slot;
         for (let node of Array.from(srcElm.children))
             if (slot = signat.Slots.get((slotElm = node).localName)) {
-                slotBldrs.get(slotElm.localName).push(await this.CompTemplate(slot, slotElm, slotElm, 1));
+                SBldrs.get(slotElm.localName).push(await this.CompTempl(slot, slotElm, slotElm, 1));
                 srcElm.removeChild(node);
             }
         if (contSlot)
-            slotBldrs.get(contSlot.nm).push(await this.CompTemplate(contSlot, srcElm, srcElm, 1, 0, N, atts));
+            SBldrs.get(contSlot.nm).push(await this.CompTempl(contSlot, srcElm, srcElm, 1, N, atts));
         if (RestParam) {
             let modifs = this.CompAttribs(atts);
             getArgs.push([RestParam.nm,
@@ -1525,7 +1526,7 @@ class RCompiler {
             env = cdef.CEnv;
             try {
                 for (let template of cdef.templates)
-                    await template.call(this, sub, args, slotBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
+                    await template.call(this, sub, args, SBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
             }
             finally {
                 env = IEnv;
@@ -1538,9 +1539,9 @@ class RCompiler {
             this.wspc = 4;
             postWs = 1;
         }
-        else if (RCompiler.regBlock.test(nm))
+        else if (regBlock.test(nm))
             postWs = this.wspc = this.rspc = 1;
-        else if (RCompiler.regInline.test(nm)) {
+        else if (regInline.test(nm)) {
             this.wspc = this.rspc = 1;
             postWs = 3;
         }
@@ -1811,8 +1812,6 @@ class RCompiler {
 }
 RCompiler.iNum = 0;
 RCompiler.genAtts = /^#?(?:((?:this)?reacts?on)|on((?:create|update|destroy)+)|on((error)-?|success))$/;
-RCompiler.regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
-RCompiler.regInline = /^(button|input|img)$/;
 export async function RFetch(input, init) {
     let r = await gFetch(input, init);
     if (!r.ok)
@@ -1924,12 +1923,10 @@ class Atts extends Map {
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-let altProps = { "class": "className", valueAsNumber: "value" }, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z', regCapit = new RegExp(`(html|uri)|(${words})|.`, "g");
+let altProps = { "class": "className", valueAsNumber: "value" }, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z', regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/, regInline = /^(button|input|img)$/, regCapit = new RegExp(`(html|uri)|(${words})|.`, "g");
 function CheckIdentifier(nm) {
-    if (!regIdent.test(nm))
-        throw `Invalid identifier '${nm}'`;
-    if (regReserv.test(nm))
-        throw `Reserved keyword '${nm}'`;
+    regIdent.test(nm) || thrower(`Invalid identifier '${nm}'`);
+    regReserv.test(nm) && thrower(`Reserved keyword '${nm}'`);
     return nm;
 }
 function CapitalProp(lcName) {

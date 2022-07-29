@@ -195,7 +195,7 @@ const sampleTODO=
 <!-- Define a component, showing a filtered list of to-do-items, with a caption -->
 <component>
     <!-- This is the component signature -->
-    <itemlist caption bDone></itemlist>
+    <ItemList caption bDone></ItemList>
 
     <template>
         <p><b>{caption}</b></p>
@@ -214,8 +214,8 @@ const sampleTODO=
 </component>
 
 <!-- Now we create two instances: one list of undone items and one list of completed items -->
-<itemlist caption='To do:' #bDone=false></itemlist>
-<itemlist caption='Done:'  #bDone=true ></itemlist>
+<ItemList caption='To do:' #bDone=false></ItemList>
+<ItemList caption='Done:'  #bDone=true ></ItemList>
 
 <!-- Adding an item -->
 <p>
@@ -226,14 +226,14 @@ const sampleTODO=
 
 const sampleRecursion=
 `<component recursive>
-  <showList #arg></showList>
+  <ShowList #arg></ShowList>
 
   <style>
-      .showList {
+      .ShowList {
           display: flex; flex-wrap: wrap; align-items: center;
           background-color: gray;
       }
-      .showList > div {
+      .ShowList > div {
           background-color: #f1f1f1;
           margin: 4px; padding: 8px; font-size: 18px;
       }
@@ -242,11 +242,11 @@ const sampleRecursion=
   <template>
       <case>
           <when cond="Array.isArray(arg)">
-              <div class=showList>
+              <div class=ShowList>
                   <for let=item of=arg>
                       <div>
                           <!-- Recursive invocation -->
-                          <showList #arg=item></showList>
+                          <ShowList #arg=item></ShowList>
                       </div>
                   </for>
               </div>
@@ -263,7 +263,7 @@ const sampleRecursion=
     store=sessionStorage
 ></define>
 <p>JavaScript list: <input type=text @value="list.V" size=35></p>
-<showList #arg="eval(list.V)"></showList>
+<ShowList #arg="eval(list.V)"></ShowList>
 <p>You can modify the list definition above and see the result.</p>`;
 
 const sampleRedefineA =
@@ -291,26 +291,26 @@ const sampleA =
 
 const sampleTableMaker =
 `<component>
-    <TABLEMAKER datasource ...rest>
+    <TableMaker datasource ...rest>
         <!-- One column header definition -->
-        <HDEF></HDEF>
+        <HDef></HDef>
         <!-- One column detail definition -->
-        <DDEF item></DDEF>
-    </TABLEMAKER>
+        <DDef item></DDef>
+    </TableMaker>
 
     <template>
         <table. ...rest>
             <!-- Header row -->
             <tr.>
-                <for of=HDEF>
-                    <th.><HDEF></HDEF></th.>
+                <for of=HDef>
+                    <th.><HDef></HDef></th.>
                 </for>
             </tr.>
             <!-- Detail rows -->
             <for let=rec of='datasource'>
                 <tr.>
-                    <for of=DDEF>
-                        <td.><DDEF #item=rec></DDEF></td.>
+                    <for of=DDef>
+                        <td.><DDef #item=rec></DDef></td.>
                     </for>
                 </tr.>
             </for>
@@ -327,15 +327,15 @@ const sampleTableMaker =
 </script>
 
 <!-- Now the actual table definition: -->
-<tablemaker #datasource='tableData'>
+<TableMaker #datasource='tableData'>
     <!-- First column -->
-    <HDEF>Naam</HDEF>
-    <DDEF item>{item.name}</DDEF>
+    <HDef>Naam</HDef>
+    <DDef item>{item.name}</DDef>
 
     <!-- Second column -->
-    <HDEF>Leeftijd</HDEF>
-    <DDEF item>{item.age}</DDEF>
-</tablemaker>`;
+    <HDef>Leeftijd</HDef>
+    <DDef item>{item.age}</DDef>
+</TableMaker>`;
 
 const sampleTicTacToe = 
 `<!-- By using a local script, multiple instances of this game will have their own state -->

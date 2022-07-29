@@ -1854,11 +1854,12 @@ class RCompiler {
     private async CompComponent(srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
         let bldr: DOMBuilder,
-            bEncaps = atts.getB('encapsulate'),
             bRecurs = atts.getB('recursive'),
             {wspc} = this
             , signats: Array<Signature> = []
             , templates: Array<ConstructDef> = []
+            , {head}=this
+            , encStyles = atts.getB('encapsulate') && (this.head = srcElm.ownerDocument.createDocumentFragment()).children
             , save = this.SaveCont();
 
         try {
@@ -1881,13 +1882,13 @@ class RCompiler {
             bldr = await this.CompIter(srcElm, arr)
             
             let mapS = new Map<string, Signature>(signats.map(S => [S.nm, S]));
-            async function AddTemp(C: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
+            async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
                 let S = mapS.get(nm);
                 if (!S) throw `<${nm}> has no signature`;
-                templates.push({nm, templates: [ await C.CompTemplate(S, prnt, elm, 0, bEncaps, []) ]})
+                templates.push({nm, templates: [ await RC.CompTempl(S, prnt, elm, 0, encStyles) ]})
                 mapS.delete(nm);
             }
-            if (/S$/.test(elmTempl.nodeName))
+            if (/S/.test(elmTempl.nodeName))
                 for (let elm of elmTempl.children as Iterable<HTMLElement>)
                     await AddTemp(this, elm.localName, elm, elm);
             else
@@ -1895,7 +1896,7 @@ class RCompiler {
             for (let nm of mapS.keys())
                 throw `Signature <${nm}> has no template`;
         }
-        finally { this.RestoreCont(save); }
+        finally { this.RestoreCont(save); this.head = head; }
 
         this.AddConstructs(signats);
 
@@ -1922,8 +1923,8 @@ class RCompiler {
         };
     }
 
-    private async CompTemplate(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
-        bIsSlot: bool, bEncaps?: bool, styles?: Node[], atts?: Atts
+    private async CompTempl(signat: Signature, contentNode: ParentNode, srcElm: HTMLElement, 
+        bIsSlot: bool, encStyles?: Iterable<Node>, atts?: Atts
     ): Promise<Template>
     {
         let 
@@ -1962,12 +1963,12 @@ class RCompiler {
                         i++;
                     }
 
-                    if (bEncaps) {
+                    if (encStyles) {
                         let {rng: elmRange, childArea, bInit} = PrepElm(srcElm, area, customName), 
                             elm = elmRange.node,
                             shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
                         if (bInit)
-                            for (let style of styles)
+                            for (let style of encStyles)
                                 shadow.appendChild(style.cloneNode(true));
                         
                         if (signat.RestParam)
@@ -1994,10 +1995,10 @@ class RCompiler {
         let {nm, RestParam} = signat,
             contSlot = signat.Slots.get('contents') || signat.Slots.get('content'),
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
-            slotBldrs = new Map<string, Template[]>();
+            SBldrs = new Map<string, Template[]>();
 
         for (let nm of signat.Slots.keys())
-            slotBldrs.set(nm, []);
+            SBldrs.set(nm, []);
 
         for (let {mode, nm, pDflt} of signat.Params)
             if (mode=='@') {
@@ -2018,15 +2019,15 @@ class RCompiler {
         let slotElm: HTMLElement, slot: Signature;
         for (let node of Array.from(srcElm.children))
             if (slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName)) {
-                slotBldrs.get(slotElm.localName).push(
-                    await this.CompTemplate(slot, slotElm, slotElm, 1)
+                SBldrs.get(slotElm.localName).push(
+                    await this.CompTempl(slot, slotElm, slotElm, 1)
                 );
                 srcElm.removeChild(node);
             }
             
         if (contSlot)
-            slotBldrs.get(contSlot.nm).push(
-                await this.CompTemplate(contSlot, srcElm, srcElm, 1, 0, N, atts)
+            SBldrs.get(contSlot.nm).push(
+                await this.CompTempl(contSlot, srcElm, srcElm, 1, N, atts)
             );
 
         if (RestParam) {
@@ -2061,14 +2062,12 @@ class RCompiler {
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
                 for (let template of cdef.templates) 
-                    await template.call(this, sub, args, slotBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
+                    await template.call(this, sub, args, SBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
             }
             finally {env = IEnv;}
         }
     }
 
-    static regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/;
-    static regInline = /^(button|input|img)$/;
     private async CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
         // Remove trailing dots
         let nm = srcElm.localName.replace(/\.+$/, ''),
@@ -2078,10 +2077,10 @@ class RCompiler {
         if (this.mPreformatted.has(nm)) {
             this.wspc = WSpc.preserve; postWs = WSpc.block;
         }
-        else if (RCompiler.regBlock.test(nm))
+        else if (regBlock.test(nm))
             postWs = this.wspc = this.rspc = WSpc.block;
         
-        else if (RCompiler.regInline.test(nm)) {  // Inline-block
+        else if (regInline.test(nm)) {  // Inline-block
             this.wspc = this.rspc = WSpc.block;
             postWs = WSpc.inline;
         }
@@ -2547,25 +2546,32 @@ class Atts extends Map<string,string> {
     }
 }
 
-let altProps = {"class": "className", valueAsNumber: "value"}
+let // Property namesto be replaced
+    altProps = {"class": "className", valueAsNumber: "value"}
+    // Valid identifiers
     , regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+    // Reserved words
     , regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/
 // Capitalization of event names, element property names, and style property names.
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
     , words = 'access|active|align|animation|aria|as|backface|background|basis|blend|border|bottom|box|bounding|break|caption|caret|character|child|class|client|clip|column|(?:col|row)(?=span)|content|counter|css|decoration|default|design|document|element|empty|feature|fill|first|flex|font|form|get|grid|hanging|image|inner|input(?=mode)|^is|hanging|last|left|letter|line|list|margin|^max|^min|^nav|next|node|object|offset|outer|outline|overflow|owner|padding|page|parent|perspective|previous|ready?|right|size|rule|scroll|selected|selection|table|tab(?=index)|tag|text|top|transform|transition|unicode|user|validation|value|variant|vertical|white|will|word|^z'
-// Not: auto, on
-// Beware of spcial cases like "inputmode" and "tabindex"
-// "valueAsNumber" has "as" as word, but "basis" not
-// Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
+    // Elements that trigger block mode; whitespace before/after is irrelevant
+    , regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/
+    // Elements that trigger inline mode
+    , regInline = /^(button|input|img)$/
+
+    // Used by
+    // Not: auto, on
+    // Beware of spcial cases like "inputmode" and "tabindex"
+    // "valueAsNumber" has "as" as word, but "basis" not
+    // Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
     , regCapit = new RegExp(`(html|uri)|(${words})|.`, "g");
 
 function CheckIdentifier(nm: string) {
     // Anders moet het een geldige JavaScript identifier zijn
-    if (!regIdent.test(nm) )
-        throw `Invalid identifier '${nm}'`;
-    if (regReserv.test(nm))
-        throw `Reserved keyword '${nm}'`;
+    regIdent.test(nm) || thrower(`Invalid identifier '${nm}'`);
+    regReserv.test(nm) && thrower(`Reserved keyword '${nm}'`);
     return nm;
 }
 

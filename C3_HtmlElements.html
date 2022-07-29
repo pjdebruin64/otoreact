@@ -71,7 +71,7 @@ Notes:
         <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
     </li>
     <li>
-        When the handler initiates an asynchronous operation, it may <code>return</code> the resulting Promise. If the asynchronous operation would fail, the error can be caught by an <a href=#onerror>RHTML onerror handler</a>.
+        When the handler initiates an asynchronous operation, it may <code>return</code> the resulting Promise. If such a Promise fails, the error will be caught by an <a href=#onerror>RHTML onerror handler</a>.
     </li>
 </ul>
 
