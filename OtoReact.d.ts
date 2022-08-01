@@ -99,7 +99,7 @@ declare class RCompiler {
     private StyleBefore;
     FilePath: string;
     RootElm: ParentNode;
-    constructor(RC?: RCompiler, bClr?: bool);
+    constructor(RC?: RCompiler, FilePath?: string, bClr?: bool);
     private restoreActions;
     private SaveCont;
     private RestoreCont;

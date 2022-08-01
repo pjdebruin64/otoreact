@@ -312,9 +312,10 @@ class Signature {
         public srcElm: Element,
         public bIsSlot: bool
     ){ 
-        this.nm = srcElm.localName;
+        [, this.nm, this.x] = /(.*?)[?*+]?$/.exec(srcElm.localName);
     }
     public nm: string;
+    public x: string;
     public prom: Promise<any>;
     public Params: Array<Parameter> = [];
     public RestParam: Parameter = N;
@@ -501,11 +502,12 @@ class RCompiler {
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
     constructor(
         RC?: RCompiler,
+        FilePath?: string,
         bClr?: bool
     ) { 
         this.Settings   = RC ? {...RC.Settings} : {...defaultSettings};
         this.RC = RC ||= this;
-        this.FilePath   = RC.FilePath;
+        this.FilePath  = FilePath || RC.FilePath;
         this.head  = RC.head || document.head;
         if (bClr) RC=this;
         this.context    = RC?.context || "";
@@ -1072,9 +1074,8 @@ class RCompiler {
                         else {
                             let src = atts.get('src', 1)
                             // Placeholder that will contain a Template when the file has been received
-                                , C: RCompiler = new RCompiler(this)
+                                , C: RCompiler = new RCompiler(this, this.GetPath(src))
                                 , task = (async () => {
-                                    C.FilePath = this.GetPath(src);
                                     // Parse the contents of the file
                                     // Compile the parsed contents of the file in the original context
                                     await C.Compile(N, {bRunScripts: true}, await this.fetchModule(src));
@@ -1106,9 +1107,8 @@ class RCompiler {
                         this.AddConstructs(listImports);
                             
                         if (!promModule) {
-                            let C = new RCompiler(this, 1);
+                            let C = new RCompiler(this, this.GetPath(src), 1);
                             C.Settings.bRunScripts = true;
-                            C.FilePath = this.GetPath(src);
 
                             promModule = this.fetchModule(src).then(async nodes => {
                                 let bldr = (await C.CompIter(N, nodes)) || dumB;
@@ -1197,10 +1197,9 @@ class RCompiler {
                                 let shadowRoot = node.shadowRoot || node.attachShadow({mode: 'open'}),
                                     tempElm = document.createElement('rhtml'),
                                     svEnv = env,
-                                    R = new RCompiler();
+                                    R = new RCompiler(N, this.FilePath);
 
                                 try {
-                                    R.FilePath = this.FilePath;
                                     (R.head = shadowRoot).innerHTML = '';
                                     tempElm.innerHTML = srctext;
                                     await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, tempElm.childNodes);
@@ -1870,11 +1869,8 @@ class RCompiler {
             if (!elmTempl || !/^TEMPLATES?$/.test(elmTempl.nodeName))
                 throw 'Missing template(s)';
 
-            if(/^SIGNATURES?$/.test(elmSign.nodeName))
-                for (let elm of elmSign.children)
-                    signats.push(this.ParseSignat(elm));
-            else
-                signats.push(this.ParseSignat(elmSign));
+            for (let elm of /^SIGNATURES?$/.test(elmSign.nodeName) ? elmSign.children : [elmSign])
+                signats.push(this.ParseSignat(elm));
 
             if (bRecurs)
                 this.AddConstructs(signats);

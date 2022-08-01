@@ -259,10 +259,10 @@ const sampleRecursion=
 </component>   
 
 <define rvar=list 
-    value="[1, [2,3], [4,[41,[[[42]]]], 5], 'Otolift']"
+    value="[1, [2,3], [4,[41,[[42]]], 5, 'Otolift']]"
     store=sessionStorage
 ></define>
-<p>JavaScript list: <input type=text @value="list.V" size=35></p>
+<p>JavaScript list: <input type=text @value="list.V" size=30></p>
 <ShowList #arg="eval(list.V)"></ShowList>
 <p>You can modify the list definition above and see the result.</p>`;
 
@@ -329,11 +329,11 @@ const sampleTableMaker =
 <!-- Now the actual table definition: -->
 <TableMaker #datasource='tableData'>
     <!-- First column -->
-    <HDef>Naam</HDef>
+    <HDef>Name</HDef>
     <DDef item>{item.name}</DDef>
 
     <!-- Second column -->
-    <HDef>Leeftijd</HDef>
+    <HDef>Age</HDef>
     <DDef item>{item.age}</DDef>
 </TableMaker>`;
 
@@ -709,7 +709,7 @@ const demoTables =
   }
 </style>
 
-<DEF rvar=maxY #value=7  store=sessionStorage></DEF>
+<DEF rvar=maxY #value=6  store=sessionStorage></DEF>
 <DEF rvar=maxX #value=10 store=sessionStorage></DEF>
 
 <div class=multi>

@@ -180,9 +180,6 @@
                 </section>
             </pageLayout>
         </when>
-        <when match="components">
-            <include src="P2_Components.html"></include>
-        </when> 
         <when match="routing">
             <include src="P3_Routing.html"></include>
         </when> 

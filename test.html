@@ -2,21 +2,15 @@
 <html>
     <head>
         <script type=module src="OtoReact.js"></script>
-        <script type="module">
-            let yourName=RVAR('yourName')
         </script>
     </head>
     <body hidden type=rhtml>
-        <!-- Here goes your RHTML -->
-        <p>
-            What's your name?
-            <input type=text @value="yourName.V">
-        </p>
-        <if cond="yourName.V" reacton="yourName">
-            <p>
-                Nice to meet you, {yourName.V}.
-                <br>By the way, your name consists of {yourName.V.length} characters.
-            </p>
-        </if>
+        <component>
+            <T?></T?>
+
+            <template>OK</template>
+        </component>
+
+        <T></T>
     </body>
 </html>

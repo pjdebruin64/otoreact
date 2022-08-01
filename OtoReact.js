@@ -183,7 +183,7 @@ class Signature {
         this.Params = [];
         this.RestParam = N;
         this.Slots = new Map();
-        this.nm = srcElm.localName;
+        [, this.nm, this.x] = /(.*?)[?*+]?$/.exec(srcElm.localName);
     }
     IsCompatible(sig) {
         if (!sig)
@@ -303,7 +303,7 @@ function DefConstr(C) {
 }
 let updCnt = 0;
 class RCompiler {
-    constructor(RC, bClr) {
+    constructor(RC, FilePath, bClr) {
         this.num = RCompiler.iNum++;
         this.cRvars = new Map();
         this.restoreActions = [];
@@ -315,7 +315,7 @@ class RCompiler {
         this.srcNodeCnt = 0;
         this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
         this.RC = RC || (RC = this);
-        this.FilePath = RC.FilePath;
+        this.FilePath = FilePath || RC.FilePath;
         this.head = RC.head || document.head;
         if (bClr)
             RC = this;
@@ -772,8 +772,7 @@ class RCompiler {
                             bldr = await this.CompChildNodes(srcElm);
                         }
                         else {
-                            let src = atts.get('src', 1), C = new RCompiler(this), task = (async () => {
-                                C.FilePath = this.GetPath(src);
+                            let src = atts.get('src', 1), C = new RCompiler(this, this.GetPath(src)), task = (async () => {
                                 await C.Compile(N, { bRunScripts: true }, await this.fetchModule(src));
                             })();
                             bldr =
@@ -794,9 +793,8 @@ class RCompiler {
                             }
                             this.AddConstructs(listImports);
                             if (!promModule) {
-                                let C = new RCompiler(this, 1);
+                                let C = new RCompiler(this, this.GetPath(src), 1);
                                 C.Settings.bRunScripts = true;
-                                C.FilePath = this.GetPath(src);
                                 promModule = this.fetchModule(src).then(async (nodes) => {
                                     let bldr = (await C.CompIter(N, nodes)) || dumB;
                                     for (let clientSig of listImports) {
@@ -859,9 +857,8 @@ class RCompiler {
                                 ApplyMods(node, modifs, bInit);
                                 if (area.prevR || srctext != rng.result) {
                                     rng.result = srctext;
-                                    let shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), svEnv = env, R = new RCompiler();
+                                    let shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), svEnv = env, R = new RCompiler(N, this.FilePath);
                                     try {
-                                        R.FilePath = this.FilePath;
                                         (R.head = shadowRoot).innerHTML = '';
                                         tempElm.innerHTML = srctext;
                                         await R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, tempElm.childNodes);
@@ -1382,11 +1379,8 @@ class RCompiler {
             let arr = Array.from(srcElm.children), elmSign = arr.shift() || thrower('Missing signature(s)'), elmTempl = arr.pop();
             if (!elmTempl || !/^TEMPLATES?$/.test(elmTempl.nodeName))
                 throw 'Missing template(s)';
-            if (/^SIGNATURES?$/.test(elmSign.nodeName))
-                for (let elm of elmSign.children)
-                    signats.push(this.ParseSignat(elm));
-            else
-                signats.push(this.ParseSignat(elmSign));
+            for (let elm of /^SIGNATURES?$/.test(elmSign.nodeName) ? elmSign.children : [elmSign])
+                signats.push(this.ParseSignat(elm));
             if (bRecurs)
                 this.AddConstructs(signats);
             bldr = await this.CompIter(srcElm, arr);

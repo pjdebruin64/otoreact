@@ -33,7 +33,7 @@
     When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
 </p>
 <p>
-    There are two special cases:
+    * There are two special cases:
 </p>
 <ul>
     <li>
@@ -120,7 +120,7 @@ RHTML recognizes the following global attributes on every element and construct.
 When you want to apply these attributes to a range of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
 
 
-<h2>RHTML pseudo-events: oncreate, onupdate, ondestroy</h2>
+<h2>RHTML pseudo-events: oncreate, onupdate, ondestroy*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>
     <dt><code class=sourcecode>oncreate</code></dt>
@@ -154,7 +154,7 @@ The name <code>event</code> is not available in handlers for these pseudo-events
     If you want these routines to be executed <i>before</i> an element is created etc., then insert an extra node <a href="#REACT"><elm>REACT</elm></a> before that element, and attach the routines to that node.
 </p>
 
-<h3 id=onerror>RHTML onerror, onsuccess</h3>
+<h3 id=onerror>RHTML onerror, onsuccess*</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
 <p>
     RHTML allows you to set an error handler for <i>all</i> error cases at once, as follows.

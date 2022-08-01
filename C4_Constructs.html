@@ -320,7 +320,8 @@ Further on, <elm>FOR</elm> can have the following attributes:
         </p>
     </dd>
 
-    <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?="<i>nameList</i>"</elm></dt>
+    <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?="<i>nameList</i>"</elm>
+        <br><elm>SCRIPT type="<b>otoreact/global; type=module</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously executes the internal or external script as a JavaScript <u>module</u>.
         <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when first building the DOM tree.
@@ -449,7 +450,7 @@ Besides parameters, components can have <i>slots</i>.
 <ul>
     <li>A construct signature contains a signature of each contruct slot</li>
     <li>A construct template can contain instances of each construct slot</li>
-    <li>A construct instance can contain templates for each construct slot</li>
+    <li>A construct instance can or must contain templates for each construct slot</li>
 </ul>
 
 
