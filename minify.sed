@@ -25,7 +25,7 @@ t repeat
 s/;+$//       # Remove semicolons at end of line
 s/[,;]+([]}])/\1/g    # Remove comma and semicolon before ] or }
 
-s/^\(/;\(/   # Reinsert ; before "(" at beginning of line, to prevent incorrect function calls
+s/^([[(])/;\1/   # Reinsert ; before "(" or "[" at beginning of line, to prevent incorrect function calls
 
 /^$/d                 # Remove emptylines
 

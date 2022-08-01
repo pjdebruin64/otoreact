@@ -134,7 +134,7 @@
             else
                 setTimeout(CheckForUpdates, 5 * 60000);
         }
-        setTimeout(CheckForUpdates, 5 * 60000);
+        //setTimeout(CheckForUpdates, 5 * 60000);
     </script>
     
 </head>

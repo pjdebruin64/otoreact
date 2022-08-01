@@ -1194,22 +1194,24 @@ class RCompiler {
 
                             if (area.prevR || srctext != rng.result) {
                                 rng.result = srctext;
-                                let shadowRoot = node.shadowRoot || node.attachShadow({mode: 'open'}),
-                                    tempElm = document.createElement('rhtml'),
+                                let 
                                     svEnv = env,
-                                    R = new RCompiler(N, this.FilePath);
+                                    R = new RCompiler(N, this.FilePath),
+                                    sRoot = R.head = node.shadowRoot || node.attachShadow({mode: 'open'}),
+                                    tempElm = document.createElement('rhtml'),
+                                    sArea = {parent: sRoot, rng: N, parentR: rng.child ||= new Range(N, N, 'Shadow')};
 
+                                rng.child.erase(sRoot);
                                 try {
-                                    (R.head = shadowRoot).innerHTML = '';
+                                    // Parsing
                                     tempElm.innerHTML = srctext;
+                                    // Compiling
                                     await R.Compile(tempElm, {bRunScripts: true, bTiming: this.Settings.bTiming}, tempElm.childNodes);
-                                    
-                                    /* R.StyleBefore = sub.marker; */
-                                    await R.Build({parent: shadowRoot, rng: N
-                                        , parentR: new Range(N, N, 'Shadow')});
+                                    // Building
+                                    await R.Build(sArea);
                                 }
                                 catch(err) {
-                                    shadowRoot.appendChild(createErrNode(`Compile error: `+err))
+                                    sRoot.appendChild(createErrNode(`Compile error: `+err))
                                 }
                                 finally { env = svEnv; }
                             }

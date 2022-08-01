@@ -857,16 +857,15 @@ class RCompiler {
                                 ApplyMods(node, modifs, bInit);
                                 if (area.prevR || srctext != rng.result) {
                                     rng.result = srctext;
-                                    let shadowRoot = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), svEnv = env, R = new RCompiler(N, this.FilePath);
+                                    let svEnv = env, R = new RCompiler(N, this.FilePath), sRoot = R.head = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = document.createElement('rhtml'), sArea = { parent: sRoot, rng: N, parentR: rng.child || (rng.child = new Range(N, N, 'Shadow')) };
+                                    rng.child.erase(sRoot);
                                     try {
-                                        (R.head = shadowRoot).innerHTML = '';
                                         tempElm.innerHTML = srctext;
                                         await R.Compile(tempElm, { bRunScripts: true, bTiming: this.Settings.bTiming }, tempElm.childNodes);
-                                        await R.Build({ parent: shadowRoot, rng: N,
-                                            parentR: new Range(N, N, 'Shadow') });
+                                        await R.Build(sArea);
                                     }
                                     catch (err) {
-                                        shadowRoot.appendChild(createErrNode(`Compile error: ` + err));
+                                        sRoot.appendChild(createErrNode(`Compile error: ` + err));
                                     }
                                     finally {
                                         env = svEnv;

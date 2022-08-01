@@ -16,7 +16,7 @@
     <div>
         <p>
             OtoReact is a library that brings reactivity straight into your HTML file.
-            <br>The tiny application above left is the result of this piece of Reactive HTML:
+            <br>The tiny application above left is the result of this piece of Reactive HTML (RHTML):
         </p>
 
         <pre class=sourcecode #innerHTML="ColorCode(sampleGreeting)" style.margion="auto"></pre>
@@ -28,7 +28,7 @@
         <pre class=sourcecode #innerHTML="ColorCode(fileTemplate)" style.margion="auto"></pre>
         <p>
             This code is served to the browser and that's all.
-            <p>Full framework functionality offered by a library.
+            <p>Full framework functionality, offered by a library.
             <p>Nothing to install, nothing to compile, nothing to configure.
             <p>Runs like a charm.
         </p>
@@ -51,6 +51,7 @@
 </p>
 <ul>
     <li>Reactive HTML is based on HTML; JavaScript is needed <i>only for data manipulation and event handling</i>.
+        Not for DOM manipulation.
         <br>Even <a href="#COMPONENT">components</a> are defined in HTML without a single line of JavaScript.</li>
     <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
@@ -81,7 +82,7 @@
         <elm>DEFINE rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
         <ul>
             <li><code>yourName.V</code> denotes the value of the variable.</li>
-            <li>We have now added <code>store='sessionStorage'</code>, which make sure the value persists when the application is reloaded.</li>
+            <li>We have now added <code>store='sessionStorage'</code>, which makes the value persist when the application is reloaded.</li>
         </ul>
     </li>
     <li>
@@ -159,7 +160,7 @@ OtoReact does not provide server-side functionality. You need other tooling for 
 
 <h4>Use file extension .html, not .rhtml</h4>
 By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
-<p>Using ".rhtml" might cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
+<p>Using ".rhtml" might also cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
 
 <h2>Document setup</h2>
 <ol>
