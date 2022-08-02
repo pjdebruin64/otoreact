@@ -280,22 +280,57 @@
                         style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;"
                         onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
+                        
                     <!-- Here the contents of the page definition will be inserted -->
                     <content>
                         <!-- Inside the content, the following construsts are available: -->
                         <h1 id>
                             <def var=nr #value="getNr(0)"></def>
-                            <h1. #id="id||`s${pNum}.${nr}`" onCreate="addContent(0, this)">{nr}. &nbsp;<content></content></h1.>
+                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
+                            <h1. #id="hash" onCreate="addContent(0, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></h1.>
                         </h1>
                         <h2 id>
                             <def var=nr #value="getNr(1)"></def>
-                            <h2. #id="id||`s${pNum}.${nr}`" onCreate="addContent(1, this)">{nr} &nbsp;<content></content></h2.>
+                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
+                            <h2. #id="hash" onCreate="addContent(1, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></h2.>
                         </h2>
                         <h3 id>
                             <def var=nr #value="getNr(2)"></def>
-                            <h3. #id="id||`s${pNum}.${nr}`" onCreate="addContent(2, this)">{nr} &nbsp;<content></content></h3.>
+                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
+                            <h3. #id="hash" onCreate="addContent(2, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></h3.>
                         </h3>
                     </content>
+                    <!--                        
+                    <component>
+                        <H #level id>
+                            <T ...rest><content></content></T>
+                            <content></content>
+                        </H>
+                        <template>
+                            <def var=nr #value="getNr(level)"></def>
+                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
+                            <T #id="hash"><span onCreate="addContent(level, this)">
+                                <a href="#{hash}">{nr}.</a> &nbsp;<cont></cont>
+                            </span></T>
+                        </template>
+                    </component>
+                    <!-- Here the contents of the page definition will be inserted ->
+                    <content>
+                        <!-- Inside the content, the following construsts are available: ->
+                        <h1 id><H #level="0" #id="id">
+                            <T ...rest><h1. ...rest><content></content></h1.></T>
+                            <content></content>
+                        </H></h1>
+                        <h2 id><H #level="1" #id="id">
+                            <T ...rest><h2. ...rest><content></content></h2.></T>
+                            <content></content>
+                        </H></h2>
+                        <h3 id><H #level="2" #id="id">
+                            <T ...rest><h3. ...rest><content></content></h3.></T>
+                            <content></content>
+                        </H></h3>
+                    </content>
+                -->
                 </main>
                 <nav id=TOC>
                     <nav>

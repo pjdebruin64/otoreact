@@ -19,6 +19,8 @@ const defaultSettings = {
 function thrower(m: string): never { throw m; };
 
 type bool = boolean|string|number|object;
+
+// Polyfill for globalThis
 w.globalThis || ((w as any).globalThis = w);
 
 // A DOMBUILDER is the semantics of a piece of RHTML.
@@ -72,8 +74,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
     // Only for FOR-iteraties
     hash?: Hash; key?: Key; prev?: Range;
     fragm?: DocumentFragment;
-    rvar?: RVAR_Light<Item>;
-    iSub?: Subscriber<Item>;
 
     // For reactive elements
     updated?: number;
@@ -135,8 +135,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
             if (ch.rvars)
                 for (let rvar of ch.rvars)
                     rvar._Subscribers.delete(ch.subs);
-            if (ch.iSub)
-                ch.rvar._Subscribers.delete(ch.iSub);
             if (ch.onDest)
                 ch.onDest.call(ch.node);
             ch = ch.next;
@@ -303,6 +301,9 @@ type ParentNode = HTMLElement|DocumentFragment;
 
 type Handler = (ev:Event) => any;
 type LVar = ((value?: unknown, bUpd?: bool) => void) & {nm: string};
+function UpdVar(lv: LVar, v: unknown) {
+    lv(v,1);
+}
 
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {mode: string, nm: string, pDflt: Dependent<unknown>};
@@ -312,10 +313,9 @@ class Signature {
         public srcElm: Element,
         public bIsSlot: bool
     ){ 
-        [, this.nm, this.x] = /(.*?)[?*+]?$/.exec(srcElm.localName);
+        this.nm = srcElm.localName;
     }
     public nm: string;
-    public x: string;
     public prom: Promise<any>;
     public Params: Array<Parameter> = [];
     public RestParam: Parameter = N;
@@ -561,9 +561,6 @@ class RCompiler {
         }
         lv.nm = nm;
         return lv;        
-    }
-    private UpdVar(lv: LVar, v: unknown) {
-        lv(v,1);
     }
     private NewVars(varlist: string): Array<LVar> {
         return (varlist
@@ -1201,7 +1198,7 @@ class RCompiler {
                                     tempElm = document.createElement('rhtml'),
                                     sArea = {parent: sRoot, rng: N, parentR: rng.child ||= new Range(N, N, 'Shadow')};
 
-                                rng.child.erase(sRoot);
+                                rng.child.erase(sRoot); sRoot.innerHTML='';
                                 try {
                                     // Parsing
                                     tempElm.innerHTML = srctext;
@@ -1569,7 +1566,7 @@ class RCompiler {
                 
                 let getRange = this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', 1),
                 getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
-                bReacting = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo,
+                bReact = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo,
             
                 // Voeg de loop-variabele toe aan de context
                 loopVar = this.NewV(lvName),
@@ -1602,12 +1599,12 @@ class RCompiler {
                             loopVar(); ixVar();
 
                             if (iter) {
-                                if (!(iter[Symbol.iterator] || iter[Symbol.asyncIterator]))
+                                if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                                     throw `[of]: Value (${iter}) is not iterable`;
                                 let idx=0;
                                 for await (let item of iter) {
-                                    this.UpdVar(loopVar,item);
-                                    this.UpdVar(ixVar, idx);
+                                    UpdVar(loopVar,item);
+                                    UpdVar(ixVar, idx);
                                     let hash = getHash && getHash()
                                         , key = getKey?.() ?? hash;
                                     if (key != N && newMap.has(key))
@@ -1635,15 +1632,16 @@ class RCompiler {
                                     if (k != N)
                                         keyMap.delete(k);
                                     nxChld.erase(parent);
-                                    if (nxChld.iSub)
-                                        nxChld.rvar._Subscribers.delete(nxChld.iSub);
+                                    if (nxChld.subs)
+                                        nxChld.rvars[0]._Subscribers.delete(nxChld.subs);
                                     nxChld.prev = N;
                                     nxChld = nxChld.next;
                                 }
 
                                 if (nx.done) break;
                                 let [key, {item, hash, idx}] = nx.value
-                                    , childRange = keyMap.get(key), bInit = !childRange;
+                                    , childRange = keyMap.get(key)
+                                    , bInit = !childRange;
 
                                 if (nextIter)
                                     nextItem = nextIter.next().value?.item;
@@ -1712,33 +1710,30 @@ class RCompiler {
                                         && (childRange.hash = hash, 1)
                                 ) {
                                     // Environment instellen
-                                    let rvar: RVAR_Light<Item>;
-
-                                    if (bReacting) {
-                                        if (item === childRange.rvar)
-                                            rvar = item;
-                                        else {
-                                            rvar = this.RVAR_Light(item as RVAR_Light<unknown>, getUpdatesTo && [getUpdatesTo()])
-                                            if (childRange.rvar)
-                                                rvar._Subscribers = childRange.rvar._Subscribers 
-                                        }
+                                    if (bReact && bInit)
+                                    {
+                                        this.RVAR_Light<Item>(item, getUpdatesTo && [getUpdatesTo()]);
+                                        if (childRange.subs)
+                                            item._Subscribers = childRange.rvars[0]._Subscribers 
                                     }
                                     
-                                    this.UpdVar(loopVar, rvar || item);
-                                    this.UpdVar(ixVar, idx);
-                                    this.UpdVar(prevVar, prevItem);
-                                    this.UpdVar(nextVar, nextItem);
+                                    UpdVar(loopVar, item);
+                                    UpdVar(ixVar, idx);
+                                    UpdVar(prevVar, prevItem);
+                                    UpdVar(nextVar, nextItem);
 
                                     // Body berekenen
                                     await bodyBldr.call(this, childArea);
 
-                                    if (rvar)
-                                        if (childRange.rvar)
-                                            assignEnv(childRange.iSub.env, env);
-                                        else
-                                            (childRange.rvar = rvar).Subscribe(
-                                                childRange.iSub = this.Subscriber(childArea, bodyBldr, childRange.child)
+                                    if (bReact)
+                                        if (childRange.subs)
+                                            assignEnv(childRange.subs.env, env);
+                                        else {
+                                            (item as RVAR_Light<Item>).Subscribe(
+                                                childRange.subs = this.Subscriber(childArea, bodyBldr, childRange.child)
                                             );
+                                            childRange.rvars = [item as RVAR];
+                                        }
                                 }
 
                                 prevItem = item;
@@ -1749,15 +1744,15 @@ class RCompiler {
                     }
 
                     if (iterable instanceof Promise) {
-                        let subEnv = {env: CloneEnv(env), onerr,  onsucc},
-                            rv = rng.rvar = RVAR(N, iterable, N, 
-                                async () => {
-                                    let save = {env, onerr, onsucc};
-                                    ({env, onerr, onsucc} = subEnv);
-                                    try { await pIter(rv.V); }
-                                    finally {({env, onerr, onsucc} = save)}
-                                }
-                            );
+                        let subEnv = {env: CloneEnv(env), onerr,  onsucc};
+                        rng.rvars = [RVAR(N, iterable, N, rng.subs = 
+                            async iter => {
+                                let save = {env, onerr, onsucc};
+                                ({env, onerr, onsucc} = subEnv);
+                                try { await pIter(iter as Iterable<Item>); }
+                                finally {({env, onerr, onsucc} = save)}
+                            }
+                        )];
                     }
                     else
                         await pIter(iterable);
@@ -1782,7 +1777,7 @@ class RCompiler {
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
-                            this.UpdVar(ixVar, idx++);
+                            UpdVar(ixVar, idx++);
                             mapNm(env.constructs, {nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv});
                             await bodyBldr.call(this, sub);
                         }
@@ -1995,7 +1990,7 @@ class RCompiler {
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             SBldrs = new Map<string, Template[]>();
 
-        for (let nm of signat.Slots.keys())
+        for (let [nm] of signat.Slots)
             SBldrs.set(nm, []);
 
         for (let {mode, nm, pDflt} of signat.Params)
@@ -2016,7 +2011,9 @@ class RCompiler {
 
         let slotElm: HTMLElement, slot: Signature;
         for (let node of Array.from(srcElm.children))
-            if (slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName)) {
+            if ((slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName))
+                && slot != contSlot
+                ) {
                 SBldrs.get(slotElm.localName).push(
                     await this.CompTempl(slot, slotElm, slotElm, 1)
                 );
@@ -2412,8 +2409,6 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
         throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
     return r;
 }
-globalThis.RFetch = RFetch;
-
 
 function quoteReg(fixed: string) {
     return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
@@ -2507,6 +2502,10 @@ class _RVAR<T = unknown>{
 
     public Save() {
         this.store.setItem(this._sNm, JSON.stringify(this._val));
+    }
+
+    toString() {
+        return this._val.toString();
     }
 }
 export interface RVAR<T = unknown> extends _RVAR<T> {}
@@ -2629,13 +2628,7 @@ function copyStyleSheets(S: Document, D: Document) {
 }
 
 
-Object.defineProperties(
-    globalThis, {
-        RVAR:       {get: () => R.RVAR.bind(R)},
-        RUpdate:    {get: () => R.RUpdate.bind(R)},
-    }
-);
-let _rng = globalThis.range = function* range(from: number, count?: number, step: number = 1) {
+let _rng = function* range(from: number, count?: number, step: number = 1) {
 	if (count === U) {
 		count = from;
 		from = 0;
@@ -2643,7 +2636,14 @@ let _rng = globalThis.range = function* range(from: number, count?: number, step
 	for (let i=0;i<count;i++)
 		yield from + i * step;
 }
-globalThis.RCompile = RCompile;
+
+Object.defineProperties(
+    globalThis, {
+        RVAR:       {get: () => R.RVAR.bind(R)},
+        RUpdate:    {get: () => R.RUpdate.bind(R)},
+    }
+);
+
 export let 
     R = new RCompiler(),
     RVAR = globalThis.RVAR as <T>(name?: string, initialValue?: T|Promise<T>, store?: Store, subs?: Subscriber<T>, storeName?: string) => RVAR<T>, 
@@ -2658,7 +2658,7 @@ export let
             RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
         }
         = RVAR<string>('docLocation', location.href) as any,
-    reroute = globalThis.reroute = 
+    reroute = 
         (arg: MouseEvent | string) => {
             if (typeof arg == 'object') {
                 if (arg.ctrlKey)
@@ -2670,6 +2670,9 @@ export let
         };
 
 export {_rng as range};
+Object.assign(
+    globalThis, {range: _rng, reroute, RFetch}
+)
 
 Object.assign(docLocation, {
     search(key: string, val: string) {

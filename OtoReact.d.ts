@@ -42,8 +42,6 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     key?: Key;
     prev?: Range;
     fragm?: DocumentFragment;
-    rvar?: RVAR_Light<Item>;
-    iSub?: Subscriber<Item>;
     updated?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
@@ -81,8 +79,6 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-interface Item {
-}
 interface Key {
 }
 interface Hash {
@@ -104,7 +100,6 @@ declare class RCompiler {
     private SaveCont;
     private RestoreCont;
     private NewV;
-    private UpdVar;
     private NewVars;
     private AddConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
@@ -187,6 +182,7 @@ declare class _RVAR<T = unknown> {
     set U(t: T);
     SetDirty(): void;
     Save(): void;
+    toString(): string;
 }
 export interface RVAR<T = unknown> extends _RVAR<T> {
 }
