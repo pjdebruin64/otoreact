@@ -259,7 +259,7 @@ const sampleRecursion=
 </component>   
 
 <define rvar=list 
-    value="[1, [2,3], [4,[41,[[42]]], 5, 'Otolift']]"
+    value="[1, [2,3], [4,[ ,[[42]]], 5, 'Otolift']]"
     store=sessionStorage
 ></define>
 <p>JavaScript list: <input type=text @value="list.V" size=30></p>
