@@ -4,6 +4,45 @@
         <script type=module src="../OtoReact/OtoReact.js"></script>
     </head>
     <body type=rhtml onerror="alert(event)">
+
+      <component>
+        <COMP>
+          <content>
+            <sub1><content></content></sub1>
+          </content>
+        </COMP>
+
+        <template>
+          <component>
+            <hulp>
+              <para><content></content></para>
+              <content></content>
+            </hulp>
+            <template>
+              <para><content></content></para>
+            </template>
+          </component>
+
+          <content> <!-- instance -->
+            <sub1>  <!-- slot template -->
+              <hulp> <!-- instance -->
+                <para> <!-- slot template -->
+                  <h1>
+                    <content></content> <!-- para slot instance -->
+                  </h1>
+                </para>
+                <content></content>   <!-- hulp content slot template = sub1 content slot instance-->
+              </hulp>
+            </sub1>
+          </content>
+        </template>
+      </component>
+
+      <COMP beforecreate="debugger">
+        <sub1>SUB1</sub1>
+      </COMP>
+
+
       
       <component>
         <signature>
@@ -30,6 +69,10 @@
         <radiogroup name="test">
           <radiobutton reacton="R"></radiobutton>
         </radiogroup>
+
+        <!-- Now, when we set R dirty, the button will be updated but the group not.
+          Will the button still have the correct group name?
+        -->
 
         <button onclick="R.SetDirty()">Update</button>
     </body>

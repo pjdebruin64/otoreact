@@ -37,6 +37,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     result?: any;
     value?: any;
     errorNode?: ChildNode;
+    bfDest?: Handler;
     onDest?: Handler;
     hash?: Hash;
     key?: Key;
@@ -69,8 +70,38 @@ declare type ConstructDef = {
     nm: string;
     templates: Template[];
     CEnv?: Environment;
+    Cnm?: string;
 };
 declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
+interface Store {
+    getItem(key: string): string | null;
+    setItem(key: string, value: string): void;
+}
+declare class _RVAR<T = unknown> {
+    private RC;
+    name?: string;
+    store?: Store;
+    private storeName?;
+    constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
+    private _val;
+    _Subscribers: Set<Subscriber<T>>;
+    auto: Subscriber;
+    private get _sNm();
+    Subscribe(s: Subscriber<T>, bImmediate?: bool, bInit?: bool): void;
+    Unsubscribe(s: Subscriber<T>): void;
+    get V(): T;
+    set V(t: T);
+    _Set(t: T | Promise<T>): T | Promise<T>;
+    get Set(): any;
+    get Clear(): () => void;
+    get U(): T;
+    set U(t: T);
+    SetDirty(): void;
+    Save(): void;
+    toString(): string;
+}
+export interface RVAR<T = unknown> extends _RVAR<T> {
+}
 export declare type RVAR_Light<T> = T & {
     _Subscribers: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
@@ -89,7 +120,7 @@ declare class RCompiler {
     private RC;
     private ContextMap;
     private context;
-    private CSignatures;
+    private CSignats;
     private cRvars;
     private head;
     private StyleBefore;
@@ -127,7 +158,6 @@ declare class RCompiler {
     private srcNodeCnt;
     private CompChildNodes;
     private CompIter;
-    static genAtts: RegExp;
     private CompElm;
     private GetREACT;
     private CallWithHandling;
@@ -157,35 +187,6 @@ declare class RCompiler {
     fetchModule(src: string): Promise<Iterable<ChildNode>>;
 }
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-interface Store {
-    getItem(key: string): string | null;
-    setItem(key: string, value: string): void;
-}
-declare class _RVAR<T = unknown> {
-    private RC;
-    name?: string;
-    store?: Store;
-    private storeName?;
-    constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
-    private _val;
-    _Subscribers: Set<Subscriber<T>>;
-    auto: Subscriber;
-    private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: bool, bInit?: bool): void;
-    Unsubscribe(s: Subscriber<T>): void;
-    get V(): T;
-    set V(t: T);
-    _Set(t: T | Promise<T>): T | Promise<T>;
-    get Set(): any;
-    get Clear(): () => void;
-    get U(): T;
-    set U(t: T);
-    SetDirty(): void;
-    Save(): void;
-    toString(): string;
-}
-export interface RVAR<T = unknown> extends _RVAR<T> {
-}
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
     get(nm: string, bRequired?: bool, bHashAllowed?: bool): string;

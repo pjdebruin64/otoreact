@@ -383,7 +383,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         <ul>
             <li>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.</li>
             <li>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), which will only work for class names in lowercase.</li>
-            <li>RHTML allows you to use attributes to set DOM properties, but DOM property names are case sensitive. So OtoReact receives the property name in lowercase and has to restore proper casing. It is conceivable that the restored casing is incorrect for some property.</li>
+            <li>RHTML allows you to use attributes to set DOM and Style properties, but these property names are case sensitive. So OtoReact receives the property name in lowercase and has to restore proper casing.</li>
         </ul>
     </li>
     <li><b>Missing error messages</b>

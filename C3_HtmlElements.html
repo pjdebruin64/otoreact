@@ -119,25 +119,28 @@ RHTML recognizes the following global attributes on every element and construct.
 
 When you want to apply these attributes to a range of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
 
-
 <h2>RHTML pseudo-events: oncreate, onupdate, ondestroy*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>
-    <dt><code class=sourcecode>oncreate</code></dt>
+    <dt><code class=sourcecode>oncreate</code>, <code class=sourcecode>aftercreate</code></dt>
     <dd>
         Executed after an element (and its children) has been <i>created</i> (built).
     </dd>
-    <dt><code class=sourcecode>onupdate</code></dt>
+    <dt><code class=sourcecode>onupdate</code>, <code class=sourcecode>afterupdate</code></dt>
     <dd>
         Executed after an element (and its children) has been <i>updated</i>.
     </dd>
-    <dt><code class=sourcecode>ondestroy</code></dt>
+    <dt><code class=sourcecode>ondestroy</code>, <code class=sourcecode>afterdestroy</code></dt>
     <dd>
         Executed after an element has been <i>destroyed</i>, i.e. removed from the DOM tree.
     </dd>
     <dt>Combinations of these, notably <code class=sourcecode>oncreateupdate</code></dt>
     <dd>
         Executed after an element (and its children) has been <i>created</i> (built) <i>or updated</i>.
+    </dd>
+    <dt><code class=sourcecode>beforecreate</code>, <code class=sourcecode>beforeupdate</code>, <code class=sourcecode>beforedestroy</code>, and combinations of these</dt>
+    <dd>
+        Executed <i>before</i> an element has been created, updated, destroyed.
     </dd>
 </dl>
 The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
@@ -148,10 +151,6 @@ The name <code>event</code> is not available in handlers for these pseudo-events
 
 <p>
     As with <a href=#EventProperties>DOM events</a>, one can write <code>on&hellip;="&hellip;"</code> to specify a function to be called, instead of a block of statements to be executed.
-</p>
-
-<p>
-    If you want these routines to be executed <i>before</i> an element is created etc., then insert an extra node <a href="#REACT"><elm>REACT</elm></a> before that element, and attach the routines to that node.
 </p>
 
 <h3 id=onerror>RHTML onerror, onsuccess*</h3>
