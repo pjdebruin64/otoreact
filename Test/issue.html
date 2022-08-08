@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script type=module src="../OtoReact.js"></script>
+    </head>
+    <body type=rhtml onerror="alert(event)">
+
+      <component>
+        <COMP>
+          <content>
+            <sub1><c></c></sub1>
+          </content>
+        </COMP>
+
+        <template>
+          <component>
+            <hulp>
+              <para><c></c></para>
+              <c></c>
+            </hulp>
+            <template> <!-- Defines (hulp)c -->
+              <para>  <!-- instance -->
+                <c>   <!-- slot template -->
+                  <c beforecreate="debugger // c(hulp)"></c>
+                </c>
+              </para>
+            </template>
+          </component>
+
+          <content> <!-- instance -->
+            <sub1>  <!-- slot template, defines (sub1)c -->
+              <hulp beforecreate="debugger // hulp"> <!-- instance -->
+                <para> <!-- slot template, defines (para)c -->
+                  <def let="x" value="para(hulp)"></def>
+                  <h1>
+                    <c beforecreate="debugger // c(para)"></c> <!-- para slot instance -->
+                  </h1>
+                </para>
+                <c>   <!-- slot template -->
+                  <def let="x" value="c(hulp)"></def>
+                  <c beforecreate="debugger // c(sub1)"></c>   <!-- sub1 slot instance-->
+                  <!-- Hier vindt ie c(para) ipv c(sub1) -->
+                </c>
+              </hulp>
+            </sub1>
+          </content>
+        </template>
+      </component>
+
+      <COMP beforecreate="debugger">
+        <sub1><c>SUB1</c></sub1>
+      </COMP>
+
+
+      
+      <component>
+        <signature>
+          <RADIOGROUP name>
+            <content>
+              <RADIOBUTTON label></RADIOBUTTON>
+            </content>
+          </RADIOGROUP>
+        </signature>
+        
+        <template name>
+          <!-- A <RADIOGROUP> expands into its content: -->
+          <content>
+            <radiobutton label>
+                {`${name}`} {label}
+            </radiobutton>
+          </content>
+        </template>
+      </component>
+
+
+        <def rvar="R"></def>
+
+        <radiogroup name="test">
+          <radiobutton reacton="R" #label="R.V"></radiobutton>
+        </radiogroup>
+
+        <!-- Now, when we set R dirty, the button will be updated but the group not.
+          Will the button still have the correct group name?
+        -->
+
+        <button onclick="R.V = 'updated'">Update</button>
+    </body>
+</html>

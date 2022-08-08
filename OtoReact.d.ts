@@ -11,10 +11,9 @@ declare const defaultSettings: {
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
 };
-declare type bool = boolean | string | number | object;
 declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
-    ws?: bool;
-    auto?: bool;
+    ws?: boolean;
+    auto?: boolean;
 };
 declare type Area = {
     rng?: Range;
@@ -23,20 +22,20 @@ declare type Area = {
     source?: ChildNode;
     parentR?: Range;
     prevR?: Range;
-    bRootOnly?: bool;
+    bRootOnly?: boolean;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
-    node: NodeType;
     text?: string;
+    node: NodeType;
     child: Range;
     next: Range;
     parentR?: Range;
-    newParent?: Node;
+    parentN?: Node;
     constructor(node: NodeType, area: Area, text?: string);
     toString(): string;
     result?: any;
     value?: any;
-    errorNode?: ChildNode;
+    errNode?: ChildNode;
     bfDest?: Handler;
     onDest?: Handler;
     hash?: Hash;
@@ -54,14 +53,14 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     erase(parent: Node): void;
 }
 declare type Environment = Array<unknown> & {
-    constructs: Map<string, ConstructDef>;
+    cdefs: Map<string, ConstructDef>;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     sArea?: Area;
-    bImm?: bool;
+    bImm?: boolean;
     env?: Environment;
 };
 declare type ParentNode = HTMLElement | DocumentFragment;
@@ -87,7 +86,7 @@ declare class _RVAR<T = unknown> {
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: bool, bInit?: bool): void;
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
@@ -100,8 +99,7 @@ declare class _RVAR<T = unknown> {
     Save(): void;
     toString(): string;
 }
-export interface RVAR<T = unknown> extends _RVAR<T> {
-}
+export declare type RVAR<T = unknown> = _RVAR<T>;
 export declare type RVAR_Light<T> = T & {
     _Subscribers: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
@@ -118,19 +116,20 @@ declare class RCompiler {
     static iNum: number;
     num: number;
     private RC;
-    private ContextMap;
-    private context;
+    private ctxMap;
+    private ctxStr;
+    private ctxLen;
     private CSignats;
     private cRvars;
+    private doc;
     private head;
     private StyleBefore;
     FilePath: string;
-    RootElm: ParentNode;
-    constructor(RC?: RCompiler, FilePath?: string, bClr?: bool);
+    constructor(RC?: RCompiler, FilePath?: string, bClr?: boolean);
     private restoreActions;
     private SaveCont;
     private RestoreCont;
-    private NewV;
+    private newV;
     private NewVars;
     private AddConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
@@ -153,7 +152,7 @@ declare class RCompiler {
     RUpdate(): void;
     start: number;
     DoUpdate(): Promise<void>;
-    RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): _RVAR<T>;
+    RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
     private RVAR_Light;
     private srcNodeCnt;
     private CompChildNodes;
@@ -189,7 +188,7 @@ declare class RCompiler {
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
-    get(nm: string, bRequired?: bool, bHashAllowed?: bool): string;
+    get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
     getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
