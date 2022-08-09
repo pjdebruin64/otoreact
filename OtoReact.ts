@@ -345,6 +345,7 @@ class Signature {
     public Params: Array<Parameter> = [];
     public RestParam: Parameter = N;
     public Slots = new Map<string, Signature>();
+    public CSlot: Signature;
 
     // Check whether an import signature is compatible with the real module signature
     IsCompatible(sig: Signature): boolean {
@@ -1991,7 +1992,7 @@ class RCompiler {
     }
 
     private ParseSignat(elmSignat: Element, bIsSlot?: boolean):  Signature {
-        let signat = new Signature(elmSignat, bIsSlot);
+        let signat = new Signature(elmSignat, bIsSlot), s: Signature;
         for (let attr of elmSignat.attributes) {
             if (signat.RestParam) 
                 throw `Rest parameter must be the last`;
@@ -2012,8 +2013,13 @@ class RCompiler {
                     signat.RestParam = param;
             }
         }
-        for (let elmSlot of elmSignat.children)
-            mapNm(signat.Slots, this.ParseSignat(elmSlot,T));
+        for (let elmSlot of elmSignat.children) {
+            mapNm(signat.Slots, s = this.ParseSignat(elmSlot,T));
+            if (/^content/.test(s.nm)) {
+                if (signat.CSlot) throw 'Multiple content slots';
+                signat.CSlot = s;
+            }
+        }
         return signat;
     }
 
@@ -2156,8 +2162,7 @@ class RCompiler {
     ) {
         if (signat.prom)
             await signat.prom;
-        let {nm, RestParam} = signat,
-            contSlot = signat.Slots.get('contents') || signat.Slots.get('content'),
+        let {nm, RestParam, CSlot} = signat,
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             SBldrs = new Map<string, Template[]>();
 
@@ -2183,7 +2188,7 @@ class RCompiler {
         let slotElm: HTMLElement, slot: Signature;
         for (let node of Array.from(srcElm.children))
             if ((slot = signat.Slots.get((slotElm = (node as HTMLElement)).localName))
-                && slot != contSlot
+                && slot != CSlot
                 ) {
                 SBldrs.get(slotElm.localName).push(
                     await this.CompTempl(slot, slotElm, slotElm, T)
@@ -2191,9 +2196,9 @@ class RCompiler {
                 srcElm.removeChild(node);
             }
             
-        if (contSlot)
-            SBldrs.get(contSlot.nm).push(
-                await this.CompTempl(contSlot, srcElm, srcElm, T, N, atts)
+        if (CSlot)
+            SBldrs.get(CSlot.nm).push(
+                await this.CompTempl(CSlot, srcElm, srcElm, T, N, atts)
             );
 
         if (RestParam) {

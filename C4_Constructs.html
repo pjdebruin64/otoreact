@@ -354,7 +354,7 @@ specifies that the given content should <i>react on</i> changes to any of the li
 </p>
 
 
-<h2>Introduction to 'components'</h2>
+<h2>Introduction to Components</h2>
 <p><elm>COMPONENT</elm> defines a new user-defined construct, or custom element.</p>
 
 <p>We start with a gentle introduction into components, which is followed by a full descripion of all concepts and features, and some more examples.</p>
@@ -451,6 +451,35 @@ Besides parameters, components can have <i>slots</i>.
     <li>A construct signature contains a signature of each contruct slot</li>
     <li>A construct template can contain instances of each construct slot</li>
     <li>A construct instance can or must contain templates for each construct slot</li>
+</ul>
+
+
+<h3>Content slots</h3>
+A component instance may contain content (text and elements) that does not correspond to any slot name.
+The component definition can use this spurious content as well by including a <i>content slot</i>, which is a slot named "CONTENT" or starting with "CONTENT".
+All instance content not corresponding to any slot slot name forms a template for this content slot.
+
+<p>
+    For example, to define a construct <elm>ablank</elm> that just creates an <elm>a</elm> element with an extra <code>target="_blank"</code> attribute, one writes:
+</p>
+<pre #innerhtml='ColorCode(
+`<COMPONENT>
+    <!-- Component signature: -->
+    <ablank ...args>
+        <CONTENT></CONTENT>     <!-- Slot signature -->
+    </ablank>
+
+    <!-- Component template -->
+    <TEMPLATE ...args>
+        <a ...args target="_blank"><content></content><!-- Slot instance --></a>  
+    </TEMPLATE>
+</COMPONENT>`)'></pre>
+
+Notes:
+<ul>
+    <li>There may be at most one content slot</li>
+    <li>Naturally, slots (other than content slots) can have a content slot as well</li>
+    <li>Content slots can have (non-content) slots as well, see the <a href="#Radiogroup">Radiogroup example</a></li>
 </ul>
 
 
@@ -553,8 +582,9 @@ Besides parameters, components can have <i>slots</i>.
             </p>
         </li>
         <li>
-            There is one special slot name, <elm>CONTENT</elm>. When a component signature contains a <elm>CONTENT</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
+            Slot names starting with "CONTENT" are special. When a component signature contains such a <elm>CONTENT*</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
         </li>
+        <li>There may be at most one such content slot</li>
     </ul>
 </p>
 
@@ -699,7 +729,7 @@ Here is a to-do application, which splits the collection of items into those don
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
 <demo #srctext=sampleRedefineA #bShow=true>
 </demo>
-To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
+To instantiate the original <elm>a</elm> HTML element, write <elm>a.</elm>.
 
 <h4>Slots within slots*</h4>
 <p>As there are no restrictions on slot signatures, slots can have slots themselves (subslots). So when a component template instantiates a slot, it may provide templates for its subslots, and these subslots can be instantiated within the slot templates of a component instance.
@@ -710,13 +740,13 @@ To instantiate the original <elm>a</elm> element, write <elm>a.</elm>.
 </p>
 
 
-<h4>A radio group component*</h4>
+<h4 id="Radiogroup">A radio group component*</h4>
 HTML provides radio buttons <elm>input type=radio</elm> bearing a name and a fixed value, and buttons with the same name constitute a group.
 <br>When they are within a <elm>form</elm>, and the form is submitted to the web server, then the value of the currently selected button within each group is sent to the server.
 
 <p>
     For a reactive application, using <elm>form</elm> works a bit clumsily.
-    <br>The following custom does a much better job; it allows one to bind an RVAR, or any other object property, directly to the selected radio button value, without needing a <elm>form</elm> and without repeating any code.
+    <br>The following custom component does a much better job; it allows one to bind an RVAR, or any other object property, directly to the selected radio button value, without needing a <elm>form</elm> and without repeating any code.
 </p>
 
 <demo #srctext="sampleRadioGroup" #bShow=true></demo>
@@ -729,7 +759,7 @@ Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
         <elm>radiogroup</elm> has a slot <elm>content</elm> so that the component output can include the content of any radiogroup instance.
     </li>
     <li>
-        Slot <elm>content</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct within the radiogroup instance contents.
+        Slot <elm>content</elm> has itself a slot <elm>radiobutton</elm>, that will be available as a new construct <i>anywhere</i> within the radiogroup instance contents.
     </li>
     <li>
         <elm>radiobutton</elm> has parameter '#value' that defines the value of the current button, and an optional 'onclick' handler so that component instances can specify this handler without overwriting the 'onclick' handler set by the component template, and a rest parameter '...rest' that will be passed on to the <elm>input type=radio</elm> radio button element.

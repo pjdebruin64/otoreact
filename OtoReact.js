@@ -1424,7 +1424,7 @@ class RCompiler {
             }, rv];
     }
     ParseSignat(elmSignat, bIsSlot) {
-        let signat = new Signature(elmSignat, bIsSlot);
+        let signat = new Signature(elmSignat, bIsSlot), s;
         for (let attr of elmSignat.attributes) {
             if (signat.RestParam)
                 throw `Rest parameter must be the last`;
@@ -1444,8 +1444,14 @@ class RCompiler {
                     signat.RestParam = param;
             }
         }
-        for (let elmSlot of elmSignat.children)
-            mapNm(signat.Slots, this.ParseSignat(elmSlot, T));
+        for (let elmSlot of elmSignat.children) {
+            mapNm(signat.Slots, s = this.ParseSignat(elmSlot, T));
+            if (/^content/.test(s.nm)) {
+                if (signat.CSlot)
+                    throw 'Multiple content slots';
+                signat.CSlot = s;
+            }
+        }
         return signat;
     }
     async CompComponent(srcElm, atts) {
@@ -1549,7 +1555,7 @@ class RCompiler {
     async CompInstance(srcElm, atts, signat) {
         if (signat.prom)
             await signat.prom;
-        let { nm, RestParam } = signat, contSlot = signat.Slots.get('contents') || signat.Slots.get('content'), getArgs = [], SBldrs = new Map();
+        let { nm, RestParam, CSlot } = signat, getArgs = [], SBldrs = new Map();
         for (let [nm] of signat.Slots)
             SBldrs.set(nm, []);
         for (let { mode, nm, pDflt } of signat.Params)
@@ -1569,12 +1575,12 @@ class RCompiler {
         let slotElm, slot;
         for (let node of Array.from(srcElm.children))
             if ((slot = signat.Slots.get((slotElm = node).localName))
-                && slot != contSlot) {
+                && slot != CSlot) {
                 SBldrs.get(slotElm.localName).push(await this.CompTempl(slot, slotElm, slotElm, T));
                 srcElm.removeChild(node);
             }
-        if (contSlot)
-            SBldrs.get(contSlot.nm).push(await this.CompTempl(contSlot, srcElm, srcElm, T, N, atts));
+        if (CSlot)
+            SBldrs.get(CSlot.nm).push(await this.CompTempl(CSlot, srcElm, srcElm, T, N, atts));
         if (RestParam) {
             let modifs = this.CompAttribs(atts);
             getArgs.push([
