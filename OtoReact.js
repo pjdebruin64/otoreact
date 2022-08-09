@@ -404,9 +404,9 @@ class RCompiler {
         this.head = RC.head || this.doc.head;
         if (bClr)
             RC = this;
-        this.ctxStr = RC?.ctxStr || "";
+        this.ctxStr = RC?.ctxStr || ",";
         this.ctxMap = RC ? new Map(RC.ctxMap) : new Map();
-        this.ctxLen = RC?.ctxLen || 0;
+        this.ctxLen = RC?.ctxLen || 1;
         this.CSignats = RC ? new Map(RC.CSignats) : new Map();
         this.StyleBefore = RC.StyleBefore;
     }
@@ -422,26 +422,14 @@ class RCompiler {
         if (!(nm = nm?.trim()))
             lv = dU;
         else {
-            let r = this.ctxMap.get(CheckId(nm)), { ctxStr, ctxLen, ctxMap } = this;
-            if (r) {
-                this.restoreActions.push(() => Object.assign(this, { ctxStr, ctxLen, ctxMap }));
-                this.ctxStr = ctxStr.slice(0, r.pos) + '_' + ctxStr.slice(r.end);
-                this.ctxMap = new Map(mapIter(ctxMap, ([nm, s]) => [nm, s.i < r.i
-                        ? s
-                        : { i: s.i, pos: s.pos - (r.end - r.pos) + 1, end: s.pos - (r.end - r.pos) + 1 }
-                ]));
-            }
-            else
-                this.restoreActions.push(() => {
-                    this.ctxStr = ctxStr;
-                    this.ctxLen--;
-                    this.ctxMap.delete(nm);
-                });
-            this.ctxMap.set(nm, {
-                i: this.ctxLen++,
-                pos: ctxStr.length,
-                end: (this.ctxStr += `${nm},`).length - 1
+            let { ctxStr, ctxLen, ctxMap } = this, i = ctxMap.get(CheckId(nm));
+            this.restoreActions.push(() => {
+                this.ctxStr = ctxStr;
+                this.ctxLen--;
+                mapSet(ctxMap, nm, i);
             });
+            this.ctxStr = ctxStr.replace(`,${nm},`, ',,') + nm + ',';
+            ctxMap.set(nm, this.ctxLen++);
             lv =
                 ((v, bUpd) => {
                     if (!bUpd)
@@ -907,7 +895,7 @@ class RCompiler {
                                 for (let { nm } of listImports)
                                     DefConstr(MEnv.cdefs.get(nm));
                                 for (let lv of vars)
-                                    lv(MEnv[lv.i.i]);
+                                    lv(MEnv[lv.i]);
                             };
                             isBl = T;
                         }
@@ -1835,7 +1823,7 @@ class RCompiler {
         let i = this.ctxMap.get(nm);
         if (!i)
             throw `Unknown name '${nm}'`;
-        return () => env[i.i];
+        return () => env[i];
     }
     compAttrExprList(atts, attName, bReacts) {
         let list = atts.get(attName, F, T);

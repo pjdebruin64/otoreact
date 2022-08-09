@@ -168,7 +168,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
 }
 
 // A CONTEXT is the set of currently visible local variable names, each with a number indicating its position in an environment
-type Context = Map<string, {i: number; pos: number; end: number}>;
+type Context = Map<string, number>;
 
 // An ENVIRONMENT for a given context is the array of concrete values for all names in that context,
 // together with concrete definitions for all visible constructs
@@ -659,9 +659,9 @@ class RCompiler {
         this.doc = RC.doc || document
         this.head  = RC.head || this.doc.head;
         if (bClr) RC=this;
-        this.ctxStr    = RC?.ctxStr || "";
+        this.ctxStr    = RC?.ctxStr || ",";
         this.ctxMap = RC ? new Map(RC.ctxMap) : new Map();
-        this.ctxLen = RC?.ctxLen || 0;
+        this.ctxLen = RC?.ctxLen || 1;
         this.CSignats = RC ? new Map(RC.CSignats) : new Map();
         this.StyleBefore = RC.StyleBefore
     }
@@ -682,30 +682,18 @@ class RCompiler {
             // Lege variabelenamen staan we toe; dan wordt er niets gedefinieerd
            lv = dU as LVar;
         else {
-            let r = this.ctxMap.get(CheckId(nm)),
-                {ctxStr,ctxLen,ctxMap} = this;
-            if (r) {
-                this.restoreActions.push(() => Object.assign(this, {ctxStr,ctxLen,ctxMap}));
-                this.ctxStr = ctxStr.slice(0,r.pos)+'_'+ctxStr.slice(r.end);
-                this.ctxMap = new Map(mapIter(ctxMap,
-                    ([nm, s]) => [nm, s.i < r.i 
-                        ? s
-                        : {i: s.i, pos: s.pos - (r.end-r.pos) + 1, end: s.pos - (r.end-r.pos) + 1}
-                        ]
-                    ))
-            }
-            else
-                this.restoreActions.push(() => {
-                    this.ctxStr = ctxStr;
-                    this.ctxLen--;
-                    this.ctxMap.delete(nm);
-                });
+            let {ctxStr,ctxLen,ctxMap} = this,
+                i = ctxMap.get(CheckId(nm));
 
-            this.ctxMap.set(nm , {
-                i: this.ctxLen++, 
-                pos: ctxStr.length, 
-                end: (this.ctxStr += `${nm},`).length - 1}
-            );
+            this.restoreActions.push(() => {
+                this.ctxStr = ctxStr;
+                this.ctxLen--;
+                mapSet(ctxMap, nm, i);
+            });
+
+            this.ctxStr = ctxStr.replace(`,${nm},`, ',,') + nm + ',';
+            ctxMap.set(nm , this.ctxLen++);
+
             lv =
                 ((v: unknown, bUpd?: boolean) => {
                     if (!bUpd)
@@ -1266,7 +1254,7 @@ class RCompiler {
                     case 'import': {
                         let src = atts.get('src', T)
                             , bIncl = atts.getB('include')
-                            , vars: Array<LVar & {i?:{i:number}}> = this.NewVars(atts.get('defines'))
+                            , vars: Array<LVar & {i?:number}> = this.NewVars(atts.get('defines'))
                             , bAsync = atts.getB('async')
                             , listImports = new Array<Signature>()
                             , promModule = RModules.get(src);   // Check whether module has already been loaded
@@ -1322,7 +1310,7 @@ class RCompiler {
                                 DefConstr(MEnv.cdefs.get(nm));
                                 
                             for (let lv of vars)
-                                lv(MEnv[lv.i.i]);
+                                lv(MEnv[lv.i]);
                         };
                         isBl = T;
 
@@ -2523,7 +2511,7 @@ class RCompiler {
     private CompName(nm: string): Dependent<unknown> {
         let i = this.ctxMap.get(nm);
         if (!i) throw `Unknown name '${nm}'`;
-        return () => env[i.i];
+        return () => env[i];
     }
     private compAttrExprList<T>(atts: Atts, attName: string, bReacts?: boolean): Dependent<T[]> {
         let list = atts.get(attName, F, T);
