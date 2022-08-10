@@ -75,6 +75,7 @@ class Range {
         }
     }
 }
+let SK = Symbol(), ROK = Symbol();
 let dU = () => U, dumB = async () => { };
 function PrepArea(srcElm, area, text = '', nWipe, result) {
     let { parent, rng } = area, sub = { parent, rng: N }, bInit = !rng;
@@ -144,12 +145,12 @@ export async function RCompile(elm, settings) {
         let { basePattern } = R.Settings = { ...defaultSettings, ...settings }, m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (docLocation.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         await R.Compile(elm);
-        R.start = performance.now();
+        start = performance.now();
         builtNodeCnt = 0;
         let area = { parent: elm.parentElement, source: elm, rng: N };
         await R.Build(area);
         W.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
-        R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - R.start).toFixed(1)} ms`);
+        R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (err) {
@@ -157,18 +158,13 @@ export async function RCompile(elm, settings) {
     }
 }
 function NewEnv() {
-    let e = [];
-    e.cdefs = new Map();
-    return e;
+    return [];
 }
 function CloneEnv(env) {
-    let e = Object.assign([], env);
-    e.cdefs = new Map(env.cdefs);
-    return e;
+    return Object.assign([], env);
 }
 function assignEnv(target, source) {
-    let C = target.cdefs;
-    Object.assign(target, source).cdefs = C;
+    Object.assign(target, source);
 }
 function UpdVar(lv, v) {
     lv(v, T);
@@ -201,8 +197,7 @@ class Signature {
     }
 }
 class _RVAR {
-    constructor(RC, name, initialValue, store, storeName) {
-        this.RC = RC;
+    constructor(name, initialValue, store, storeName) {
         this.name = name;
         this.store = store;
         this.storeName = storeName;
@@ -263,8 +258,8 @@ class _RVAR {
             else
                 b = T;
         if (b || this.store) {
-            this.RC.DirtyVars.add(this);
-            this.RC.RUpdate();
+            DirtyVars.add(this);
+            RUpdate();
         }
     }
     Save() {
@@ -273,6 +268,72 @@ class _RVAR {
     toString() {
         return this._val.toString();
     }
+}
+let DirtyVars = new Set(), bUpdating, hUpdate = N, start;
+function RUpdate() {
+    if (!bUpdating && !hUpdate)
+        hUpdate = setTimeout(() => {
+            hUpdate = N;
+            DoUpdate();
+        }, 5);
+}
+async function DoUpdate() {
+    if (!R.bCompiled || bUpdating)
+        return;
+    bUpdating = T;
+    try {
+        builtNodeCnt = 0;
+        start = performance.now();
+        while (DirtyVars.size) {
+            updCnt++;
+            let dv = DirtyVars;
+            DirtyVars = new Set();
+            for (let rv of dv) {
+                if (rv.store)
+                    rv.Save();
+                for (let subs of rv._Subscribers)
+                    if (!subs.bImm)
+                        try {
+                            await subs(rv instanceof _RVAR ? rv.V : rv);
+                        }
+                        catch (err) {
+                            let msg = `ERROR: ` + err;
+                            console.log(msg);
+                            alert(msg);
+                        }
+            }
+        }
+        R.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+    }
+    finally {
+        bUpdating = F;
+    }
+}
+export function RVAR(nm, value, store, subs, storeName) {
+    let r = new _RVAR(nm, value, store, storeName);
+    if (subs)
+        r.Subscribe(subs, T, F);
+    return r;
+}
+function RVAR_Light(t, updatesTo) {
+    if (!t._Subscribers) {
+        t._Subscribers = new Set();
+        t._UpdatesTo = updatesTo;
+        Object.defineProperty(t, 'U', { get: () => {
+                if (!bRO) {
+                    DirtyVars.add(t);
+                    if (t._UpdatesTo?.length)
+                        for (let rvar of t._UpdatesTo)
+                            rvar.SetDirty();
+                    else
+                        RUpdate();
+                }
+                return t;
+            }
+        });
+        t.Subscribe = (sub) => { t._Subscribers.add(sub); };
+    }
+    return t;
 }
 let bRO = F;
 function ApplyMod(elm, M, val, bCr) {
@@ -374,17 +435,6 @@ function RestEnv(savedEnv) {
     for (let j = envActions.length; j > savedEnv; j--)
         envActions.pop()();
 }
-function DefConstr(c) {
-    let C = env.cdefs;
-    if (C.has(c.nm)) {
-        let e = env;
-        envActions.push(() => env = e);
-        C = (env = CloneEnv(env)).cdefs;
-    }
-    else
-        envActions.push(() => C.delete(c.nm));
-    mapNm(C, c);
-}
 let updCnt = 0;
 class RCompiler {
     constructor(RC, FilePath, bClr) {
@@ -394,8 +444,6 @@ class RCompiler {
         this.mPreformatted = new Set(['pre']);
         this.wspc = 1;
         this.rspc = T;
-        this.DirtyVars = new Set();
-        this.hUpdate = N;
         this.srcNodeCnt = 0;
         this.Settings = RC ? { ...RC.Settings } : { ...defaultSettings };
         this.RC = RC || (RC = this);
@@ -404,10 +452,11 @@ class RCompiler {
         this.head = RC.head || this.doc.head;
         if (bClr)
             RC = this;
-        this.ctxStr = RC?.ctxStr || ",";
+        this.ctxStr = RC?.ctxStr || "";
         this.ctxMap = RC ? new Map(RC.ctxMap) : new Map();
-        this.ctxLen = RC?.ctxLen || 1;
+        this.ctxLen = RC?.ctxLen || 0;
         this.CSignats = RC ? new Map(RC.CSignats) : new Map();
+        this.ctxCCnt = RC?.ctxCCnt || 0;
         this.StyleBefore = RC.StyleBefore;
     }
     SaveCont() {
@@ -428,7 +477,7 @@ class RCompiler {
                 this.ctxLen--;
                 mapSet(ctxMap, nm, i);
             });
-            this.ctxStr = ctxStr.replace(`,${nm},`, ',,') + nm + ',';
+            this.ctxStr = ctxStr.replace(new RegExp(`\\b${nm}\\b`), '') + nm + ',';
             ctxMap.set(nm, this.ctxLen++);
             lv =
                 ((v, bUpd) => {
@@ -443,12 +492,29 @@ class RCompiler {
     NewVars(varlist) {
         return Array.from(split(varlist), nm => this.newV(nm));
     }
-    AddConstructs(listS) {
+    NewConstructs(listS) {
+        let { ctxCCnt, CSignats } = this, prevCs = [];
         for (let S of listS) {
-            let savedC = this.CSignats.get(S.nm);
-            mapNm(this.CSignats, S);
-            this.restoreActions.push(() => mapSet(this.CSignats, S.nm, savedC));
+            prevCs.push([S.nm, CSignats.get(S.nm)]);
+            CSignats.set(S.nm, [S, `C${this.ctxCCnt++}`]);
         }
+        if (prevCs.length == 0)
+            return dU;
+        this.restoreActions.push(() => {
+            this.ctxCCnt = ctxCCnt;
+            for (let [nm, CS] of prevCs)
+                mapSet(CSignats, nm, CS);
+        });
+        return (CDefs) => {
+            envActions.push(() => {
+                let i = ctxCCnt;
+                for (let C of CDefs)
+                    delete env[`C${i++}`];
+            });
+            let i = ctxCCnt;
+            for (let C of CDefs)
+                env[`C${i++}`] = C;
+        };
     }
     async Compile(elm, settings = {}, childnodes) {
         let t0 = performance.now(), savedR = R;
@@ -502,75 +568,6 @@ class RCompiler {
         builtNodeCnt++;
         await this.Builder(area);
         R = saveR;
-    }
-    RUpdate() {
-        if (!this.bUpdating && !this.hUpdate)
-            this.hUpdate = setTimeout(() => {
-                this.hUpdate = N;
-                this.DoUpdate();
-            }, 5);
-    }
-    async DoUpdate() {
-        if (!this.bCompiled || this.bUpdating)
-            return;
-        this.bUpdating = T;
-        let saveR = R;
-        R = this;
-        try {
-            builtNodeCnt = 0;
-            this.start = performance.now();
-            while (this.DirtyVars.size) {
-                updCnt++;
-                let dv = this.DirtyVars;
-                this.DirtyVars = new Set();
-                for (let rv of dv) {
-                    if (rv.store)
-                        rv.Save();
-                    for (let subs of rv._Subscribers)
-                        if (!subs.bImm)
-                            try {
-                                await subs(rv instanceof _RVAR ? rv.V : rv);
-                            }
-                            catch (err) {
-                                let msg = `ERROR: ` + err;
-                                console.log(msg);
-                                alert(msg);
-                            }
-                }
-            }
-            this.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - this.start).toFixed(1)} ms`);
-        }
-        finally {
-            R = saveR;
-            this.bUpdating = F;
-        }
-    }
-    RVAR(nm, value, store, subs, storeName) {
-        let r = new _RVAR(this.RC, nm, value, store, storeName);
-        if (subs)
-            r.Subscribe(subs, T, F);
-        return r;
-    }
-    RVAR_Light(t, updatesTo) {
-        if (!t._Subscribers) {
-            t._Subscribers = new Set();
-            t._UpdatesTo = updatesTo;
-            let { RC } = this;
-            Object.defineProperty(t, 'U', { get: () => {
-                    if (!bRO) {
-                        RC.DirtyVars.add(t);
-                        if (t._UpdatesTo?.length)
-                            for (let rvar of t._UpdatesTo)
-                                rvar.SetDirty();
-                        else
-                            RC.RUpdate();
-                    }
-                    return t;
-                }
-            });
-            t.Subscribe = (sub) => { t._Subscribers.add(sub); };
-        }
-        return t;
     }
     async CompChildNodes(srcParent, childNodes = srcParent.childNodes) {
         let saved = this.SaveCont();
@@ -848,7 +845,7 @@ class RCompiler {
                                 async function INCLUDE(area) {
                                     let t0 = performance.now();
                                     await task;
-                                    this.start += performance.now() - t0;
+                                    start += performance.now() - t0;
                                     await C.Builder(area);
                                 };
                         }
@@ -860,7 +857,7 @@ class RCompiler {
                                 let sign = this.ParseSignat(ch);
                                 listImports.push(sign);
                             }
-                            this.AddConstructs(listImports);
+                            let defConstructs = this.NewConstructs(listImports);
                             if (!promModule) {
                                 let C = new RCompiler(this, this.GetPath(src), T);
                                 C.Settings.bRunScripts = T;
@@ -870,30 +867,29 @@ class RCompiler {
                                         let signat = C.CSignats.get(clientSig.nm);
                                         if (!signat)
                                             throw `<${clientSig.nm}> is missing in '${src}'`;
-                                        if (bAsync && !clientSig.IsCompatible(signat))
-                                            throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat.srcElm.outerHTML}`;
+                                        if (bAsync && !clientSig.IsCompatible(signat[0]))
+                                            throw `Import signature ${clientSig.srcElm.outerHTML} is incompatible with module signature ${signat[0].srcElm.outerHTML}`;
                                     }
                                     for (let v of vars)
-                                        if (!(v.i = C.ctxMap.get(v.nm)))
+                                        if ((v.i = C.ctxMap.get(v.nm)) == N)
                                             throw `Module does not define '${v.nm}'`;
                                     return [bldr.bind(C), C.CSignats];
                                 });
                                 RModules.set(src, promModule);
                             }
                             if (!bAsync) {
-                                let prom = promModule.then(([_, CSigns]) => {
+                                let prom = promModule.then(([, CSigns]) => {
                                     for (let clientSig of listImports)
-                                        Object.assign(clientSig, CSigns.get(clientSig.nm));
+                                        Object.assign(clientSig, CSigns.get(clientSig.nm)[0]);
                                 });
                                 for (let clientSig of listImports)
                                     clientSig.prom = prom;
                             }
                             bldr = async function IMPORT(reg) {
-                                let [bldr] = await promModule, saveEnv = env, MEnv = env = NewEnv();
+                                let [bldr, CSigns] = await promModule, saveEnv = env, MEnv = env = NewEnv();
                                 await bldr(bIncl ? reg : { parent: document.createDocumentFragment() });
                                 env = saveEnv;
-                                for (let { nm } of listImports)
-                                    DefConstr(MEnv.cdefs.get(nm));
+                                defConstructs(listImports.map(S => MEnv[CSigns.get(S.nm)[1]]));
                                 for (let lv of vars)
                                     lv(MEnv[lv.i]);
                             };
@@ -1331,7 +1327,7 @@ class RCompiler {
                                     || hash != childRange.hash
                                         && (childRange.hash = hash, T)) {
                                     if (bReact && (bInit || item != childRange.rvars[0])) {
-                                        this.RVAR_Light(item, getUpdatesTo && [getUpdatesTo()]);
+                                        RVAR_Light(item, getUpdatesTo && [getUpdatesTo()]);
                                         if (childRange.subs)
                                             item._Subscribers = childRange.rvars[0]._Subscribers;
                                     }
@@ -1378,23 +1374,23 @@ class RCompiler {
                 };
             }
             else {
-                let nm = atts.get('of', T, T).toLowerCase();
-                if (!this.CSignats.get(nm))
+                let nm = atts.get('of', T, T).toLowerCase(), CS = this.CSignats.get(nm);
+                if (!CS)
                     throw `Missing attribute [let]`;
-                let ixVar = this.newV(ixName), bodyBldr = await this.CompChildNodes(srcElm);
+                let index = CS[1], ixVar = this.newV(ixName), bodyBldr = await this.CompChildNodes(srcElm);
                 return async function FOREACH_Slot(area) {
-                    let { sub } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env.cdefs.get(nm);
+                    let { sub } = PrepArea(srcElm, area), saved = SaveEnv(), slotDef = env[index];
                     ixVar();
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             UpdVar(ixVar, idx++);
-                            mapNm(env.cdefs, { nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv });
+                            env[index] = { nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv };
                             await bodyBldr.call(this, sub);
                         }
                     }
                     finally {
-                        mapNm(env.cdefs, slotDef);
+                        env[index] = slotDef;
                         RestEnv(saved);
                     }
                 };
@@ -1414,7 +1410,7 @@ class RCompiler {
                     let v = getVal();
                     if (rv)
                         if (bInit)
-                            rng.value = new _RVAR(this.RC, N, v, getStore && getStore(), `RVAR_${rv}`);
+                            rng.value = new _RVAR(N, v, getStore && getStore(), `RVAR_${rv}`);
                         else
                             rng.value._Set(v);
                     else
@@ -1465,7 +1461,7 @@ class RCompiler {
             for (let elm of /^SIGNATURES?$/.test(elmSign.nodeName) ? elmSign.children : [elmSign])
                 signats.push(this.ParseSignat(elm));
             if (bRecurs)
-                this.AddConstructs(signats);
+                this.NewConstructs(signats);
             bldr = await this.CompIter(srcElm, arr);
             let mapS = new Map(signats.map(S => [S.nm, S]));
             async function AddTemp(RC, nm, prnt, elm) {
@@ -1487,12 +1483,12 @@ class RCompiler {
             this.RestoreCont(save);
             this.head = head;
         }
-        this.AddConstructs(signats);
+        let DefConstrs = this.NewConstructs(signats);
         this.wspc = wspc;
         return async function COMPONENT(area) {
             let constr = templates.map(C => ({ ...C }));
             if (bRecurs)
-                constr.forEach(DefConstr);
+                DefConstrs(constr);
             let saved = SaveEnv();
             try {
                 bldr && await this.CallWithHandling(bldr, srcElm, area);
@@ -1504,14 +1500,13 @@ class RCompiler {
                 RestEnv(saved);
             }
             if (!bRecurs)
-                constr.forEach(DefConstr);
+                DefConstrs(constr);
         };
     }
     async CompTempl(signat, contentNode, srcElm, bIsSlot, encStyles, atts) {
         let saved = this.SaveCont();
         try {
-            let myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.newV((myAtts.get(mode + nm) ?? myAtts.get(nm, bIsSlot)) || nm)]);
-            this.AddConstructs(signat.Slots.values());
+            let myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.newV((myAtts.get(mode + nm) ?? myAtts.get(nm, bIsSlot)) || nm)]), DC = this.NewConstructs(signat.Slots.values());
             if (!atts)
                 myAtts.ChkNoAttsLeft();
             this.wspc = this.rspc = 1;
@@ -1519,8 +1514,6 @@ class RCompiler {
             return async function TEMPLATE(area, args, mSlotTemplates, slotEnv) {
                 let saved = SaveEnv(), i = 0;
                 try {
-                    for (let [nm, templates] of mSlotTemplates)
-                        DefConstr({ nm, templates, CEnv: slotEnv, Cnm });
                     for (let [nm, lv] of lvars) {
                         let arg = args[nm], dflt;
                         if (arg === U && (dflt = signat.Params[i]?.pDflt))
@@ -1528,6 +1521,7 @@ class RCompiler {
                         lv(arg);
                         i++;
                     }
+                    DC(mapIter(mSlotTemplates, ([nm, templates]) => ({ nm, templates, CEnv: slotEnv, Cnm })));
                     if (encStyles) {
                         let { rng: elmRange, childArea, bInit } = PrepElm(srcElm, area, customName), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
                         if (bInit)
@@ -1552,7 +1546,7 @@ class RCompiler {
             this.RestoreCont(saved);
         }
     }
-    async CompInstance(srcElm, atts, signat) {
+    async CompInstance(srcElm, atts, [signat, ck]) {
         if (signat.prom)
             await signat.prom;
         let { nm, RestParam, CSlot } = signat, getArgs = [], SBldrs = new Map();
@@ -1591,7 +1585,7 @@ class RCompiler {
         atts.ChkNoAttsLeft();
         this.wspc = 3;
         return async function INSTANCE(area) {
-            let IEnv = env, { rng, sub, bInit } = PrepArea(srcElm, area), cdef = env.cdefs.get(nm), args = rng.result || (rng.result = {});
+            let IEnv = env, { rng, sub, bInit } = PrepArea(srcElm, area), cdef = env[ck], args = rng.result || (rng.result = {});
             if (!cdef)
                 return;
             bRO = T;
@@ -1827,7 +1821,7 @@ class RCompiler {
     }
     CompName(nm) {
         let i = this.ctxMap.get(nm);
-        if (!i)
+        if (i == N)
             throw `Unknown name '${nm}'`;
         return () => env[i];
     }
@@ -1924,7 +1918,7 @@ class Atts extends Map {
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-let altProps = { "class": "className", for: "htmlFor" }, genAtts = /^#?(?:((?:this)?reacts?on)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(?:break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z', regCapit = new RegExp(`(${words})|.`, "g"), regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/, regInline = /^(button|input|img)$/;
+let altProps = { "class": "className", for: "htmlFor" }, genAtts = /^#?(?:((?:this)?reacts?on)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z', regCapit = new RegExp(`(${words})|.`, "g"), regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/, regInline = /^(button|input|img)$/;
 function CheckId(nm) {
     if (!regIdent.test(nm))
         throw `Invalid identifier '${nm}'`;
@@ -1993,10 +1987,10 @@ function addP(t, p, v) {
     return t;
 }
 function createErrNode(msg) {
-    let e = document.createElement('div');
-    e.style.color = 'crimson';
-    e.style.fontFamily = 'sans-serif';
-    e.style.fontSize = '10pt';
+    let e = document.createElement('div'), s = e.style;
+    s.color = 'crimson';
+    s.fontFamily = 'sans-serif';
+    s.fontSize = '10pt';
     e.innerText = msg;
     return e;
 }
@@ -2015,11 +2009,7 @@ let _rng = function* range(from, count, step = 1) {
     for (let i = 0; i < count; i++)
         yield from + i * step;
 };
-Object.defineProperties(globalThis, {
-    RVAR: { get: () => R.RVAR.bind(R) },
-    RUpdate: { get: () => R.RUpdate.bind(R) },
-});
-export let R = new RCompiler(), RVAR = globalThis.RVAR, RUpdate = globalThis.RUpdate, docLocation = RVAR('docLocation', location.href), reroute = (arg) => {
+export let R = new RCompiler(), docLocation = RVAR('docLocation', location.href), reroute = (arg) => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
@@ -2029,7 +2019,7 @@ export let R = new RCompiler(), RVAR = globalThis.RVAR, RUpdate = globalThis.RUp
     docLocation.V = new URL(arg, location.href).href;
 };
 export { _rng as range };
-Object.assign(globalThis, { range: _rng, reroute, RFetch });
+Object.assign(globalThis, { RVAR, range: _rng, reroute, RFetch });
 Object.assign(docLocation, {
     search(key, val) {
         let url = new URL(location.href);

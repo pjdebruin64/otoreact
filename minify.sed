@@ -14,7 +14,7 @@ s/\r//      # Remove CR's
 /[[,\{\)=:\?]$|else$/ {N ; s/\n */ / ; b start }
 
 # Remove whitespace before and after special chars, except inside strings
-s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`.*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
+s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`(\\`|\$\{(`[^`]*`|[^\}])\}|[^`])*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
 
 # Remove whitespace in expressions in interpolated strings
 t repeat    # Needed to clear previous test result
@@ -23,9 +23,9 @@ t repeat    # Needed to clear previous test result
 t repeat
 
 s/;+$//       # Remove semicolons at end of line
-s/[,;]+([]}])/\1/g    # Remove comma and semicolon before ] or }
+s/[,;]+([]})])/\1/g    # Remove comma and semicolon before ] or } or )
 
-s/^([[(])/;\1/   # Reinsert ; before "(" or "[" at beginning of line, to prevent incorrect function calls
+s/^([[(])/;\1/   # Reinsert ; before "(" or "[" at beginning of line, to prevent unintended function calls
 
 /^$/d                 # Remove emptylines
 

@@ -52,8 +52,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     Nodes(): Generator<ChildNode>;
     erase(parent: Node): void;
 }
-declare type Environment = Array<unknown> & {
-    cdefs: Map<string, ConstructDef>;
+declare type Environment = Array<any> & {
+    [k: string]: ConstructDef;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
@@ -77,11 +77,10 @@ interface Store {
     setItem(key: string, value: string): void;
 }
 declare class _RVAR<T = unknown> {
-    private RC;
     name?: string;
     store?: Store;
     private storeName?;
-    constructor(RC: RCompiler, name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
+    constructor(name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
     private _val;
     _Subscribers: Set<Subscriber<T>>;
     auto: Subscriber;
@@ -108,6 +107,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
+export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
 }
 interface Hash {
@@ -116,10 +116,11 @@ declare class RCompiler {
     static iNum: number;
     num: number;
     private RC;
-    private ctxMap;
     private ctxStr;
+    private ctxMap;
     private ctxLen;
     private CSignats;
+    private ctxCCnt;
     private cRvars;
     private doc;
     private head;
@@ -131,7 +132,7 @@ declare class RCompiler {
     private RestoreCont;
     private newV;
     private NewVars;
-    private AddConstructs;
+    private NewConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
@@ -139,21 +140,9 @@ declare class RCompiler {
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
     private Builder;
-    private bCompiled;
+    bCompiled: boolean;
     private wspc;
     private rspc;
-    DirtyVars: Set<{
-        _Subscribers: Set<Subscriber>;
-        store?: any;
-        Save?: () => void;
-    }>;
-    private bUpdating;
-    private hUpdate;
-    RUpdate(): void;
-    start: number;
-    DoUpdate(): Promise<void>;
-    RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
-    private RVAR_Light;
     private srcNodeCnt;
     private CompChildNodes;
     private CompIter;
@@ -193,7 +182,7 @@ declare class Atts extends Map<string, string> {
     ChkNoAttsLeft(): void;
 }
 declare let _rng: (from: number, count?: number, step?: number) => Generator<number, void, unknown>;
-export declare let R: RCompiler, RVAR: <T>(name?: string, initialValue?: T | Promise<T>, store?: Store, subs?: Subscriber<T>, storeName?: string) => RVAR<T>, RUpdate: () => void, docLocation: RVAR<string> & {
+export declare let R: RCompiler, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
     searchParams: URLSearchParams;
