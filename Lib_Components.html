@@ -266,9 +266,8 @@
                                 >
                             </a>
                         </div>
-                        <nav class=topbar style="grid-area: nav;" reacton=docLocation>
+                        <nav class=topbar style="grid-area: nav;">
                             <a href="."         #onclick=reroute>Home</a>
-                            <a href="components" #onclick=reroute #if="0 && !ga">Components</a>
                             <a href="routing"   #onclick=reroute>Routing</a>
                             <a href="otolib"    #onclick=reroute>OtoLib</a>
                             <a href="download"  #onclick=reroute>Download</a>                        
@@ -345,7 +344,7 @@
                     <center style="background-color: orange;">
                         <b><i>Table of Contents</i></b>
                     </center>
-                    <for let=item of=contents.V reacton="contents,docLocation" key="item">
+                    <for let=item of=contents.V reacton="contents" key="item">
                         <if cond="item.subs.length">
                             <then>
                                 <details>

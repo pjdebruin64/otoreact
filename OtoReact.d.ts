@@ -11,7 +11,7 @@ declare const defaultSettings: {
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
 };
-declare type DOMBuilder = ((reg: Area) => Promise<void>) & {
+declare type DOMBuilder = ((reg: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
     auto?: boolean;
 };
@@ -53,7 +53,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     erase(parent: Node): void;
 }
 declare type Environment = Array<any> & {
-    [k: string]: ConstructDef;
+    C: Array<ConstructDef>;
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
@@ -71,7 +71,7 @@ declare type ConstructDef = {
     CEnv?: Environment;
     Cnm?: string;
 };
-declare type Template = (this: RCompiler, area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
+declare type Template = (area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -80,9 +80,9 @@ declare class _RVAR<T = unknown> {
     name?: string;
     store?: Store;
     private storeName?;
-    constructor(name?: string, initialValue?: T | Promise<T>, store?: Store, storeName?: string);
+    constructor(name?: string, initial?: T | Promise<T>, store?: Store, storeName?: string);
     private _val;
-    _Subscribers: Set<Subscriber<T>>;
+    _Subs: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
@@ -100,13 +100,14 @@ declare class _RVAR<T = unknown> {
 }
 export declare type RVAR<T = unknown> = _RVAR<T>;
 export declare type RVAR_Light<T> = T & {
-    _Subscribers: Set<Subscriber>;
+    _Subs: Set<Subscriber>;
     _UpdatesTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
     store?: any;
     Save?: () => void;
     readonly U?: T;
 };
+declare function Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
 }
@@ -115,12 +116,11 @@ interface Hash {
 declare class RCompiler {
     static iNum: number;
     num: number;
-    private RC;
-    private ctxStr;
-    private ctxMap;
-    private ctxLen;
-    private CSignats;
-    private ctxCCnt;
+    private ctStr;
+    private ctMap;
+    private ctLen;
+    private ctSigns;
+    private ctCCnt;
     private cRvars;
     private doc;
     private head;
@@ -136,7 +136,6 @@ declare class RCompiler {
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
     private mPreformatted;
-    Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
     private Builder;
@@ -181,7 +180,7 @@ declare class Atts extends Map<string, string> {
     getB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
-declare let _rng: (from: number, count?: number, step?: number) => Generator<number, void, unknown>;
+export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare let R: RCompiler, docLocation: RVAR<string> & {
     basepath: string;
     subpath: string;
@@ -191,4 +190,4 @@ export declare let R: RCompiler, docLocation: RVAR<string> & {
     setSearch(key: string, value: string): void;
     RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
 }, reroute: (arg: MouseEvent | string) => void;
-export { _rng as range };
+export {};
