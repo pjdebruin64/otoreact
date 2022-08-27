@@ -57,7 +57,7 @@ declare type Environment = Array<any> & {
 };
 declare type FullSettings = typeof defaultSettings;
 declare type Settings = Partial<FullSettings>;
-export declare function RCompile(elm: HTMLElement, settings?: Settings): Promise<void>;
+export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
     sArea?: Area;
     bImm?: boolean;
@@ -85,13 +85,13 @@ declare class _RVAR<T = unknown> {
     _Subs: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bInit?: boolean): void;
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): void;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
     _Set(t: T | Promise<T>): T | Promise<T>;
     get Set(): any;
-    get Clear(): () => void;
+    get Clear(): () => any;
     get U(): T;
     set U(t: T);
     SetDirty(): void;

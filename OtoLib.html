@@ -32,9 +32,9 @@
   -->
   <component>
     <signature>
-      <RADIOGROUP name? @value? onclick?>
+      <RADIOGROUP name? @value? onclick? #disabled?>
         <content>
-          <RADIOBUTTON #value? ...rest><content></content></RADIOBUTTON>
+          <RADIOBUTTON #value? #disabled? ...rest><content></content></RADIOBUTTON>
         </content>
       </RADIOGROUP>
     </signature>
@@ -42,15 +42,16 @@
     <!-- Static variable counting the number of unnamed radiogroups -->
     <def var="num" #value="{V:0}"></def>
 
-    <template @value=groupValue onclick=groupOnclick>
+    <template @value=groupValue onclick=groupOnclick #disabled=groupDisabled>
       <def let="groupName" #value="name || `RadioGroup${num.V++}`"></def>
       <!-- A <RADIOGROUP> expands into its content: -->
       <content>
         <!-- But any occurence of <radiobutton> within its content should be expanded according to this template: -->
-        <radiobutton #value ...rest>
+        <radiobutton #value #disabled=buttonDisabled ...rest>
           <label ...rest>
             <input type=radio #name=groupName #value=value
               #checked="value === groupValue.V"
+              #disabled="groupDisabled || buttonDisabled"
               onclick="groupValue.V = value; groupOnclick();"
             >
             <content></content>

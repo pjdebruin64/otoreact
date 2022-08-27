@@ -72,7 +72,7 @@
         </template>
       </component>
 
-
+<hr>
         <def rvar="R"></def>
 
         <radiogroup name="test">
@@ -84,5 +84,12 @@
         -->
 
         <button onclick="R.V = 'updated'">Update</button>
+
+        <hr>
+        <def beforeupdate="" rvar="N" #value="0" reacton="R"></def>
+        <button onclick="N.V++">{N}</button>
+
+        <hr>
+        Test <pre>pre</pre> Post
     </body>
 </html>
