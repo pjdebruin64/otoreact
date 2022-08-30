@@ -1,6 +1,6 @@
 // Global settings 
 const
-    U = undefined, N = null, T = true, F = false, W = window,
+    U = undefined, N = null, T = true, F = false, E = [], W = window,
     defaultSettings = {
         bTiming:        F,
         bAbortOnError:  F,      // Abort processing on runtime errors,
@@ -8,7 +8,7 @@ const
         bShowErrors:    T,      // Show runtime errors as text in the DOM output
         bRunScripts:    F,
         basePattern:    '/',
-        preformatted:   [],
+        preformatted:   E as string[],
         bNoGlobals:     F,
         bDollarRequired: F,
         bSetPointer:    T,
@@ -550,7 +550,8 @@ async function DoUpdate() {
                     rv.Save();
                 for (let subs of rv._Subs)
                     if (!subs.bImm)
-                        try { await subs(rv instanceof _RVAR ? rv.V : rv); }
+                        try { 
+                            await subs(rv instanceof _RVAR ? rv.V : rv); }
                         catch (err) {
                             let msg = `ERROR: `+err;
                             console.log(msg);
@@ -683,7 +684,7 @@ function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
             })(val);
             break;
         case MType.RestArgument:
-            for (let {M, value} of val as RestParameter || [])
+            for (let {M, value} of val as RestParameter || E)
                 ApplyMod(elm, M, value, bCr);
             break;
         case MType.oncreate:
@@ -901,7 +902,7 @@ class RCompiler {
             ChildNode,          // The source childnode
             (boolean|number)?   // true: this builder will only produce whitespace and does not modify 'env'
         ];
-        let builders = [] as Array< Triple >
+        let bldrs = [] as Array< Triple >
             , {rspc} = this     // Indicates whether the output may be right-trimmed
             , arr = Array.from(iter), L = arr.length
             , i=0;
@@ -948,19 +949,19 @@ class RCompiler {
             if (bldr ? bldr[0].ws : this.rspc)
                 prune();
             if (bldr) 
-                builders.push(bldr);
+                bldrs.push(bldr);
         }
         function prune() {
             // Builders producing trailing whitespace are not needed
-            let i = builders.length, isB: boolean|number;
-            while (i-- && (isB= builders[i][2]))
+            let i = bldrs.length, isB: boolean|number;
+            while (i-- && (isB= bldrs[i][2]))
                 if (isB === T)
-                    builders.splice(i, 1);
+                    bldrs.splice(i, 1);
         }
         if (rspc)
             prune();
 
-        if (!builders.length) return N;
+        if (!bldrs.length) return N;
 
         return addP(
             async function Iter(area: Area, start: number = 0)
@@ -968,7 +969,7 @@ class RCompiler {
             {                
                 let i=0, toSubscribe: Array<Subscriber> = [];
                 if (!area.rng) {
-                    for (let [bldr] of builders) {
+                    for (let [bldr] of bldrs) {
                         i++;
                         await bldr(area);
                         if (bldr.auto)  // Auto subscribe?
@@ -983,7 +984,7 @@ class RCompiler {
                         }
                     }
                 } else
-                    for (let [bldr] of builders)
+                    for (let [bldr] of bldrs)
                         if (i++ >= start) {
                             let r = area.rng;
                             await bldr(area);
@@ -991,9 +992,9 @@ class RCompiler {
                                 assignEnv((r.value as RVAR).auto.env, env);
                         }
                 
-                builtNodeCnt += builders.length - start;
+                builtNodeCnt += bldrs.length - start;
             },
-            "ws", builders[0][0].ws);
+            "ws", bldrs[0][0].ws);
     }
 
     private async CompElm(srcPrnt: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
@@ -1732,7 +1733,13 @@ class RCompiler {
                 if (prevNm == '') prevNm = 'previous';
                 if (nextNm == '') nextNm = 'next';
                 
-                let getRange = this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', T),
+                let getRange =
+                    this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>
+                    (atts, 'of', T
+                    // Check for being iterable
+                    , iter => iter && !(Symbol.iterator in iter || Symbol.asyncIterator in iter)
+                                && `Value (${iter}) is not iterable`
+                    ),
                 getUpdatesTo = this.CompAttrExpr<RVAR>(atts, 'updates'),
                 bReact = atts.getB('reacting') || atts.getB('reactive') || !!getUpdatesTo,
             
@@ -1754,32 +1761,26 @@ class RCompiler {
                     let {rng, sub} = PrepArea(srcElm, area, ''),
                         {parent} = sub,
                         before = sub.before !== U ? sub.before : rng.Next,
-                        iterable = getRange()
+                        iterable = getRange() || E
                     
                         , pIter = async (iter: Iterable<Item>) => {
                         let svEnv = SaveEnv();
                         try {
-
                             // Map of previous data, if any
                             let keyMap: Map<Key, Range> = rng.value ||= new Map(),
                             // Map of the newly obtained data
                                 newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map();
                             loopVar(); ixVar();
 
-                            if (iter) {
-                                if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
-                                    throw `[of]: Value (${iter}) is not iterable`;
-                                let idx=0;
-                                for await (let item of iter) {
-                                    loopVar(item,T);
-                                    ixVar(idx,T);
-                                    let hash = getHash && getHash()
-                                        , key = getKey?.() ?? hash;
-                                    if (key != N && newMap.has(key))
-                                        throw `Key '${key}' is not unique`;
-                                    newMap.set(key ?? {}, {item, hash, idx});
-                                    idx++;
-                                }
+                            let idx=0;
+                            for await (let item of iter) {
+                                loopVar(item,T);
+                                ixVar(idx,T);
+                                let hash = getHash && getHash()
+                                    , key = getKey?.() ?? hash;
+                                if (key != N && newMap.has(key))
+                                    throw `Key '${key}' is not unique`;
+                                newMap.set(key ?? {}, {item, hash, idx: idx++});
                             }
 
                             let nxChld = rng.child,
@@ -2001,7 +2002,7 @@ class RCompiler {
                     mode: m[1]
                     , nm: m[2]
                     , pDflt:
-                        m[1] == '...' ? () => []
+                        m[1] == '...' ? () => E
                         : attr.value != '' 
                         ? (m[1] == '#' ? this.CompJScript(attr.value, attr.name) :  this.CompString(attr.value, attr.name))
                         : m[3] ? /^on/.test(m[2]) ? ()=>_=>N : dU   // Unspecified default
@@ -2277,9 +2278,8 @@ class RCompiler {
                 await childnodesBldr(childArea);
 
             node.removeAttribute('class');
-            if (node.handlers)
-                for (let {evType, listener} of node.handlers)
-                    node.removeEventListener(evType, listener);
+            for (let {evType, listener} of node.handlers || E)
+                node.removeEventListener(evType, listener);
             node.handlers = [];
             ApplyMods(node, modifs, bCr);
         };
@@ -2477,8 +2477,10 @@ class RCompiler {
             : this.CompString(v, attName) as Dependent<any>
         );
     }
-    private CompAttrExpr<T>(atts: Atts, attName: string, bReq?: boolean) {
-        return this.CompJScript<T>(atts.get(attName, bReq, T),attName);
+    private CompAttrExpr<T>(atts: Atts, attName: string, bReq?: boolean
+        , check?: (t:T) => string   // Additional check
+        ) {
+        return this.CompJScript<T>(atts.get(attName, bReq, T),attName, U, check);
     }
 
     private CompHandler(nm: string, text: string) {
@@ -2489,6 +2491,7 @@ class RCompiler {
         expr: string           // Expression to transform into a function
         , descrip?: string             // To be inserted in an errormessage
         , delims: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
+        , check?: (t:T) => string   // Additional check
     ): Dependent<T> {
         if (expr == N) return N;
 
@@ -2501,11 +2504,20 @@ class RCompiler {
         try {
             let rout = gEval(depExpr) as (env:Environment) => T;
             return addP(
-                bThis
-                ? function (this: HTMLElement) {
-                        try { return rout.call(this, env); } 
+                check
+                    ? () => {
+                        try {
+                            let t = rout(env), m = check(t);
+                            if (m) throw m;
+                            return t;
+                        }
                         catch (err) { throw errorInfo + err; }
                     }
+                : bThis
+                    ? function (this: HTMLElement) {
+                            try { return rout.call(this, env); } 
+                            catch (err) { throw errorInfo + err; }
+                        }
                 : () => {
                         try { return rout(env); } 
                         catch (err) { throw errorInfo + err; }

@@ -4,7 +4,7 @@ declare const defaultSettings: {
     bShowErrors: boolean;
     bRunScripts: boolean;
     basePattern: string;
-    preformatted: any[];
+    preformatted: string[];
     bNoGlobals: boolean;
     bDollarRequired: boolean;
     bSetPointer: boolean;
