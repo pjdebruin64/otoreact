@@ -234,7 +234,7 @@ type RHTMLElement = HTMLElement & {
 };
 function PrepElm<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeName): 
     {   rng: Range<RHTMLElement> & T
-        , childArea: Area
+        , chArea: Area
         , bCr: boolean} {
     let rng = area.rng as Range<HTMLElement> & T, bCr = !rng;
     if (bCr) {
@@ -250,7 +250,7 @@ function PrepElm<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeNa
         area.rng = rng.next
     return { 
         rng, 
-        childArea: {
+        chArea: {
             parent: rng.node, 
             rng: rng.child, 
             before: N,
@@ -615,17 +615,18 @@ const enum MType {Attr, Prop, Src, Class, Style, Event, AddToStyle, AddToClassLi
 type Modifier = {
     mt: MType,
     nm: string,
-    cnm?: string
+    c?: booly   // Truthy when nm has been checked for proper casing
     depV: Dependent<unknown>,
 }
 type RestParameter = Array<{M: Modifier, value: unknown}>;
 let bRO: boolean = F;
 
 function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
-    let {mt, nm, cnm} = M;
-    function checkNm() {
-        if (!cnm)
-            M.cnm=M.nm=nm=CheckNm(elm, nm);
+    let {mt, nm} = M;
+    if (!M.c) {
+        if (mt == MType.Prop && nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number')
+            nm = 'value';
+        M.c = mt!=MType.Prop && mt!=MType.Event || (nm=M.nm=CheckNm(elm, nm));
     }
     switch (mt) {
         case MType.Attr:
@@ -635,13 +636,11 @@ function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
             elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
         case MType.Prop:
-            checkNm();
-            if (val===U && typeof elm[nm]=='string') val = '';
+            if (val==N && typeof elm[nm]=='string') val = '';
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
         case MType.Event:
-            checkNm();
             let m: RegExpMatchArray;
             if (val)
                 if(m = /^on(input|change)$/.exec(nm)) {
@@ -1182,12 +1181,12 @@ class RCompiler {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
                                     for (let alt of caseList) {
-                                        let {rng, childArea, bCr} = PrepElm(alt.node, area);
+                                        let {rng, chArea, bCr} = PrepElm(alt.node, area);
                                         if (    (!(rng.node.hidden = alt != choosenAlt)
                                                 || bCr
                                                 )
                                              && !area.bRootOnly)
-                                            await R.CallWithHandling(alt.bldr, alt.node, childArea );
+                                            await R.CallWithHandling(alt.bldr, alt.node, chArea );
                                     }
                                 }
                                 else {
@@ -1471,6 +1470,30 @@ class RCompiler {
                         this.wspc = wspc;
                         isBl = T;
                     } break;
+
+                    case 'rstyle':
+                        let save: [boolean, RegExp, WSpc] = [this.Settings.bDollarRequired, this.regIS, this.wspc];
+
+                        this.Settings.bDollarRequired = T; this.regIS = N;
+                        this.wspc = WSpc.preserve;
+                        let childnodesBldr = await this.CompChildNodes(srcElm);
+
+                        [this.Settings.bDollarRequired, this.regIS, this.wspc] = save;
+                        
+                        bldr = async function ELEMENT(this: RCompiler, area: Area) {
+                            let {chArea} = PrepElm(srcElm, area, 'STYLE');
+                            await childnodesBldr(chArea);
+                        };
+                        isBl = T;
+                        break;
+
+                    case 'element':
+                        
+                        bldr = await this.CompHTMLElement(srcElm, atts
+                            , this.CompParam(atts, 'tagname', true)
+                            );
+
+                        break;
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -1789,7 +1812,7 @@ class RCompiler {
 
                                 , prevItem: Item, nextItem: Item
                                 , prevRange: Range = N,
-                                childArea: Area;
+                                chArea: Area;
                             sub.parentR = rng;
                             prevVar(); nextVar();
 
@@ -1820,7 +1843,7 @@ class RCompiler {
                                     sub.rng = N;
                                     sub.prevR = prevRange;
                                     sub.before = nxChld?.FirstOrNext || before;
-                                    ({rng: childRange, sub: childArea} = PrepArea(N, sub, `${lvName}(${idx})`));
+                                    ({rng: childRange, sub: chArea} = PrepArea(N, sub, `${lvName}(${idx})`));
                                     if (key != N) {
                                         if (keyMap.has(key))
                                             throw `Duplicate key '${key}'`;
@@ -1868,7 +1891,7 @@ class RCompiler {
                                     else
                                         rng.child = childRange;
                                     sub.rng = childRange;
-                                    childArea = PrepArea(N, sub, '').sub;
+                                    chArea = PrepArea(N, sub, '').sub;
                                     sub.parentR = N;
                                 }
                                 childRange.prev = prevRange;
@@ -1892,14 +1915,14 @@ class RCompiler {
                                     nextVar(nextItem,T);
 
                                     // Body berekenen
-                                    await bodyBldr(childArea);
+                                    await bodyBldr(chArea);
 
                                     if (bReact)
                                         if (childRange.subs)
                                             assignEnv(childRange.subs.env, env);
                                         else {
                                             (item as RVAR_Light<Item>).Subscribe(
-                                                childRange.subs = Subscriber(childArea, bodyBldr, childRange.child)
+                                                childRange.subs = Subscriber(chArea, bodyBldr, childRange.child)
                                             );
                                             childRange.rvars = [item as RVAR];
                                         }
@@ -2134,7 +2157,7 @@ class RCompiler {
                     ));
 
                     if (encStyles) {
-                        let {rng: elmRange, childArea, bCr} = PrepElm(srcElm, area, customName), 
+                        let {rng: elmRange, chArea, bCr} = PrepElm(srcElm, area, customName), 
                             elm = elmRange.node,
                             shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
                         if (bCr)
@@ -2143,8 +2166,8 @@ class RCompiler {
                         
                         if (signat.RestParam)
                             ApplyMod(elm, {mt: MType.RestArgument, nm: N, depV: null}, args[signat.RestParam.nm], bCr);
-                        childArea.parent = shadow;
-                        area = childArea;
+                        chArea.parent = shadow;
+                        area = chArea;
                     }
                     await builder(area); 
                 }
@@ -2238,9 +2261,11 @@ class RCompiler {
         }
     }
 
-    private async CompHTMLElement(srcElm: HTMLElement, atts: Atts) {
+    private async CompHTMLElement(srcElm: HTMLElement, atts: Atts,
+            dTagName?: Dependent<string>
+        ) {
         // Remove trailing dots
-        let nm = srcElm.localName.replace(/\.+$/, ''),
+        let nm = dTagName ? '' : srcElm.localName.replace(/\.+$/, ''),
             // Remember preceeding whitespace-mode
             preWs = this.wspc
             // Whitespace-mode after this element
@@ -2271,11 +2296,11 @@ class RCompiler {
 
         // Now the runtime action
         let bldr: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
-            let {rng: {node}, childArea, bCr} = PrepElm(srcElm, area, nm);
+            let {rng: {node}, chArea, bCr} = PrepElm(srcElm, area, nm || dTagName());
             
             if (!area.bRootOnly)
                 // Build children
-                await childnodesBldr(childArea);
+                await childnodesBldr(chArea);
 
             node.removeAttribute('class');
             for (let {evType, listener} of node.handlers || E)
@@ -2295,8 +2320,6 @@ class RCompiler {
         let modifs: Array<Modifier> = []
             , m: RegExpExecArray;
         function addM(mt: MType, nm: string, depV: Dependent<unknown>){
-            if (mt == MType.Prop && nm=='valueasnumber')
-                nm = 'value';
             modifs.push({mt, nm, depV});
         }
 

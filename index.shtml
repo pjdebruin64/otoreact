@@ -29,53 +29,6 @@
             src="./",
             locationExternal = !/masterlist\/(test\/)?otoreact/i.test(location.href);
     
-        // Colorcoding
-        const mapping = {'<': '&lt;', '&': '&amp;'};
-        const markJScript = (script) =>
-                `<span style='color:purple'>${
-                    script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
-                        , (m,mComm) => mComm ? `<span class=demoGreen>${m}</span>` : m
-                    )
-                }</span>`
-            , markTag = (mTag) =>
-                `<span class=mTag>${
-                    mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gsi
-                        , (_,a1,a2,a3,a4,mExpr) => 
-                            mExpr ? `<span class=otored>${mExpr}</span>` 
-                            : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
-                            : `${a1}${markJScript(a2)}`    
-                        )
-                }</span>`
-            ;
-
-        function ColorCode(html) {
-            return `<div style='color:black'>${
-                html.replace(
-                    /[<&]/g, c => mapping[c]
-                ).replace(
-                    /(&lt;!--.*?-->)|(&lt;(script|style).*?>)(.*?)(&lt;\/\3\s*>)|&lt;(\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?>|\\\{|(\{(?:\{.*?\}|.)*?\})/gis
-                    , (m,
-                        mComm,      // This is HTML comment
-                        mScriptOpen,mScriptTag,mScriptBody,mScriptClose, // These form a <script> or <style> element
-                        mTag,       // This is any other tag
-                        mExpr       // This is an embedded expression
-                        ) =>
-                            ( mComm ? `<span class=demoGreen>${m}</span>`   // Mark HTML comments
-                            : mScriptTag ? 
-                                    markTag(mScriptOpen)                    // Mark <script> tag
-                                    + markJScript(mScriptBody)
-                                    + markTag(mScriptClose)
-                            : mTag  ? markTag(m)
-                            : mExpr ? `<span class=otored>${m}</span>`
-                            : m
-                            )
-                )
-            }</div>`;
-        }
-
-        function Indent(text, n) {
-            return text.split('\n').map(line => line.padStart(line.length + n)).join('\n');
-        }
     </script>
     <script src="samples.js?" defer></script>
     <script>

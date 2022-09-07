@@ -900,11 +900,58 @@ Furthermore:
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
+
+<h2 id="RSTYLE"><{}RSTYLE> dynamic style sheets</h2>
+While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to build style sheets using string interpolation and RHTML constructs, including loops and conditionals.
+<p>
+    Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are part of the style sheet; to use string interpolation you must add a dollar sign <code>\$\{ \}</code>.
+</p>
+<p>
+    Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue, without needing inline styles:
+</p>
+<demo #srctext=sampleStyleTemplate bDollarRequired></demo>
+
+<p>Some points of attention:</p>
+<ul>
+    <li>
+        <elm>RSTYLE</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
+        <br>When they are placed inside a <elm>FOR</elm> loop or component template, then multiple identical or different instances of the same style sheet template may arise.
+        <br>For efficiency reasons you should avoid this, unless you really mean to have multiple distinct instances.
+    </li>
+    <li>
+        <elm>RSTYLE</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
+        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code>.
+    </li>
+    <li>
+        Sheets imported with <code><a href="{MDN}CSS/@import">@import</a></code> cannot use string interpolation.
+        <br>If you want to use RHTML functionality in an external style sheet, then combine <elm>RSTYLE</elm> with <elm>INCLUDE</elm>:
+        <pre class=sourcecode>
+<{}RSTYLE>
+    <{}INCLUDE src="yourDynamicStyleSheet.css"></{}INCLUDE>
+<{}/RSTYLE></pre>
+    </li>
+    <li>
+        Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm>, except that braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ \\}</code>.
+    </li>
+</ul>
+
+
+<h2 id="ELEMENT"><{}ELEMENT #tagname></h2>
+<elm>ELEMENT #tagname="<i>expression</i>"</elm> builds an HTML element whose tagname is the string value of <i>expression</i>. All other attributes and child contents are passed on to the new element.
+
+<demo srctext="<for let=t of=&quot;['b', 'i', 'u', 's', 'code', 'q', 'sup', 'sub']&quot;>
+    <div>
+        <ELEMENT #tagname=&quot;t&quot;>TEST</ELEMENT>
+    </div>
+</for>"></demo>
+
+
 <h2 id=RHTML><{}RHTML #srctext>*</h2>
 <code class=sourcecode><elm>RHTML #srctext="<i>sourceExpr</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
 <p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
+
 <demo #srctext=sampleRHTML></demo>
 
 <h4>Caution</h4>

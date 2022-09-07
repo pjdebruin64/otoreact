@@ -1,3 +1,61 @@
+
+// Colorcoding
+let bRSTYLE = false;
+const 
+    mapping = {'<': '&lt;', '>': '&gt;', '&': '&amp;'}
+    , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
+    , markJScript = (script) =>
+        `<span style='color:purple'>${
+            script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+                , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : m
+            )
+        }</span>`
+    , markTag = (mTag) => {
+        if (/^\/?RSTYLE/i.test(mTag))
+            bRSTYLE = !bRSTYLE;
+        return `<span class=mTag>&lt;${
+                mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gsi
+                    , (_,a1,a2,a3,a4,mExpr) => 
+                        mExpr ? `<span class=otored>${mExpr}</span>` 
+                        : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
+                        : `${a1}${markJScript(a2)}`    
+                    )
+            }&gt;</span>`;
+    }
+    , reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis
+    , ColorCode = (html) =>
+      `<span style='color:black'>${
+          html.replace(
+              reg
+              , (m,
+                  mComm,      // This is HTML comment
+                  mScriptOpen,mScriptTag,mScriptBody,mScriptClose, // These form a <script> or <style> element
+                  mTag,       // This is any other tag
+                  mExpr,      // This is an embedded expression
+                  mChar,      // A special character
+                  ) =>
+                      ( mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`   // Mark HTML comments
+                      : mScriptTag ? 
+                              markTag(mScriptOpen)                    // Mark <script> tag
+                              + markJScript(mScriptBody)
+                              + markTag(mScriptClose)
+                      : mTag  ? markTag(mTag)
+                      : mExpr ?                                       // Interpolated string {} or ${}
+                          bRSTYLE && !/^\$/.test(mExpr)               // Inside an <RSTYLE>, we ignore {}
+                          ? mExpr.slice(0,1) + ColorCode(mExpr.slice(1))
+                          : `<span class=otored>${m}</span>`
+                      : mChar ? mapping[mChar]
+                      : m
+                      )
+          )
+      }</span>`;
+
+
+function Indent(text, n) {
+    return text.split('\n').map(line => line.padStart(line.length + n)).join('\n');
+}
+
+
 const sampleGreeting=
 `<!-- Create a local reactive variable (RVAR) to receive the entered name -->
 <DEFINE rvar='yourName'></DEFINE>
@@ -450,23 +508,27 @@ const sampleRHTML =
 `<define rvar=sourcecode 
         value="1 + 1 = <b>\\{1+1}</b>"
 ></define>
-<textarea @value="sourcecode.V" rows=3 cols=30></textarea>
+<textarea @value="sourcecode.V" rows=3 cols=50></textarea>
 <br>
 <RHTML #srctext=sourcecode.V></RHTML>`;
 
 const sampleStyleTemplate =
-`<def rvar=Hue #value="Math.random()*360"></def>
+`<def rvar=Hue #value="0"></def>
 
-<style. reacton=Hue>
-  h2 \\{ color: hsl( {Hue.V}, 100%, 50%) \\}
-</style.>
+Hue = {Hue.V}
+
+<RSTYLE>
+  h2 {
+    color: hsl( \${Hue.V}, 100%, 50%);
+  }
+</RSTYLE>
 
 <h2>Section 1</h2>
 Contents
 <h2>Section 2</h2>
 
-<button onclick="Hue.V = Math.random()*360">
-  Random color
+<button onclick="Hue.V = Math.random() * 360">
+  Random hue
 </button>`;
 
 const C1=

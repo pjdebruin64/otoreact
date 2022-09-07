@@ -62,39 +62,6 @@
 </dl>
 
 
-
-<h2 id=StyleTemplate>Dynamic style sheets</h2>
-The HTML parser does not allow string interpolation inside <elm>STYLE</elm>, but OtoReact allows to use <elm>STYLE.</elm> to define style sheets using string interpolation and RHTML constructs, like loops and conditionals.
-<p>Some points of attention:</p>
-<ul>
-    <li>Braces inside <elm>STYLE.</elm> that are part of the style sheet and do not delimit an embedded string must be escaped: <code>\\{ \\}</code>.</li>
-    <li>
-        <elm>STYLE.</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
-        <br>Hence they cannot be moved to the document header, so you must avoid having multiple possibly conflicting instances of the same style sheet.
-        <br>E.g., don't put them inside a <elm>FOR</elm> loop.
-    </li>
-    <li>
-        <elm>STYLE.</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
-        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code>.
-    </li>
-    <li>
-        Sheets imported with <code><a href="{MDN}CSS/@import">@import</a></code> cannot use string interpolation.
-    </li>
-</ul>
-<p>
-    Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue:
-</p>
-<demo #srctext=sampleStyleTemplate></demo>
-
-
-<h4>External dynamic style sheets</h4>
-If you want to use RHTML functionality in an external style sheet, then combine <elm>STYLE.</elm> with <elm>INCLUDE</elm>:
-<pre class=sourcecode>
-<{}style.>
-    <{}INCLUDE src="yourStyleSheet.css"></{}INCLUDE>
-<{}/style.>
-</pre>
-
 <h2>Formatting</h2>
 OtoReact does not (yet) have extra formatting functionality for numbers and dates, etc. You can use standard JavaScript features like the <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Intl">Internationalization API</a>, or a library like <a href="https://day.js.org/">Day.js</a>.
 
@@ -137,7 +104,7 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
             <td>
                 When true, building or updating the DOM will be aborted when any error occurs.
                 <br>An error message will be written to the console and shown in an alert box.
-                <br>Compile errors will always cause an abort, except within <elm>RHTML</elm> text.
+                <p>Compile time errors will always cause an abort, except within <elm>RHTML</elm> text.</p>
             </td>
         </tr>
         <tr>
@@ -154,7 +121,7 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         </tr>
         <tr>
             <td>bSetPointer</td><td>true</td>
-            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler.</td>
+            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler and is not disabled.</td>
         </tr>
         <tr>
             <td>basePattern</td><td>"/"</td>
@@ -166,9 +133,9 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         <tr>
             <td>preformatted</td><td>[ ]</td>
             <td>
-                By default, OtoReact will skip white space when it reckons it is irrelevant for the visual appearance of the page. Only within the preformatted <elm>pre</elm> element white space is always preserved.
+                By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page. Only within the preformatted <elm>pre</elm> element white space is always preserved.
                 <br>With the 'preformatted' option, you can set an array of other (case insensitive) element names that should have all white space preserved in the DOM.
-                <br>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
+                <p>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
             </td>
         </tr>
         <tr>

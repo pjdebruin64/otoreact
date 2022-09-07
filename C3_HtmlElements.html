@@ -30,7 +30,10 @@
     Documentation of all properties can be found at <a href="{MDN}Web/API#interfaces">MDN</a> or partly at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
 </p>
 <p>
-    When the expression yields value <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn <code>undefined</code> into the string "undefined".
+    When the expression yields value <code>null</code> or <code>undefined</code> and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn the value into string "null" or "undefined".
+</p>
+<p>
+    * OtoReact will discover the proper casing of <i>propertyName</i> the first time it is being set.
 </p>
 <p>
     * There are two special cases:
@@ -41,8 +44,8 @@
         <br>RHTML however allows you to simply set <code>#class</code>, which translates to <code>#classname</code>.
     </li>
     <li>
-        <a href="{MDN}Web/API/HTMLInputElement">HTMLInputElement</a> DOM property <code>valueAsNumber</code> returns the numeric value of a number type input element, but cannot be set, which would make it unusable for two-way binding.
-        <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code>, so one can use two-way binding on this property.
+        DOM property <code>valueAsNumber</code> returns the numeric value of an <elm>input type=number</elm> element, but <a href="{MDN}Web/API/HTMLInputElement">cannot be set</a> in some browsers, which would make it unusable for two-way binding.
+        <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code> for this element, so one can use two-way binding on this property.
     </li>
 </ul>
 Notes:
