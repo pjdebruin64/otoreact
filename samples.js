@@ -7,18 +7,21 @@ const
     , markJScript = (script) =>
         `<span style='color:purple'>${
             script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
-                , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : m
+                , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
             )
         }</span>`
     , markTag = (mTag) => {
         if (/^\/?RSTYLE/i.test(mTag))
             bRSTYLE = !bRSTYLE;
         return `<span class=mTag>&lt;${
-                mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)((['"])(.*?)\3|[^ \t\n\r>]*)|(\{(?:\{.*?\}|.)*?\})/gsi
-                    , (_,a1,a2,a3,a4,mExpr) => 
-                        mExpr ? `<span class=otored>${mExpr}</span>` 
-                        : a3 ? `${a1}${a3}${markJScript(a4)}${a3}`
-                        : `${a1}${markJScript(a2)}`    
+                mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
+                //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
+                    , (m,a1,a2,a3,a4,mExpr) => 
+                        ( mExpr ? `<span class=otored>${mExpr}</span>`
+                        : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
+                        : a1 ? `${a1}${markJScript(a4)}`
+                        : quoteHTML(m)
+                        )
                     )
             }&gt;</span>`;
     }
@@ -505,8 +508,8 @@ const sampleTicTacToe =
 </div>`;
 
 const sampleRHTML =
-`<define rvar=sourcecode 
-        value="1 + 1 = <b>\\{1+1}</b>"
+`<define rvar=sourcecode
+        value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
 <textarea @value="sourcecode.V" rows=3 cols=50></textarea>
 <br>

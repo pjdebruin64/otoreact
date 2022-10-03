@@ -936,14 +936,29 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 </ul>
 
 
-<h2 id="ELEMENT"><{}ELEMENT #tagname></h2>
-<elm>ELEMENT #tagname="<i>expression</i>"</elm> builds an HTML element whose tagname is the string value of <i>expression</i>. All other attributes and child contents are passed on to the new element.
+<h2 id="ELEMENT"><{}ELEMENT #tagname>*</h2>
+<elm>ELEMENT #tagname="<i>expression</i>"</elm> builds an HTML element whose tagname is the string value of <i>expression</i>.
+<br>All other attributes and child contents are passed on to the new element.
 
-<demo srctext="<for let=t of=&quot;['b', 'i', 'u', 's', 'code', 'q', 'sup', 'sub']&quot;>
-    <div>
-        <ELEMENT #tagname=&quot;t&quot;>TEST</ELEMENT>
-    </div>
+<p>The tagname may not be empty, and updates to the tagname of a created element are ignored.</p>
+
+<demo srctext="<for let=t of=&quot;['b', 'i', 'u', 's', 'q', 'sup', 'sub', 'code', 'button']&quot;>
+    <ELEMENT #tagname=&quot;t&quot;>TEST</ELEMENT>
 </for>"></demo>
+
+<h2 id="ATTRIBUTE"><{}ATTRIBUTE #name value>*</h2>
+<elm>ATTRIBUTE #name="<i>expression</i>" value</elm> adds an attribute, whose name is the string value of <i>expression</i>, to its (nearest) parent HTML element.
+<br>There may not be any child contents.
+
+<p>When the value is null or empty, no attribute is added.</p>
+<p>Updates to the attribute name are handled accordingly.</p>
+
+<demo srctext=
+'<def rvar=attName value="value"></def>
+<input @value="attName .V">
+<input.>
+    <ATTRIBUTE #name="attName .V" value="ok"></ATTRIBUTE>
+</input.>'></demo>
 
 
 <h2 id=RHTML><{}RHTML #srctext>*</h2>
@@ -952,7 +967,13 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 
-<demo #srctext=sampleRHTML></demo>
+<demo srctext=
+'<define rvar=sourcecode
+        value="1 + 1 = <b>\\{1+1\\}</b>"
+></define>
+<textarea @value="sourcecode.V" rows=3 cols=50></textarea>
+<br>
+<RHTML #srctext=sourcecode.V></RHTML>'></demo>
 
 <h4>Caution</h4>
 When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.

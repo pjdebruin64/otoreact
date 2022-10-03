@@ -152,8 +152,8 @@ export async function RCompile(elm = document.body, settings) {
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
         ScrollToHash();
     }
-    catch (err) {
-        alert(`OtoReact error: ` + err);
+    catch (e) {
+        alert(`OtoReact error: ` + LAbbr(e));
     }
 }
 function NewEnv() {
@@ -265,7 +265,7 @@ class _RVAR {
         }
     }
     Save() {
-        this.store.setItem(this._sNm, JSON.stringify(this._val));
+        this.store.setItem(this._sNm, JSON.stringify(this._val ?? null));
     }
     toString() {
         return this._val.toString();
@@ -304,7 +304,7 @@ function RUpdate() {
             DoUpdate();
         }, 5);
 }
-async function DoUpdate() {
+export async function DoUpdate() {
     if (!R.bCompiled || bUpdating)
         return;
     bUpdating = T;
@@ -323,10 +323,9 @@ async function DoUpdate() {
                         try {
                             await subs(rv instanceof _RVAR ? rv.V : rv);
                         }
-                        catch (err) {
-                            let msg = `ERROR: ` + err;
-                            console.log(msg);
-                            alert(msg);
+                        catch (e) {
+                            console.log(e = `ERROR: ` + LAbbr(e));
+                            alert(e);
                         }
             }
         }
@@ -584,10 +583,12 @@ class RCompiler {
         }
     }
     async CompIter(srcParent, iter) {
-        let bldrs = [], { rspc } = this, arr = Array.from(iter), L = arr.length, i = 0;
+        let bldrs = [], { rspc } = this, arr = Array.from(iter), i = 0;
+        while (rspc && arr.length && /^[ \t\n\r]*$/.test(arr[arr.length - 1].nodeValue))
+            arr.pop();
         for (let srcNode of arr) {
             i++;
-            this.rspc = i == L && rspc;
+            this.rspc = i == arr.length && rspc;
             let bldr;
             switch (srcNode.nodeType) {
                 case Node.ELEMENT_NODE:
@@ -605,7 +606,7 @@ class RCompiler {
                                     : async (area) => PrepCharData(area, getText()), srcNode,
                                 fixed == ' '];
                         if (this.wspc < 4)
-                            this.wspc = /\s$/.test(str) ? 2 : 3;
+                            this.wspc = / $/.test(str) ? 2 : 3;
                     }
                     break;
                 case Node.COMMENT_NODE:
@@ -641,7 +642,7 @@ class RCompiler {
                         toSubscribe.push(Subscriber(area, Iter, area.prevR, i));
                 }
                 for (let subs of toSubscribe) {
-                    let { sArea } = subs, r = sArea.rng, rvar = r.value;
+                    let { sArea } = subs, r = sArea.rng, rvar = r.val;
                     if (!rvar._Subs.size && r.next) {
                         (sArea.rng = r.next).updated = updCnt;
                         rvar.Subscribe(rvar.auto = subs);
@@ -653,8 +654,8 @@ class RCompiler {
                     if (i++ >= start) {
                         let r = area.rng;
                         await bldr(area);
-                        if (bldr.auto && r.value?.auto)
-                            assignEnv(r.value.auto.env, env);
+                        if (bldr.auto && r.val?.auto)
+                            assignEnv(r.val.auto.env, env);
                     }
             builtNodeCnt += bldrs.length - start;
         }, "ws", bldrs[0][0].ws);
@@ -700,7 +701,7 @@ class RCompiler {
                                     this.cRvars.set(rv, a);
                                 });
                             }
-                            isBl = T;
+                            isBl = 1;
                         }
                         break;
                     case 'if':
@@ -887,7 +888,7 @@ class RCompiler {
                                 for (let lv of vars)
                                     lv(MEnv[lv.i]);
                             };
-                            isBl = T;
+                            isBl = 1;
                         }
                         break;
                     case 'react':
@@ -898,8 +899,8 @@ class RCompiler {
                                 let b = bldr;
                                 bldr = async function HASH(area) {
                                     let { sub, rng } = PrepArea(srcElm, area, 'hash'), hashes = getHashes();
-                                    if (!rng.value || hashes.some((hash, i) => hash !== rng.value[i])) {
-                                        rng.value = hashes;
+                                    if (!rng.val || hashes.some((hash, i) => hash !== rng.val[i])) {
+                                        rng.val = hashes;
                                         await b(sub);
                                     }
                                 };
@@ -909,6 +910,7 @@ class RCompiler {
                         break;
                     case 'rhtml':
                         {
+                            NoChildren(srcElm);
                             let getSrctext = this.CompParam(atts, 'srctext', T), modifs = this.CompAttribs(atts), lThis = this;
                             this.wspc = 1;
                             bldr = async function RHTML(area) {
@@ -936,15 +938,15 @@ class RCompiler {
                         break;
                     case 'script':
                         bldr = await this.CompScript(srcPrnt, srcElm, atts);
-                        isBl = T;
+                        isBl = 1;
                         break;
                     case 'style':
                         this.CompStyle(srcElm);
-                        isBl = T;
+                        isBl = 1;
                         break;
                     case 'component':
                         bldr = await this.CompComponent(srcElm, atts);
-                        isBl = T;
+                        isBl = 1;
                         break;
                     case 'document':
                         {
@@ -953,7 +955,7 @@ class RCompiler {
                                 let { rng, bCr } = PrepArea(srcElm, area, docVar.name);
                                 if (bCr) {
                                     let doc = area.parent.ownerDocument, docEnv = CloneEnv(env), wins = rng.wins = new Set();
-                                    rng.value = {
+                                    rng.val = {
                                         async render(w, bCr, args) {
                                             let svEnv = env, i = 0, D = w.document;
                                             env = docEnv;
@@ -1002,9 +1004,9 @@ class RCompiler {
                                         }
                                     };
                                 }
-                                docVar(rng.value);
+                                docVar(rng.val);
                             };
-                            isBl = T;
+                            isBl = 1;
                         }
                         break;
                     case 'rhead':
@@ -1020,7 +1022,7 @@ class RCompiler {
                                     sub.prevR.parentN = sub.parent;
                             };
                             this.wspc = wspc;
-                            isBl = T;
+                            isBl = 1;
                         }
                         break;
                     case 'rstyle':
@@ -1030,14 +1032,27 @@ class RCompiler {
                         this.wspc = 4;
                         let childnodesBldr = await this.CompChildNodes(srcElm);
                         [this.Settings.bDollarRequired, this.regIS, this.wspc] = save;
-                        bldr = async function ELEMENT(area) {
+                        bldr = async function RSTYLE(area) {
                             let { chArea } = PrepElm(srcElm, area, 'STYLE');
                             await childnodesBldr(chArea);
                         };
-                        isBl = T;
+                        isBl = 1;
                         break;
                     case 'element':
-                        bldr = await this.CompHTMLElement(srcElm, atts, this.CompParam(atts, 'tagname', true));
+                        bldr = await this.CompHTMLElement(srcElm, atts, this.CompParam(atts, 'tagname', T));
+                        this.wspc = 3;
+                        break;
+                    case 'attribute':
+                        NoChildren(srcElm);
+                        let dNm = this.CompParam(atts, 'name', T), dVal = this.CompParam(atts, 'value', T);
+                        bldr = async function ATTRIB(area) {
+                            let nm = dNm(), { rng } = PrepArea(srcElm, area);
+                            if (rng.val && nm != rng.val)
+                                area.parent.removeAttribute(rng.val);
+                            if (rng.val = nm)
+                                area.parent.setAttribute(nm, dVal());
+                        };
+                        isBl = 1;
                         break;
                     default:
                         bldr = await this.CompHTMLElement(srcElm, atts);
@@ -1109,7 +1124,7 @@ class RCompiler {
                 }
                 : function Elm(area) {
                     return bldr(area).catch((err) => { throw `${OuterOpenTag(srcElm, 40)} ${err}`; });
-                }, 'ws', ws), srcElm];
+                }, 'ws', ws), srcElm, isBl];
     }
     GetREACT(srcElm, attName, getRvars, builder, bRenew) {
         let updateBuilder = (bRenew
@@ -1136,7 +1151,7 @@ class RCompiler {
                     assignEnv(subs.env, env);
                 }
                 rng.rvars = rvars;
-                rng.value = sub.prevR?.value;
+                rng.val = sub.prevR?.val;
                 for (let rvar of rvars) {
                     if (pVars) {
                         let pvar = pVars[i++];
@@ -1234,6 +1249,7 @@ class RCompiler {
         let lvName = atts.get('let') ?? atts.get('var'), ixName = atts.get('index'), saved = this.SaveCont();
         if (ixName == '')
             ixName = 'index';
+        this.rspc = F;
         try {
             if (lvName != N) {
                 let prevNm = atts.get('previous'), nextNm = atts.get('next');
@@ -1247,7 +1263,7 @@ class RCompiler {
                     let { rng, sub } = PrepArea(srcElm, area, ''), { parent } = sub, before = sub.before !== U ? sub.before : rng.Next, iterable = getRange() || E, pIter = async (iter) => {
                         let svEnv = SaveEnv();
                         try {
-                            let keyMap = rng.value || (rng.value = new Map()), newMap = new Map();
+                            let keyMap = rng.val || (rng.val = new Map()), newMap = new Map();
                             loopVar();
                             ixVar();
                             let idx = 0;
@@ -1409,8 +1425,7 @@ class RCompiler {
         }
     }
     CompDefine(srcElm, atts) {
-        if (srcElm.childElementCount)
-            throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
+        NoChildren(srcElm);
         let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', T), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = atts.getB('reacting') || atts.getB('updating'), lv = this.newV(varNm);
         return [async function DEF(area) {
                 let { rng, bCr } = PrepArea(srcElm, area);
@@ -1418,13 +1433,13 @@ class RCompiler {
                     let v = getVal();
                     if (rv)
                         if (bCr)
-                            rng.value = new _RVAR(N, v, getStore && getStore(), `RVAR_${rv}`);
+                            rng.val = new _RVAR(N, v, getStore && getStore(), `RVAR_${rv}`);
                         else
-                            rng.value._Set(v);
+                            rng.val._Set(v);
                     else
-                        rng.value = v;
+                        rng.val = v;
                 }
-                lv(rng.value);
+                lv(rng.val);
             }, rv];
     }
     ParseSignat(elmSignat, bIsSlot) {
@@ -1616,7 +1631,7 @@ class RCompiler {
         };
     }
     async CompHTMLElement(srcElm, atts, dTagName) {
-        let nm = dTagName ? '' : srcElm.localName.replace(/\.+$/, ''), preWs = this.wspc, postWs;
+        let nm = dTagName ? N : srcElm.localName.replace(/\.+$/, ''), preWs = this.wspc, postWs;
         if (this.mPreformatted.has(nm)) {
             this.wspc = 4;
             postWs = 1;
@@ -1799,7 +1814,7 @@ class RCompiler {
             return N;
         let bThis = /\bthis\b/.test(expr), depExpr = bThis ?
             `'use strict';(function expr([${this.ctStr}]){return (${expr}\n)})`
-            : `'use strict';([${this.ctStr}])=>(${expr}\n)`, errorInfo = `${descrip ? `[${descrip}] ` : ''}${delims[0]}${Abbrev(expr, 60)}${delims[1]}: `;
+            : `'use strict';([${this.ctStr}])=>(${expr}\n)`, errorInfo = `${descrip ? `[${descrip}] ` : ''}${delims[0]}${Abbr(expr, 60)}${delims[1]}: `;
         try {
             let rout = gEval(depExpr);
             return addP(check
@@ -1965,11 +1980,16 @@ function CheckNm(obj, nm) {
     return Cnames[nm] = nm;
 }
 function OuterOpenTag(elm, maxLen) {
-    return Abbrev(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLen - 1) + '>';
+    return Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLen - 1) + '>';
 }
-function Abbrev(s, maxLen) {
-    return (maxLen && s.length > maxLen
-        ? s.slice(0, maxLen - 3) + "..."
+function Abbr(s, m) {
+    return (m && s.length > m
+        ? s.slice(0, m - 3) + "..."
+        : s);
+}
+function LAbbr(s, m = 1000) {
+    return (m && s.length > m
+        ? "... " + s.slice(s.length - m + 4)
         : s);
 }
 function mapNm(m, v) {
@@ -2010,6 +2030,10 @@ function createErrNode(msg) {
     s.fontSize = '10pt';
     e.innerText = msg;
     return e;
+}
+function NoChildren(srcElm) {
+    if (srcElm.childElementCount)
+        throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
 }
 function copyStyleSheets(S, D) {
     for (let SSheet of S.styleSheets) {

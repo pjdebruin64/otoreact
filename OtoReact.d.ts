@@ -34,7 +34,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     constructor(node: NodeType, area: Area, text?: string);
     toString(): string;
     result?: any;
-    value?: any;
+    val?: any;
     errNode?: ChildNode;
     bfDest?: Handler;
     onDest?: Handler;
@@ -108,6 +108,7 @@ export declare type RVAR_Light<T> = T & {
     readonly U?: T;
 };
 declare function Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
+export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
 }
