@@ -10,6 +10,7 @@ const U = undefined, N = null, T = true, F = false, E = [], W = window, defaultS
     bSetPointer: T,
     bKeepWhiteSpace: F,
     bKeepComments: F,
+    storePrefix: "RVAR_"
 }, parser = new DOMParser(), gEval = eval, gFetch = fetch;
 W.globalThis || (W.globalThis = W.self);
 class Range {
@@ -218,7 +219,9 @@ class _RVAR {
             t.then(v => (this.V = v), onerr)
             : (this._val = t);
     }
-    get _sNm() { return this.storeName || `RVAR_${this.name}`; }
+    get _sNm() {
+        return this.storeName || R.Settings.storePrefix + this.name;
+    }
     Subscribe(s, bImmediate, bCr = bImmediate) {
         if (bCr)
             s(this._val);
@@ -584,7 +587,7 @@ class RCompiler {
     }
     async CompIter(srcParent, iter) {
         let bldrs = [], { rspc } = this, arr = Array.from(iter), i = 0;
-        while (rspc && arr.length && /^[ \t\n\r]*$/.test(arr[arr.length - 1].nodeValue))
+        while (rspc && arr.length && reWS.test(arr[arr.length - 1].nodeValue))
             arr.pop();
         for (let srcNode of arr) {
             i++;
@@ -690,8 +693,22 @@ class RCompiler {
                     case 'def':
                     case 'define':
                         {
-                            let rv;
-                            [bldr, rv] = this.CompDefine(srcElm, atts);
+                            CheckNoChildren(srcElm);
+                            let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', T), dVal = this.CompParam(atts, 'value') || dU, dSt = rv && this.CompAttrExpr(atts, 'store'), dSNm = dSt && this.CompParam(atts, 'storename') || dU, bReact = atts.getB('reacting') || atts.getB('updating'), lv = this.newV(varNm);
+                            bldr = async function DEF(area) {
+                                let { rng, bCr } = PrepArea(srcElm, area);
+                                if (bCr || bReact) {
+                                    let v = dVal();
+                                    if (rv)
+                                        if (bCr)
+                                            rng.val = new _RVAR(rv, v, dSt && dSt(), dSNm());
+                                        else
+                                            rng.val._Set(v);
+                                    else
+                                        rng.val = v;
+                                }
+                                lv(rng.val);
+                            };
                             if (rv) {
                                 let a = this.cRvars.get(rv);
                                 this.cRvars.set(rv, T);
@@ -910,7 +927,7 @@ class RCompiler {
                         break;
                     case 'rhtml':
                         {
-                            NoChildren(srcElm);
+                            CheckNoChildren(srcElm);
                             let getSrctext = this.CompParam(atts, 'srctext', T), modifs = this.CompAttribs(atts), lThis = this;
                             this.wspc = 1;
                             bldr = async function RHTML(area) {
@@ -1043,7 +1060,7 @@ class RCompiler {
                         this.wspc = 3;
                         break;
                     case 'attribute':
-                        NoChildren(srcElm);
+                        CheckNoChildren(srcElm);
                         let dNm = this.CompParam(atts, 'name', T), dVal = this.CompParam(atts, 'value', T);
                         bldr = async function ATTRIB(area) {
                             let nm = dNm(), { rng } = PrepArea(srcElm, area);
@@ -1424,24 +1441,6 @@ class RCompiler {
             this.RestoreCont(saved);
         }
     }
-    CompDefine(srcElm, atts) {
-        NoChildren(srcElm);
-        let rv = atts.get('rvar'), varNm = rv || atts.get('let') || atts.get('var', T), getVal = this.CompParam(atts, 'value') || dU, getStore = rv && this.CompAttrExpr(atts, 'store'), bReact = atts.getB('reacting') || atts.getB('updating'), lv = this.newV(varNm);
-        return [async function DEF(area) {
-                let { rng, bCr } = PrepArea(srcElm, area);
-                if (bCr || bReact) {
-                    let v = getVal();
-                    if (rv)
-                        if (bCr)
-                            rng.val = new _RVAR(N, v, getStore && getStore(), `RVAR_${rv}`);
-                        else
-                            rng.val._Set(v);
-                    else
-                        rng.val = v;
-                }
-                lv(rng.val);
-            }, rv];
-    }
     ParseSignat(elmSignat, bIsSlot) {
         let signat = new Signature(elmSignat, bIsSlot), s;
         for (let attr of elmSignat.attributes) {
@@ -1636,9 +1635,9 @@ class RCompiler {
             this.wspc = 4;
             postWs = 1;
         }
-        else if (regBlock.test(nm))
+        else if (reBlock.test(nm))
             this.wspc = this.rspc = postWs = 1;
-        else if (regInline.test(nm)) {
+        else if (reInline.test(nm)) {
             this.wspc = this.rspc = 1;
             postWs = 3;
         }
@@ -1946,21 +1945,22 @@ class Atts extends Map {
         }
     }
     ChkNoAttsLeft() {
+        super.delete('hidden');
         if (super.size)
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
 }
-let altProps = { "class": "className", for: "htmlFor" }, genAtts = /^#?(?:((?:this)?reacts?on)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/, regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/, regReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z', regCapit = new RegExp(`(${words})|.`, "g"), regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/, regInline = /^(button|input|img)$/;
+let altProps = { "class": "className", for: "htmlFor" }, genAtts = /^#?(?:((?:this)?reacts?on)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/, reIdent = /^[A-Z_$][A-Z0-9_$]*$/i, reReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, words = 'accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z', reCapit = new RegExp(`(${words})|.`, "g"), reBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/, reInline = /^(button|input|img)$/, reWS = /^[ \t\n\r]*$/;
 function CheckId(nm) {
-    if (!regIdent.test(nm))
+    if (!reIdent.test(nm))
         throw `Invalid identifier '${nm}'`;
-    if (regReserv.test(nm))
+    if (reReserv.test(nm))
         throw `Reserved keyword '${nm}'`;
     return nm;
 }
 function CapitalProp(nm) {
     let b;
-    return nm.replace(regCapit, (w, w1) => {
+    return nm.replace(reCapit, (w, w1) => {
         let r = b ? w.slice(0, 1).toUpperCase() + w.slice(1) : w;
         b = w1;
         return r;
@@ -2031,9 +2031,11 @@ function createErrNode(msg) {
     e.innerText = msg;
     return e;
 }
-function NoChildren(srcElm) {
-    if (srcElm.childElementCount)
-        throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
+function CheckNoChildren(srcElm) {
+    for (let node of srcElm.childNodes)
+        if (srcElm.childElementCount
+            || node.nodeType == Node.TEXT_NODE && !reWS.test(node.nodeValue))
+            throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
 }
 function copyStyleSheets(S, D) {
     for (let SSheet of S.styleSheets) {

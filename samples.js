@@ -14,7 +14,7 @@ const
         if (/^\/?RSTYLE/i.test(mTag))
             bRSTYLE = !bRSTYLE;
         return `<span class=mTag>&lt;${
-                mTag.replace(/(\s(?:(?:on|[#*+!@])[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
+                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
                 //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
                     , (m,a1,a2,a3,a4,mExpr) => 
                         ( mExpr ? `<span class=otored>${mExpr}</span>`
@@ -668,29 +668,27 @@ pre {background-color: lightgrey}
 </style>
 
 <h5>RHTML source:</h5>
-<def rvar=source store=localStorage value=
+<def rvar=source store=sessionStorage value=
 "<def var=x value=A></def>
-<ul> <li> x = \\{x} </ul>
-"></def>
+<ul> <li> x = \\{x\\} </ul>"
+></def>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
-<h5>HTML rendering:</h5>
-<def rvar=html></def>
-<div #innerhtml=source.V 
-    *+innerHTML= "html.V"
-></div>
-
 <h5>Parsed HTML:</h5>
-<pre reacton=html>{html.V}</pre>
+<def rvar=ParsedHTML></def>
+<div hidden #innerhtml=source.V 
+    *+innerhtml= "ParsedHTML.V"
+></div>
+<pre>{ParsedHTML.V}</pre>
 
 <h5>RHTML rendering:</h5>
-<def rvar=rhtml></def>
+<def rvar=RenderedHTML></def>
 <rhtml #srctext=source.V
-  oncreateupdate= "rhtml.V = this.shadowRoot.innerHTML"
+  oncreateupdate= "RenderedHTML.V = this.shadowRoot.innerHTML"
 ></rhtml>
 
-<h5>Created DOM:</h5>
-<pre reacton=rhtml>{rhtml.V}</pre>`;
+<h5>Rendered HTML:</h5>
+<pre>{RenderedHTML.V}</pre>`;
 
 const demoScoping=
 `(Look at the source code please)

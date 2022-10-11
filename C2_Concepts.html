@@ -164,7 +164,7 @@ Global variables are visible in RHTML inline scripts, of course.
     RVAR's are created:
 </p>
 <ul>
-    <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename = `RVAR_$\{name\}`)</code> from JavaScript,</li>
+    <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename?)</code> from JavaScript,</li>
     <li>or by using the <a href=#DEFINE><elm>define rvar</elm></a> construct.</li>
 </ul>
 
@@ -259,7 +259,7 @@ Global variables are visible in RHTML inline scripts, of course.
 
 
 <h3 id=Persistence>Persistence*</h4>
-When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <elm>define rvar</elm>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
+When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <a href=#DEFINE><elm>define rvar</elm></a>, then the variable value will be retrieved from that store when the variable is created, and stored at every update.
 <p><code>store</code> can be:</p>
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
@@ -268,7 +268,7 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <el
         <br>It could be an object that saves values to a database.
     </li>
 </ul>
-<p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>.</p>
+<p>The RVAR must have a unique <code>storename</code>; the default is <code>`RVAR_$\{name\}`</code>, where the prefix "RVAR_" can be changed using <a href="#Options">option</a> 'store_Prefix'.</p>
 
 <p>
     An example using <code>sessionStorage</code> can be found in the <a href="#Multiplication">Multiplication demo</a>: modify the numbers; then either reload the page or modify the source code, which triggers a reload too, and see that the modified numbers have persisted.

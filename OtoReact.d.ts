@@ -10,6 +10,7 @@ declare const defaultSettings: {
     bSetPointer: boolean;
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
+    storePrefix: string;
 };
 declare type DOMBuilder = ((reg: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
@@ -151,7 +152,6 @@ declare class RCompiler {
     private CallWithHandling;
     private CompScript;
     CompFor(this: RCompiler, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
-    private CompDefine;
     private ParseSignat;
     private CompComponent;
     private CompTempl;

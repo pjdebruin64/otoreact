@@ -14,6 +14,7 @@ const
         bSetPointer:    T,
         bKeepWhiteSpace: F,
         bKeepComments:  F,
+        storePrefix:    "RVAR_"
     },
     parser = new DOMParser(),
     gEval = eval, gFetch=fetch;
@@ -417,7 +418,9 @@ class _RVAR<T = unknown>{
     // .Content is de routine die een nieuwe waarde uitrekent
     _Subs: Set<Subscriber<T>> = new Set();
     auto: Subscriber;
-    private get _sNm() {return this.storeName || `RVAR_${this.name}`}
+    private get _sNm() {
+        return this.storeName || R.Settings.storePrefix + this.name;
+    }
 
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr: boolean = bImmediate) {
         if (bCr)
@@ -428,15 +431,6 @@ class _RVAR<T = unknown>{
     Unsubscribe(s: Subscriber<T>) {
         this._Subs.delete(s);
     }
-    /*
-    RunOnce(s: Subscriber<T>) {
-        let ss: Subscriber<T> = t => {
-            this.Unsubscribe(ss);
-            return s(t);
-        }
-        this.Subscribe(ss);
-    }
-    */
     // Use var.V to get or set its value
     get V() { return this._val }
     // When setting, it will be marked dirty.
@@ -912,7 +906,7 @@ class RCompiler {
             , {rspc} = this     // Indicates whether the output may be right-trimmed
             , arr = Array.from(iter)
             , i=0;
-        while(rspc && arr.length && /^[ \t\n\r]*$/.test(arr[arr.length-1].nodeValue)) 
+        while(rspc && arr.length && reWS.test(arr[arr.length-1].nodeValue)) 
             arr.pop();
 
         for (let srcNode of arr) {
@@ -1059,9 +1053,31 @@ class RCompiler {
             else {
                 switch (srcElm.localName) {
                     case 'def':
-                    case 'define': { // '<LET>' staat de parser niet toe.
-                        let rv: string;
-                        [bldr, rv] = this.CompDefine(srcElm, atts);
+                    case 'define': { // '<LET>' staat de parser niet toe.                        
+                        CheckNoChildren(srcElm);
+                        let rv      = atts.get('rvar'),
+                            varNm   = rv || atts.get('let') || atts.get('var', T),
+                            dVal    = this.CompParam(atts, 'value') || dU,
+                            dSt     = rv && this.CompAttrExpr<Store>(atts, 'store'),
+                            dSNm    = dSt && this.CompParam<string>(atts, 'storename') || dU,
+                            bReact  = atts.getB('reacting') || atts.getB('updating'),
+                            lv      = this.newV(varNm);
+                        
+                        bldr = async function DEF(this: RCompiler, area) {
+                            let {rng, bCr} = PrepArea(srcElm, area);
+                            if (bCr || bReact){
+                                let v = dVal();
+                                if (rv)
+                                    if (bCr)
+                                        rng.val = new _RVAR(rv, v, dSt && dSt(), dSNm());
+                                    else
+                                        rng.val._Set(v);
+                                else
+                                    rng.val = v;
+                            }
+                        
+                            lv(rng.val);
+                        }
 
                         if (rv) {
                             // Check for compile-time subscribers
@@ -1344,7 +1360,7 @@ class RCompiler {
                     } break;
 
                     case 'rhtml': {
-                        NoChildren(srcElm);
+                        CheckNoChildren(srcElm);
                         let getSrctext = this.CompParam<string>(atts, 'srctext', T)
                         //  , imports = this.CompAttrExpr(atts, 'imports')
                             , modifs = this.CompAttribs(atts)
@@ -1506,7 +1522,7 @@ class RCompiler {
                         break;
 
                     case 'attribute':
-                        NoChildren(srcElm);
+                        CheckNoChildren(srcElm);
                         let dNm = this.CompParam<string>(atts, 'name', T),
                             dVal= this.CompParam<string>(atts, 'value', T);
                         bldr = async function ATTRIB(this: RCompiler, area: Area){
@@ -2013,32 +2029,6 @@ class RCompiler {
         finally { this.RestoreCont(saved) }
     }
 
-    private CompDefine(srcElm: HTMLElement, atts: Atts): [DOMBuilder, string] {
-        NoChildren(srcElm);
-        let rv  = atts.get('rvar'),
-            varNm     = rv || atts.get('let') || atts.get('var', T),
-            getVal    = this.CompParam(atts, 'value') || dU,
-            getStore    = rv && this.CompAttrExpr<Store>(atts, 'store'),
-            bReact      = atts.getB('reacting') || atts.getB('updating'),
-            lv          = this.newV(varNm);
-        
-        return [async function DEF(this: RCompiler, area) {
-                let {rng, bCr} = PrepArea(srcElm, area);
-                if (bCr || bReact){
-                    let v = getVal();
-                    if (rv)
-                        if (bCr)
-                            rng.val = new _RVAR(N, v, getStore && getStore(), `RVAR_${rv}`);
-                        else
-                            rng.val._Set(v);
-                    else
-                        rng.val = v;
-                }
-                lv(rng.val);
-            }, rv];
-
-    }
-
     private ParseSignat(elmSignat: Element, bIsSlot?: boolean):  Signature {
         let signat = new Signature(elmSignat, bIsSlot), s: Signature;
         for (let attr of elmSignat.attributes) {
@@ -2299,10 +2289,10 @@ class RCompiler {
         if (this.mPreformatted.has(nm)) {
             this.wspc = WSpc.preserve; postWs = WSpc.block;
         }
-        else if (regBlock.test(nm))
+        else if (reBlock.test(nm))
             this.wspc = this.rspc = postWs = WSpc.block;
         
-        else if (regInline.test(nm)) {  // Inline-block
+        else if (reInline.test(nm)) {  // Inline-block
             this.wspc = this.rspc = WSpc.block;
             postWs = WSpc.inline;
         }
@@ -2677,7 +2667,8 @@ class Atts extends Map<string,string> {
         }
     }
 
-    public ChkNoAttsLeft() {  
+    public ChkNoAttsLeft() {
+        super.delete('hidden');
         if (super.size)
             throw `Unknown attribute${super.size > 1 ? 's' : ''}: ${Array.from(super.keys()).join(',')}`;
     }
@@ -2688,32 +2679,34 @@ let // Property namesto be replaced
     // Generic attributes
     , genAtts = /^#?(?:((?:this)?reacts?on)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/
     // Valid identifiers
-    , regIdent = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+    , reIdent = /^[A-Z_$][A-Z0-9_$]*$/i
     // Reserved words
-    , regReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/
+    , reReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/
 
 // Capitalization of (just) style property names.
 // The first character that FOLLOWS on one of these words will be capitalized.
 // In this way, we don't have to list all words that occur as property name final words.
 // Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
     , words = 'accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z'
-    , regCapit = new RegExp(`(${words})|.`, "g")
+    , reCapit = new RegExp(`(${words})|.`, "g")
 
     // Elements that trigger block mode; whitespace before/after is irrelevant
-    , regBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/
+    , reBlock = /^(body|blockquote|d[dlt]|div|form|h\d|hr|li|ol|p|table|t[rhd]|ul|select|title)$/
     // Elements that trigger inline mode
-    , regInline = /^(button|input|img)$/;
+    , reInline = /^(button|input|img)$/
+    // Whitespace
+    , reWS = /^[ \t\n\r]*$/;
 
 function CheckId(nm: string) {
     // Check valid JavaScript identifier
-    if (!regIdent.test(nm)) throw `Invalid identifier '${nm}'`;
-    if (regReserv.test(nm)) throw `Reserved keyword '${nm}'`;
+    if (!reIdent.test(nm)) throw `Invalid identifier '${nm}'`;
+    if (reReserv.test(nm)) throw `Reserved keyword '${nm}'`;
     return nm;
 }
 // Properly capitalize a Style property
 function CapitalProp(nm: string) {
     let b: boolean;
-    return nm.replace(regCapit, (w, w1) => {
+    return nm.replace(reCapit, (w, w1) => {
         let r = b ? w.slice(0,1).toUpperCase() + w.slice(1) : w;
         b = w1;
         return r;
@@ -2785,8 +2778,11 @@ function createErrNode(msg: string) {
     e.innerText = msg;
     return e;
 }
-function NoChildren(srcElm: HTMLElement) {
-    if (srcElm.childElementCount)
+function CheckNoChildren(srcElm: HTMLElement) {
+    for (let node of srcElm.childNodes)
+    if (srcElm.childElementCount
+        || node.nodeType==Node.TEXT_NODE && !reWS.test(node.nodeValue)
+        )
         throw `<${srcElm.localName} ...> must be followed by </${srcElm.localName}>`;
 }
 

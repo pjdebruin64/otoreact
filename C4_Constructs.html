@@ -25,18 +25,25 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     The expression is, by default, evaluated only once, when the respective DOM-trunk is built, not when it is updated.
 </p>
-<p>When you add an attribute <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> (without value), then the expression is re-evaluated at every update.</p>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> async?</elm><elm>/DEFINE</elm></pre>
+<p>
+    When you add an attribute <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> (without value), then the expression is re-evaluated at every update.
+</p>
+
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i></elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
-    <br>This is equivalent to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>)"</elm><elm>/DEFINE</elm></code>.
+    <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
     <br>When <code class=sourcecode>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
 </p>
 <p>
-    When <code class=sourcecode>async</code> is specified, then <i>expression</i> must yield a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
-    The value of the rvar wil initially be <code>undefined</code>, and when the promise resolves to a value, then the rvar will be set to that value.
+    When <i>expression</i> yields a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the rvar wil initially be <code>undefined</code>, and once the promise resolves to a value, then the rvar will be set to that value.
 </p>
-<p><elm>DEFINE</elm> may not have any child nodes, other than comments or white space.</p>
+<p>
+    When <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> are specified, the expression is re-evaluated and RVAR set at every update, but the RVAR <u>won't be re-created</u>. So any existing subscribers to the RVAR remain subscribed.
+</p>
+<p>
+    <elm>DEFINE</elm> may not have any child nodes, other than comments or white space.
+</p>
 <p>
     <elm>DEFINE</elm> may be abbreviated to <elm class=sourcecode>DEF</elm>.
 </p>
@@ -313,7 +320,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?="<i>nameList</i>" updating?</elm></dt>
     <dd>
         This type of script is executed <i>every time</i> the surrounding RHTML is being built.
-        <br>With attribute <code>updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
+        <br>With attribute <code class="sourcecode">updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
         <br>Local variables from the surrounding RHTML are visible inside the script, and names listed in <i>nameList</i> are defined <i>as new OtoReact local variables</i>.
         <p>
             So when this type of script is used inside a component template, then each instance of the component will have its own set of data.
@@ -976,11 +983,11 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 <RHTML #srctext=sourcecode.V></RHTML>'></demo>
 
 <h4>Caution</h4>
-When you use <elm>RHTML</elm>, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
+When you use <elm>RHTML</elm> on your site, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
 <h3>Demo HTML vs RHTML</h3>
-In the following demo you can enter a piece of (R)HTML and compare how it is parsed and rendered by the browser without and with OtoReact processing.
+In the following demo you can enter a piece of (R)HTML and compare how it is parsed and rendered by the browser before and after OtoReact processing.
 <br>Note how OtoReact removes irrelevant white space.
 
 <demo #srcText=demoRendering></demo>

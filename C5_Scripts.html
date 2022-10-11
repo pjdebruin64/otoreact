@@ -150,6 +150,15 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
                 When true, comments in the RHTML code will be included in the DOM output.
             </td>
         </tr>
+        <tr>
+            <td>storePrefix</td><td>"RVAR_"</td>
+            <td>
+                This is the default prefix added to an RVAR-name, when the RVAR is to <a href="#Persistence">persist</a> in a store.
+                <p>
+                    When there are multiple OtoReact-applications using persistence and running on the same domain, you can set this option to avoid name clashes.
+                </p>
+            </td>
+        </tr>
     </tbody>
 </table>
 Example: <code>RCompile(document.body, \{bTiming: true, preformatted: ['quote'], } );</code>
