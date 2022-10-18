@@ -1,4 +1,4 @@
-declare const defaultSettings: {
+declare const defaults: {
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -12,16 +12,16 @@ declare const defaultSettings: {
     bKeepComments: boolean;
     storePrefix: string;
 };
-declare type DOMBuilder = ((reg: Area, ...args: any[]) => Promise<void>) & {
+declare type DOMBuilder = ((area: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
     auto?: boolean;
 };
 declare type Area = {
     rng?: Range;
-    parent: Node;
-    before?: ChildNode;
-    source?: ChildNode;
-    parentR?: Range;
+    parN: Node;
+    bfor?: ChildNode;
+    srcN?: ChildNode;
+    parR?: Range;
     prevR?: Range;
     bRootOnly?: boolean;
 };
@@ -30,11 +30,15 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     node: NodeType;
     child: Range;
     next: Range;
-    parentR?: Range;
-    parentN?: Node;
-    constructor(node: NodeType, area: Area, text?: string);
+    parR?: Range;
+    parN?: Node;
+    constructor(area: Area, node: NodeType, text?: string);
     toString(): string;
-    result?: any;
+    get First(): ChildNode;
+    get Next(): ChildNode;
+    get FirstOrNext(): ChildNode;
+    Nodes(): Generator<ChildNode>;
+    res?: any;
     val?: any;
     errNode?: ChildNode;
     bfDest?: Handler;
@@ -47,16 +51,12 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     subs?: Subscriber;
     rvars?: RVAR[];
     wins?: Set<Window>;
-    get First(): ChildNode;
-    get Next(): ChildNode;
-    get FirstOrNext(): ChildNode;
-    Nodes(): Generator<ChildNode>;
-    erase(parent: Node): void;
+    erase(par: Node): void;
 }
 declare type Environment = Array<any> & {
     C: Array<ConstructDef>;
 };
-declare type FullSettings = typeof defaultSettings;
+declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
@@ -108,7 +108,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parent, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
+declare function Subscriber({ parN, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {

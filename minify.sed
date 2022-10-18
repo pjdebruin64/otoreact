@@ -22,12 +22,12 @@ t repeat    # Needed to clear previous test result
 #s/(`[^`]*\$\{('(\\'|[^'])*'|\"(\\"|[^\"])*\"|\{[^{}]*\}|[a-z]+ |[^{} ])*) +/\1/
 t repeat
 
-s/;+$//       # Remove semicolons at end of line
+s/;+$//         # Remove semicolons at end of line
 s/[,;]+([]})])/\1/g    # Remove comma and semicolon before ] or } or )
 
-s/^([[(])/;\1/   # Reinsert ; before "(" or "[" at beginning of line, to prevent unintended function calls
+s/^([[(])/;\1/  # Reinsert ; before "(" or "[" at beginning of line, to prevent unintended function calls
 
-/^$/d                 # Remove emptylines
+/^$/{n;b start}     # Skip emptylines
 
 # Check next line
 N

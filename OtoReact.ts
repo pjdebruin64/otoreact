@@ -1,7 +1,9 @@
 // Global settings 
 const
-    U = undefined, N = null, T = true, F = false, E = [], W = window,
-    defaultSettings = {
+    U = undefined, N = null, T = true, F = false, E = [], W = window, D = document,
+    G = // Polyfill for globalThis
+        W.globalThis || ((W as any).globalThis = W.self),
+    defaults = {
         bTiming:        F,
         bAbortOnError:  F,      // Abort processing on runtime errors,
                                 // When false, only the element producing the error will be skipped
@@ -30,65 +32,127 @@ const enum WSpc {
     preserve        // Preserve all whitespace
 }
 
-// Polyfill for globalThis
-W.globalThis || ((W as any).globalThis = W.self);
+// For any HTMLElement we create, we remember which event handlers have been added,
+// So we can remove them when needed
+type RHTMLElement = HTMLElement & {
+    hndlrs?: Array<{evType: string, listener: Handler}>
+};
 
-// A DOMBUILDER is the semantics of a piece of RHTML.
-// It can both build (construct, create) a new piece of DOM, and update an existing piece of DOM.
-type DOMBuilder = ((reg: Area, ...args) => Promise<void>) 
+/* A DOMBUILDER is the semantics of a piece of RHTML.
+    It can both build (construct, create) a new range of DOM, and update an earlier created range of DOM.
+    The created DOM is yielded in 'area.rng'.
+*/
+type DOMBuilder = ((area: Area, ...args: any[]) => Promise<void>) 
     & {
-        ws?: boolean; 
-        auto?: boolean; // When true, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
-        // The .value of the Range created by the DOMBuilder must be the RVAR.
+        ws?: boolean;   // True when the builder won't create any DOM other than blank text
+        auto?: boolean; /* When true, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
+                        The .value of the Range created by the DOMBuilder must be the RVAR. */
     };
 
 
-// An AREA is a (runtime) place to build or update, with all required information
+/* An AREA is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
+    Area's are transitory objects; discarded after the builders are finished
+*/
 type Area = {
-    rng?: Range,              // Existing piece of DOM
-    // When undefined/null, the DOM has to be CREATED
+    rng?: Range,          // Existing piece of DOM
+    // When undefined or null, the DOM has to be CREATED
     // When defined, the DOM has to be UPDATED
 
-    parent: Node;               // DOM parent node
-    before?: ChildNode;         // DOM node before which new nodes are to be inserted
+    parN: Node;            // DOM parent node
+    bfor?: ChildNode;     // DOM node before which new nodes are to be inserted
 
-    /* When !rng: */
-    source?: ChildNode;         // Optional source node to be replaced by the new DOM 
-    parentR?: Range;            // The new range shall either be the first child of some range,
-    prevR?: Range;              // Or the next sibling of some other range
+    /* When !rng, i.e. when the DOM has to be created: */
+    srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
+    parR?: Range;         // The new range shall either be the first child of some range,
+    prevR?: Range;        // Or the next sibling of some other range
 
-    /* When rng: */
-    bRootOnly?: boolean,        // true == just update the root node, not its children
-                                // Used by 'thisreactson'.
+    /* When rng, i.e. when the DOM has to be updated: */
+    bRootOnly?: boolean,  // true == just update the root node, not its children
+                          // Set by 'thisreactson'.
 }
 
-// A RANGE is a piece of constructed DOM, in relation to the source RHTML.
-// It can either be a single DOM node or a linked list of subranges.
-// It is created by a builder, and contains all metadata needed for updating or destroying the DOM.
+/* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
+    It can either be a single DOM node, with child nodes described by a linked list of child-ranges,
+    OR just a linked list of subranges.
+    It is created by a builder, and contains all metadata needed for updating or destroying the DOM.
+*/
 class Range<NodeType extends ChildNode = ChildNode> {
-    node: NodeType;     // DOM node, in case this range corresponds to a single node
+    node: NodeType;     // Optional DOM node, in case this range corresponds to a single node
     
     child: Range;       // Linked list of child ranges (null=empty)
     next: Range;        // Next range in linked list
 
-    parentR?: Range;    // Parent range
-    parentN?: Node;     // Parent node, but only when this range has a different parent node than its parent range
+    parR?: Range;    // Parent range, only when both belong to the SAME DOM node
+    parN?: Node;     // Parent node, only when this range has a DIFFERENT parent node than its parent range
 
     constructor(
-        node: NodeType,
-        area: Area,
-        public text?: string,       // Description, used only for comments
+        area: Area,             // Area where the new range is to be inserted
+        node: NodeType,         // Optional DOM node
+        public text?: string,   // Description, used only for comments
     ) {
         this.node = node;
-        if (area && !area.parentR?.node)
-            this.parentR = area.parentR;
+        if (area) {
+            let r: Range =  area.parR;
+            if (r && !r.node)
+                this.parR = r;
+            
+            // Insert this range in a linked list, as indicated by 'area'
+            if (r = area.prevR) 
+                r.next = this;
+            else if (r = area.parR)
+                r.child = this;
+        
+            area.prevR = this;
+        }
     }
+
     toString() { return this.text || this.node?.nodeName; }
 
-    result?: any;   // Some result value to be kept by a builder
-    val?: any;    // Some other value to be kept by a builder
+    // Get first childnode IN the range
+    public get First(): ChildNode {
+        let f: ChildNode
+        if (f = this.node) return f;
+        let c = this.child;
+        while (c) {
+            if (f = c.First) return f;
+            c = c.next;
+        }
+    }
+    
+    // Get first node with the same parent node AFTER the range
+    public get Next(): ChildNode {
+        let r: Range = this, n: ChildNode, p: Range;
+        do {
+            p = r.parR;
+            while (r = r.next)
+                if (n = r.First) return n;
+        } while (r = p)
+    }
 
-    errNode?: ChildNode;  // When an error description node has been created, it is saved here, so it can be removed on the next update
+    public get FirstOrNext() {
+        return this.First || this.Next;
+    }
+
+    // Enumerate all DOM nodes within this range, not including their children
+    Nodes(): Generator<ChildNode> { 
+        // 'Nodes' is a recursive enumerator, that we apply to 'this'
+        return (function* Nodes(r: Range) {
+            let c: Range;
+            if (r.node)
+                yield r.node;
+            else if (c = r.child)
+                do {
+                    yield* Nodes(c);
+                } while (c = c.next)
+        })(this)
+    }
+
+    // The following properties may contain different types of meta-information about the created DOM, to be used by the builder.
+
+    res?: any;  // Some result value to be kept by a builder
+    val?: any;  // Some other value to be kept by a builder
+
+    errNode?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
 
     bfDest?: Handler;   // Before destroy handler
     onDest?: Handler;   // After destroy handler
@@ -105,64 +169,27 @@ class Range<NodeType extends ChildNode = ChildNode> {
     // For DOCUMENT nodes
     wins?: Set<Window>;     // Set of child windows
 
-    // Get first childnode IN the range
-    public get First(): ChildNode {
-        let f: ChildNode
-        if (f = this.node) return f;
-        let ch = this.child;
-        while (ch) {
-            if (f = ch.First) return f;
-            ch = ch.next;
-        }
-    }
-    
-    // Get first node AFTER the range
-    public get Next(): ChildNode {
-        let r: Range = this, n: ChildNode, p: Range;
-        do {
-            p = r.parentR;
-            while (r = r.next)
-                if (n = r.First)
-                    return n;
-        } while (r = p)
-    }
-
-    public get FirstOrNext() {
-        return this.First || this.Next;
-    }
-
-    // Enumerate all DOM nodes within this range, not including their children
-    Nodes(): Generator<ChildNode> { 
-        return (function* Nodes(r: Range) {
-            let c: Range;
-            if (r.node)
-                yield r.node;
-            else if (c = r.child)
-                do {
-                    yield* Nodes(c);
-                } while (c = c.next)
-        })(this)
-    }
-
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
-    // The range itself remains.
-    erase(parent: Node) {
+    // The range itself remains a child of its parent.
+    erase(par: Node) {
         let {node, child: ch} = this;
-        if (node && parent) {
-            parent.removeChild(node);
-            parent = N; // No need to remove child nodes of this node
+        if (node && par) {
+            // Remove the current node, only when 'par' is specified
+            par.removeChild(node);
+            par = N; // No need to remove child nodes of this node
         }
         this.child = N;
         while (ch) {
-            if (ch.bfDest)
-                ch.bfDest.call(ch.node || parent);
-            ch.erase(ch.parentN || parent);
-            ch.parentR = N;
+            if (ch.bfDest) // Call a 'beforedestroy' handler
+                ch.bfDest.call(ch.node || par);
+            // Destroy 'ch'
+            ch.erase(ch.parN || par);
+            // Remove range ch from any RVAR it is subscribed to
             if (ch.rvars)
-                for (let rvar of ch.rvars)
-                    rvar._Subs.delete(ch.subs);
-            if (ch.onDest)
-                ch.onDest.call(ch.node || parent);
+                for (let r of ch.rvars)
+                    r._Subs.delete(ch.subs);
+            if (ch.onDest)  // Call 'ondestroy' handler
+                ch.onDest.call(ch.node || par);
             ch = ch.next;
         }
     }
@@ -189,73 +216,71 @@ type Dependent<T> = (() => T)
 let dU: Dependent<any> = () => U,       // Undefined dep.value
     dumB: DOMBuilder = async () => {};  // A dummy DOMBuilder
 
-function PrepArea(srcElm: HTMLElement, area: Area, text: string = '',
-    nWipe?: 1|2,  // 1=wipe when result has changed; 2=wipe always
-    result?: any,
-) : {rng: Range, sub:Area, bCr: boolean}
+/* The following function prepares a sub area of a given 'area', containing a new Range,
+    AND updates 'area' to point to the next range in a linked list.
+*/
+function PrepArea(
+    srcE: HTMLElement,  // Source element, just for error messages
+    area: Area,         // Given area
+    text: string = '',  // Optional text for error messages
+    nWipe?: 1|2,    // 1=erase 'area.rng' when 'res' has changed; 2=erase always
+    res?: any,      // Some result value to be remembered
+) : {
+    rng: Range,     // The newly created or updated child range
+    sub:Area,       // The new sub area
+    bCr: boolean
+}
 {
-    let {parent, rng} = area,
-        sub: Area = {parent, rng: N }
+    let {parN, rng} = area,  // Initially 'rng' is the parent range
+        sub: Area = {parN, rng: N }
         , bCr = !rng;
     if (bCr) {
-        sub.source = area.source;
-        sub.before = area.before;
-        if (srcElm) text = srcElm.localName + (text && ' ') + text;
+        sub.srcN = area.srcN;
+        sub.bfor = area.bfor;
+        if (srcE) text = srcE.localName + (text && ' ') + text;
         
-        UpdPrevRange(area, rng = sub.parentR = new Range(N, area, text));
-        rng.result = result;
+        (rng = sub.parR = new Range(area, N, text)).res = res;
     }
     else {
         sub.rng = rng.child;
         area.rng = rng.next;
 
-        if (nWipe && (nWipe==2 || result != rng.result)) {
-            rng.result = result;
-            rng.erase(parent); 
+        if (nWipe && (nWipe>1 || res != rng.res)) {
+            rng.res = res;
+            rng.erase(parN); 
             sub.rng = N;
-            sub.before = rng.Next;
-            sub.parentR = rng;
+            sub.bfor = rng.Next;
+            sub.parR = rng;
             bCr = T;
         }
     }
     
     return {rng, sub, bCr};
 }
-function UpdPrevRange(area: Area, rng: Range) {
-    let r: Range
-    if (r = area.prevR) 
-        r.next = rng;
-    else if (r = area.parentR)
-        r.child = rng;
 
-    area.prevR = rng;
-}
-type RHTMLElement = HTMLElement & {
-    handlers?: Array<{evType: string, listener: Handler}>
-};
 function PrepElm<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeName): 
     {   rng: Range<RHTMLElement> & T
         , chArea: Area
         , bCr: boolean} {
     let rng = area.rng as Range<HTMLElement> & T, bCr = !rng;
-    if (bCr) {
-        rng = new Range(
-            area.source == srcElm
+    if (bCr)
+        rng = new Range(area,
+            area.srcN == srcElm
                 ? (srcElm.innerHTML = "", srcElm)
-                : area.parent.insertBefore<HTMLElement>(document.createElement(nodeName), area.before)
-            , area
+                : area.parN.insertBefore<HTMLElement>(
+                    D.createElement(nodeName), area.bfor
+                )
             ) as Range<HTMLElement> & T;
-        UpdPrevRange(area, rng);
-    }
     else
-        area.rng = rng.next
+        area.rng = rng.next;
+
     return { 
         rng, 
         chArea: {
-            parent: rng.node, 
+            parN: rng.node, 
             rng: rng.child, 
-            before: N,
-            parentR: rng
+            bfor: N,
+            parR: rng
         },
         bCr
     };
@@ -264,14 +289,10 @@ function PrepElm<T={}>(srcElm: HTMLElement, area: Area, nodeName = srcElm.nodeNa
 function PrepCharData(area: Area, content: string, bComm?: boolean) {
     let rng = area.rng as Range<CharacterData>;
     if (!rng)
-        UpdPrevRange(
-            area
-            , new Range(
-                area.parent.insertBefore(
-                    bComm ? document.createComment(content) : document.createTextNode(content)
-                    , area.before)
-                , area
-            )
+        new Range(area,
+            area.parN.insertBefore(
+                bComm ? D.createComment(content) : D.createTextNode(content)
+                , area.bfor)
         );
     else {
         rng.node.data = content;
@@ -279,13 +300,13 @@ function PrepCharData(area: Area, content: string, bComm?: boolean) {
     }
 }
 
-type FullSettings = typeof defaultSettings;
+type FullSettings = typeof defaults;
 type Settings = Partial<FullSettings>;
 let childWins=new Set<Window>();
 
-export async function RCompile(elm: HTMLElement = document.body, settings?: Settings): Promise<void> { 
+export async function RCompile(elm: HTMLElement = D.body, settings?: Settings): Promise<void> { 
     try {
-        let {basePattern} = R.Settings = {...defaultSettings, ...settings},
+        let {basePattern} = R.Settings = {...defaults, ...settings},
             m = location.href.match(`^.*(${basePattern})`);
         R.FilePath = location.origin + (
             docLocation.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
@@ -295,7 +316,7 @@ export async function RCompile(elm: HTMLElement = document.body, settings?: Sett
         // Initial build
         start = performance.now();
         builtNodeCnt = 0;
-        let area: Area = {parent: elm.parentElement, source: elm, rng: N};
+        let area: Area = {parN: elm.parentElement, srcN: elm, rng: N};
         await R.Build(area);
         W.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
         R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
@@ -347,7 +368,7 @@ class Signature {
     public nm: string;
     public prom: Promise<any>;
     public Params: Array<Parameter> = [];
-    public RestParam: Parameter = N;
+    public RestP: Parameter = N;
     public Slots = new Map<string, Signature>();
     public CSlot: Signature;
     public i?: number;
@@ -397,7 +418,7 @@ class _RVAR<T = unknown>{
         public store?: Store,
         private storeName?: string,
     ) {
-        if (name) globalThis[name] = this;
+        if (name) G[name] = this;
         
         let s = store && store.getItem(this._sNm), t= initial;
         if (s != N)
@@ -493,10 +514,10 @@ export type RVAR_Light<T> = T & {
 };
 
         
-function Subscriber({parent, bRootOnly}: Area, builder: DOMBuilder, rng: Range, ...args: any[] ): Subscriber {
+function Subscriber({parN, bRootOnly}: Area, builder: DOMBuilder, rng: Range, ...args: any[] ): Subscriber {
     if (rng) rng.updated = updCnt;
     let sArea: Area = {
-            parent, bRootOnly,
+            parN, bRootOnly,
             rng,
         },
         subEnv = {env: CloneEnv(env), onerr, onsucc},
@@ -646,7 +667,7 @@ function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
             if (val)
                 if(m = /^on(input|change)$/.exec(nm)) {
                     elm.addEventListener(m[1], val as Handler);
-                    elm.handlers.push({evType: m[1], listener: val as Handler})
+                    (elm.hndlrs ||= []).push({evType: m[1], listener: val as Handler})
                 }
                 else {
                     elm[nm] = val; 
@@ -756,10 +777,10 @@ class RCompiler {
         FilePath?: string,
         bClr?: boolean,
     ) { 
-        this.Settings   = RC ? {...RC.Settings} : {...defaultSettings};
+        this.Settings   = RC ? {...RC.Settings} : {...defaults};
         RC ||= this;
         this.FilePath  = FilePath || RC.FilePath;
-        this.doc = RC.doc || document
+        this.doc = RC.doc || D
         this.head  = RC.head || this.doc.head;
         if (bClr) RC=this;
         this.ctStr    = RC.ctStr || "";
@@ -1008,7 +1029,7 @@ class RCompiler {
             // (this)react(s)on handlers
             reacts: Array<{attNm: string, rvars: Dependent<RVAR[]>}> = [],
             // Generic pseudo-events to be handled BEFORE building
-            before: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
+            bfor: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
             // Generic pseudo-events to be handled AFTER building
             after: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
             anyH: booly,     // Truthy when there is any before or after event hanldeer
@@ -1038,7 +1059,7 @@ class RCompiler {
                     else {
                         let txt = atts.get(attNm);
                         if (nm = m[3])  // #?(before|after|on)(create|update|destroy)+
-                            (m[2] ? before : after).push({attNm, txt, C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm) });
+                            (m[2] ? bfor : after).push({attNm, txt, C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm) });
                         else { // #?on(?:(error)-?|success)
                             let hndlr = this.CompHandler(attNm, txt); 
                             if (m[5])   // #?onerror-?
@@ -1188,7 +1209,7 @@ class RCompiler {
                         bldr = 
                             async function CASE(area: Area) {
                                 let value = getVal && getVal()
-                                    , choosenAlt: typeof caseList[0] = N
+                                    , choosenAlt: typeof caseList[0]
                                     , matchResult: RegExpExecArray;
                                 for (let alt of caseList)
                                     try {
@@ -1321,7 +1342,7 @@ class RCompiler {
                             let [bldr, CSigns] = await promModule
                                 , saveEnv = env
                                 , MEnv = env = NewEnv();
-                            await bldr(bIncl ? reg : {parent: document.createDocumentFragment()});
+                            await bldr(bIncl ? reg : {parN: D.createDocumentFragment()});
                             env = saveEnv;
                             
                             defConstructs(listImps.map(S => GetC(MEnv, CSigns.get(S.nm)[1])));
@@ -1368,25 +1389,28 @@ class RCompiler {
                         this.wspc=WSpc.block;
                         
                         bldr = async function RHTML(area) {
-                            let srctext = getSrctext()
+                            let src = getSrctext()
                             
                                 , {rng, bCr} = PrepElm(srcElm, area, 'rhtml-rhtml')
                                 , {node} = rng;
                             ApplyMods(node, modifs, bCr);
 
-                            if (area.prevR || srctext != rng.result) {
-                                rng.result = srctext;
+                            if (area.prevR || src != rng.res) {
+                                rng.res = src;
                                 let 
                                     svEnv = env,
                                     C = new RCompiler(N, lThis.FilePath),
                                     sRoot = C.head = node.shadowRoot || node.attachShadow({mode: 'open'}),
-                                    tempElm = document.createElement('rhtml'),
-                                    sArea = {parent: sRoot, rng: N, parentR: rng.child ||= new Range(N, N, 'Shadow')};
+                                    tempElm = D.createElement('rhtml'),
+                                    sArea = {
+                                        parN: sRoot, 
+                                        rng: N, 
+                                        parR: rng.child ||= new Range(N, N, 'Shadow')};
 
                                 rng.child.erase(sRoot); sRoot.innerHTML='';
                                 try {
                                     // Parsing
-                                    tempElm.innerHTML = srctext;
+                                    tempElm.innerHTML = src;
                                     // Compiling
                                     await C.Compile(tempElm, {bRunScripts: T, bTiming: lThis.Settings.bTiming}, tempElm.childNodes);
                                     // Building
@@ -1421,11 +1445,11 @@ class RCompiler {
                             bEncaps = atts.getB('encapsulate'),
                             setVars = RC.NewVars(atts.get('params')),
                             winV = RC.newV(atts.get('window')),
-                            docBldr = ((RC.head = document.createElement('DocumentFragment')), await RC.CompChildNodes(srcElm));
+                            docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CompChildNodes(srcElm));
                         bldr = async function DOCUMENT(area: Area) {
                             let {rng, bCr} = PrepArea(srcElm, area, docVar.name);
                             if (bCr) {
-                                let doc = area.parent.ownerDocument,
+                                let doc = area.parN.ownerDocument,
                                     docEnv = CloneEnv(env),
                                     wins = rng.wins = new Set();
                                 rng.val = {
@@ -1443,7 +1467,7 @@ class RCompiler {
                                                 for (let S of RC.head.childNodes)
                                                     D.head.append(S.cloneNode(T));
                                             }
-                                            let area: Area = {parent: D.body, rng: (w as any).rng};
+                                            let area: Area = {parN: D.body, rng: (w as any).rng};
                                             await docBldr(area);
                                         }
                                         finally {env = svEnv}
@@ -1488,11 +1512,11 @@ class RCompiler {
                         
                         bldr = async function HEAD(area: Area) {
                             let {sub} = PrepArea(srcElm, area);
-                            sub.parent = area.parent.ownerDocument.head;
-                            sub.before = N;
+                            sub.parN = area.parN.ownerDocument.head;
+                            sub.bfor = N;
                             await childBuilder(sub);
                             if (sub.prevR)
-                                sub.prevR.parentN = sub.parent;
+                                sub.prevR.parN = sub.parN;
                         }
                         this.wspc = wspc;
                         isBl = 1;
@@ -1529,9 +1553,9 @@ class RCompiler {
                             let nm = dNm(),
                                 {rng} = PrepArea(srcElm, area);
                             if (rng.val && nm != rng.val)
-                                (area.parent as HTMLElement).removeAttribute(rng.val);
+                                (area.parN as HTMLElement).removeAttribute(rng.val);
                             if (rng.val = nm)
-                                (area.parent as HTMLElement).setAttribute(nm, dVal());
+                                (area.parN as HTMLElement).setAttribute(nm, dVal());
                         };
                         isBl = 1;
                         break;
@@ -1544,7 +1568,7 @@ class RCompiler {
                 atts.ChkNoAttsLeft();
             }
 
-            for (let g of concIter(before, after))
+            for (let g of concIter(bfor, after))
                 anyH = g.hndlr = this.CompHandler(g.attNm, g.txt);
         }
         catch (err) { 
@@ -1570,12 +1594,12 @@ class RCompiler {
             let b = bldr;
             bldr = async function ON(area: Area) {
                 let r = area.rng, bfD: Handler;
-                for (let g of before) {
+                for (let g of bfor) {
                     if (g.D && !r)
                         bfD = g.hndlr();
                     if (r ? g.U : g.C)
                         g.hndlr().call(
-                            r && r.node || area.parent
+                            r && r.node || area.parN
                         );
                 }
                 await b(area);
@@ -1586,7 +1610,7 @@ class RCompiler {
                         area.prevR.onDest = g.hndlr();
                     if (r ? g.U : g.C)
                         g.hndlr().call(
-                            (r ? r.node : area.prevR?.node) || area.parent
+                            (r ? r.node : area.prevR?.node) || area.parN
                         );
                 }
             }
@@ -1677,7 +1701,7 @@ class RCompiler {
     private async CallWithHandling(builder: DOMBuilder, srcNode: ChildNode, area: Area){
         let {rng} = area;
         if (rng && rng.errNode) {
-            area.parent.removeChild(rng.errNode);
+            area.parN.removeChild(rng.errNode);
             rng.errNode = U;
         }
         try {
@@ -1694,7 +1718,7 @@ class RCompiler {
                 onerr(err);
             else if (this.Settings.bShowErrors) {
                 let errNode =
-                    area.parent.insertBefore(createErrNode(message), area.rng?.FirstOrNext);
+                    area.parN.insertBefore(createErrNode(message), area.rng?.FirstOrNext);
                 if (rng)
                     rng.errNode = errNode;    /*  */
             }
@@ -1724,7 +1748,7 @@ class RCompiler {
                 : function() {
                     let i=0;
                     for (let nm of varlist)
-                        globalThis[nm] = exp[i++];
+                        G[nm] = exp[i++];
                 }
             ;
         
@@ -1735,7 +1759,7 @@ class RCompiler {
                 let prom = (async () => gEval(`'use strict';([${context}])=>{${src ? await this.FetchText(src) : text}\n;return[${defs}]}`))();
                 return async function LSCRIPT(area: Area) {
                     let {rng, bCr} = PrepArea(srcElm, area);
-                    exp = bUpd || bCr ? rng.result = (await prom)(env) : rng.result
+                    exp = bUpd || bCr ? rng.res = (await prom)(env) : rng.res
                     defNames();
                 }
             } 
@@ -1824,8 +1848,8 @@ class RCompiler {
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, area: Area) {
                     let {rng, sub} = PrepArea(srcElm, area, ''),
-                        {parent} = sub,
-                        before = sub.before !== U ? sub.before : rng.Next,
+                        {parN} = sub,
+                        bfor = sub.bfor !== U ? sub.bfor : rng.Next,
                         iterable = getRange() || E
                     
                         , pIter = async (iter: Iterable<Item>) => {
@@ -1834,7 +1858,7 @@ class RCompiler {
                             // Map of previous data, if any
                             let keyMap: Map<Key, Range> = rng.val ||= new Map(),
                             // Map of the newly obtained data
-                                newMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map();
+                                nwMap: Map<Key, {item:Item, hash:Hash, idx: number}> = new Map();
                             loopVar(); ixVar();
 
                             let idx=0;
@@ -1843,136 +1867,136 @@ class RCompiler {
                                 ixVar(idx,T);
                                 let hash = getHash && getHash()
                                     , key = getKey?.() ?? hash;
-                                if (key != N && newMap.has(key))
+                                if (key != N && nwMap.has(key))
                                     throw `Key '${key}' is not unique`;
-                                newMap.set(key ?? {}, {item, hash, idx: idx++});
+                                nwMap.set(key ?? {}, {item, hash, idx: idx++});
                             }
 
-                            let nxChld = rng.child,
-                                iterator = newMap.entries(),
-                                nextIter = nextNm ? newMap.values() : N
+                            let nxChR = rng.child,
+                                iterator = nwMap.entries(),
+                                nextIter = nextNm ? nwMap.values() : N
 
-                                , prevItem: Item, nextItem: Item
-                                , prevRange: Range = N,
+                                , prItem: Item, nxItem: Item
+                                , prRange: Range = N,
                                 chArea: Area;
-                            sub.parentR = rng;
+                            sub.parR = rng;
                             prevVar(); nextVar();
 
                             if (nextIter) nextIter.next();
 
                             while(T) {
                                 let k: Key, nx = iterator.next();
-                                while (nxChld && !newMap.has(k = nxChld.key)) {
+                                while (nxChR && !nwMap.has(k = nxChR.key)) {
                                     if (k != N)
                                         keyMap.delete(k);
-                                    nxChld.erase(parent);
-                                    if (nxChld.subs)
-                                        nxChld.rvars[0]._Subs.delete(nxChld.subs);
-                                    nxChld.prev = N;
-                                    nxChld = nxChld.next;
+                                    nxChR.erase(parN);
+                                    if (nxChR.subs)
+                                        nxChR.rvars[0]._Subs.delete(nxChR.subs);
+                                    nxChR.prev = N;
+                                    nxChR = nxChR.next;
                                 }
 
                                 if (nx.done) break;
                                 let [key, {item, hash, idx}] = nx.value
-                                    , childRange = keyMap.get(key)
-                                    , bCr = !childRange;
+                                    , chRng = keyMap.get(key)
+                                    , bCr = !chRng;
 
                                 if (nextIter)
-                                    nextItem = nextIter.next().value?.item;
+                                    nxItem = nextIter.next().value?.item;
 
                                 if (bCr) {
                                     // Item has to be newly created
                                     sub.rng = N;
-                                    sub.prevR = prevRange;
-                                    sub.before = nxChld?.FirstOrNext || before;
-                                    ({rng: childRange, sub: chArea} = PrepArea(N, sub, `${lvName}(${idx})`));
+                                    sub.prevR = prRange;
+                                    sub.bfor = nxChR?.FirstOrNext || bfor;
+                                    ({rng: chRng, sub: chArea} = PrepArea(N, sub, `${lvName}(${idx})`));
                                     if (key != N) {
                                         if (keyMap.has(key))
                                             throw `Duplicate key '${key}'`;
-                                        keyMap.set(key, childRange);
+                                        keyMap.set(key, chRng);
                                     }
-                                    childRange.key = key;
+                                    chRng.key = key;
                                 }
                                 else {
                                     // Item already occurs in the series
                                     
-                                    if (childRange.fragm) {
-                                        parent.insertBefore(childRange.fragm, nxChld?.FirstOrNext || before);
-                                        childRange.fragm = N;
+                                    if (chRng.fragm) {
+                                        parN.insertBefore(chRng.fragm, nxChR?.FirstOrNext || bfor);
+                                        chRng.fragm = N;
                                     }
                                     else
                                         while (T) {
-                                            if (nxChld == childRange)
-                                                nxChld = nxChld.next;
+                                            if (nxChR == chRng)
+                                                nxChR = nxChR.next;
                                             else {
                                                 // Item has to be moved
-                                                if (newMap.get(nxChld.key)?.idx > idx + 2) {
-                                                    let fragm = nxChld.fragm = document.createDocumentFragment();
-                                                    for (let node of nxChld.Nodes())
-                                                        fragm.appendChild(node);
+                                                if (nwMap.get(nxChR.key)?.idx > idx + 2) {
+                                                    let fr = nxChR.fragm = D.createDocumentFragment();
+                                                    for (let node of nxChR.Nodes())
+                                                        fr.appendChild(node);
                                                     
-                                                    nxChld = nxChld.next;
+                                                    nxChR = nxChR.next;
                                                     continue;
                                                 }
 
-                                                childRange.prev.next = childRange.next;
-                                                if (childRange.next)
-                                                    childRange.next.prev = childRange.prev;
-                                                let nextNode = nxChld?.FirstOrNext || before;
-                                                for (let node of childRange.Nodes())
-                                                    parent.insertBefore(node, nextNode);
+                                                chRng.prev.next = chRng.next;
+                                                if (chRng.next)
+                                                    chRng.next.prev = chRng.prev;
+                                                let nxNode = nxChR?.FirstOrNext || bfor;
+                                                for (let node of chRng.Nodes())
+                                                    parN.insertBefore(node, nxNode);
                                             }
                                             break;
                                         }
 
-                                    childRange.next = nxChld;
-                                    childRange.text = `${lvName}(${idx})`;
+                                    chRng.next = nxChR;
+                                    chRng.text = `${lvName}(${idx})`;
 
-                                    if (prevRange) 
-                                        prevRange.next = childRange;
+                                    if (prRange) 
+                                        prRange.next = chRng;
                                     else
-                                        rng.child = childRange;
-                                    sub.rng = childRange;
+                                        rng.child = chRng;
+                                    sub.rng = chRng;
                                     chArea = PrepArea(N, sub, '').sub;
-                                    sub.parentR = N;
+                                    sub.parR = N;
                                 }
-                                childRange.prev = prevRange;
-                                prevRange = childRange;
+                                chRng.prev = prRange;
+                                prRange = chRng;
 
                                 if (hash == N
-                                    ||  hash != childRange.hash as Hash
-                                        && (childRange.hash = hash, T)
+                                    ||  hash != chRng.hash as Hash
+                                        && (chRng.hash = hash, T)
                                 ) {
                                     // Environment instellen
-                                    if (bReact && (bCr || item != childRange.rvars[0]))
+                                    if (bReact && (bCr || item != chRng.rvars[0]))
                                     {
                                         RVAR_Light<Item>(item, getUpdatesTo && [getUpdatesTo()]);
-                                        if (childRange.subs)
-                                            item._Subs = childRange.rvars[0]._Subs 
+                                        if (chRng.subs)
+                                            item._Subs = chRng.rvars[0]._Subs 
                                     }
                                     
                                     loopVar(item,T);
                                     ixVar(idx,T);
-                                    prevVar(prevItem,T);
-                                    nextVar(nextItem,T);
+                                    prevVar(prItem,T);
+                                    nextVar(nxItem,T);
 
                                     // Body berekenen
                                     await bodyBldr(chArea);
 
                                     if (bReact)
-                                        if (childRange.subs)
-                                            assignEnv(childRange.subs.env, env);
+                                        if (chRng.subs)
+                                            assignEnv(chRng.subs.env, env);
                                         else {
                                             (item as RVAR_Light<Item>).Subscribe(
-                                                childRange.subs = Subscriber(chArea, bodyBldr, childRange.child)
+                                                chRng.subs = Subscriber(chArea, bodyBldr, chRng.child)
                                             );
-                                            childRange.rvars = [item as RVAR];
+                                            chRng.rvars = [item as RVAR];
                                         }
                                 }
 
-                                prevItem = item;
+                                prItem = item;
                             }
-                            if (prevRange) prevRange.next = N; else rng.child = N;
+                            if (prRange) prRange.next = N; else rng.child = N;
                         }
                         finally { RestEnv(svEnv) }
                     }
@@ -2032,7 +2056,7 @@ class RCompiler {
     private ParseSignat(elmSignat: Element, bIsSlot?: boolean):  Signature {
         let signat = new Signature(elmSignat, bIsSlot), s: Signature;
         for (let attr of elmSignat.attributes) {
-            if (signat.RestParam) 
+            if (signat.RestP) 
                 throw `Rest parameter must be the last`;
             let m = /^(#|@|\.\.\.|_|)(.*?)(\?)?$/.exec(attr.name);
             if (m[1] != '_') {
@@ -2048,7 +2072,7 @@ class RCompiler {
                     }
                 signat.Params.push(param);
                 if (m[1] == '...')
-                    signat.RestParam = param;
+                    signat.RestP = param;
             }
         }
         for (let elmSlot of elmSignat.children) {
@@ -2153,8 +2177,8 @@ class RCompiler {
             this.wspc = this.rspc = WSpc.block;
             let
                 builder = await this.CompChildNodes(contentNode),
-                {nm: Cnm} = signat,
-                customName = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
+                Cnm = signat.nm,
+                custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
 
             return async function TEMPLATE(area: Area, args: unknown[], mSlotTemplates, slotEnv
                 ) {
@@ -2172,16 +2196,16 @@ class RCompiler {
                     ));
 
                     if (encStyles) {
-                        let {rng: elmRange, chArea, bCr} = PrepElm(srcElm, area, customName), 
+                        let {rng: elmRange, chArea, bCr} = PrepElm(srcElm, area, custNm), 
                             elm = elmRange.node,
                             shadow = elm.shadowRoot || elm.attachShadow({mode: 'open'});
                         if (bCr)
                             for (let style of encStyles)
                                 shadow.appendChild(style.cloneNode(T));
                         
-                        if (signat.RestParam)
-                            ApplyMod(elm, {mt: MType.RestArgument, nm: N, depV: null}, args[signat.RestParam.nm], bCr);
-                        chArea.parent = shadow;
+                        if (signat.RestP)
+                            ApplyMod(elm, {mt: MType.RestArgument, nm: N, depV: null}, args[signat.RestP.nm], bCr);
+                        chArea.parN = shadow;
                         area = chArea;
                     }
                     await builder(area); 
@@ -2200,7 +2224,7 @@ class RCompiler {
     ) {
         if (signat.prom)
             await signat.prom;
-        let {nm, RestParam, CSlot} = signat,
+        let {nm, RestP, CSlot} = signat,
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             SBldrs = new Map<string, Template[]>();
 
@@ -2239,10 +2263,10 @@ class RCompiler {
                 await this.CompTempl(CSlot, srcElm, srcElm, T, N, atts)
             );
 
-        if (RestParam) {
+        if (RestP) {
             let modifs = this.CompAttribs(atts);
             getArgs.push([
-                RestParam.nm, 
+                RestP.nm, 
                 () => modifs.map(M => ({M, value: M.depV()})) as RestParameter
             ]);
         }
@@ -2254,7 +2278,7 @@ class RCompiler {
             let IEnv = env,
                 {rng, sub, bCr} = PrepArea(srcElm, area),
                 cdef = GetC(env, ck),
-                args = rng.result ||= {};
+                args = rng.res ||= {};
             if (!cdef) return;  //In case of an async imported component, where the client signature has less slots than the real signature
             bRO = T;
             for (let [nm, dGet, dSet] of getArgs)
@@ -2310,7 +2334,8 @@ class RCompiler {
             this.wspc = postWs;
 
         // Now the runtime action
-        let bldr: DOMBuilder = async function ELEMENT(this: RCompiler, area: Area) {
+        let bldr: DOMBuilder = 
+        async function ELEMENT(this: RCompiler, area: Area) {
             let {rng: {node}, chArea, bCr} = PrepElm(srcElm, area, nm || dTagName());
             
             if (!area.bRootOnly)
@@ -2318,9 +2343,11 @@ class RCompiler {
                 await childnodesBldr(chArea);
 
             node.removeAttribute('class');
-            for (let {evType, listener} of node.handlers || E)
-                node.removeEventListener(evType, listener);
-            node.handlers = [];
+            if (node.hndlrs) {
+                for (let {evType, listener} of node.hndlrs)
+                    node.removeEventListener(evType, listener);
+                node.hndlrs = [];
+            }
             ApplyMods(node, modifs, bCr);
         };
 
@@ -2613,7 +2640,7 @@ class RCompiler {
     }
 
     async fetchModule(src: string): Promise<Iterable<ChildNode>> {
-        let m = document.getElementById(src);
+        let m = D.getElementById(src);
         if (!m) {
             let d = parser.parseFromString(await this.FetchText(src), 'text/html') as Document,
                 b = d.body,
@@ -2773,7 +2800,7 @@ function addP<T extends object, P extends string, V>(t:T, p: string, v: V): T & 
 }
 
 function createErrNode(msg: string) {
-    let e = document.createElement('div'), s = e.style;        
+    let e = D.createElement('div'), s = e.style;        
     s.color = 'crimson'; s.fontFamily = 'sans-serif'; s.fontSize = '10pt';
     e.innerText = msg;
     return e;
@@ -2828,7 +2855,7 @@ export let
         };
 
 Object.assign(
-    globalThis, {RVAR, range, reroute, RFetch}
+    G, {RVAR, range, reroute, RFetch}
 );
 
 Object.assign(docLocation, {
@@ -2867,10 +2894,10 @@ W.addEventListener('popstate', () => {docLocation.V = location.href;} );
 
 function ScrollToHash() {
     if (location.hash)
-        setTimeout((() => document.getElementById(location.hash.slice(1))?.scrollIntoView()), 6);
+        setTimeout((() => D.getElementById(location.hash.slice(1))?.scrollIntoView()), 6);
 }
 
 setTimeout(() =>
-    /^rhtml$/i.test(document.body.getAttribute('type'))
+    /^rhtml$/i.test(D.body.getAttribute('type'))
         && RCompile()
 , 0);
