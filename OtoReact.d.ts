@@ -12,6 +12,7 @@ declare const defaults: {
     bKeepComments: boolean;
     storePrefix: string;
 };
+declare type booly = boolean | string | number | object;
 declare type DOMBuilder = ((area: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
     auto?: boolean;
@@ -102,7 +103,7 @@ declare class _RVAR<T = unknown> {
 export declare type RVAR<T = unknown> = _RVAR<T>;
 export declare type RVAR_Light<T> = T & {
     _Subs: Set<Subscriber>;
-    _UpdatesTo?: Array<RVAR>;
+    _UpdTo?: Array<RVAR>;
     Subscribe?: (sub: Subscriber) => void;
     store?: any;
     Save?: () => void;
@@ -137,7 +138,7 @@ declare class RCompiler {
     private NewConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
     logTime(msg: string): void;
-    private mPreformatted;
+    private setPRE;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
     private Builder;
@@ -177,8 +178,8 @@ declare class RCompiler {
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class Atts extends Map<string, string> {
     constructor(elm: HTMLElement);
-    get(nm: string, bRequired?: boolean, bHashAllowed?: boolean): string;
-    getB(nm: string): boolean;
+    g(nm: string, bReq?: booly, bHashAllowed?: booly): string;
+    gB(nm: string): boolean;
     ChkNoAttsLeft(): void;
 }
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
