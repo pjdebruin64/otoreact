@@ -32,19 +32,6 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     When you add an attribute <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> (without value), then the expression is re-evaluated at every update.
 </p>
-
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i></elm><elm>/DEFINE</elm></pre>
-<p>
-    introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
-    <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
-    <br>When <code class=sourcecode>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
-</p>
-<p>
-    When <i>expression</i> yields a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the rvar wil initially be <code>undefined</code>, and once the promise resolves to a value, then the rvar will be set to that value.
-</p>
-<p>
-    When <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> are specified, the expression is re-evaluated and RVAR set at every update, but the RVAR <u>won't be re-created</u>. So any existing subscribers to the RVAR remain subscribed.
-</p>
 <p>
     <elm>DEFINE</elm> may not have any child nodes, other than comments or white space.
 </p>
@@ -55,6 +42,50 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
 </p>
 <demo #srctext=demoScoping></demo>
+
+<h3 id="def-rvar"><{}DEFINE rvar #value></h3>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i></elm><elm>/DEFINE</elm></pre>
+<p>
+    introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
+    <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
+</p>
+<p>
+    One can use <code>value="<i>string</i>"</code> instead of <code>#value="<i>expression</i>"</code>, as before.
+</p>
+<p>
+    When <i>expression</i> yields a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the rvar wil initially be <code>undefined</code>, and once the promise resolves to a value, then the rvar will be set to that value.
+</p>
+<p>
+    When <code class=sourcecode>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
+</p>
+<p>
+    When <code class=sourcecode>updating</code> or <code class=sourcecode>reacting</code> is specified, the expression is re-evaluated and the RVAR is set at every update, but the RVAR <u>won't be re-created</u>, so any existing subscribers to the RVAR remain subscribed.
+</p>
+<p>
+    When <code class="sourcecode">onmodified</code> is specified, the given handler will be subscribed to the new RVAR, i.e., the handler will be executed whenever the RVAR has been modified or otherwise been set dirty.
+</p>
+
+
+<h4>RVAR auto-subscription*</h4>
+When an RVAR is declared using <elm>DEFINE rvar</elm>, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR) was found while building the range of HTML following the <elm>DEFINE</elm>, then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
+<p>
+    Here you have two RVAR's <code>a</code> and <code>b</code>, each followed by a button and a span element.
+    <br><code>a</code> has no explicit subscriber, so both these elements are auto-subscribed to <code>a</code> and are updated when you click the button.
+    <br>The second span is subscribed to <code>b</code>, so there is no auto-subscription and the second button won't be updated when you click it.
+</p>
+<demo #srctext="demoAutoSubscribtion"></demo>
+
+<h3><{}DEFINE rvar @value>*</h3>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> @value?="<i>expression</i>" onmodified?=<i>handler</i></elm><elm>/DEFINE</elm></pre>
+introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be a <a href="#TwoWayBinding">valid assignment target</a>, and whenever the new RVAR has been set dirty, its value will be assigned to <i>expression</i>.
+<p>
+    One can use this to bind a reactive variable <code><i>name</i></code> to some part of another reactive variable <code><i>x</i></code>, say <code><i>x</i>.U.someprop[i]</code>.
+    When one uses <code><i>x</i>.U</code> to refer to the value of <code><i>x</i></code>, then <code><i>x</i></code> is marked dirty whenever <code><i>name</i></code> is marked dirty.
+</p>
+<p>
+    Here is a small example &mdash; where the defined RVAR <code>num</code> is not really useful, because there is only a single reference to <code><i>name</i></code>:
+</p>
+<demo #srctext=demoTwoWayRVAR></demo>
 
 <h2 id=CASE><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
@@ -570,7 +601,7 @@ Notes:
                 </li>
                 <li>
                     Attributes <code>@<i>name</i></code> define <b>two-way parameters</b>.
-                    <br>Their values must be valid <a href="#TwoWayBinding">assignment targets</a>.
+                    <br>Their values must be <a href="#TwoWayBinding">valid assignment targets</a>.
                 </li>
                 <li>
                     An attribute prefixed with three dots <code>...<i>name</i></code> is a <b>rest parameter</b>. It must be the last parameter.
@@ -731,14 +762,14 @@ Here is a to-do application, which splits the collection of items into those don
 </demo>
 
 <h4 id="RecursiveSample">A recursive component</h4>
-<p>Components may be recursive, i.e. refer to themselve, when the attribute <code>recursive</code> is specified.
+<p>Components may be recursive, i.e. refer to themselves, when the attribute <code>recursive</code> is specified.
 <br>Here is a recursive component, which images a JavaScript nested list of lists:</p>
 <demo #srctext=sampleRecursion></demo>
 
 <h4 id="Redefining">Redefining HTML elements</h4>
 <p>Components may redefine HTML elements. To refer to the original element, add a dot to the tag name.
 <br>Here is a component that redefines <elm>a</elm> to ensures that all links with no target and an external href, get a <code>target='_blank'</code> attribute:</p>
-<demo #srctext=sampleRedefineA #bShow=true>
+<demo #srctext=sampleRedefineA>
 </demo>
 To instantiate the original <elm>a</elm> HTML element, write <elm>a.</elm>.
 
@@ -760,7 +791,7 @@ HTML provides radio buttons <elm>input type=radio</elm> bearing a name and a fix
     <br>The following custom component does a much better job; it allows one to bind an RVAR, or any other object property, directly to the selected radio button value, without needing a <elm>form</elm> and without repeating any code.
 </p>
 
-<demo #srctext="sampleRadioGroup" #bShow=true></demo>
+<demo #srctext="sampleRadioGroup"></demo>
 Let me explain the somewhat complicated <elm>radiogroup</elm> signature.
 <ul>
     <li>
@@ -793,7 +824,7 @@ When this template is instantiated, <i>Body</i> will be repeated for each provid
 <p>
 Here is a component which allows one to define tables column by column:
 </p>
-<demo #bShow=false #srctext=sampleTableMaker></demo>
+<demo #srctext=sampleTableMaker></demo>
 
 
 <h2 id=INCLUDE><{}INCLUDE src></h2>
@@ -915,7 +946,7 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
 <h2 id="RSTYLE"><{}RSTYLE> dynamic style sheets</h2>
 While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to build style sheets using string interpolation and RHTML constructs, including loops and conditionals.
 <p>
-    Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are part of the style sheet; to use string interpolation you must add a dollar sign <code>\$\{ \}</code>.
+    Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>\$\{ \}</code>.
 </p>
 <p>
     Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue, without needing inline styles:
@@ -926,7 +957,7 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 <ul>
     <li>
         <elm>RSTYLE</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
-        <br>When they are placed inside a <elm>FOR</elm> loop or component template, then multiple identical or different instances of the same style sheet template may arise.
+        <br>When they are placed inside a <elm>FOR</elm> loop, or inside a component template, then multiple, possibly different, instances of the same style sheet template may arise.
         <br>For efficiency reasons you should avoid this, unless you really mean to have multiple distinct instances.
     </li>
     <li>
@@ -935,8 +966,8 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
     </li>
     <li>
         Sheets imported with <code><a href="{MDN}CSS/@import">@import</a></code> cannot use string interpolation.
-        <br>If you want to use RHTML functionality in an external style sheet, then combine <elm>RSTYLE</elm> with <elm>INCLUDE</elm>:
-        <pre class=sourcecode>
+        <br>To use RHTML functionality in an external style sheet, you can combine <elm>RSTYLE</elm> with <elm>INCLUDE</elm>:
+        <pre>
 <{}RSTYLE>
     <{}INCLUDE src="yourDynamicStyleSheet.css"></{}INCLUDE>
 <{}/RSTYLE></pre>
@@ -953,7 +984,7 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 
 <p>The tagname may not be empty, and updates to the tagname of a created element are ignored.</p>
 
-<demo srctext="<for let=t of=&quot;['b', 'i', 'u', 's', 'q', 'sup', 'sub', 'code', 'button']&quot;>
+<demo srctext="<for let=t of=&quot;['b', 'i', 'u', 's', 'q', 'sup', 'sub', 'code']&quot;>
     <ELEMENT #tagname=&quot;t&quot;>TEST</ELEMENT>
 </for>"></demo>
 

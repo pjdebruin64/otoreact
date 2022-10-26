@@ -1,9 +1,8 @@
 
 :root { 
     --OtoRed: rgb(226, 0, 0);
-    --RedBorder: solid 2px var(--OtoRed);
     --Code: 'Lucida Console',monospace 92.5%;
-    font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+    font-family: "Segoe UI Web (West European)", "Segoe UI", -apple-system, Roboto, "Helvetica Neue", sans-serif;
     line-height: 1.25;
     font-size: 16px;
     _text-size-adjust: 185%;     /* This applies to phones */
@@ -29,30 +28,33 @@ button {font-size: 87%;}
     section:nth-of-type(5) {min-height: 2800px;}
 }
 .OtoRed { color: var(--OtoRed); }
+
 .sample {
-    display: block;
-    margin: 2ex auto; 
-    border: var(--RedBorder);
+    margin: 0px auto; 
+    border: solid 3px rgb(202, 233, 93);
+    border-radius: .5em;
     padding: 1ex 2ex;
-    background-color: rgb(225, 255, 181); 
+    background-color: rgb(240, 255, 160); 
 }
 .sourcecode {
     padding: 1px 3px;
     margin: 2px;
-    border: var(--RedBorder);
+    border: solid 3px rgb(180,180,180);
+    border-radius: .5em;
     width: fit-content;
 }
 code.sourcecode {
     display: inline-block;
 }
-pre { 
+pre, .pre {
     margin: 1ex 2vw; 
     white-space: pre-wrap;
+    tab-size: 4;
 }
 pre.sourcecode { 
     font-size: 85%;
 }
-pre, code, elm {
+pre, code, elm, .pre {
     font: var(--Code);
     color: darkblue;
     background-color: rgb(236, 236, 236);
@@ -68,7 +70,7 @@ dd  {margin-left:3em}
 p, ol, ul, li  {margin: .4em 0}
 h1  {font-size: 2em}
 h2  {font-size: 1.5em}
-h3,h4  {margin: .6em 0 .2em 0}
+h3,h4  {margin: .6em 0 .4em 0}
 
 a:not([target]) {
     text-decoration: none;
@@ -85,4 +87,11 @@ section:not(:first-of-type) > h1 {
     margin-top: 1em;
     padding-top: 1em;
     border-top: double 4px;
+}
+
+button {
+    border: none;
+    background-color: turquoise;
+    border-radius: .333em;
+    color: inherit;
 }

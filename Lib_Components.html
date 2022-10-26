@@ -24,7 +24,7 @@
         
     <!-- Component to demonstrate RHTML -->
     <component>
-        <demo #srctext?="''" #bshow=true #editable=true rvar? #bDollarRequired?></demo>
+        <demo #srctext?="''" #bshow=4 #editable=true rvar? #bDollarRequired?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
         <style>
@@ -32,60 +32,117 @@
                 margin: 2ex auto; 
                 max-width:100%;
             }
-            table.demo > tr > th, table.demo > tr > td {
-                border: var(--RedBorder);
+            table.demo > tr > * {
                 vertical-align: top;
-                min-width:320px;
+                min-width:350px;
                 max-width:700px;
+                padding: 8px;
+                border-radius: .5em;
             }
-            table.demo > tr > th, table.demo > tr > td { padding: 8px; }
+            table.demo th:nth-child(1) {
+                color: rgb(32, 109, 101);
+            }            
+            table.demo th:nth-child(2) {
+                color: rgb(104, 122, 1);
+            }
 
             table.demo > tr > *:nth-child(1) {
                 background-color: rgb(245, 245, 245);
             }
-            table.demo > tr > td:nth-child(1) > pre { 
-                color: darkblue;
-                white-space: pre-wrap;
+            table.demo > tr > *:nth-child(2) {
+                background-color: rgb(240, 255, 160);
+            }
+            table.demo td.pre { 
                 font-size: 80%;
                 min-height: 4em;
-                margin: 0px;
+                border: 3px solid rgb(200,200,200);
             }
             span.demoGreen  { color: green; } /* This is for comments */
             span.mTag       { color: blue; }
             span.otored     { color: var(--OtoRed); }
 
-            pre.nodisplay {display: none }
+            .pre .nodisplay {display: none }
 
-            pre {
-                tab-size: 4;
+            .demo button:disabled {
+                border: solid 2px turquoise;
+                background-color: white;
+                color: inherit;
+                font-weight: bold;
             }
-            table.demo td.demo {
-                background-color: rgb(225, 255, 181);
-            }
+
         </style>
-        
+
+        <script defines="regDemo">
+            let regComment = `<!--(?:[^-]|-[^-]|--[^>])*?-->`,
+                fRegElement =
+                    (tagname) => `((?:${regComment}\\s*)*<${tagname}[^]*?<\\/${tagname}\\s*>\\s*)`,
+                regDemo = 
+                    new RegExp(`^\\s*${fRegElement('style')}?${fRegElement('script')}?${fRegElement('component')}?([^]*?)\\s*$`, 'i');
+        </script>
+
         <template #srctext=source #bDollarRequired="bDollarRequired">
-            <define var=srctext #value="rvar || RVAR('', source.trim())"></define>
-            <define rvar=rShow  #value="bshow"></define>
+            <define var=srcText #value="rvar || RVAR('', source.trim())"></define>
+            <define rvar="texts"></define>
+            <script type="otoreact/local">
+                texts.V = regDemo.exec(srcText.V);
+                texts.Subscribe(([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')},false,true)
+            </script>
+
+            <define rvar=rShow  #value="bshow || 4"
+                onmodified="texts.V = regDemo.exec(srcText.V);"
+                ></define>
             <table. class=demo>
-                <tr.><th.>
-                    <button onclick="rShow.V=!rShow.V" reacton=rShow>{rShow.V ? 'Hide' : 'Show'}</button>
-                    <if cond=editable>Editable</if> Source Code
-                </th.><th.><if cond=editable>Live</if> Result</th.></tr.>
+                <tr.><th. reacton="rShow">
+                    <if cond=editable>Editable</if> Source Code&nbsp;
+                    <div style="float:right">
+                        <component><but #value><content></content></but>
+                            <template value=v >
+                                <button #if="v<0 || texts.V[v]"
+                                     #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
+                            </template>
+                        </component>
+
+                        <but #value=1>Style</but>
+                        <but #value=2>Script</but>
+                        <but #value=3>Component</but>
+                        <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
+                        <but 
+                            #if="texts.V[1] || texts.V[2] || texts.V[3]"
+                            #value=-1>All</but>
+                        <but #value=0>Hide</but>
+                    </div>
+                </th.>
+                <th.><if cond=editable>Live</if> Result</th.></tr.>
                 <tr.>
-                    <td.>
-                        <pre #class:nodisplay="!rShow.V" reactOn=rShow
-                            #contenteditable="editable.toString()" spellcheck=false 
-                            #innerHTML="ColorCode(srctext.V, bDollarRequired != null)"
-                            !innerText="srctext.V"
-                            onkeydown="if (event.key=='Tab') {
-                                event.preventDefault();
-                                document.execCommand('insertText', false, '\t');
-                            }"
-                            ></pre>
-                    </td.>
-                    <td. class=demo>           
-                        <RHTML reacton=srctext #srctext="srctext.V"></RHTML>
+                    <case reactOn=rShow>
+                        <when cond="rShow.V > 0">
+                            <td. class="pre"                            
+                                contenteditable="{editable}" spellcheck=false 
+                                #innerHTML="ColorCode(texts.V[rShow.V])"
+                                !innerText="texts.U[rShow.V]"
+                                onkeydown="if (event.key=='Tab') {
+                                    event.preventDefault();
+                                    document.execCommand('insertText', false, '\t');
+                                }"
+                            ></td.>
+                        </when>
+                        <when cond="rShow.V < 0">
+                            <td. class="pre"                            
+                                contenteditable="{editable}" spellcheck=false 
+                                #innerHTML="ColorCode(srcText.V)"
+                                !innerText="srcText.V"
+                                onkeydown="if (event.key=='Tab') {
+                                    event.preventDefault();
+                                    document.execCommand('insertText', false, '\t');
+                                }"
+                            ></td.>
+                        </when>
+                        <else>
+                            <td.></td.>
+                        </else>
+                    </case>
+                    <td. class=sample>           
+                        <RHTML reacton=srcText #srctext="srcText.V"></RHTML>
                     </td.>
                 </tr.>
             </table.>
@@ -95,7 +152,7 @@
 
     <!-- This component defines our page layout -->
     <component>
-        <pageLayout>
+        <pageLayout subpath>
             <pageHead></pageHead>
             <leftbar></leftbar>
             <content>
@@ -121,6 +178,7 @@
             }
             div.pageLayout > header    { 
                 grid-row: 1;
+                font-family: Ubuntu, Arial, sans-serif;
                 display: grid; 
                 grid-template-columns: auto auto auto; 
                 grid-template-areas:
@@ -158,6 +216,12 @@
             }
             div.pageLayout > main { 
                 grid-row: 3;
+            }
+
+            h1>a,h2>a,h3>a,
+            nav a
+            {
+                color: rgb(0, 123, 145); 
             }
 
             @media screen and (max-width: 1200px) {
@@ -206,13 +270,34 @@
                 flex-wrap: wrap;
                 padding: 1px 41px;
             }
-            nav.topbar > * {
+            nav.topbar1 > * {
                 padding: 6px 12px;
                 text-align: center;
                 min-width: 100px;
                 border: solid var(--OtoRed) 2px;
                 background-color: rgb(233, 233, 233);
                 margin: -1px;
+            }
+            nav.topbar > a {
+                display: inline-block;
+                color: white; background-color: var(--OtoRed);
+                font-weight: bold;
+                padding: .5em;
+                margin: 0px 6px;
+                text-align: center;
+                min-width: 100px;
+                line-height: 1em;
+                border-radius: 1em;
+                border: solid 2px white;
+                height: 1em;
+            }
+            nav.topbar > a:hover {
+                background-color: rgb(183,2,24);
+            }
+            nav.topbar > a.active {
+                color: black;
+                background-color: white;
+                border-color: var(--OtoRed);
             }
             @media print {
                 nav.topbar, .narrow-only {display: none}
@@ -267,7 +352,7 @@
                                 <p #if="!ga" style.fontsize="smaller">Nontracked</p>
                         </div>
                         <div style="grid-area: built; align-self: end; text-align: right; padding-right: 1ex; font-size:90%;">
-                            <p>Built with <a href="./" class=OtoRed style.textDecoration=none>OtoReact</a></p>
+                            <p>Built with <span class=OtoRed>OtoReact</span></p>
                         </div>
                         <div style="grid-area: logo;">
                             <a href="https://www.otolift.com">
@@ -277,11 +362,11 @@
                             </a>
                         </div>
                         <nav class=topbar style="grid-area: nav;">
-                            <a href="."         #onclick=reroute>Home</a>
-                            <a href="routing"   #onclick=reroute>Routing</a>
-                            <a href="otolib"    #onclick=reroute>OtoLib</a>
-                            <a href="download"  #onclick=reroute>Download</a>                        
-                            <a href="https://forum.otoreact.dev/">Forum</a>
+                            <a. href="."         #onclick=reroute #class:active="subpath==''">Home</a.>
+                            <a. href="routing"   #onclick=reroute #class:active="subpath=='routing'">Routing</a.>
+                            <a. href="otolib"    #onclick=reroute #class:active="subpath=='otolib'">OtoLib</a.>
+                            <a. href="download"  #onclick=reroute #class:active="subpath=='download'">Download</a.>                        
+                            <a. href="https://forum.otoreact.dev/">Forum</a.>
                         </nav>
                 </header>
                 <main style.position="relative">
@@ -303,39 +388,8 @@
                             <HDR tagname="H3" #id="id" #level="2"><content></content></HDR>
                         </h3>
                     </content>
-                    <!--                        
-                    <component>
-                        <H #level id>
-                            <T ...rest><content></content></T>
-                            <content></content>
-                        </H>
-                        <template>
-                            <def var=nr #value="getNr(level)"></def>
-                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
-                            <T #id="hash"><span onCreate="addContent(level, this)">
-                                <a href="#{hash}">{nr}.</a> &nbsp;<cont></cont>
-                            </span></T>
-                        </template>
-                    </component>
-                    <!-- Here the contents of the page definition will be inserted ->
-                    <content>
-                        <!-- Inside the content, the following construsts are available: ->
-                        <h1 id><H #level="0" #id="id">
-                            <T ...rest><h1. ...rest><content></content></h1.></T>
-                            <content></content>
-                        </H></h1>
-                        <h2 id><H #level="1" #id="id">
-                            <T ...rest><h2. ...rest><content></content></h2.></T>
-                            <content></content>
-                        </H></h2>
-                        <h3 id><H #level="2" #id="id">
-                            <T ...rest><h3. ...rest><content></content></h3.></T>
-                            <content></content>
-                        </H></h3>
-                    </content>
-                -->
                 </main>
-                <nav id=TOC>
+                <nav id=TOC class="TOC">
                     <nav>
                     <component><entry #item></entry>
                         <template>

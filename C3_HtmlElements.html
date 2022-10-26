@@ -262,7 +262,9 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
 
 <h2 id=TwoWayBinding>Output and two-way bindings: @*!+</h2>
 DOM properties are not static but can change. RHTML allows four variants of output binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions): <code>*</code>, <code>+</code>, <code>!</code> and <code>!!</code>.
-<br>Valid assignment targets are expressions that can be assigned to: global variables, array elements, and object properties, including RVAR values.
+<p><i>Valid assignment targets</i>, also called <i>Left Hand Side expressions</i>, are expressions that can be assigned to, like: global variables, array elements, and object properties, including RVAR values.
+    <br>For a formal definition, see the <a href="https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-assignment-operators-static-semantics-early-errors">ECMAScript® Language Specification</a>.
+</p>
 <dl>
     <dt><code class=sourcecode>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
     <dd>

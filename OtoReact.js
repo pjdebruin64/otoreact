@@ -160,7 +160,6 @@ function CloneEnv(env) {
 }
 function assignEnv(target, source) {
     let C = ass(target.C, source.C);
-    ;
     ass(target, source);
     target.C = C;
 }
@@ -218,10 +217,13 @@ class _RVAR {
         return this.storeName || R.Settings.storePrefix + this.name;
     }
     Subscribe(s, bImmediate, bCr = bImmediate) {
-        if (bCr)
-            s(this._val);
-        s.bImm = bImmediate;
-        this._Subs.add(s);
+        if (s) {
+            if (bCr)
+                s(this._val);
+            s.bImm = bImmediate;
+            this._Subs.add(s);
+        }
+        return this;
     }
     Unsubscribe(s) {
         this._Subs.delete(s);
@@ -335,8 +337,7 @@ export async function DoUpdate() {
 }
 export function RVAR(nm, value, store, subs, storeName) {
     let r = new _RVAR(nm, value, store, storeName);
-    if (subs)
-        r.Subscribe(subs, T, F);
+    r.Subscribe(subs, T, F);
     return r;
 }
 function RVAR_Light(t, updTo) {
@@ -688,17 +689,19 @@ class RCompiler {
                     case 'define':
                         {
                             CheckNoChildren(srcElm);
-                            let tv = atts.g('tvar'), rv = !tv && atts.g('rvar'), rtv = rv || tv, varNm = rtv || atts.g('let') || atts.g('var', T), dSet = tv ? this.CompJScript(`$=>{${atts.get('#value')}=$}`)
-                                : dU, dUpd = rv && this.CompAttrExpr(atts, 'updates') || dU, dVal = this.CompParam(atts, 'value', tv) || dU, dSto = rv && this.CompAttrExpr(atts, 'store'), dSNm = dSto && this.CompParam(atts, 'storename') || dU, bReact = atts.gB('reacting') || atts.gB('updating') || tv, vLet = this.newV(varNm);
+                            let rv = atts.g('rvar'), varNm = rv || atts.g('let') || atts.g('var', T), t_val = rv && atts.g('@value'), dSet = t_val && this.CompJScript(`$=>{(${t_val})=$}`), dUpd = rv && this.CompAttrExpr(atts, 'updates'), dGet = t_val ? this.CompJScript(t_val, '@value') : this.CompParam(atts, 'value'), dSto = rv && this.CompAttrExpr(atts, 'store'), dSNm = dSto && this.CompParam(atts, 'storename'), bReact = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.newV(varNm), onMod = this.CompParam(atts, 'onmodified');
                             bldr = async function DEF(area, bReOn) {
                                 let { rng, bCr } = PrepArea(srcElm, area);
                                 if (bCr || bReact || bReOn) {
                                     bRO = T;
-                                    let v = dVal();
-                                    if (rtv)
+                                    let v = dGet?.();
+                                    if (rv)
                                         if (bCr) {
-                                            let rvUp = dUpd();
-                                            rng.val = RVAR(rtv, v, dSto && dSto(), rvUp ? rvUp.SetDirty.bind(rvUp) : dSet(), dSNm());
+                                            let rvUp = dUpd?.();
+                                            (rng.val =
+                                                RVAR(rv, v, dSto?.(), dSet?.(), dSNm?.()))
+                                                .Subscribe(rvUp?.SetDirty?.bind(rvUp))
+                                                .Subscribe(onMod?.());
                                         }
                                         else
                                             rng.val._Set(v);
@@ -708,7 +711,7 @@ class RCompiler {
                                 }
                                 vLet(rng.val);
                             };
-                            if (rv) {
+                            if (rv && !onMod) {
                                 let a = this.cRvars.get(rv);
                                 this.cRvars.set(rv, T);
                                 this.restoreActions.push(() => {
@@ -1290,17 +1293,16 @@ class RCompiler {
                             for await (let item of iter) {
                                 vLet(item, T);
                                 vIdx(idx, T);
-                                let hash = dHash && dHash(), key = dKey?.() ?? hash;
+                                let hash = dHash?.(), key = dKey?.() ?? hash;
                                 if (key != N && nwMap.has(key))
                                     throw `Key '${key}' is not unique`;
                                 nwMap.set(key ?? {}, { item, hash, idx: idx++ });
                             }
-                            let nxChR = rng.child, iterator = nwMap.entries(), nextIter = nextNm ? nwMap.values() : N, prItem, nxItem, prRange = N, chArea;
+                            let nxChR = rng.child, iterator = nwMap.entries(), nextIter = nextNm && nwMap.values(), prItem, nxItem, prRange = N, chArea;
                             sub.parR = rng;
                             vPrev();
                             vNext();
-                            if (nextIter)
-                                nextIter.next();
+                            nextIter?.next();
                             while (T) {
                                 let k, nx = iterator.next();
                                 while (nxChR && !nwMap.has(k = nxChR.key)) {
@@ -1540,10 +1542,8 @@ class RCompiler {
                 let saved = SaveEnv(), i = 0;
                 try {
                     for (let [nm, lv] of lvars) {
-                        let arg = args[nm], dflt;
-                        if (arg === U && (dflt = signat.Params[i]?.pDflt))
-                            arg = dflt();
-                        lv(arg);
+                        let arg = args[nm];
+                        lv(arg !== U ? arg : signat.Params[i]?.pDflt?.());
                         i++;
                     }
                     DC(mapIter(mSlotTemplates, ([nm, templates]) => ({ nm, templates, CEnv: slotEnv, Cnm })));
@@ -1574,7 +1574,7 @@ class RCompiler {
     async CompInstance(srcElm, atts, [signat, ck]) {
         if (signat.prom)
             await signat.prom;
-        let { nm, RestP, CSlot } = signat, getArgs = [], SBldrs = new Map();
+        let { RestP, CSlot } = signat, getArgs = [], SBldrs = new Map();
         for (let [nm] of signat.Slots)
             SBldrs.set(nm, []);
         for (let { mode, nm, pDflt } of signat.Params)
@@ -1584,7 +1584,7 @@ class RCompiler {
                     ? [nm, this.CompJScript(attVal, mode + nm),
                         this.CompJScript(`ORx=>{${attVal}=ORx}`, nm)
                     ]
-                    : [nm, U, () => dU]);
+                    : [nm, U, dU]);
             }
             else if (mode != '...') {
                 let dH = this.CompParam(atts, nm, !pDflt);
@@ -1688,7 +1688,7 @@ class RCompiler {
                     let nm = altProps[m[2]] || m[2], setter;
                     if (m[1] != '#')
                         try {
-                            let dS = this.CompJScript(`$=>{${V}=$}`), cnm;
+                            let dS = this.CompJScript(`$=>{(${V})=$}`), cnm;
                             setter = () => {
                                 let S = dS();
                                 return function () {
@@ -1971,18 +1971,18 @@ function CapitalProp(nm) {
         return r;
     });
 }
-let Cnames = {};
+let Cnms = {};
 function CheckNm(obj, nm) {
-    if (Cnames[nm])
-        return Cnames[nm];
-    let r = new RegExp(`^${nm}$`, 'i');
+    if (Cnms[nm])
+        return Cnms[nm];
+    let c = nm, r = new RegExp(`^${nm}$`, 'i');
     if (!(nm in obj))
-        for (let pr in obj)
-            if (r.test(pr)) {
-                nm = pr;
+        for (let p in obj)
+            if (r.test(p)) {
+                c = p;
                 break;
             }
-    return Cnames[nm] = nm;
+    return Cnms[nm] = c;
 }
 function OuterOpenTag(elm, maxLen) {
     return Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLen - 1) + '>';

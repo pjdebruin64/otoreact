@@ -358,7 +358,7 @@ function CloneEnv(env: Environment): Environment {
     return addP(ass([], env), 'C', ass([], env.C))
 }
 function assignEnv(target: Environment, source: Environment) {
-    let C = ass(target.C, source.C);;
+    let C = ass(target.C, source.C);
     ass(target, source);
     target.C = C;
 }
@@ -472,10 +472,13 @@ class _RVAR<T = unknown>{
     }
 
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr: boolean = bImmediate) {
-        if (bCr)
-            s(this._val);
-        s.bImm = bImmediate;
-        this._Subs.add(s);
+        if (s) {
+            if (bCr)
+                s(this._val);
+            s.bImm = bImmediate;
+            this._Subs.add(s);
+        }
+        return this;
     }
     Unsubscribe(s: Subscriber<T>) {
         this._Subs.delete(s);
@@ -623,8 +626,7 @@ export function RVAR<T>(
     storeName?: string
 ): RVAR<T> {
     let r = new _RVAR<T>(nm, value, store, storeName);
-    if (subs)
-        r.Subscribe(subs, T, F);
+    r.Subscribe(subs, T, F);
     return r;
 }
 
@@ -1102,37 +1104,38 @@ class RCompiler {
                     case 'def':
                     case 'define': {
                         CheckNoChildren(srcElm);
-                        let tv      = atts.g('tvar'),       // A two-way RVAR
-                            rv      = !tv && atts.g('rvar'), // An RVAR
-                            rtv     = rv || tv,
-                            varNm   = rtv || atts.g('let') || atts.g('var', T),
+                        let rv      = atts.g('rvar'), // An RVAR
+                            varNm   = rv || atts.g('let') || atts.g('var', T),
+                            t_val   = rv && atts.g('@value'),
                             // When we want a two-way rvar, we need a routine to update the source expression
                             dSet: Dependent<(x:any) => void>  
-                                    = tv ? this.CompJScript(
-                                            `$=>{${atts.get('#value')}=$}`
-                                        )
-                                        : dU,
-                            dUpd    = rv && this.CompAttrExpr<RVAR>(atts, 'updates') || dU,
-                            dVal    = this.CompParam(atts, 'value', tv) || dU,
+                                    = t_val && this.CompJScript(`$=>{(${t_val})=$}`),
+                            dUpd    = rv && this.CompAttrExpr<RVAR>(atts, 'updates'),
+                            dGet    = t_val ? this.CompJScript(t_val, '@value') : this.CompParam(atts, 'value'),
                             dSto    = rv && this.CompAttrExpr<Store>(atts, 'store'),
-                            dSNm    = dSto && this.CompParam<string>(atts, 'storename') || dU,
-                            bReact  = atts.gB('reacting') || atts.gB('updating') || tv,
-                            vLet    = this.newV(varNm);
+                            dSNm    = dSto && this.CompParam<string>(atts, 'storename'),
+                            bReact  = atts.gB('reacting') || atts.gB('updating') || t_val,
+                            vLet    = this.newV(varNm),
+                            onMod   = this.CompParam<Handler>(atts, 'onmodified');
                         bldr = async function DEF(this: RCompiler, area
                             , bReOn?: booly  // T when the DEF is re-evaluated due to a 'reacton' attribute
                              ) {
                             let {rng, bCr} = PrepArea(srcElm, area);
                             if (bCr || bReact || bReOn){
                                 bRO=T;
-                                let v = dVal();
-                                if (rtv)
+                                let v = dGet?.();
+                                if (rv)
                                     if (bCr) {
-                                        let rvUp = dUpd();
-                                        rng.val = RVAR(
-                                            rtv, v, dSto && dSto(),
-                                            rvUp ? rvUp.SetDirty.bind(rvUp) : dSet(), 
-                                            dSNm()
-                                        );
+                                        let rvUp = dUpd?.();
+                                        (rng.val = 
+                                            RVAR(
+                                                rv, v, dSto?.(),
+                                                dSet?.(), 
+                                                dSNm?.()
+                                            )
+                                        )
+                                        .Subscribe(rvUp?.SetDirty?.bind(rvUp))
+                                        .Subscribe(onMod?.())
                                     } else
                                         rng.val._Set(v);
                                 else
@@ -1143,7 +1146,7 @@ class RCompiler {
                             vLet(rng.val);
                         }
 
-                        if (rv) {
+                        if (rv && !onMod) {
                             // Check for compile-time subscribers
                             let a = this.cRvars.get(rv);    // Save previous value
                             this.cRvars.set(rv, T);
@@ -1911,7 +1914,7 @@ class RCompiler {
                             for await (let item of iter) {
                                 vLet(item,T);
                                 vIdx(idx,T);
-                                let hash = dHash && dHash()
+                                let hash = dHash?.()
                                     , key = dKey?.() ?? hash;
                                 if (key != N && nwMap.has(key))
                                     throw `Key '${key}' is not unique`;
@@ -1920,7 +1923,7 @@ class RCompiler {
 
                             let nxChR = rng.child,
                                 iterator = nwMap.entries(),
-                                nextIter = nextNm ? nwMap.values() : N
+                                nextIter = nextNm && nwMap.values()
 
                                 , prItem: Item, nxItem: Item
                                 , prRange: Range = N,
@@ -1928,7 +1931,7 @@ class RCompiler {
                             sub.parR = rng;
                             vPrev(); vNext();
 
-                            if (nextIter) nextIter.next();
+                            nextIter?.next();
 
                             while(T) {
                                 let k: Key, nx = iterator.next();
@@ -2232,10 +2235,8 @@ class RCompiler {
                 try {
                     // Set parameter values as local variables
                     for (let [nm,lv] of lvars){
-                        let arg = args[nm], dflt: Dependent<unknown>;
-                        if (arg===U && (dflt = signat.Params[i]?.pDflt))
-                            arg = dflt();
-                        lv(arg);
+                        let arg = args[nm];
+                        lv(arg !== U ? arg : signat.Params[i]?.pDflt?.());
                         i++;
                     }
                     // Define all slot-constructs
@@ -2272,7 +2273,7 @@ class RCompiler {
     ) {
         if (signat.prom)
             await signat.prom;
-        let {nm, RestP, CSlot} = signat,
+        let {RestP, CSlot} = signat,
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             SBldrs = new Map<string, Template[]>();
 
@@ -2287,7 +2288,7 @@ class RCompiler {
                     ? [nm, this.CompJScript<unknown>(attVal, mode+nm)
                         , this.CompJScript<Handler>(`ORx=>{${attVal}=ORx}`, nm)
                     ]
-                    : [nm, U, ()=>dU ]
+                    : [nm, U, dU]
                 )
             }
             else if (mode != '...') {
@@ -2443,7 +2444,7 @@ class RCompiler {
                         , setter: Dependent<Handler>;
                     if (m[1] != '#')
                         try {
-                            let dS = this.CompJScript<(a:any) => void>(`$=>{${V}=$}`), cnm: string;
+                            let dS = this.CompJScript<(a:any) => void>(`$=>{(${V})=$}`), cnm: string;
                             setter = () => {
                                 let S = dS();
                                 return function(this: HTMLElement) {
@@ -2711,7 +2712,7 @@ class RCompiler {
 export async function RFetch(input: RequestInfo, init?: RequestInit) {
     let r = await fetch(input, init);
     if (!r.ok)
-        throw `${init?.method || 'GET'} ${input} returned ${r.status} ${r.statusText}`;
+        throw `${init?.method||'GET'} ${input} returned ${r.status} ${r.statusText}`;
     return r;
 }
 // Quote a string such that it can be literally included in a RegExp
@@ -2794,17 +2795,19 @@ function CapitalProp(nm: string) {
     });
 }
 
-let Cnames: {[nm: string]: string} = {};
+let Cnms: {[nm: string]: string} = {};
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.
+// Results are cached in 'Cnms', regardless of 'obj'.
 function CheckNm(obj: object, nm: string): string {
-    if (Cnames[nm]) return Cnames[nm];  // If checked before, return the previous result
-    let r = new RegExp(`^${nm}$`, 'i'); // (nm cannot contain special characters)
+    if (Cnms[nm]) return Cnms[nm];  // If checked before, return the previous result
+    let c=nm,
+        r = new RegExp(`^${nm}$`, 'i'); // (nm cannot contain special characters)
     if (!(nm in obj))
-        for (let pr in obj)
-            if (r.test(pr))
-                {nm = pr; break;}
-    return Cnames[nm] = nm;
+        for (let p in obj)
+            if (r.test(p))
+                {c = p; break;}
+    return Cnms[nm] = c;
 }
 
 function OuterOpenTag(elm: HTMLElement, maxLen?: number): string {
@@ -2874,7 +2877,6 @@ function copyStyleSheets(S: Document, D: Document) {
             DSheet.insertRule(rule.cssText);
     }
 }
-
 
 export function* range(from: number, count?: number, step: number = 1) {
 	if (count === U) {

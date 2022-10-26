@@ -14,7 +14,7 @@ s/\r//      # Remove CR's
 /[[,\{\)=:\?]$|else$/ {N ; s/\n */ / ; b start }
 
 # Remove whitespace before and after special chars, except inside strings
-s/ *(^|[-\[(),:;{}<>=?!+|&]|]|`(\\`|\$\{(`[^`]*`|[^\}])\}|[^`])*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
+s/ *(^|[-\[(),:;{}<>=?!+*|&]|]|`(\\`|\$\{(`[^`]*`|[^\}])\}|[^`])*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
 
 # Remove whitespace in expressions in interpolated strings
 t repeat    # Needed to clear previous test result

@@ -251,7 +251,7 @@ Global variables are visible in RHTML inline scripts, of course.
     </dd>
     <dt><code class=sourcecode>x.Clear</code> *</dt>
     <dd>
-        Provides a routine that clears the value of <code>x</code>.
+        Provides a routine that clears the value of <code>x</code>, <i>except</i> when <code>x</code> has just been set dirty in the same event loop.
         <p>
             You can e.g. add an attribute <code>#onsuccess="errMsg.Clear"</code> to clear any error message when any event handler succeeds without error.
         </p>

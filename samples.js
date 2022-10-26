@@ -92,7 +92,25 @@ const sampleGreeting=
 `;
 
 const sampleServerData2=
-`<!-- We tell OtoReact to define these names in global scope. -->
+`<style>
+  table.colorTable {
+    margin: auto;
+  }
+  table.colorTable td {
+    padding: 0px 4px;
+    text-align: center;
+    max-width: 8em;
+    overflow:hidden;
+    font-size: small;
+  }
+  div.scrollbox {
+    height:100ex;
+    width:100%;
+    overflow-y:scroll;
+  }
+</style>
+
+<!-- We tell OtoReact to define these names in global scope. -->
 <script type=otoreact defines="ColorTable,toHex,handle,StartStop" >
 
 // Here we store the data as an Array<{name:string, red:number, green:number, blue:number}>
@@ -121,22 +139,12 @@ function StartStop() {
 }
 </script>
 
-<!-- Styling -->
-<style>
-  table.colorTable td {
-    padding: 0px 4px;
-    text-align: center;
-    max-width: 8em; overflow:hidden;
-    font-size: small;
-  }
-</style>
-
-<div style="height:100ex; width:100%; overflow-y:scroll;">
-<!-- Now we build our table.
+<div class=scrollbox>
+<!-- Here we build our table.
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table. class=colorTable style.margin="auto">
+<table. class=colorTable>
 
   <!-- Table caption -->
   <caption.>Web Colors 
@@ -174,9 +182,11 @@ function StartStop() {
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check }
 <p>
-Null and undefined are not shown: "{null} {undefined}".
+Null and undefined are not shown:
+  "{null} {undefined}".
 <br>
-Compare this JavaScript template literal: "{ \`\${null} \${undefined}\` }".
+Compare this JavaScript template literal:
+  "{ \`\${null} \${undefined}\` }".
 <p>
 Tag <{}br> looks better in source code than &lt;br&gt;`;
 
@@ -274,8 +284,9 @@ const sampleTODO=
     </template>
 </component>
 
-<!-- Now we create two instances: one list of undone items and one list of completed items -->
+<!-- We create two component instances: one list of undone items: -->
 <ItemList caption='To do:' #bDone=false></ItemList>
+<!-- and one list of completed items: -->
 <ItemList caption='Done:'  #bDone=true ></ItemList>
 
 <!-- Adding an item -->
@@ -287,45 +298,51 @@ const sampleTODO=
 
 const sampleRecursion=
 `<component recursive>
-  <ShowList #arg></ShowList>
+    <ShowList #arg></ShowList>
 
-  <style>
-      .ShowList {
-          display: flex; flex-wrap: wrap; align-items: center;
-          background-color: gray;
-      }
-      .ShowList > div {
-          background-color: #f1f1f1;
-          margin: 4px; padding: 8px; font-size: 18px;
-      }
-  </style>
+    <style>
+        .ShowList {
+            display: flex; flex-wrap: wrap; align-items: center;
+            background-color: goldenrod;
+        }
+        .ShowList > div {
+            background-color: lemonchiffon;
+            margin: 4px; padding: 8px; font-size: 18px;
+        }
+    </style>
 
-  <template>
-      <case>
-          <when cond="Array.isArray(arg)">
-              <div class=ShowList>
-                  <for let=item of=arg>
-                      <div>
-                          <!-- Recursive invocation -->
-                          <ShowList #arg=item></ShowList>
-                      </div>
-                  </for>
-              </div>
-          </when>
-          <else>
-              {arg}
-          </else>
-      </case>
-  </template>
+    <template>
+        <case>
+            <when cond="Array.isArray(arg)">
+                <div class=ShowList>
+                    <for let=item of=arg>
+                        <div>
+                            <!-- Recursive invocation -->
+                            <ShowList #arg=item></ShowList>
+                        </div>
+                    </for>
+                </div>
+            </when>
+            <else>
+                {arg}
+            </else>
+        </case>
+    </template>
 </component>   
 
 <define rvar=list 
-    value="[1, [2,3], [4,[ ,[[42]]], 5, 'Otolift']]"
-    store=sessionStorage
+  value="[1, [2,3], [4,[ ,[[42]]], 5, 'Otolift']]"
+  store=sessionStorage
 ></define>
-<p>JavaScript list: <input type=text @value="list.V" size=30></p>
+
+<p>
+    JavaScript list: <input type=text @value="list.V" size=30>
+</p>
+
 <ShowList #arg="eval(list.V)"></ShowList>
-<p>You can modify the list definition above and see the result.</p>`;
+<p>
+    You can modify the JavaScript list above and see the result.
+</p>`;
 
 const sampleRedefineA =
 `<component>
@@ -351,55 +368,90 @@ const sampleA =
 <a href="./#Introduction">Introduction</a>`;
 
 const sampleTableMaker =
-`<component>
-    <TableMaker datasource ...rest>
-        <!-- One column header definition -->
-        <HDef></HDef>
-        <!-- One column detail definition -->
-        <DDef item></DDef>
-    </TableMaker>
+`<style>
+td { text-align: center }
+</style>
 
-    <template>
-        <table. ...rest>
-            <!-- Header row -->
-            <tr.>
-                <for of=HDef>
-                    <th.><HDef></HDef></th.>
-                </for>
-            </tr.>
-            <!-- Detail rows -->
-            <for let=rec of='datasource'>
-                <tr.>
-                    <for of=DDef>
-                        <td.><DDef #item=rec></DDef></td.>
-                    </for>
-                </tr.>
-            </for>
-        </table.>
-    </template>
+<component>
+  <TableMaker datasource ...rest>
+      <!-- One column header definition -->
+      <HDef></HDef>
+      <!-- One column detail definition -->
+      <DDef item></DDef>
+  </TableMaker>
+
+  <template>
+      <table. ...rest>
+          <!-- Header row -->
+          <tr.>
+              <for of=HDef>
+                  <th.><HDef></HDef></th.>
+              </for>
+          </tr.>
+          <!-- Detail rows -->
+          <for let=rec of='datasource'>
+              <tr.>
+                  <for of=DDef>
+                      <td.><DDef #item=rec></DDef></td.>
+                  </for>
+              </tr.>
+          </for>
+      </table.>
+  </template>
 </component>
 
 <!-- Some data -->
-<script type=otoreact defines=tableData>
-    const tableData = [
-        {name:'Piet', age:18}, 
-        {name:'Tine', age:19}
-    ];
+<script type=otoreact defines=tableData,thisYear>
+  const tableData = [
+      {name:'Piet',		year: 2004}, 
+      {name:'Tine',	year: 2003},
+  {name: 'Alex',	year: 1960}
+  ];
+const thisYear = new Date().getFullYear();
 </script>
 
-<!-- Now the actual table definition: -->
-<TableMaker #datasource='tableData'>
-    <!-- First column -->
-    <HDef>Name</HDef>
-    <DDef item>{item.name}</DDef>
+<!-- The actual table definition, column by column: -->
+<TableMaker #datasource='tableData' style="border-spacing: 20px 0px;">
+  <!-- First column -->
+  <HDef>Name</HDef>
+  <DDef item>{item.name}</DDef>
 
-    <!-- Second column -->
-    <HDef>Age</HDef>
-    <DDef item>{item.age}</DDef>
-</TableMaker>`;
+  <!-- Second column -->
+  <HDef>Birth year</HDef>
+  <DDef item>{item.year}</DDef>
+
+  <!-- Third column -->
+  <HDef>Age</HDef>
+  <DDef item>{thisYear -  item.year}</DDef>
+</TableMaker>
+`;
 
 const sampleTicTacToe = 
-`<!-- By using a local script, multiple instances of this game will have their own state -->
+`<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
+<style>
+    div.tic-tac-toe {
+        display:grid;
+        grid-template-columns: auto 120pt;
+        background-color: white;
+    }
+    .tic-tac-toe table {
+        width: fit-content;
+        margin:1ex
+    }
+    .tic-tac-toe td {
+        height: 4ex; width: 4ex;
+        padding: 0px;
+        border: 2px solid;
+        line-height: 1;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .tic-tac-toe button {
+        font-size: 80%;
+    }
+</style>
+
+<!-- By using a local script, multiple instances of this game will have their own state -->
 <script type="otoreact/local" 
   defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
 >
@@ -451,25 +503,6 @@ const sampleTicTacToe =
   }
 </script>
 
-<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
-<style>
-    div.tic-tac-toe {
-        display:grid; grid-template-columns: auto 120pt;
-        background-color: white;
-    }
-    .tic-tac-toe table {
-        width: fit-content; margin:1ex
-    }
-    .tic-tac-toe td {
-        height:4ex; width: 4ex; padding: 0px;
-        border: 2px solid; line-height: 1;
-        text-align: center; vertical-align: middle;
-    }
-    .tic-tac-toe button {
-        font-size: 80%;
-    }
-</style>
-
 <div class=tic-tac-toe>
   <!-- Caption -->
   <div style="grid-column: 1/3; text-align: center;">
@@ -517,8 +550,7 @@ const sampleRHTML =
 
 const sampleStyleTemplate =
 `<def rvar=Hue #value="0"></def>
-
-Hue = {Hue.V}
+Current hue is: {Hue.V}
 
 <RSTYLE>
   h2 {
@@ -526,13 +558,12 @@ Hue = {Hue.V}
   }
 </RSTYLE>
 
-<h2>Section 1</h2>
-Contents
-<h2>Section 2</h2>
+<h2>Section head</h2>
+Section contents
+<h2>Another section head</h2>
 
-<button onclick="Hue.V = Math.random() * 360">
-  Random hue
-</button>`;
+Click here:
+  <button onclick="Hue.V = Math.random() * 360">Random hue</button>`;
 
 const C1=
 `<!-- Component signature with parameter -->
@@ -570,12 +601,16 @@ ${Indent(C1,4)}
 ${Indent(C2,4)}
 </COMPONENT>
 
-
 ${C4}`;
 
 const sampleFormatting =
-`<define var=today #value="new Date()"></define>
-<style>dt {font-weight:bold}</style>
+`<style>
+  dt {
+    font-weight: bold
+  }
+</style>
+
+<define var=today #value="new Date()"></define>
 <dl>
     <dt>Internationalization API</dt>
     <script>
@@ -591,6 +626,11 @@ const sampleFormatting =
     <script async src="./dayjs.min.js"></script>
     <dd>
         Today is {dayjs(today).format('MMM D')}.
+    </dd>
+
+    <dt>Standard Date methods</dt>
+    <dd>
+      Today is {today.toString().replace(/\\w+ (\\w+ \\w+) .*/, '$1')}.
     </dd>
 </dl>`
 
@@ -620,7 +660,7 @@ const sampleDocument =
 
 const sampleRadioGroup=
 `<component>
-    <!-- Radiogroup signature -->
+  <!-- Radiogroup signature -->
   <radiogroup name @value>
     <content>
       <radiobutton #value onclick? ...rest>
@@ -629,6 +669,7 @@ const sampleRadioGroup=
     </content>
   </radiogroup>
 
+  <!-- Radiogroup template -->
   <template @value=groupValue>
     <content>
       <radiobutton #value onclick ...rest>
@@ -646,7 +687,7 @@ const sampleRadioGroup=
 
 <def rvar=answer></def>
 <p>
-  What is your preferred web framework?
+  What's your preferred web framework?
 </p>
 <!-- Radiogroup instance -->
 <radiogroup name=framework @value=answer.V>
@@ -662,9 +703,15 @@ const sampleRadioGroup=
 
 const demoRendering=
 `<style>
-h5 {margin: 0px; padding: 4px 0px;
-   border-top: solid 2px grey}
-pre {background-color: lightgrey}
+  h5 {
+    margin: 0px;
+    padding: 4px 0px;
+    border-top: solid 2px grey;
+  }
+  pre {
+    white-space: pre-wrap;
+    background-color: lightgrey;
+  }
 </style>
 
 <h5>RHTML source:</h5>
@@ -762,12 +809,19 @@ const demoCheckbox=
 
 const demoTables =
 `<style>
-  *     { text-align: center; }
-  input { text-align: right; width: 8ex; }
+  * {
+    text-align: center;
+  }
+
+  input {
+    text-align: right;
+    width: 8ex;
+  }
 
   div.multi {
       display: flex; flex-wrap: wrap;
-      gap: 2ex; justify-content: center;
+      gap: 2ex; 
+      justify-content: center;
       margin: 1ex;
   }
 </style>
@@ -776,12 +830,12 @@ const demoTables =
 <DEF rvar=maxX #value=10 store=sessionStorage></DEF>
 
 <div class=multi>
-  <div>Number of tables:
+  <label>Number of tables:
     <input type=number @valueAsNumber=maxY.V>
-  </div>
-  <div>Number of rows:
+  </label>
+  <label>Number of rows:
     <input type=number @valueAsNumber=maxX.V>
-  </div>
+  </label>
 </div>
 
 <div class=multi>
@@ -793,3 +847,39 @@ const demoTables =
       </div>
   </FOR>
 </div>`
+
+const demoTwoWayRVAR = `
+<style>
+  input {
+    display: block;
+    width: 6em;
+    margin: 4px 0px;
+  }
+</style>
+
+<define rvar="data" #value="[ ]" store="sessionStorage"></define>
+
+Please enter some numbers:
+<for let="i" of="range(5)">
+  <DEFINE RVAR="num" @VALUE="data.U[i]"></DEFINE>
+
+  <input type="number" @valueasnumber="num.V">
+</for>
+
+<p reacton="data">
+  The sum is \{data.V.reduce((a,b)=>a+b,0)}
+</p>`
+
+const demoAutoSubscribtion = `
+<p>
+	<def rvar=a #value=0></def>
+	<!-- Both these elements are auto-subscribed to a: -->
+	<button onclick="a.V++">{a}</button>
+	<span>a = {a}</span>
+</p>
+<p>
+	<def rvar=b #value=0></def>
+	<!-- Here only the <span> reacts on b: -->
+	<button onclick="b.V++">{b}</button>
+	<span reacton=b>b = {b}</span>
+</p>`

@@ -87,7 +87,7 @@ declare class _RVAR<T = unknown> {
     _Subs: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): void;
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
