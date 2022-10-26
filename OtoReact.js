@@ -689,27 +689,28 @@ class RCompiler {
                     case 'define':
                         {
                             CheckNoChildren(srcElm);
-                            let rv = atts.g('rvar'), varNm = rv || atts.g('let') || atts.g('var', T), t_val = rv && atts.g('@value'), dSet = t_val && this.CompJScript(`$=>{(${t_val})=$}`), dUpd = rv && this.CompAttrExpr(atts, 'updates'), dGet = t_val ? this.CompJScript(t_val, '@value') : this.CompParam(atts, 'value'), dSto = rv && this.CompAttrExpr(atts, 'store'), dSNm = dSto && this.CompParam(atts, 'storename'), bReact = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.newV(varNm), onMod = this.CompParam(atts, 'onmodified');
+                            let rv = atts.g('rvar'), varNm = rv || atts.g('let') || atts.g('var', T), t = '@value', t_val = rv && atts.g(t), dSet = t_val && this.CompTarget(t_val, t), dGet = t_val ? this.CompJScript(t_val, t) : this.CompParam(atts, 'value'), dUpd = rv && this.CompAttrExpr(atts, 'updates'), dSto = rv && this.CompAttrExpr(atts, 'store'), dSNm = dSto && this.CompParam(atts, 'storename'), bReact = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.newV(varNm), onMod = rv && this.CompParam(atts, 'onmodified');
                             bldr = async function DEF(area, bReOn) {
                                 let { rng, bCr } = PrepArea(srcElm, area);
                                 if (bCr || bReact || bReOn) {
                                     bRO = T;
                                     let v = dGet?.();
+                                    bRO = F;
                                     if (rv)
                                         if (bCr) {
                                             let rvUp = dUpd?.();
                                             (rng.val =
                                                 RVAR(rv, v, dSto?.(), dSet?.(), dSNm?.()))
-                                                .Subscribe(rvUp?.SetDirty?.bind(rvUp))
-                                                .Subscribe(onMod?.());
+                                                .Subscribe(rvUp?.SetDirty?.bind(rvUp));
                                         }
                                         else
                                             rng.val._Set(v);
                                     else
                                         rng.val = v;
-                                    bRO = F;
                                 }
                                 vLet(rng.val);
+                                if (onMod && bCr)
+                                    rng.val.Subscribe(onMod());
                             };
                             if (rv && !onMod) {
                                 let a = this.cRvars.get(rv);
@@ -1215,7 +1216,7 @@ class RCompiler {
             }
         }
     }
-    async CompScript(srcParent, srcElm, atts) {
+    async CompScript(_srcParent, srcElm, atts) {
         let { type, text, defer, async } = srcElm, src = atts.g('src'), defs = atts.g('defines'), bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), sLoc = mOto && mOto[2], bUpd = atts.gB('updating'), varlist = [...split(defs)], { ctStr: context } = this, lvars = sLoc && this.NewVars(defs), exp, defNames = lvars ?
             function () {
                 let i = 0;
@@ -1686,25 +1687,21 @@ class RCompiler {
                     addM(7, nm, this.CompJScript(V, nm));
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
                     let nm = altProps[m[2]] || m[2], setter;
-                    if (m[1] != '#')
-                        try {
-                            let dS = this.CompJScript(`$=>{(${V})=$}`), cnm;
-                            setter = () => {
-                                let S = dS();
-                                return function () {
-                                    S(this[cnm || (cnm = CheckNm(this, nm))]);
-                                };
-                            };
-                        }
-                        catch (err) {
-                            throw `Invalid left-hand side '${V}'`;
-                        }
                     if (/[@#]/.test(m[1])) {
                         let depV = this.CompJScript(V, nm);
                         if (/^on/.test(nm))
                             addM(5, nm, this.AddErrH(depV));
                         else
                             addM(1, nm, depV);
+                    }
+                    if (m[1] != '#') {
+                        let dS = this.CompTarget(V), cnm;
+                        setter = () => {
+                            let S = dS();
+                            return function () {
+                                S(this[cnm || (cnm = CheckNm(this, nm))]);
+                            };
+                        };
                     }
                     if (/\*/.test(m[1]))
                         addM(9, nm, setter);
@@ -1809,6 +1806,14 @@ class RCompiler {
     CompAttrExpr(atts, attName, bReq, check) {
         return this.CompJScript(atts.g(attName, bReq, T), attName, U, check);
     }
+    CompTarget(expr, nm) {
+        try {
+            return this.CompJScript(`$=>(${expr})=$`, nm);
+        }
+        catch (e) {
+            throw `Invalid left-hand side ` + e;
+        }
+    }
     CompHandler(nm, text) {
         return /^#/.test(nm) ? this.CompJScript(text, nm)
             : this.CompJScript(`function(event){${text}\n}`, nm);
@@ -1829,8 +1834,8 @@ class RCompiler {
                             throw m;
                         return t;
                     }
-                    catch (err) {
-                        throw desc + err;
+                    catch (e) {
+                        throw desc + e;
                     }
                 }
                 : bThis
@@ -1838,21 +1843,21 @@ class RCompiler {
                         try {
                             return rout.call(this, env);
                         }
-                        catch (err) {
-                            throw desc + err;
+                        catch (e) {
+                            throw desc + e;
                         }
                     }
                     : () => {
                         try {
                             return rout(env);
                         }
-                        catch (err) {
-                            throw desc + err;
+                        catch (e) {
+                            throw desc + e;
                         }
                     }, "bThis", bThis);
         }
-        catch (err) {
-            throw desc + err;
+        catch (e) {
+            throw desc + e;
         }
     }
     CompName(nm) {
@@ -2066,7 +2071,7 @@ export let R = new RCompiler(), docLocation = RVAR('docLocation', location.href)
     }
     docLocation.V = new URL(arg, location.href).href;
 };
-ass(G, { RVAR, range, reroute, RFetch, debug: () => { debugger; } });
+ass(G, { RVAR, range, reroute, RFetch });
 ass(docLocation, {
     search(key, val) {
         let url = new URL(location.href);
@@ -2086,7 +2091,11 @@ ass(docLocation, {
         let R = RVAR(varNm, N, N, v => docLocation.setSearch(key, v));
         docLocation.Subscribe(() => { R.V = this.getSearch(key) ?? ini; }, T);
         return R;
-    }
+    },
+    query: new Proxy({}, {
+        get(_, key) { return docLocation.searchParams.get(key); },
+        set(_, key, val) { docLocation.V = docLocation.search(key, val); return true; }
+    })
 });
 Object.defineProperty(docLocation, 'subpath', { get: () => location.pathname.slice(docLocation.basepath.length) });
 docLocation.Subscribe(loc => {

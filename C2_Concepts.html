@@ -1,6 +1,6 @@
 <h1>RHTML Concepts</h1>
 This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of all features.
-<br>Some sections you can skip on first reading are marked with a '*'.
+<br>Sections marked with a '*' are advanced and should be skipped on first reading.
 
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
@@ -19,8 +19,9 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 <p>
     If you prefer, you may add a dollar sign in RHTML as well, like <code>1 + 1 = $\{1 + 1}</code>.
 </p>
+<h4>Notes*</h4>
 <p>
-    * If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without a backslash.
+    If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without backslashes.
 </p>
 <p>
     Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.

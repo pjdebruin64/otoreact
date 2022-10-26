@@ -218,7 +218,7 @@
                 grid-row: 3;
             }
 
-            h1>a,h2>a,h3>a,
+            h1>a,h2>a,h3>a,h4,
             nav a
             {
                 color: rgb(0, 123, 145); 
@@ -285,9 +285,9 @@
                 padding: .5em;
                 margin: 0px 6px;
                 text-align: center;
-                min-width: 100px;
+                min-width: 80px;
                 line-height: 1em;
-                border-radius: 1em;
+                border-radius: 1.2em;
                 border: solid 2px white;
                 height: 1em;
             }
@@ -361,8 +361,9 @@
                                 >
                             </a>
                         </div>
-                        <nav class=topbar style="grid-area: nav;">
-                            <a. href="."         #onclick=reroute #class:active="subpath==''">Home</a.>
+                        <nav class=topbar style="grid-area: nav">
+                            <a. href="."         #onclick=reroute #class:active="subpath==''">Intro</a.>
+                            <a. href="docu"      #onclick=reroute #class:active="subpath=='docu'">Docu</a.>
                             <a. href="routing"   #onclick=reroute #class:active="subpath=='routing'">Routing</a.>
                             <a. href="otolib"    #onclick=reroute #class:active="subpath=='otolib'">OtoLib</a.>
                             <a. href="download"  #onclick=reroute #class:active="subpath=='download'">Download</a.>                        

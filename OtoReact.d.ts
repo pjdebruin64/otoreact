@@ -165,6 +165,7 @@ declare class RCompiler {
     private CompPattern;
     private CompParam;
     private CompAttrExpr;
+    private CompTarget;
     private CompHandler;
     private CompJScript;
     private CompName;
@@ -191,5 +192,8 @@ export declare let R: RCompiler, docLocation: RVAR<string> & {
     getSearch(key: string): string;
     setSearch(key: string, value: string): void;
     RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
+    query: {
+        [key: string]: string;
+    };
 }, reroute: (arg: MouseEvent | string) => void;
 export {};

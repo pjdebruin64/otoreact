@@ -1106,17 +1106,16 @@ class RCompiler {
                         CheckNoChildren(srcElm);
                         let rv      = atts.g('rvar'), // An RVAR
                             varNm   = rv || atts.g('let') || atts.g('var', T),
-                            t_val   = rv && atts.g('@value'),
+                            t = '@value', t_val   = rv && atts.g(t),
                             // When we want a two-way rvar, we need a routine to update the source expression
-                            dSet: Dependent<(x:any) => void>  
-                                    = t_val && this.CompJScript(`$=>{(${t_val})=$}`),
+                            dSet    = t_val && this.CompTarget(t_val,t),
+                            dGet    = t_val ? this.CompJScript(t_val,t) : this.CompParam(atts, 'value'),
                             dUpd    = rv && this.CompAttrExpr<RVAR>(atts, 'updates'),
-                            dGet    = t_val ? this.CompJScript(t_val, '@value') : this.CompParam(atts, 'value'),
                             dSto    = rv && this.CompAttrExpr<Store>(atts, 'store'),
                             dSNm    = dSto && this.CompParam<string>(atts, 'storename'),
                             bReact  = atts.gB('reacting') || atts.gB('updating') || t_val,
                             vLet    = this.newV(varNm),
-                            onMod   = this.CompParam<Handler>(atts, 'onmodified');
+                            onMod   = rv && this.CompParam<Handler>(atts, 'onmodified');
                         bldr = async function DEF(this: RCompiler, area
                             , bReOn?: booly  // T when the DEF is re-evaluated due to a 'reacton' attribute
                              ) {
@@ -1124,6 +1123,7 @@ class RCompiler {
                             if (bCr || bReact || bReOn){
                                 bRO=T;
                                 let v = dGet?.();
+                                bRO=F;
                                 if (rv)
                                     if (bCr) {
                                         let rvUp = dUpd?.();
@@ -1135,15 +1135,15 @@ class RCompiler {
                                             )
                                         )
                                         .Subscribe(rvUp?.SetDirty?.bind(rvUp))
-                                        .Subscribe(onMod?.())
                                     } else
                                         rng.val._Set(v);
                                 else
                                     rng.val = v;
-                                bRO=F;
                             }
                         
                             vLet(rng.val);
+                            if (onMod && bCr)
+                                (rng.val as RVAR).Subscribe(onMod());
                         }
 
                         if (rv && !onMod) {
@@ -1774,7 +1774,7 @@ class RCompiler {
         }
     }
 
-    private async CompScript(srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
+    private async CompScript(_srcParent: ParentNode, srcElm: HTMLScriptElement, atts: Atts) {
         //srcParent.removeChild(srcElm);
         let {type, text, defer, async} = srcElm
             , src = atts.g('src')     // Niet srcElm.src
@@ -2442,17 +2442,6 @@ class RCompiler {
                 else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                     let nm = altProps[m[2]] || m[2]
                         , setter: Dependent<Handler>;
-                    if (m[1] != '#')
-                        try {
-                            let dS = this.CompJScript<(a:any) => void>(`$=>{(${V})=$}`), cnm: string;
-                            setter = () => {
-                                let S = dS();
-                                return function(this: HTMLElement) {
-                                    S(this[cnm ||= CheckNm(this, nm)])
-                                }
-                            }
-                        }
-                        catch(err) { throw `Invalid left-hand side '${V}'`} 
                     
                     if (/[@#]/.test(m[1])) {
                         let depV = this.CompJScript<Handler>(V, nm);
@@ -2461,6 +2450,18 @@ class RCompiler {
                         else
                             addM(MType.Prop, nm, depV);
                     }
+
+                    if (m[1] != '#') {
+                        let dS = this.CompTarget(V), 
+                            cnm: string;
+                        setter = () => {
+                            let S = dS();
+                            return function(this: HTMLElement) {
+                                S(this[cnm ||= CheckNm(this, nm)])
+                            }
+                        }
+                    }
+
                     if (/\*/.test(m[1]))
                         addM(MType.oncreate, nm, setter);
                     if (/\+/.test(m[1]))
@@ -2601,7 +2602,16 @@ class RCompiler {
         return this.CompJScript<T>(atts.g(attName, bReq, T),attName, U, check);
     }
 
-    private CompHandler(nm: string, text: string) {
+    private CompTarget<T = unknown>(expr: string, nm?:string): Dependent<(t:T) => void>
+    // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
+    {            
+        try {
+            return this.CompJScript<(t:T) => void>(`$=>(${expr})=$`, nm);
+        }
+        catch (e) { throw `Invalid left-hand side ` + e; }
+    }
+
+    private CompHandler(nm: string, text: string): Dependent<Handler> {
         return /^#/.test(nm) ? this.CompJScript<Handler>(text, nm)
             : this.CompJScript<Handler>(`function(event){${text}\n}`, nm)
     }
@@ -2629,20 +2639,20 @@ class RCompiler {
                             if (m) throw m;
                             return t;
                         }
-                        catch (err) { throw desc + err; }
+                        catch (e) { throw desc+e; }
                     }
                 : bThis
                     ? function (this: HTMLElement) {
                             try { return rout.call(this, env); } 
-                            catch (err) { throw desc + err; }
+                            catch (e) { throw desc+e; }
                         }
                 : () => {
                         try { return rout(env); } 
-                        catch (err) { throw desc + err; }
+                        catch (e) { throw desc+e; }
                     }
                 , "bThis", bThis);
         }
-        catch (err) { throw desc + err }             // Compiletime error
+        catch (e) { throw desc+e }             // Compiletime error
     }
     private CompName(nm: string): Dependent<unknown> {
         let i = this.ctMap.get(nm);
@@ -2897,6 +2907,7 @@ export let
             getSearch(key: string): string;
             setSearch(key: string, value: string): void;
             RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
+            query: {[key: string]: string};
         }
         = RVAR<string>('docLocation', location.href) as any,
     reroute = 
@@ -2911,7 +2922,7 @@ export let
         };
 
 ass(
-    G, {RVAR, range, reroute, RFetch, debug: ()=>{debugger;}}
+    G, {RVAR, range, reroute, RFetch}
 );
 
 ass(docLocation, {
@@ -2934,7 +2945,11 @@ ass(docLocation, {
             v => docLocation.setSearch(key, v));
         docLocation.Subscribe(() => {R.V = this.getSearch(key) ?? ini}, T);
         return R;
-    }
+    },
+    query: new Proxy({}, {
+        get( _, key: string) { return docLocation.searchParams.get(key); },
+        set( _, key: string, val: string) { docLocation.V = docLocation.search(key, val); return true}
+    })
 });
 Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.slice(docLocation.basepath.length)});
 

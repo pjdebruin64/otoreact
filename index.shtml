@@ -57,6 +57,7 @@
         docLocation.Subscribe(() => {
             document.title =
                 /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+                : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
                 : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
                 : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
                 : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
@@ -119,19 +120,28 @@
                         <!--#include file="C1_Introduction.html"-->
                     </include>                    
                 </section>
+            </pageLayout>
+        </when>
+        <when match="docu">
+            <pageLayout subpath="docu">
+                <pageHead>
+                    The <span class=OtoRed>OtoReact</span> framework 
+                </pageHead>
+
                 <section>
                     <include src="C2_Concepts.html"><!--#include file="C2_Concepts.html"--></include>
                 </section>
                 <section>
-                    <include src="C3_HtmlElements.html"><!--#include file="C3_HtmlElements.html"--></include>
+                    <include src="C3_HtmlElements.html"></include>
                 </section>
                 <section>
-                    <include src="C4_Constructs.html"><!--#include file="C4_Constructs.html"--></include>
+                    <include src="C4_Constructs.html"></include>
                 </section>
                 <section>
-                    <include src="C5_Scripts.html"><!--#include file="C5_Scripts.html"--></include>
+                    <include src="C5_Scripts.html"></include>
                 </section>
             </pageLayout>
+
         </when>
         <when match="routing">
             <include src="P3_Routing.html"></include>

@@ -1,6 +1,6 @@
 <h1 id=Introduction>Introduction</h1>
 
-<div style="display: flex; flex-wrap: wrap; align-items: center; justify-items: center; margin-top:-1em; width:100%">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-items: center; margin-top:-1em; width:100%; gap: 20px">
     <div class=sample 
         style="min-width: 43ex; min-height: 14ex; padding: .5ex 1.5ex;" 
         id=sampleGreeting>
@@ -16,7 +16,7 @@
     <div>
         <p>
             OtoReact is a library that brings reactivity straight into your HTML file.
-            <br>The application above left is the result of this piece of Reactive HTML (RHTML):
+            <br>The first application above is the result of this piece of Reactive HTML (RHTML):
         </p>
 
         <pre class=sourcecode #innerHTML="ColorCode(sampleGreeting)" style.margion="auto"></pre>
@@ -27,7 +27,7 @@
         </p>
         <pre class=sourcecode #innerHTML="ColorCode(fileTemplate)" style.margion="auto"></pre>
         <p>
-            This code is served to the browser and that's all.
+            That's all you need to do.
             <p>Full framework functionality, offered by a library.
             <p>Nothing to install, nothing to compile, nothing to configure.
             <p>Runs like a charm.
@@ -52,14 +52,14 @@
 <ul>
     <li>Reactive HTML is based on HTML; JavaScript is needed <i>only for data manipulation and event handling</i>.
         Not for DOM manipulation.
-        <br>Even <a href="#COMPONENT">components</a> are defined in HTML without a single line of JavaScript.</li>
+        <br>Even <a href="docu#COMPONENT">components</a> are defined in HTML without a single line of JavaScript.</li>
     <li>Reactive HTML is parsed by the browser itself, and compiled and executed by OtoReact within milliseconds.</li>
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
         <br>Just a text editor (like <a href="https://code.visualstudio.com/">Visual Studio Code</a>) suffices.</li>
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.</li>
     <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
-    <li>Reactive HTML has a powerful <a href="#COMPONENT">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="#onerror">global error handling</a>, some <a href="#Persistence">persistence</a>, et cetera.
+    <li>Reactive HTML has a powerful <a href="docu#COMPONENT">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="docu#onerror">global error handling</a>, some <a href="docu#Persistence">persistence</a>, et cetera.
         <ul>
             <li>Components are defined right within the HTML, without needing any JavaScript statements</li>
             <li>Components are lightweight and have local scope.</li>
@@ -183,7 +183,7 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
         <br>OtoReact will unhide its target after it has been built.
     </li>
 </ol>
-Or, instead of step 2 and 3, one can explicitly call the OtoReact compiler using the <a href="#Functions"><code>RCompile</code> function</a>:
+Or, instead of step 2 and 3, one can explicitly call the OtoReact compiler using the <a href="docu#Functions"><code>RCompile</code> function</a>:
 <pre>
 <{}script type=module>
     import \{RCompile, RVAR} from './OtoReact.js';
