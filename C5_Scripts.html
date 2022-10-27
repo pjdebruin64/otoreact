@@ -21,15 +21,25 @@
             </dd>
             <dt><code>docLocation.subpath</code></dt>
             <dd>
-                Part of the current pathname after the base path.
-                <br>For this page it is "{docLocation.subpath}" (empty); for the routing page "{new URL('routing', location.origin+docLocation.basepath).href}", it is "routing".
+                Gets or sets the part of the current pathname after the base path.
+                <br>For this page it is "{docLocation.subpath}".
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
-            <dt><code>docLocation.searchParams</code></dt>
+            <dt><code>docLocation.query</code></dt>
             <dd>
-                An <a href="{MDN}Web/API/URLSearchParams">URLSearchParams</a> object containing the current URL search parameters.
-                <br>It is equivalent to <code>new URLSearchParams(location.search)</code>.
+                An object, whose properties correspond to the decoded field values of the current <a href="{wiki}">URL query string</a>.
+                <br>One can add or set properties of this object, and the current URL and docLocation.V will be modified accordingly.
+                <br>When a property is set to <code>null</code>, it is removed from the query string.
+                <p>
+                    Note that the whole query string is available as <code>location.search</code>, as always.
+                </p>
+                <p>
+                    One can create an RVAR <code>x</code> in RHTML that is two-way bound to some query string field <i>field</i> by writing:
+                    <pre><elm>define rvar="x" @value="docLocation.query.<i>field</i>" reacton=docLocation</elm><elm>/define</elm>
+                    </pre>
+                </pre>
             </dd>
+
             <dt><code>docLocation.search(<i>key</i>, <i>value</i>)</code></dt>
             <dd>
                 Returns a URL, equal to the current URL with search parameter <i>key</i> set to <i>value</i>, or with search parameter <i>key</i> removed when <i>value</i> is <code>null</code>.

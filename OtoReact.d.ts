@@ -60,7 +60,7 @@ declare type Environment = Array<any> & {
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
-declare type Subscriber<T = unknown> = ((t?: T) => (void | Promise<void>)) & {
+declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     sArea?: Area;
     bImm?: boolean;
     env?: Environment;
@@ -81,9 +81,9 @@ interface Store {
 declare class _RVAR<T = unknown> {
     name?: string;
     store?: Store;
-    private storeName?;
+    storeName?: string;
     constructor(name?: string, initial?: T | Promise<T>, store?: Store, storeName?: string);
-    private _val;
+    private v;
     _Subs: Set<Subscriber<T>>;
     auto: Subscriber;
     private get _sNm();
@@ -91,8 +91,7 @@ declare class _RVAR<T = unknown> {
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
-    _Set(t: T | Promise<T>): T | Promise<T>;
-    get Set(): any;
+    get Set(): (t: T | Promise<T>) => T | Promise<T>;
     get Clear(): () => any;
     get U(): T;
     set U(t: T);
@@ -137,7 +136,7 @@ declare class RCompiler {
     private NewVars;
     private NewConstructs;
     Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
-    logTime(msg: string): void;
+    log(msg: string): void;
     private setPRE;
     Build(area: Area): Promise<void>;
     Settings: FullSettings;
@@ -184,16 +183,17 @@ declare class Atts extends Map<string, string> {
     ChkNoAttsLeft(): void;
 }
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
-export declare let R: RCompiler, docLocation: RVAR<string> & {
+declare class DocLoc extends _RVAR<string> {
     basepath: string;
-    subpath: string;
-    searchParams: URLSearchParams;
-    search(key: string, value: string): string;
-    getSearch(key: string): string;
-    setSearch(key: string, value: string): void;
-    RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
+    _SP: URLSearchParams;
+    get subpath(): string;
+    set subpath(s: string);
     query: {
-        [key: string]: string;
+        [field: string]: string;
     };
-}, reroute: (arg: MouseEvent | string) => void;
-export {};
+    search(key: string, val: string): string;
+    RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
+}
+declare const DL: DocLoc;
+export { DL as docLocation };
+export declare let R: RCompiler, reroute: (arg: MouseEvent | string) => void;

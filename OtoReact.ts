@@ -1,6 +1,7 @@
 // Global settings 
 const
-    U = undefined, N = null, T = true, F = false, E = [], W = window, D = document,
+    U = undefined, N = null, T = true, F = false, E = [], 
+    W = window, D = document, L = location,
     G = // Polyfill for globalThis
         W.globalThis || ((W as any).globalThis = W.self),
     defaults = {
@@ -330,9 +331,9 @@ let childWins=new Set<Window>();
 export async function RCompile(elm: HTMLElement = D.body, settings?: Settings): Promise<void> { 
     try {
         let {basePattern} = R.Settings = {...defaults, ...settings},
-            m = location.href.match(`^.*(${basePattern})`);
-        R.FilePath = location.origin + (
-            docLocation.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
+            m = L.href.match(`^.*(${basePattern})`);
+        R.FilePath = L.origin + (
+            DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
         )
         await R.Compile(elm);
 
@@ -342,7 +343,7 @@ export async function RCompile(elm: HTMLElement = D.body, settings?: Settings): 
         let area: Area = {parN: elm.parentElement, srcN: elm, rng: N};
         await R.Build(area);
         W.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
-        R.logTime(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
         ScrollToHash();
     }
     catch (e) {    
@@ -366,7 +367,7 @@ function GetC(env: Environment, k: CKey): ConstructDef {
     return env.C[k];
 }
 
-type Subscriber<T = unknown> = ((t?: T) => (void|Promise<void>)) &
+type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
     {   sArea?: Area;
         bImm?: boolean;
         env?: Environment;
@@ -444,24 +445,24 @@ class _RVAR<T = unknown>{
         public name?: string, 
         initial?: T | Promise<T>, 
         public store?: Store,
-        private storeName?: string,
+        public storeName?: string,
     ) {
         if (name) G[name] = this;
         
         let s = store && store.getItem(this._sNm), t= initial;
         if (s)
             try {
-                this._val = JSON.parse(s);
+                this.v = JSON.parse(s);
                 return;
             }
             catch{}
 
         t instanceof Promise ?
-            t.then(v => (this.V = v), onerr)
-            : (this._val = t)
+            t.then(v => this.V = v, onerr)
+            : (this.v = t)
     }
     // The value of the variable
-    private _val: T = U;
+    private v: T = U;
     // The subscribers
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
@@ -474,7 +475,7 @@ class _RVAR<T = unknown>{
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr: boolean = bImmediate) {
         if (s) {
             if (bCr)
-                s(this._val);
+                s(this.v);
             s.bImm = bImmediate;
             this._Subs.add(s);
         }
@@ -484,21 +485,19 @@ class _RVAR<T = unknown>{
         this._Subs.delete(s);
     }
     // Use var.V to get or set its value
-    get V() { return this._val }
+    get V() { return this.v }
     // When setting, it will be marked dirty.
     set V(t: T) {
-        if (t !== this._val) {
-            this._val = t;
+        if (t !== this.v) {
+            this.v = t;
             this.SetDirty();
         }
     }
-    _Set(t: T | Promise<T>): T | Promise<T> {
-        return t instanceof Promise ?
-            ( (this.V = U), t.then(v => (this.V = v), onerr))
-            : (this.V = t);
-    }
     get Set() {
-        return this._Set.bind(this);
+        return (t: T | Promise<T>): T | Promise<T> =>
+            t instanceof Promise ?
+                ( (this.V = U), t.then(v => this.V = v, onerr))
+                : (this.V = t);
     }
     get Clear() {
         return () => 
@@ -509,15 +508,15 @@ class _RVAR<T = unknown>{
     // It will be marked dirty.
     // Set var.U to have the DOM update immediately.
     get U() { 
-        if (!bRO) this.SetDirty();  
-        return this._val }
-    set U(t: T) { this._val = t; this.SetDirty(); }
+        if (!ro) this.SetDirty();  
+        return this.v }
+    set U(t: T) { this.v = t; this.SetDirty(); }
 
     public SetDirty() {
         let b:boolean;
         for (let sub of this._Subs)
             if (sub.bImm)
-                sub(this._val);
+                sub(this.v);
             else b=T;
         if (b || this.store) {
             DirtyVars.add(this);
@@ -526,11 +525,11 @@ class _RVAR<T = unknown>{
     }
 
     public Save() {
-        this.store.setItem(this._sNm, JSON.stringify(this._val ?? null));
+        this.store.setItem(this._sNm, JSON.stringify(this.v ?? null));
     }
 
     toString() {
-        return this._val.toString();
+        return this.v.toString();
     }
 }
 export type RVAR<T = unknown> = _RVAR<T>;
@@ -612,7 +611,7 @@ export async function DoUpdate() {
                         }
             }
         }
-        R.logTime(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`${R.num}: Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
     }
     finally { bUpdating = F; }
 }
@@ -640,7 +639,7 @@ function RVAR_Light<T>(
         Object.defineProperty(t, 'U',
             {get:
                 () => {
-                    if (!bRO) {
+                    if (!ro) {
                         DirtyVars.add(t);
                         if (t._UpdTo?.length)
                             for (let rvar of t._UpdTo)
@@ -652,7 +651,7 @@ function RVAR_Light<T>(
                 }
             }
         );
-        t.Subscribe = (sub: Subscriber) => { t._Subs.add(sub) } ;
+        t.Subscribe = sub => t._Subs.add(sub);
     }
     return t;
 }
@@ -671,14 +670,14 @@ type Modifier = {
     depV: Dependent<unknown>,
 }
 type RestParameter = Array<{M: Modifier, value: unknown}>;
-let bRO: boolean = F;
+let ro: boolean = F;
 
 function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
     let {mt, nm} = M;
     if (!M.c) {
         if (mt == MType.Prop && nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number')
             nm = 'value';
-        M.c = mt!=MType.Prop && mt!=MType.Event || (nm=M.nm=CheckNm(elm, nm));
+        M.c = mt!=MType.Prop && mt!=MType.Event || (nm=M.nm=ChkNm(elm, nm));
     }
     switch (mt) {
         case MType.Attr:
@@ -749,7 +748,7 @@ function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
 }
 function ApplyMods(elm: HTMLElement, modifs: Modifier[], bCreate?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
-    bRO= T;
+    ro= T;
     for (let M of modifs)
         try {
             let {depV} = M,
@@ -759,7 +758,7 @@ function ApplyMods(elm: HTMLElement, modifs: Modifier[], bCreate?: boolean) {
         }
         catch (err) { throw `[${M.nm}]: ${err}` }
     
-    bRO = F;
+    ro = F;
 }
 
 let RModules = new Map<string, Promise<[DOMBuilder,Map<string, [Signature,CKey]>]>>(),
@@ -838,7 +837,7 @@ class RCompiler {
            lv = dU as LVar;
         else {
             let {ctStr,ctLen,ctMap} = this,
-                i = ctMap.get(CheckId(nm));
+                i = ctMap.get(ChkId(nm));
 
             this.restoreActions.push(() => {
                 this.ctStr = ctStr;
@@ -851,7 +850,7 @@ class RCompiler {
 
             lv =
                 ((v: unknown, bUpd?: boolean) => {
-                    if (!bUpd) envActions.push(() => {env.length=ctLen});
+                    if (!bUpd) envActions.push(() => env.length=ctLen);
                     env[ctLen] = v;
                 }) as LVar;
         }
@@ -876,10 +875,8 @@ class RCompiler {
                 mapSet(ctSigns, nm, CS);
         });
         return (CDefs: Iterable<ConstructDef>) => {
-            envActions.push(() => {                
-                env.C.length = ctCCnt;
-            })
-            let i = ctCCnt
+            envActions.push(() => env.C.length = ctCCnt );
+            let i = ctCCnt;
             for (let C of CDefs)
                 env.C[i++] = C;
         }
@@ -899,10 +896,10 @@ class RCompiler {
             ? await this.CompChildNodes(elm, childnodes)
             : (await this.CompElm(elm.parentElement, elm as HTMLElement, T))[0]
         this.bCompiled = T;
-        this.logTime(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(performance.now() - t0).toFixed(1)} ms`);
+        this.log(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(performance.now() - t0).toFixed(1)} ms`);
     }
 
-    logTime(msg: string) {
+    log(msg: string) {
         if (this.Settings.bTiming)
             console.log(msg);
     }
@@ -1056,11 +1053,13 @@ class RCompiler {
             cl = this.ctLen,
             // (this)react(s)on handlers
             reacts: Array<{attNm: string, rvars: Dependent<RVAR[]>}> = [],
+
             // Generic pseudo-events to be handled BEFORE building
             bfor: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
             // Generic pseudo-events to be handled AFTER building
             after: Array<{attNm: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
-            anyH: booly,     // Truthy when there is any before or after event hanldeer
+
+            hasH: booly,     // Truthy when there is any before or after event hanlder
 
             dIf: Dependent<boolean>,        // #if condition
             raLength = this.restoreActions.length,      // To check whether any definitions have been compiled
@@ -1103,7 +1102,7 @@ class RCompiler {
                 switch (srcElm.localName) {
                     case 'def':
                     case 'define': {
-                        CheckNoChildren(srcElm);
+                        NoChildren(srcElm);
                         let rv      = atts.g('rvar'), // An RVAR
                             varNm   = rv || atts.g('let') || atts.g('var', T),
                             t = '@value', t_val   = rv && atts.g(t),
@@ -1121,9 +1120,9 @@ class RCompiler {
                              ) {
                             let {rng, bCr} = PrepArea(srcElm, area);
                             if (bCr || bReact || bReOn){
-                                bRO=T;
+                                ro=T;
                                 let v = dGet?.();
-                                bRO=F;
+                                ro=F;
                                 if (rv)
                                     if (bCr) {
                                         let rvUp = dUpd?.();
@@ -1136,7 +1135,7 @@ class RCompiler {
                                         )
                                         .Subscribe(rvUp?.SetDirty?.bind(rvUp))
                                     } else
-                                        rng.val._Set(v);
+                                        (rng.val as RVAR).Set(v);
                                 else
                                     rng.val = v;
                             }
@@ -1320,11 +1319,11 @@ class RCompiler {
                             let src = atts.g('src', T)
                             // Placeholder that will contain a Template when the file has been received
                                 , C: RCompiler = new RCompiler(this, this.GetPath(src))
-                                , task = (async () => {
+                                , task = (async () =>
                                     // Parse the contents of the file
                                     // Compile the parsed contents of the file in the original context
-                                    await C.Compile(N, {bRunScripts: T}, await this.fetchModule(src));
-                                })();
+                                    await C.Compile(N, {bRunScripts: T}, await this.fetchModule(src))
+                                )();
                             bldr = 
                                 // Runtime routine
                                 async function INCLUDE(area) {
@@ -1376,9 +1375,9 @@ class RCompiler {
                             RModules.set(src, promModule);
                         }
                         if (!bAsync) {
-                            let prom = promModule.then(([ , CSigns]) => {
+                            let prom = promModule.then(M => {
                                 for (let sig of listImps)
-                                    ass(sig, CSigns.get(sig.nm)[0]);
+                                    ass(sig, M[1].get(sig.nm)[0]);
                             })
                             for (let sig of listImps)
                                 sig.prom = prom;
@@ -1427,7 +1426,7 @@ class RCompiler {
                     } break;
 
                     case 'rhtml': {
-                        CheckNoChildren(srcElm);
+                        NoChildren(srcElm);
                         let dSrctext = this.CompParam<string>(atts, 'srctext', T)
                         //  , imports = this.CompAttrExpr(atts, 'imports')
                             , modifs = this.CompAttribs(atts)
@@ -1592,7 +1591,7 @@ class RCompiler {
                         break;
 
                     case 'attribute':
-                        CheckNoChildren(srcElm);
+                        NoChildren(srcElm);
                         let dNm = this.CompParam<string>(atts, 'name', T),
                             dVal= this.CompParam<string>(atts, 'value', T);
                         bldr = async function ATTRIB(this: RCompiler, area: Area){
@@ -1614,8 +1613,8 @@ class RCompiler {
                 atts.ChkNoAttsLeft();
             }
 
-            for (let g of concIter(bfor, after))
-                anyH = g.hndlr = this.CompHandler(g.attNm, g.txt);
+            for (let g of conc(bfor, after))
+                hasH = g.hndlr = this.CompHandler(g.attNm, g.txt);
         }
         catch (err) { 
             throw OuterOpenTag(srcElm) + ' ' + err;
@@ -1636,9 +1635,9 @@ class RCompiler {
                 finally { ({onerr,onsucc} = save); }
             }
         }
-        if (anyH) {
+        if (hasH) {
             let b = bldr;
-            bldr = async function ON(area: Area) {
+            bldr = async function ON(area: Area, x) {
                 let r = area.rng, bfD: Handler;
                 for (let g of bfor) {
                     if (g.D && !r)
@@ -1648,7 +1647,7 @@ class RCompiler {
                             r && r.node || area.parN
                         );
                 }
-                await b(area);
+                await b(area, x);
                 if (bfD)
                     area.prevR.bfDest = bfD;
                 for (let g of after) {
@@ -2329,7 +2328,7 @@ class RCompiler {
                 cdef = GetC(env, ck),
                 args = rng.res ||= {};
             if (!cdef) return;  //In case of an async imported component, where the client signature has less slots than the real signature
-            bRO = T;
+            ro = T;
             for (let [nm, dGet, dSet] of getArgs)
                 if (!dSet)
                     args[nm] = dGet();
@@ -2338,7 +2337,7 @@ class RCompiler {
                 else if (dGet)
                     args[nm].V = dGet();
             
-            bRO = F;
+            ro = F;
             env = cdef.CEnv;
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
@@ -2428,7 +2427,7 @@ class RCompiler {
                         this.CompJScript<boolean>(V, nm)
                     );
                 else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                    addM(MType.Style, CapitalProp(m[2]),
+                    addM(MType.Style, CapProp(m[2]),
                         m[1] ? this.CompJScript<unknown>(V, nm) : this.CompString(V, nm)
                     );
                 else if (nm == '+style')
@@ -2457,7 +2456,7 @@ class RCompiler {
                         setter = () => {
                             let S = dS();
                             return function(this: HTMLElement) {
-                                S(this[cnm ||= CheckNm(this, nm)])
+                                S(this[cnm ||= ChkNm(this, nm)])
                             }
                         }
                     }
@@ -2709,7 +2708,7 @@ class RCompiler {
                 b = d.body,
                 e = b.firstElementChild as HTMLElement;
             if (e?.tagName != 'MODULE')
-                return concIter(d.head.childNodes, b.childNodes);
+                return conc(d.head.childNodes, b.childNodes);
 
             m = e;
         }
@@ -2789,14 +2788,14 @@ let // Property namesto be replaced
     // Whitespace
     , reWS = /^[ \t\n\r]*$/;
 
-function CheckId(nm: string) {
+function ChkId(nm: string) {
     // Check valid JavaScript identifier
     if (!reIdent.test(nm)) throw `Invalid identifier '${nm}'`;
     if (reReserv.test(nm)) throw `Reserved keyword '${nm}'`;
     return nm;
 }
 // Properly capitalize a Style property
-function CapitalProp(nm: string) {
+function CapProp(nm: string) {
     let b: boolean;
     return nm.replace(reCapit, (w, w1) => {
         let r = b ? w.slice(0,1).toUpperCase() + w.slice(1) : w;
@@ -2809,7 +2808,7 @@ let Cnms: {[nm: string]: string} = {};
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.
 // Results are cached in 'Cnms', regardless of 'obj'.
-function CheckNm(obj: object, nm: string): string {
+function ChkNm(obj: object, nm: string): string {
     if (Cnms[nm]) return Cnms[nm];  // If checked before, return the previous result
     let c=nm,
         r = new RegExp(`^${nm}$`, 'i'); // (nm cannot contain special characters)
@@ -2835,16 +2834,16 @@ function LAbbr(s: string, m: number = 1000) {
 }
 
 function mapNm<V extends {nm: string}>(m: Map<string, V>, v:V) {
-    m.set(v.nm,v);
+    m.set(v.nm, v);
 }
 function mapSet<V>(m: Map<string, V>, nm: string, v:V) {
-    if (v)
-        m.set(nm,v);
+    if (v!=N)
+        m.set(nm, v);
     else
         m.delete(nm);
 }
 
-function* concIter<T>(R: Iterable<T>, S:Iterable<T>)  {
+function* conc<T>(R: Iterable<T>, S:Iterable<T>)  {
     for (let x of R) yield x;
     for (let x of S) yield x;
 }
@@ -2867,12 +2866,12 @@ function addP<T extends object, P extends string, V>(t:T, p: string, v: V): T & 
 }
 
 function createErrNode(msg: string) {
-    let e = D.createElement('div'), s = e.style;        
-    s.color = 'crimson'; s.fontFamily = 'sans-serif'; s.fontSize = '10pt';
+    let e = D.createElement('div');
+    ass(e.style, {color: 'crimson', fontFamily: 'sans-serif', fontSize: '10pt'});
     e.innerText = msg;
     return e;
 }
-function CheckNoChildren(srcElm: HTMLElement) {
+function NoChildren(srcElm: HTMLElement) {
     for (let node of srcElm.childNodes)
     if (srcElm.childElementCount
         || node.nodeType==Node.TEXT_NODE && !reWS.test(node.nodeValue)
@@ -2897,78 +2896,60 @@ export function* range(from: number, count?: number, step: number = 1) {
 		yield from + i * step;
 }
 
+class DocLoc extends _RVAR<string> {
+        basepath: string;
+        _SP: URLSearchParams;
+        get subpath() {return L.pathname.slice(this.basepath.length); }
+        set subpath(s) {
+            let U = new URL(this.V);
+            U.pathname = this.basepath + s;
+            this.V = U.href;
+        }
+        query: {[field: string]: string}
+         = new Proxy({}, {
+            get( _, key: string) { return DL._SP.get(key); },
+            set( _, key: string, val: string) { DL.V = DL.search(key, val); return true}
+        });
+        search(key: string, val: string) {
+            let U = new URL(this.V);
+            mapSet(U.searchParams as any, key, val);
+            return U.href;
+        }
+        RVAR(key: string, ini?: string, varNm: string = key) {
+            let R = RVAR<string>(varNm, N, N, v => this.query[key] = v);
+            this.Subscribe(() => R.V = this.query[key] ?? ini, T);
+            return R;
+        }
+    }
+const DL = new DocLoc('docLocation', L.href);
+DL.Subscribe( loc => {
+        if (loc != L.href) history.pushState(N, N, loc);    // Change URL withour reloading the page
+        DL._SP = new URLSearchParams(L.search);
+        ScrollToHash();
+    }, T);
+W.addEventListener('popstate', () => DL.V = L.href );
+
+function ScrollToHash() {
+    if (L.hash)
+        setTimeout((() => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
+}
+export {DL as docLocation}
 export let 
     R = new RCompiler(),
-    docLocation: RVAR<string> & 
-        {   basepath: string;
-            subpath: string; 
-            searchParams: URLSearchParams;
-            search(key: string, value: string): string;
-            getSearch(key: string): string;
-            setSearch(key: string, value: string): void;
-            RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
-            query: {[key: string]: string};
-        }
-        = RVAR<string>('docLocation', location.href) as any,
-    reroute = 
-        (arg: MouseEvent | string) => {
+    //docLocation = DL,
+    reroute: (arg: MouseEvent | string) => void = 
+        arg => {
             if (typeof arg == 'object') {
                 if (arg.ctrlKey)
                     return;
                 arg.preventDefault();
                 arg = (arg.target as HTMLAnchorElement).href;
             }
-            docLocation.V = new URL(arg, location.href).href;
+            DL.V = new URL(arg, DL.V).href;
         };
-
 ass(
     G, {RVAR, range, reroute, RFetch}
 );
 
-ass(docLocation, {
-    search(key: string, val: string) {
-        let url = new URL(location.href);
-        if (val == N)
-            url.searchParams.delete(key);
-        else
-            url.searchParams.set(key, val);
-        return url.href;
-    },
-    getSearch(this: typeof docLocation, key: string) {
-        return this.searchParams.get(key);
-    },
-    setSearch(this: typeof docLocation, key: string, val: string) {
-        this.V = this.search(key, val);
-    },
-    RVAR(this: typeof docLocation, key: string, ini?: string, varNm: string = key) {
-        let R = RVAR<string>(varNm, N, N,
-            v => docLocation.setSearch(key, v));
-        docLocation.Subscribe(() => {R.V = this.getSearch(key) ?? ini}, T);
-        return R;
-    },
-    query: new Proxy({}, {
-        get( _, key: string) { return docLocation.searchParams.get(key); },
-        set( _, key: string, val: string) { docLocation.V = docLocation.search(key, val); return true}
-    })
-});
-Object.defineProperty(docLocation, 'subpath', {get: () => location.pathname.slice(docLocation.basepath.length)});
-
-docLocation.Subscribe( loc => {
-    if (loc != location.href)
-        history.pushState(N, N, loc);
-    
-    docLocation.searchParams = new URLSearchParams(location.search);
-    ScrollToHash();
-}, T);
-
-W.addEventListener('popstate', () => {docLocation.V = location.href;} );
-
-function ScrollToHash() {
-    if (location.hash)
-        setTimeout((() => D.getElementById(location.hash.slice(1))?.scrollIntoView()), 6);
-}
-
-setTimeout(() =>
-    /^rhtml$/i.test(D.body.getAttribute('type'))
-        && RCompile()
-, 0);
+if (/^rhtml$/i.test(D.body.getAttribute('type')))
+    setTimeout(RCompile, 0);

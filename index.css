@@ -11,7 +11,7 @@
 button {font-size: 87%;}
 
 @media screen and (min-resolution: 150dpi) {
-    :root { font-size: 30px; }
+    :root { font-size: 24px; }
     button, input { font-size: inherit; }
 }
 
