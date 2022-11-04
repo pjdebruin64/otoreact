@@ -1,27 +1,66 @@
+
+// Colorcoding
 let bRSTYLE = false;
-const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
-    if (/^\/?RSTYLE/i.test(mTag))
-        bRSTYLE = !bRSTYLE;
-    return `<span class=mTag>&lt;${mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi, (m, a1, a2, a3, a4, mExpr) => (mExpr ? `<span class=otored>${mExpr}</span>`
-        : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
-            : a1 ? `${a1}${markJScript(a4)}`
-                : quoteHTML(m)))}&gt;</span>`;
-}, reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
-    : mScriptTag ?
-        markTag(mScriptOpen)
-            + markJScript(mScriptBody)
-            + markTag(mScriptClose)
-        : mTag ? markTag(mTag)
-            : mExpr ?
-                bRSTYLE && !/^\$/.test(mExpr)
-                    ? mExpr.slice(0, 1) + ColorCode(mExpr.slice(1))
-                    : `<span class=otored>${m}</span>`
-                : mChar ? mapping[mChar]
-                    : m))}</span>`;
-function Indent(text, n) {
+const 
+    mapping = {'<': '&lt;', '>': '&gt;', '&': '&amp;'}
+    , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
+    , markJScript = (script: string) =>
+        `<span style='color:purple'>${
+            script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+                , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
+            )
+        }</span>`
+    , markTag = (mTag: string) => {
+        if (/^\/?RSTYLE/i.test(mTag))
+            bRSTYLE = !bRSTYLE;
+        return `<span class=mTag>&lt;${
+                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
+                //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
+                    , (m,a1,a2,a3,a4,mExpr) => 
+                        ( mExpr ? `<span class=otored>${mExpr}</span>`
+                        : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
+                        : a1 ? `${a1}${markJScript(a4)}`
+                        : quoteHTML(m)
+                        )
+                    )
+            }&gt;</span>`;
+    }
+    , reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis
+    , ColorCode = (html: string) =>
+      `<span style='color:black'>${
+          html.replace(
+              reg
+              , (m,
+                  mComm,      // This is HTML comment
+                  mScriptOpen,mScriptTag,mScriptBody,mScriptClose, // These form a <script> or <style> element
+                  mTag,       // This is any other tag
+                  mExpr,      // This is an embedded expression
+                  mChar,      // A special character
+                  ) =>
+                      ( mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`   // Mark HTML comments
+                      : mScriptTag ? 
+                              markTag(mScriptOpen)                    // Mark <script> tag
+                              + markJScript(mScriptBody)
+                              + markTag(mScriptClose)
+                      : mTag  ? markTag(mTag)
+                      : mExpr ?                                       // Interpolated string {} or ${}
+                          bRSTYLE && !/^\$/.test(mExpr)               // Inside an <RSTYLE>, we ignore {}
+                          ? mExpr.slice(0,1) + ColorCode(mExpr.slice(1))
+                          : `<span class=otored>${m}</span>`
+                      : mChar ? mapping[mChar]
+                      : m
+                      )
+          )
+      }</span>`;
+
+
+function Indent(text: string, n: number) {
     return text.split('\n').map(line => line.padStart(line.length + n)).join('\n');
 }
-const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive the entered name -->
+
+
+const sampleGreeting=
+`<!-- Create a local reactive variable (RVAR) to receive the entered name -->
 <DEFINE rvar='yourName'></DEFINE>
 
 <p>
@@ -37,7 +76,9 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
         Nice to meet you, {yourName.V}. <!-- yourName.V is inserted here -->
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
-</IF>`, fileTemplate = `<!DOCTYPE html>
+</IF>`
+  , fileTemplate = 
+`<!DOCTYPE html>
 <html>
     <head>
         <script type=module src="OtoReact.js"></script>
@@ -49,7 +90,9 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
     </body>
 </html>
 `;
-const sampleServerData2 = `<style>
+
+const sampleServerData2=
+`<style>
   table.colorTable {
     margin: auto;
   }
@@ -135,7 +178,9 @@ function StartStop() {
 
 </table.>
 </div>`;
-const sampleBraces = `1 + 1 = {1 + 1}  \\{ Check }
+
+const sampleBraces =
+`1 + 1 = {1 + 1}  \\{ Check }
 <p>
 Null and undefined are not shown:
   "{null} {undefined}".
@@ -144,7 +189,9 @@ Compare this JavaScript template literal:
   "{ \`\${null} \${undefined}\` }".
 <p>
 Tag <{}br> looks better in source code than &lt;br&gt;`;
-const sampleGreeting2 = `<!-- Create a "Reactive variable" with a local name and
+
+const sampleGreeting2 =
+`<!-- Create a "Reactive variable" with a local name and
    persisted in localStorage -->
 <define rvar='yourName' store=sessionStorage></define>
 
@@ -159,13 +206,17 @@ const sampleGreeting2 = `<!-- Create a "Reactive variable" with a local name and
         characters.
   </p>
 </if>`;
-const sampleSqrt = `<define rvar=x #value=2></define>
+
+const sampleSqrt=
+`<define rvar=x #value=2></define>
 <p  title="sqrt({x.V}) = {Math.sqrt(x.V)}"
 >
     What is sqrt({x.V})? Check the tooltip.
 </p>
 <button onclick="x.V += 1">Increment</button>`;
-const sampleInlineStyles = `<p style.backgroundColor=lightgrey> Light grey </p>
+
+const sampleInlineStyles=
+`<p style.backgroundColor=lightgrey> Light grey </p>
 
 <define var=color value="red"></define>
 <p #style.backgroundColor="color"> Colored </p>
@@ -174,7 +225,9 @@ const sampleInlineStyles = `<p style.backgroundColor=lightgrey> Light grey </p>
   #value="{color: 'blue',fontStyle: 'italic'}"
 ></define>
 <p +style="myStyle">My style</p>`;
-const sampleParticipants = `<!-- Here we use a local RVAR -->
+
+const sampleParticipants=
+`<!-- Here we use a local RVAR -->
 <define rvar=Participants #value="['Joe', 'Mary', 'Eileen']"></define>
 
 <b>Participants:</b>
@@ -193,7 +246,9 @@ New participant (Enter):
 ">
 <!-- "this" in all RHTML event handlers refers to the target element.
   Getting "Participants.U" means "Participants" will be marked as changed, even though it is not assigned to. -->`;
-const sampleTODO = `<script type=otoreact defines=AddItem,TODO>
+
+const sampleTODO=
+`<script type=otoreact defines=AddItem,TODO>
     // Define the data model of our todo list
     let TODO = RVAR('TODO',
         [['Visit Joe', true], ['Fishing',false], ['Sleeping',false], ['Working',false]]
@@ -242,7 +297,9 @@ const sampleTODO = `<script type=otoreact defines=AddItem,TODO>
     <br>
     <input type=text onchange="AddItem(this)">
 </p>`;
-const sampleRecursion = `<component recursive>
+
+const sampleRecursion=
+`<component recursive>
     <ShowList #arg></ShowList>
 
     <style>
@@ -288,7 +345,9 @@ const sampleRecursion = `<component recursive>
 <p>
     You can modify the JavaScript list above and see the result.
 </p>`;
-const sampleRedefineA = `<component>
+
+const sampleRedefineA =
+`<component>
   <a href #target? ...rest><content></content></a>
 
   <template><a. #href="href"
@@ -300,14 +359,18 @@ const sampleRedefineA = `<component>
 
 This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
-const sampleA = `<import src=" OtoLib.html"><a></a></import>
+
+const sampleA =
+`<import src=" OtoLib.html"><a></a></import>
 
 <p>This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>
 
 <p>This link navigates within the current window:
 <a href="./#Introduction">Introduction</a>`;
-const sampleTableMaker = `<style>
+
+const sampleTableMaker =
+`<style>
 td { text-align: center }
 </style>
 
@@ -365,7 +428,9 @@ td { text-align: center }
   <DDef item>{thisYear -  item.year}</DDef>
 </TableMaker>
 `;
-const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
+
+const sampleTicTacToe = 
+`<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
 <style>
     div.tic-tac-toe {
         display:grid;
@@ -477,13 +542,17 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
     <button onclick="ClearAll()">Clear</button>
   </div>
 </div>`;
-const sampleRHTML = `<define rvar=sourcecode
+
+const sampleRHTML =
+`<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
 <textarea @value="sourcecode.V" rows=3 cols=50></textarea>
 <br>
 <RHTML #srctext=sourcecode.V></RHTML>`;
-const sampleStyleTemplate = `<def rvar=Hue #value="0"></def>
+
+const sampleStyleTemplate =
+`<def rvar=Hue #value="0"></def>
 Current hue is: {Hue.V.toFixed()}
 
 <RSTYLE>
@@ -498,34 +567,47 @@ Section contents
 
 Click here:
   <button onclick="Hue.V = Math.random() * 360">Random hue</button>`;
-const C1 = `<!-- Component signature with parameter -->
+
+const C1=
+`<!-- Component signature with parameter -->
 <Repeat #count>
     <!-- Slot signature with parameter -->
     <content #num></content>
-</Repeat>`, C2 = `<!-- Component template -->
+</Repeat>`,
+C2 =
+`<!-- Component template -->
 <TEMPLATE #count=cnt>
     <FOR let=i  of="range(1, cnt)">
         <!-- Slot instance -->
         <content #num="i"></content>
     </FOR>
-</TEMPLATE>`, C3 = `<!-- Component instance -->
+</TEMPLATE>`,
+C3 =
+`<!-- Component instance -->
 <Repeat #count=7>
     <!-- Slot template -->
     <content #num>
         <p>This is <u>paragraph {num}</u>.</p>
     </content>
-</Repeat>`, C4 = `<!-- Component instance and slot instance in one -->
+</Repeat>`,
+C4 =
+`<!-- Component instance and slot instance in one -->
 <Repeat #count=7 #num>
     <p>This is <u>paragraph {num}</u>.</p>
-</Repeat>`, sampleComponent1 = `<!-- Component definition -->
-<COMPONENT>
-${Indent(C1, 4)}
+</Repeat>`,
 
-${Indent(C2, 4)}
+sampleComponent1 =
+`<!-- Component definition -->
+<COMPONENT>
+${Indent(C1,4)}
+
+${Indent(C2,4)}
 </COMPONENT>
 
 ${C4}`;
-const sampleFormatting = `<style>
+
+const sampleFormatting =
+`<style>
   dt {
     font-weight: bold
   }
@@ -553,8 +635,10 @@ const sampleFormatting = `<style>
     <dd>
       Today is {today.toString().replace(/\\w+ (\\w+ \\w+) .*/, '$1')}.
     </dd>
-</dl>`;
-const sampleDocument = `<def rvar=check #value="false"></def>
+</dl>`
+
+const sampleDocument = 
+`<def rvar=check #value="false"></def>
 
 <document name=showCheck>
     <h4>This is a separate document.</h4>
@@ -575,8 +659,10 @@ const sampleDocument = `<def rvar=check #value="false"></def>
     <input type=checkbox @checked=check.V> Checked.
 </label>
 <p>
-<button onclick="showCheck.print()">Print</button>`;
-const sampleRadioGroup = `<component>
+<button onclick="showCheck.print()">Print</button>`
+
+const sampleRadioGroup=
+`<component>
   <!-- Radiogroup signature -->
   <radiogroup name @value>
     <content>
@@ -616,8 +702,10 @@ const sampleRadioGroup = `<component>
 
 <p #if="answer.V">
   You answered <b>{answer.V}</b>.
-</p>`;
-const demoRendering = `<style>
+</p>`
+
+const demoRendering=
+`<style>
   h5 {
     margin: 0px;
     padding: 4px 0px;
@@ -651,7 +739,9 @@ const demoRendering = `<style>
 
 <h5>Rendered HTML:</h5>
 <pre>{RenderedHTML.V}</pre>`;
-const demoScoping = `(Look at the source code please)
+
+const demoScoping=
+`(Look at the source code please)
 
 <define var=A #value="10"></define>
 <define var=F #value="(x) => A+x"></define>
@@ -665,8 +755,10 @@ const demoScoping = `(Look at the source code please)
     Here we have a new A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
 </p>
 
-<p>Here A = {A} again.</p>`;
-const basicSetup = `<!DOCTYPE html>
+<p>Here A = {A} again.</p>`
+
+const basicSetup =
+`<!DOCTYPE html>
 <html>
     <head>
         <script type=module>
@@ -680,8 +772,10 @@ const basicSetup = `<!DOCTYPE html>
             <div>Hello world {i}</div>
         </FOR>
     </body>
-</html>`;
-const demoRadiogroup = `<import src="OtoLib.html">
+</html>`
+
+const demoRadiogroup=
+`<import src="OtoLib.html">
   <radiogroup></radiogroup>
 </import>
 
@@ -704,7 +798,9 @@ const demoRadiogroup = `<import src="OtoLib.html">
     <p #style.backgroundcolor="C">Yes, {C.toLowerCase()} is a great color.</p>
   </when>
 </case>`;
-const demoCheckbox = `<import src="OtoLib.html"><checkbox></checkbox></import>
+
+const demoCheckbox=
+`<import src="OtoLib.html"><checkbox></checkbox></import>
 
 <def rvar="check" #value="null"></def>
 
@@ -713,7 +809,9 @@ const demoCheckbox = `<import src="OtoLib.html"><checkbox></checkbox></import>
 <button onclick="check.V = null">Set to indeterminate</button>
 
  <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
-const demoTables = `<style>
+
+const demoTables =
+`<style>
   * {
     text-align: center;
   }
@@ -751,7 +849,8 @@ const demoTables = `<style>
           </FOR>
       </div>
   </FOR>
-</div>`;
+</div>`
+
 const demoTwoWayRVAR = `
 <style>
   input {
@@ -772,7 +871,8 @@ Please enter some numbers:
 
 <p reacton="data">
   The sum is \{data.V.reduce((a,b)=>a+b,0)}
-</p>`;
+</p>`
+
 const demoAutoSubscribtion = `
 <p>
 	<def rvar=a #value=0></def>
@@ -785,4 +885,4 @@ const demoAutoSubscribtion = `
 	<!-- Here only the <span> reacts on b: -->
 	<button onclick="b.V++">{b}</button>
 	<span reacton=b>b = {b}</span>
-</p>`;
+</p>`

@@ -12,8 +12,7 @@ declare const defaults: {
     bKeepComments: boolean;
     storePrefix: string;
 };
-declare type booly = boolean | string | number | object;
-declare type DOMBuilder = ((area: Area, ...args: any[]) => Promise<void>) & {
+declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
     auto?: boolean;
 };
@@ -33,7 +32,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     next: Range;
     parR?: Range;
     parN?: Node;
-    constructor(area: Area, node: NodeType, text?: string);
+    constructor(ar: Area, node: NodeType, text?: string);
     toString(): string;
     get First(): ChildNode;
     get Next(): ChildNode;
@@ -65,7 +64,6 @@ declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>))
     bImm?: boolean;
     env?: Environment;
 };
-declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Handler = (ev: Event) => any;
 declare type ConstructDef = {
     nm: string;
@@ -73,7 +71,7 @@ declare type ConstructDef = {
     CEnv?: Environment;
     Cnm?: string;
 };
-declare type Template = (area: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
+declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -92,7 +90,7 @@ declare class _RVAR<T = unknown> {
     get V(): T;
     set V(t: T);
     get Set(): (t: T | Promise<T>) => T | Promise<T>;
-    get Clear(): () => any;
+    get Clear(): (_: any) => any;
     get U(): T;
     set U(t: T);
     SetDirty(): void;
@@ -115,85 +113,19 @@ interface Key {
 }
 interface Hash {
 }
-declare class RCompiler {
-    static iNum: number;
-    num: number;
-    private ctStr;
-    private ctMap;
-    private ctLen;
-    private ctSigns;
-    private ctCCnt;
-    private cRvars;
-    private doc;
-    private head;
-    private StyleBefore;
-    FilePath: string;
-    constructor(RC?: RCompiler, FilePath?: string, bClr?: boolean);
-    private restoreActions;
-    private SaveCont;
-    private RestoreCont;
-    private newV;
-    private NewVars;
-    private NewConstructs;
-    Compile(elm: ParentNode, settings?: Settings, childnodes?: Iterable<ChildNode>): Promise<void>;
-    log(msg: string): void;
-    private setPRE;
-    Build(area: Area): Promise<void>;
-    Settings: FullSettings;
-    private Builder;
-    bCompiled: boolean;
-    private wspc;
-    private rspc;
-    private srcNodeCnt;
-    private CompChildNodes;
-    private CompIter;
-    private CompElm;
-    private GetREACT;
-    private CallWithHandling;
-    private CompScript;
-    CompFor(this: RCompiler, srcElm: HTMLElement, atts: Atts): Promise<DOMBuilder>;
-    private ParseSignat;
-    private CompComponent;
-    private CompTempl;
-    private CompInstance;
-    private CompHTMLElement;
-    private CompAttribs;
-    private CompStyle;
-    private regIS;
-    private CompString;
-    private CompPattern;
-    private CompParam;
-    private CompAttrExpr;
-    private CompTarget;
-    private CompHandler;
-    private CompJScript;
-    private CompName;
-    private compAttrExprList;
-    private AddErrH;
-    private GetURL;
-    private GetPath;
-    FetchText(src: string): Promise<string>;
-    fetchModule(src: string): Promise<Iterable<ChildNode>>;
-}
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-declare class Atts extends Map<string, string> {
-    constructor(elm: HTMLElement);
-    g(nm: string, bReq?: booly, bHashAllowed?: booly): string;
-    gB(nm: string): boolean;
-    ChkNoAttsLeft(): void;
-}
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 declare class DocLoc extends _RVAR<string> {
+    constructor();
     basepath: string;
-    _SP: URLSearchParams;
+    url: URL;
     get subpath(): string;
     set subpath(s: string);
     query: {
-        [field: string]: string;
+        [fld: string]: string;
     };
-    search(key: string, val: string): string;
-    RVAR(key: string, ini?: string, varNm?: string): RVAR<string>;
+    search(fld: string, val: string): string;
+    RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
 }
-declare const DL: DocLoc;
-export { DL as docLocation };
-export declare let R: RCompiler, reroute: (arg: MouseEvent | string) => void;
+declare const DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
+export { DL as docLocation, reroute };

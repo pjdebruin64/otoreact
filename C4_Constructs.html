@@ -83,7 +83,7 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
     When one uses <code><i>x</i>.U</code> to refer to the value of <code><i>x</i></code>, then <code><i>x</i></code> is marked dirty whenever <code><i>name</i></code> is marked dirty.
 </p>
 <p>
-    Here is a small example &mdash; where the defined RVAR <code>num</code> is not really useful, because there is only a single reference to <code><i>name</i></code>:
+    Here is a small example &mdash; where the defined RVAR <code>num</code> is not really useful, because there is only a single reference to it:
 </p>
 <demo #srctext=demoTwoWayRVAR></demo>
 
@@ -377,24 +377,21 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=REACT><{}REACT on? hash? renew?></h2>
+<h2 id=REACT><{}REACT on? renew?></h2>
+
+<p>
 <pre class=sourcecode>
-<elm>REACT on=<i>RVARlist</i></elm>
+<elm>REACT</elm>
     <i>Content</i>
 <elm>/REACT</elm></pre>
-specifies that the given content should <i>react on</i> changes to any of the listed RVAR's. So whenever one or more of the RVAR's have changed, the content will be updated.
-
-<p>
-    With attribute <elm class=sourcecode>hash="<i>expressionlist</i>"</elm>, the given content will <i>only</i> be updated when an update is requested <i>and</i> the value of some expression(s) in the list has changed. This can improve performance.
-</p>
-
-<p>
-    With attribute <code class=sourcecode>renew</code>, the given content will never be updated, but will be removed and rebuilt on every update request.
+    allows you to group a range of source nodes, limit the scope of local variables, and add <a href="#GlobalAtts">global attributes</a>, without adding other functionality.       
 </p>
 <p>
-    A <elm>REACT</elm> element without content will not produce any DOM elements, and can be useful to insert <code>oncreate</code> or <code>onupdate</code> handlers in between elements.
+    <elm class=sourcecode>REACT on=<i>RVARlist</i></elm> is a shorthand for <elm>REACT reacton=<i>RVARlist</i></elm>.
 </p>
-
+<p>
+    With attribute <code class=sourcecode>renew</code>, the given content will not be updated, but will be removed and rebuilt on every update request.
+</p>
 
 <h2>Introduction to Components</h2>
 <p><elm>COMPONENT</elm> defines a new user-defined construct, or custom element.</p>
@@ -758,6 +755,10 @@ The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">enca
 <h3>More examples</h3>
 <h4>To-do application</h4>
 Here is a to-do application, which splits the collection of items into those done and not done. We use a component <elm>itemlist</elm> to show such a filtered list.
+
+<p>
+    (Click on <button class=demo disabled>Component</button> to see or edit the component definition.)
+</p>
 <demo #srctext=sampleTODO>
 </demo>
 

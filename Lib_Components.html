@@ -16,8 +16,9 @@
 
     <component>
         <RHTML #srctext></RHTML>
+        <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
         <template>
-            <RHTML srctext="<style>button,input \{font-size: 90%}</style>{srctext}"></RHTML>
+            <RHTML srctext="{prefix}{srctext}"></RHTML>
         </template>
     </component>
 
@@ -39,8 +40,8 @@
                 padding: 8px;
                 border-radius: .5em;
             }
-            table.demo th:nth-child(1) {
-                color: rgb(32, 109, 101);
+            table.demo th:nth-child(1), button.demo {
+                color: rgb(26, 97, 90);
             }            
             table.demo th:nth-child(2) {
                 color: rgb(104, 122, 1);
@@ -163,17 +164,25 @@
             </content>
         </pageLayout>
 
+        <def let="BG" value="rgb(253, 246, 182)"></def>
         <style>
             body    {
+                --BG: rgb(253, 246, 182);
+                --TC: rgb(228, 205, 0);
+                
                 margin: 0px;
+                background-color: var(--BG);
             }
             div.pageLayout {
                 display:  grid;
                 gap: 4px;
                 margin: 4px auto;
+                background-color: white;
+                border-radius: 1em;
+                min-width: min-content;
             }
             div.pageLayout > *{
-                box-shadow:0 0 0 4px lightgray;
+                box-shadow:0 0 0 4px var(--BG);
                 padding: 8px 4px;
             }
             div.pageLayout > header    { 
@@ -372,7 +381,7 @@
                 </header>
                 <main style.position="relative">
                     <button class="nav narrow-only"
-                        style="position: fixed; bottom: 8pt; right: 8pt; background-color: orange; z-index:1;"
+                        style="position: fixed; bottom: 8pt; right: 8pt; background-color: var(--TC); z-index:1;"
                         onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
                     
@@ -400,7 +409,7 @@
                             </a.>
                         </template>
                     </component>
-                    <center style="background-color: orange;">
+                    <center style="background-color: var(--TC);">
                         <b><i>Table of Contents</i></b>
                     </center>
                     <for let=item of=contents.V reacton="contents" key="item">

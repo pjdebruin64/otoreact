@@ -91,7 +91,7 @@ For each DOM event, say <code>onclick</code>, there is a corresponding DOM prope
 </ul>
 
 
-<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if</h2>
+<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash</h2>
 RHTML recognizes the following global attributes on every element and construct.
 <dl>
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
@@ -118,9 +118,20 @@ RHTML recognizes the following global attributes on every element and construct.
         The element or construct with this attribute will be built only when the given condition evaluates to a truthy value.
         <br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
     </dd>
+    <dt><code class=sourcecode>hash="<i>hashExpressionList</i>"</code></dt>
+    <dd>
+        This attribute exists in order to speed up processing. <br>
+        Whenever the element or construct is to be updated, all expressions in the list are evaluated, and when they all have the same value as before, the update will not take place.
+        <p>
+            Note: With the <elm>FOR</elm> construct, the <code>hash</code> attribute applies to individual repetitions of the <elm>FOR</elm> body part, not to the whole construct.
+        </p>
+        <p>
+            Note 2: <code>reacton</code>, <code>thisreactson</code>, and <code>#if</code> have priority over <code>hash</code>.
+        </p>
+    </dd>
 </dl>
 
-When you want to apply these attributes to a range of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
+When you want to apply these attributes to a <i>range</i> of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
 
 <h2 id="PseudoEvents">RHTML pseudo-events: oncreate, onupdate, ondestroy*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
@@ -153,7 +164,7 @@ The name <code>event</code> is not available in handlers for these pseudo-events
 </p>
 
 <p>
-    As with <a href=#EventProperties>DOM events</a>, one can write <code>on&hellip;="&hellip;"</code> to specify a function to be called, instead of a block of statements to be executed.
+    As with <a href=#EventProperties>DOM events</a>, one can write <code>#on&hellip;="&hellip;"</code> to specify a function to be called, instead of a block of statements to be executed.
 </p>
 
 <h3 id=onerror>RHTML onerror, onsuccess*</h3>

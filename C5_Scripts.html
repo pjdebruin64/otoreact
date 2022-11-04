@@ -15,7 +15,7 @@
         <dl>
             <dt><code>docLocation.basepath</code></dt>
             <dd>
-                This property holds the <i>base path</i> of the application.
+                This property holds the <i>base path</i> of the application, and is derived from the initial URL, using the <code>basePattern</code> option described below.
                 <br>All relative URL's within an OtoReact aplication are considered relative to this base path, and it is used to determine the current subpath.
                 <br>The current base path is "{docLocation.basepath}".
             </dd>
@@ -25,19 +25,31 @@
                 <br>For this page it is "{docLocation.subpath}".
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
+
             <dt><code>docLocation.query</code></dt>
             <dd>
-                An object, whose properties correspond to the decoded field values of the current <a href="{wiki}">URL query string</a>.
+                An object, whose properties <code>docLocation.query.<i>field</i></code> correspond to the decoded field values (also called 'search parameters') of the current <a href="{wiki}Query_string">URL query string</a>.
                 <br>One can add or set properties of this object, and the current URL and docLocation.V will be modified accordingly.
                 <br>When a property is set to <code>null</code>, it is removed from the query string.
                 <p>
                     Note that the whole query string is available as <code>location.search</code>, as always.
                 </p>
                 <p>
-                    One can create an RVAR <code>x</code> in RHTML that is two-way bound to some query string field <i>field</i> by writing:
+                    One can locally create an RVAR <code>x</code> in RHTML that is two-way bound to some query string field <i>field</i> by writing:
                     <pre><elm>define rvar="x" @value="docLocation.query.<i>field</i>" reacton=docLocation</elm><elm>/define</elm>
                     </pre>
                 </pre>
+            </dd>
+
+            <dt><code>docLocation.RVAR(<i>field</i>, <i>default?</i>, <i>name</i>=<i>field</i>)</code></dt>
+            <dd>
+                Calling this method yields a new RVAR that is two-way bound to query string field <i>field</i>m, very much like the <elm>define ...</elm> above.
+                <p>
+                    The name of the RVAR is registered in the global environment. If you don't want this, specify an empty string for name.
+                </p>
+                <p>
+                    The RVAR subscribes itself to <code>docLocation</code> and, unlike <elm>define rvar</elm>, is never destroyed, so it should not be called repeatedly.
+                </p>
             </dd>
 
             <dt><code>docLocation.search(<i>key</i>, <i>value</i>)</code></dt>
