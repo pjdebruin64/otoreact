@@ -141,11 +141,12 @@ export async function RCompile(elm = D.body, settings) {
         R.FilePath = L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
         await R.Compile(elm);
         start = performance.now();
-        builtNodeCnt = 0;
+        cloneCnt = builtNodeCnt = 0;
         let ar = { parN: elm.parentElement, srcN: elm, rng: N };
         await R.Build(ar);
         W.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
-        R.log(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`
+            + `, ${cloneCnt} clones`);
         ScrollToHash();
     }
     catch (e) {
@@ -155,16 +156,15 @@ export async function RCompile(elm = D.body, settings) {
 function NewEnv() {
     return addP([], 'C', []);
 }
-function CloneEnv(env) {
-    return addP(ass([], env), 'C', ass([], env.C));
+function CloneEnv(e = env) {
+    e.RO = e.L;
+    return e;
 }
 function assignEnv(target, source) {
-    let C = ass(target.C, source.C);
     ass(target, source);
-    target.C = C;
 }
 function GetC(env, k) {
-    return env.C[k];
+    return env[k];
 }
 class Signature {
     constructor(srcElm, bIsSlot) {
@@ -274,7 +274,7 @@ function Subscriber({ parN, bRootOnly }, builder, rng, ...args) {
     let sArea = {
         parN, bRootOnly,
         rng,
-    }, subEnv = { env: CloneEnv(env), onerr, onsuc }, subs = async (_) => {
+    }, subEnv = { env: CloneEnv(), onerr, onsuc }, subs = async (_) => {
         let { rng } = sArea, save = { env, onerr, onsuc };
         if (!rng || rng.updated < updCnt) {
             ({ env, onerr, onsuc } = subEnv);
@@ -306,7 +306,7 @@ export async function DoUpdate() {
         return;
     bUpdating = T;
     try {
-        builtNodeCnt = 0;
+        cloneCnt = builtNodeCnt = 0;
         start = performance.now();
         while (DirtyVars.size) {
             updCnt++;
@@ -326,7 +326,8 @@ export async function DoUpdate() {
                         }
             }
         }
-        R.log(`Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`
+            + `, ${cloneCnt} clones`);
     }
     finally {
         bUpdating = F;
@@ -447,7 +448,7 @@ function ApplyMods(elm, modifs, bCreate) {
         }
     ro = F;
 }
-let RModules = new Map(), env, onerr, onsuc, builtNodeCnt = 0, envActions = [], updCnt = 0;
+let RModules = new Map(), env, onerr, onsuc, envActions = [], builtNodeCnt, updCnt = 0, cloneCnt;
 function SaveEnv() {
     return envActions.length;
 }
@@ -475,7 +476,6 @@ class RCompiler {
         this.ctMap = new Map(RC.ctMap);
         this.ctLen = RC.ctLen || 0;
         this.ctSigns = new Map(RC.ctSigns);
-        this.ctCCnt = RC.ctCCnt || 0;
         this.StyleBefore = RC.StyleBefore;
     }
     SaveCont() {
@@ -501,8 +501,11 @@ class RCompiler {
             lv =
                 ((v, bUpd) => {
                     if (!bUpd)
-                        envActions.push(() => env.length = ctLen);
+                        envActions.push(() => (env.L = ctLen) < env.RO || (env.length = ctLen));
+                    if (ctLen >= env.RO)
+                        (env = ass([], env)).RO = 0;
                     env[ctLen] = v;
+                    env.L = ctLen + 1;
                 });
         }
         lv.nm = nm;
@@ -512,23 +515,26 @@ class RCompiler {
         return Array.from(split(varlist), nm => this.newV(nm));
     }
     NewConstructs(listS) {
-        let { ctCCnt, ctSigns } = this, prevCs = [];
+        let { ctLen, ctSigns } = this, prevCs = [];
         for (let S of listS) {
             prevCs.push([S.nm, ctSigns.get(S.nm)]);
-            ctSigns.set(S.nm, [S, this.ctCCnt++]);
+            ctSigns.set(S.nm, [S, this.ctLen++]);
         }
-        if (prevCs.length == 0)
+        if (!prevCs.length)
             return dU;
         this.restoreActions.push(() => {
-            this.ctCCnt = ctCCnt;
+            this.ctLen = ctLen;
             for (let [nm, CS] of prevCs)
                 mapSet(ctSigns, nm, CS);
         });
         return (CDefs) => {
-            envActions.push(() => env.C.length = ctCCnt);
-            let i = ctCCnt;
+            envActions.push(() => (env.L = ctLen) < env.RO || (env.length = ctLen));
+            if (ctLen >= env.RO)
+                (env = ass([], env)).RO = 0;
+            let i = ctLen;
             for (let C of CDefs)
-                env.C[i++] = C;
+                env[i++] = C;
+            env.L = i;
         };
     }
     async Compile(elm, settings = {}, childnodes) {
@@ -961,7 +967,7 @@ class RCompiler {
                             bldr = async function DOCUMENT(ar) {
                                 let { rng, bCr } = PrepArea(srcElm, ar, docVar.name);
                                 if (bCr) {
-                                    let doc = ar.parN.ownerDocument, docEnv = CloneEnv(env), wins = rng.wins = new Set();
+                                    let doc = ar.parN.ownerDocument, docEnv = CloneEnv(), wins = rng.wins = new Set();
                                     rng.val = {
                                         async render(w, bCr, args) {
                                             let svEnv = env, i = 0, D = w.document;
@@ -1388,7 +1394,7 @@ class RCompiler {
                         }
                     };
                     if (iterable instanceof Promise) {
-                        let subEnv = { env: CloneEnv(env), onerr, onsuc };
+                        let subEnv = { env: CloneEnv(), onerr, onsuc };
                         rng.rvars = [RVAR(N, iterable, N, rng.subs =
                                 async (iter) => {
                                     let save = { env, onerr, onsuc };
@@ -1411,18 +1417,18 @@ class RCompiler {
                     throw `Missing attribute [let]`;
                 let ck = CS[1], ixVar = this.newV(idxNm), bodyBldr = await this.CompChilds(srcElm);
                 return async function FOREACH_Slot(ar) {
-                    let { sub } = PrepArea(srcElm, ar), saved = SaveEnv(), slotDef = env.C[ck];
+                    let { sub } = PrepArea(srcElm, ar), saved = SaveEnv(), slotDef = env[ck];
                     ixVar();
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             ixVar(idx++, T);
-                            env.C[ck] = { nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv };
+                            env[ck] = { nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv };
                             await bodyBldr(sub);
                         }
                     }
                     finally {
-                        env.C[ck] = slotDef;
+                        env[ck] = slotDef;
                         RestEnv(saved);
                     }
                 };
@@ -1505,7 +1511,7 @@ class RCompiler {
             let saved = SaveEnv();
             try {
                 bldr && await R.ErrHandling(bldr, srcElm, ar);
-                let CEnv = CloneEnv(env);
+                let CEnv = CloneEnv();
                 for (let c of constr)
                     c.CEnv = CEnv;
             }
@@ -1596,7 +1602,9 @@ class RCompiler {
         atts.ChkNoAttsLeft();
         this.wspc = 3;
         return async function INSTANCE(ar) {
-            let IEnv = env, { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = GetC(env, ck), args = rng.res || (rng.res = {});
+            let { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = GetC(env, ck), IEnv = signat.bIsSlot && signat.Slots.size && cdef.templates.length
+                ? CloneEnv()
+                : env, args = rng.res || (rng.res = {});
             if (!cdef)
                 return;
             ro = T;
@@ -1611,7 +1619,7 @@ class RCompiler {
             env = cdef.CEnv;
             try {
                 for (let templ of cdef.templates)
-                    await templ(sub, args, SBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
+                    await templ(sub, args, SBldrs, IEnv);
             }
             finally {
                 env = IEnv;

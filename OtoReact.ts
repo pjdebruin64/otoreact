@@ -203,10 +203,10 @@ type Context = Map<string, number>;
 // An ENVIRONMENT for a given context is the array of concrete values for all names in that context,
 // together with concrete definitions for all constructs
 type CKey = number;     //Constructmap key
-type Environment = 
+type Environment<> = 
     Array<any>                      // Local variable values
     & {
-        C: Array<ConstructDef>;    // Current construct definitions
+        L: number, RO: number,
     }
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current environment (env) for that context.
@@ -336,11 +336,13 @@ export async function RCompile(elm: HTMLElement = D.body, settings?: Settings): 
 
         // Initial build
         start = performance.now();
-        builtNodeCnt = 0;
+        cloneCnt = builtNodeCnt = 0;
         let ar: Area = {parN: elm.parentElement, srcN: elm, rng: N};
         await R.Build(ar);
         W.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
-        R.log(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`${R.num}: Built ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`
+        + `, ${cloneCnt} clones`
+        )
         ScrollToHash();
     }
     catch (e) {    
@@ -352,16 +354,17 @@ type SavedContext = number;
 function NewEnv(): Environment { 
     return addP([] as Environment, 'C', []);
 }
-function CloneEnv(env: Environment): Environment {
-    return addP(ass([], env), 'C', ass([], env.C))
+function CloneEnv(e: Environment = env): Environment {
+    //cloneCnt++;
+    //return addP(ass([], e), 'C', ass([], e.C))
+    e.RO = e.L;
+    return e;
 }
 function assignEnv(target: Environment, source: Environment) {
-    let C = ass(target.C, source.C);
     ass(target, source);
-    target.C = C;
 }
 function GetC(env: Environment, k: CKey): ConstructDef {
-    return env.C[k];
+    return env[k];
 }
 
 type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
@@ -547,7 +550,7 @@ function Subscriber({parN, bRootOnly}: Area, builder: DOMBuilder, rng: Range, ..
             parN, bRootOnly,
             rng,
         },
-        subEnv = {env: CloneEnv(env), onerr, onsuc},
+        subEnv = {env: CloneEnv(), onerr, onsuc},
         subs: Subscriber = async _ => {
             let {rng} = sArea, save = {env, onerr, onsuc};
             if (!rng || rng.updated < updCnt)
@@ -588,7 +591,7 @@ export async function DoUpdate() {
 
     bUpdating = T;
     try {
-        builtNodeCnt = 0;
+        cloneCnt = builtNodeCnt = 0;
         start = performance.now();
         while (DirtyVars.size) {
             updCnt++;
@@ -607,7 +610,9 @@ export async function DoUpdate() {
                         }
             }
         }
-        R.log(`Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        R.log(`Updated ${builtNodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`
+        + `, ${cloneCnt} clones`
+        );
     }
     finally { bUpdating = F; }
 }
@@ -764,9 +769,10 @@ let RModules = new Map<string, Promise<[DOMBuilder,Map<string, [Signature,CKey]>
         bBldr?: boolean     // True when the handler should be called on build errors as well
     },
     onsuc: Handler,        // Current onsuccess routine
-    builtNodeCnt = 0,
     envActions: Array<() => void> = [],
-    updCnt = 0;
+    builtNodeCnt: number,
+    updCnt = 0,
+    cloneCnt: number;
 
 type EnvState = number;
 function SaveEnv(): EnvState {
@@ -786,7 +792,6 @@ class RCompiler {
     private ctMap: Context;
     private ctLen: number;
     private ctSigns: Map<string, [Signature, CKey]>;
-    private ctCCnt: number;
 
     private cRvars = new Map<string,boolean>();
 
@@ -811,7 +816,6 @@ class RCompiler {
         this.ctMap = new Map(RC.ctMap);
         this.ctLen = RC.ctLen || 0;
         this.ctSigns = new Map(RC.ctSigns);
-        this.ctCCnt = RC.ctCCnt || 0
         this.StyleBefore = RC.StyleBefore
     }
 
@@ -845,8 +849,13 @@ class RCompiler {
 
             lv =
                 ((v: unknown, bUpd?: boolean) => {
-                    if (!bUpd) envActions.push(() => env.length=ctLen);
+                    if (!bUpd) envActions.push(() => (env.L=ctLen) < env.RO || (env.length = ctLen));
+
+                    if (ctLen >= env.RO)
+                        (env = ass([], env)).RO = 0;
+                    
                     env[ctLen] = v;
+                    env.L = ctLen+1;
                 }) as LVar;
         }
         lv.nm = nm;
@@ -857,23 +866,29 @@ class RCompiler {
     }
 
     private NewConstructs(listS: Iterable<Signature>) {
-        let {ctCCnt, ctSigns} = this,
+        let {ctLen, ctSigns} = this,
             prevCs: Array<[string, [Signature,CKey]]> = [];
         for (let S of listS) {
             prevCs.push([S.nm, ctSigns.get(S.nm)]);
-            ctSigns.set(S.nm, [S, this.ctCCnt++]);
+            ctSigns.set(S.nm, [S, this.ctLen++]);
         }
-        if (prevCs.length==0) return dU;
+        if (!prevCs.length) return dU;
         this.restoreActions.push(() => {
-            this.ctCCnt = ctCCnt;
+            this.ctLen = ctLen;
             for (let [nm, CS] of prevCs)
                 mapSet(ctSigns, nm, CS);
         });
         return (CDefs: Iterable<ConstructDef>) => {
-            envActions.push(() => env.C.length = ctCCnt );
-            let i = ctCCnt;
+            envActions.push(() => (env.L = ctLen) < env.RO || (env.length = ctLen));
+
+            if (ctLen >= env.RO)
+                (env = ass([], env)).RO = 0;
+
+            let i = ctLen;
             for (let C of CDefs)
-                env.C[i++] = C;
+                env[i++] = C;
+
+            env.L = i;
         }
     }
 
@@ -1479,7 +1494,7 @@ class RCompiler {
                             let {rng, bCr} = PrepArea(srcElm, ar, docVar.name);
                             if (bCr) {
                                 let doc = ar.parN.ownerDocument,
-                                    docEnv = CloneEnv(env),
+                                    docEnv = CloneEnv(),
                                     wins = rng.wins = new Set();
                                 rng.val = {
                                     async render(w: Window, bCr: boolean, args: unknown[]) {
@@ -2028,7 +2043,7 @@ class RCompiler {
                     }
 
                     if (iterable instanceof Promise) {
-                        let subEnv = {env: CloneEnv(env), onerr,  onsuc};
+                        let subEnv = {env: CloneEnv(), onerr,  onsuc};
                         rng.rvars = [RVAR(N, iterable, N, rng.subs = 
                             async iter => {
                                 let save = {env, onerr, onsuc};
@@ -2059,18 +2074,18 @@ class RCompiler {
                 return async function FOREACH_Slot(this: RCompiler, ar: Area) {
                     let {sub} = PrepArea(srcElm, ar),
                         saved= SaveEnv(),
-                        slotDef = env.C[ck];
+                        slotDef = env[ck];
                     ixVar();
                     try {
                         let idx = 0;
                         for (let slotBldr of slotDef.templates) {
                             ixVar(idx++, T);
-                            env.C[ck] = {nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv};
+                            env[ck] = {nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv};
                             await bodyBldr(sub);
                         }
                     }
                     finally {
-                        env.C[ck] =  slotDef;
+                        env[ck] =  slotDef;
                         RestEnv(saved);
                     }
                 }
@@ -2173,7 +2188,7 @@ class RCompiler {
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
-                let CEnv = CloneEnv(env);
+                let CEnv = CloneEnv();
                 for(let c of constr)
                     c.CEnv = CEnv;
             }
@@ -2301,9 +2316,11 @@ class RCompiler {
         this.wspc = WSpc.inline;
 
         return async function INSTANCE(this: RCompiler, ar: Area) {
-            let IEnv = env,
-                {rng, sub, bCr} = PrepArea(srcElm, ar),
+            let {rng, sub, bCr} = PrepArea(srcElm, ar),
                 cdef = GetC(env, ck),
+                IEnv = signat.bIsSlot && signat.Slots.size && cdef.templates.length
+                    ? CloneEnv() 
+                    : env,
                 args = rng.res ||= {};
             if (!cdef) return;  //In case of an async imported component, where the client signature has less slots than the real signature
             ro = T;
@@ -2320,7 +2337,7 @@ class RCompiler {
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
                 for (let templ of cdef.templates) 
-                    await templ(sub, args, SBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
+                    await templ(sub, args, SBldrs, IEnv);
             }
             finally {env = IEnv;}
         }
