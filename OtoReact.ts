@@ -204,10 +204,7 @@ type Context = Map<string, number>;
 // together with concrete definitions for all constructs
 type CKey = number;     //Constructmap key
 type Environment = 
-    Array<any>                      // Local variable values
-    & {
-        C: Array<ConstructDef>;    // Current construct definitions
-    }
+    Array<unknown>                      // Local variable values
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current environment (env) for that context.
 // This will be the semantics, the meaning, of e.g. a JavaScript expression.
@@ -350,19 +347,13 @@ export async function RCompile(elm: HTMLElement = D.body, settings?: Settings): 
 
 type SavedContext = number;
 function NewEnv(): Environment { 
-    return addP([] as Environment, 'C', []);
+    return [] as Environment;
 }
-function CloneEnv(env: Environment): Environment {
-    return addP(ass([], env), 'C', ass([], env.C))
+function CloneEnv(e: Environment = env): Environment {
+    return ass([], e);
 }
-function assignEnv(target: Environment, source: Environment) {
-    let C = ass(target.C, source.C);
-    ass(target, source);
-    target.C = C;
-}
-function GetC(env: Environment, k: CKey): ConstructDef {
-    return env.C[k];
-}
+//function assEnv(target: Environment, source: Environment) {  ass(target, source); }
+const assEnv = ass;
 
 type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
     {   sArea?: Area;
@@ -398,17 +389,17 @@ class Signature {
     IsCompatible(sig: Signature): boolean {
         if (!sig) return ;
         let r = T,
-            mapSigParams = new Map(sig.Params.map(p => [p.nm, !!p.pDflt]));
+            mapParams = new Map(mapI(sig.Params,p => [p.nm, !!p.pDflt]));
         // All parameters in the import must be present in the module
         for (let {nm, pDflt} of this.Params)
-            if (mapSigParams.has(nm)) {
+            if (mapParams.has(nm)) {
                 // When optional in the import, then also optional in the module
-                r &&= (!pDflt || mapSigParams.get(nm));
-                mapSigParams.delete(nm);
+                r &&= (!pDflt || mapParams.get(nm));
+                mapParams.delete(nm);
             }
             else r = F
         // Any remaining module parameters must be optional
-        for (let pDflt of mapSigParams.values())
+        for (let pDflt of mapParams.values())
             r &&= pDflt;
 
         // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
@@ -422,7 +413,7 @@ class Signature {
 // A CONSTRUCTDEF is a concrete instance of a signature
 type ConstructDef = {
     nm: string,             // Name of the construct
-    templates: Template[],  // Template, or in case of a slot construct, possibly multiple templates
+    tmplts: Template[],  // Template, or in case of a slot construct, possibly multiple templates
     CEnv?: Environment,     // Environment at the point the construct was declared
     Cnm?: string  // In case of a slot construct: the component name to which the slot belongs
 };
@@ -543,11 +534,8 @@ export type RVAR_Light<T> = T & {
         
 function Subscriber({parN, bRootOnly}: Area, builder: DOMBuilder, rng: Range, ...args: any[] ): Subscriber {
     if (rng) rng.updated = updCnt;
-    let sArea: Area = {
-            parN, bRootOnly,
-            rng,
-        },
-        subEnv = {env: CloneEnv(env), onerr, onsuc},
+    let sArea: Area = {parN, bRootOnly, rng },
+        subEnv = {env: CloneEnv(), onerr, onsuc},
         subs: Subscriber = async _ => {
             let {rng} = sArea, save = {env, onerr, onsuc};
             if (!rng || rng.updated < updCnt)
@@ -566,7 +554,6 @@ function Subscriber({parN, bRootOnly}: Area, builder: DOMBuilder, rng: Range, ..
 
     return subs;
 }
-
 
 let DirtyVars = new Set<{_Subs: Set<Subscriber>; store?: any; Save?: () => void}>(),
 // Bijwerken van alle elementen die afhangen van reactieve variabelen
@@ -665,7 +652,7 @@ type Modifier = {
     c?: booly   // Truthy when nm has been checked for proper casing
     depV: Dependent<unknown>,
 }
-type RestParameter = Array<{M: Modifier, value: unknown}>;
+type RestParameter = Array<{M: Modifier, v: unknown}>;
 let ro: boolean = F;
 
 function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
@@ -713,25 +700,25 @@ function ApplyMod(elm: RHTMLElement, M: Modifier, val: unknown, bCr: boolean) {
                     elm.style[nm] = v || (v === 0 ? '0' : N);
             break
         case MType.AddToClassList:
-            (function a(v: any) {
+            (function ACL(v: any) {
                 if (v)
                     switch (typeof v) {
                         case 'string': elm.classList.add(v); break;
                         case 'object':
                             if (v)
                                 if (Array.isArray(v)) 
-                                    v.forEach(a);
+                                    v.forEach(ACL);
                                 else
                                     for (let [nm, b] of Object.entries(v as Object))
-                                        if (b) a(nm);
+                                        b && ACL(nm);
                             break;
                         default: throw `Invalid value`;
                 }
             })(val);
             break;
         case MType.RestArgument:
-            for (let {M, value} of val as RestParameter || E)
-                ApplyMod(elm, M, value, bCr);
+            for (let {M, v} of val as RestParameter || E)
+                ApplyMod(elm, M, v, bCr);
             break;
         case MType.oncreate:
             if (bCr)
@@ -764,35 +751,34 @@ let RModules = new Map<string, Promise<[DOMBuilder,Map<string, [Signature,CKey]>
         bBldr?: boolean     // True when the handler should be called on build errors as well
     },
     onsuc: Handler,        // Current onsuccess routine
+    envActs: Array<() => void> = [],
     builtNodeCnt = 0,
-    envActions: Array<() => void> = [],
     updCnt = 0;
 
 type EnvState = number;
 function SaveEnv(): EnvState {
-    return envActions.length;
+    return envActs.length;
 }
 function RestEnv(savedEnv: EnvState) { // Restore environment
-    for (let j=envActions.length; j>savedEnv; j--)
-        envActions.pop()();
+    for (let j=envActs.length; j>savedEnv; j--)
+        envActs.pop()();
 }
 
 class RCompiler {
 
     static iNum=0;
-    public num = RCompiler.iNum++;
+    public num = RCompiler.iNum++;  // Rcompiler instance number, just for identification dureing debugging
 
-    private ctStr: string;
-    private ctMap: Context;
-    private ctLen: number;
-    private ctSigns: Map<string, [Signature, CKey]>;
-    private ctCCnt: number;
+    // Compile-time "context" data:
+    private ctStr: string;          // comma-separated list of visible variables, to match against 'env'
+    private ctMap: Context;         // Mapping of visible variable names to 'env' indices
+    private ctLen: number;          // env length at the current execution point
+    private ctSigns: Map<string, [Signature, CKey]>;    // Mapping of visible construct names to construct signatures and 'env' indices
 
-    private cRvars = new Map<string,boolean>();
+    private cRvars = new Map<string,boolean>(); //RVAR names that were named in a 'reacton' attribute, so they don't need auto-subscription
 
     private doc: Document;
     private head: Node;
-    private StyleBefore: ChildNode;
     public FilePath: string;
  
     // Tijdens de analyse van de DOM-tree houden we de huidige context bij in deze globale variabele:
@@ -811,18 +797,16 @@ class RCompiler {
         this.ctMap = new Map(RC.ctMap);
         this.ctLen = RC.ctLen || 0;
         this.ctSigns = new Map(RC.ctSigns);
-        this.ctCCnt = RC.ctCCnt || 0
-        this.StyleBefore = RC.StyleBefore
     }
 
-    private restoreActions: Array<() => void> = [];
+    private restoreActs: Array<() => void> = [];
 
     private SaveCont(): SavedContext {
-        return this.restoreActions.length;
+        return this.restoreActs.length;
     }
     private RestoreCont(sv: SavedContext) {
-        for (let j=this.restoreActions.length; j>sv; j--)
-            this.restoreActions.pop()();
+        for (let j=this.restoreActs.length; j>sv; j--)
+            this.restoreActs.pop()();
     }
 
     private newV(nm: string): LVar {
@@ -834,7 +818,7 @@ class RCompiler {
             let {ctStr,ctLen,ctMap} = this,
                 i = ctMap.get(ChkId(nm));
 
-            this.restoreActions.push(() => {
+            this.restoreActs.push(() => {
                 this.ctStr = ctStr;
                 this.ctLen = ctLen;
                 mapSet(ctMap, nm, i);
@@ -845,7 +829,7 @@ class RCompiler {
 
             lv =
                 ((v: unknown, bUpd?: boolean) => {
-                    if (!bUpd) envActions.push(() => env.length=ctLen);
+                    if (!bUpd) envActs.push(() => env.length=ctLen);
                     env[ctLen] = v;
                 }) as LVar;
         }
@@ -856,24 +840,25 @@ class RCompiler {
         return Array.from(split(varlist), nm => this.newV(nm));
     }
 
-    private NewConstructs(listS: Iterable<Signature>) {
-        let {ctCCnt, ctSigns} = this,
+    private NewCons(listS: Iterable<Signature>) {
+        let {ctLen, ctStr, ctSigns} = this,
             prevCs: Array<[string, [Signature,CKey]]> = [];
         for (let S of listS) {
             prevCs.push([S.nm, ctSigns.get(S.nm)]);
-            ctSigns.set(S.nm, [S, this.ctCCnt++]);
+            ctSigns.set(S.nm, [S, this.ctLen++]);
+            this.ctStr += ',';
         }
-        if (prevCs.length==0) return dU;
-        this.restoreActions.push(() => {
-            this.ctCCnt = ctCCnt;
+        if (!prevCs.length) return dU;
+        this.restoreActs.push(() => {
+            ass(this, {ctLen, ctStr});
             for (let [nm, CS] of prevCs)
                 mapSet(ctSigns, nm, CS);
         });
         return (CDefs: Iterable<ConstructDef>) => {
-            envActions.push(() => env.C.length = ctCCnt );
-            let i = ctCCnt;
+            envActs.push(() => env.length = ctLen );
+            let i = ctLen;
             for (let C of CDefs)
-                env.C[i++] = C;
+                env[i++] = C;
         }
     }
 
@@ -1008,7 +993,7 @@ class RCompiler {
 
         if (!bldrs.length) return N;
 
-        return addP(
+        return setWs(
             async function Iter(ar: Area, start: number = 0)
                 // start > 0 is used by auto-generated subscribers
             {                
@@ -1034,12 +1019,12 @@ class RCompiler {
                             let r = ar.rng;
                             await bldr(ar);
                             if (bldr.auto && r.val?.auto)  // Auto subscribed?
-                                assignEnv((r.val as RVAR).auto.env, env);
+                                assEnv((r.val as RVAR).auto.env, env);
                         }
                 
                 builtNodeCnt += bldrs.length - start;
             },
-            "ws", bldrs[0][0].ws);
+            bldrs[0][0].ws);
     }
 
     private async CompElm(srcPrnt: ParentNode, srcElm: HTMLElement, bUnhide?: boolean
@@ -1058,7 +1043,7 @@ class RCompiler {
                 // Generic pseudo-events to be handled AFTER building
                 after: Array<{att: string, txt: string, hndlr?: Dependent<Handler>, C: boolean, U: boolean, D: boolean}> = [],
 
-                raLength = this.restoreActions.length,      // To check whether any definitions have been compiled
+                raLength = this.restoreActs.length,      // To check whether any definitions have been compiled
                 
                 // onerror handler to be installed
                 dOnerr: Dependent<Handler> & {bBldr?: boolean},
@@ -1149,7 +1134,7 @@ class RCompiler {
                             // Check for compile-time subscribers
                             let a = this.cRvars.get(rv);    // Save previous value
                             this.cRvars.set(rv, T);
-                            this.restoreActions.push(() => {
+                            this.restoreActs.push(() => {
                                 // Possibly auto-subscribe when there were no compile-time subscribers
                                 if (elmBldr) elmBldr.auto = this.cRvars.get(rv);
                                 this.cRvars.set(rv, a);
@@ -1176,7 +1161,7 @@ class RCompiler {
                                 switch (node.nodeName) {
                                     case 'THEN':
                                         bThen = T;
-                                        new Atts(node as HTMLElement).ChkNoAttsLeft();
+                                        new Atts(node as HTMLElement).NoneLeft();
                                         caseNodes.push({node: node as HTMLElement, atts, body: node.childNodes});
                                         continue;
                                     case 'ELSE':
@@ -1190,7 +1175,7 @@ class RCompiler {
                             if (srcElm.nodeName == 'IF')
                                 caseNodes.unshift({node: srcElm, atts, body});
                             else
-                                atts.ChkNoAttsLeft();
+                                atts.NoneLeft();
 
                         let 
                             caseList: Array<{
@@ -1241,12 +1226,12 @@ class RCompiler {
                                             bldr: await this.CompChilds(node, body),
                                             node
                                         });
-                                        atts.ChkNoAttsLeft();
+                                        atts.NoneLeft();
                                         postWs = Math.max(postWs, this.wspc);
                                         continue;
                                 }
                             } 
-                            catch (err) { throw (node.nodeName=='IF' ? '' : OuterOpenTag(node)) + err; }
+                            catch (e) { throw node.nodeName=='IF' ? e : ErrMsg(node, e); }
                             finally { this.RestoreCont(saved) }
                         }
                         this.wspc = postWs;
@@ -1263,12 +1248,12 @@ class RCompiler {
                                             && (!alt.patt || value!=N && (matchResult = alt.patt.regex.exec(value)))
                                             ) != alt.not)
                                         { choosenAlt = alt; break }
-                                    } catch (err) { 
+                                    } catch (e) { 
                                         if (bHiding)
                                             for (let alt of caseList) PrepElm(alt.node, ar);
                                         else
                                             PrepArea(srcElm, ar, '', 1, choosenAlt);
-                                        throw (alt.node.nodeName=='IF' ? '' : OuterOpenTag(alt.node)) + err }
+                                        throw alt.node.nodeName=='IF' ? e : ErrMsg(alt.node, e) }
                                 if (bHiding) {
                                     // In this CASE variant, all subtrees are kept in place, some are hidden
                                         
@@ -1348,7 +1333,7 @@ class RCompiler {
                             listImps.push(sign);
                         }
 
-                        let defConstructs = this.NewConstructs(listImps);
+                        let defConstructs = this.NewCons(listImps);
                             
                         if (!promModule) {
                             let C = new RCompiler(this, this.GetPath(src), T);
@@ -1390,7 +1375,7 @@ class RCompiler {
                             await bldr(bIncl ? reg : {parN: D.createDocumentFragment()});
                             env = saveEnv;
                             
-                            defConstructs(listImps.map(S => GetC(MEnv, CSigns.get(S.nm)[1])));
+                            defConstructs(mapI(listImps, S => MEnv[CSigns.get(S.nm)[1]] as ConstructDef));
                                 
                             for (let lv of vars)
                                 lv(MEnv[lv.i]);
@@ -1479,11 +1464,11 @@ class RCompiler {
                             let {rng, bCr} = PrepArea(srcElm, ar, docVar.name);
                             if (bCr) {
                                 let doc = ar.parN.ownerDocument,
-                                    docEnv = CloneEnv(env),
+                                    docEnv = CloneEnv(),
                                     wins = rng.wins = new Set();
                                 rng.val = {
                                     async render(w: Window, bCr: boolean, args: unknown[]) {
-                                        let svEnv = env, i = 0, D = w.document;
+                                        let svEnv = env, i = 0, d = w.document;
                                         env = docEnv;
                                         for (let lv of setVars)
                                             lv(args[i++]);
@@ -1492,11 +1477,11 @@ class RCompiler {
                                             if (bCr) {
                                                 // Copy all style sheet rules
                                                 if (!bEncaps)
-                                                    copySSheets(doc, D);
+                                                    copySSheets(doc, d);
                                                 for (let S of RC.head.childNodes)
-                                                    D.head.append(S.cloneNode(T));
+                                                    d.head.append(S.cloneNode(T));
                                             }
-                                            let ar: Area = {parN: D.body, rng: (w as any).rng};
+                                            let ar: Area = {parN: d.body, rng: (w as any).rng};
                                             await docBldr(ar);
                                         }
                                         finally {env = svEnv}
@@ -1594,11 +1579,11 @@ class RCompiler {
                         bldr = await this.CompHTMLElm(srcElm, atts);
                         break;
                 }
-                atts.ChkNoAttsLeft();
+                atts.NoneLeft();
             }
             
             let {ws} = bldr ||= dumB,
-                ill = this.restoreActions.length > raLength && (dHash && 'hash' || dIf && '#if'),
+                ill = this.restoreActs.length > raLength && (dHash && 'hash' || dIf && '#if'),
                 hasH: booly     // Truthy when there is any before or after event hanlder
                 ;
             if (ill)
@@ -1692,7 +1677,7 @@ class RCompiler {
                         // Update the existing subscriber to work with a new environment
                         ({subs, rvars: pVars} = rng);
                         if(!subs) return;   // Might happen in case of errors during Create
-                        assignEnv(subs.env, env);
+                        assEnv(subs.env, env);
                     }
                     rng.rvars = rvars;
                     rng.val = sub.prevR?.val;
@@ -1709,18 +1694,18 @@ class RCompiler {
                 }
             }
 
-            return bldr == dumB ? N : [elmBldr = addP(
+            return bldr == dumB ? N : [elmBldr = setWs(
                 this.ctLen == cl
                 ? function Elm(ar: Area) {
                     return R.ErrHandling(bldr, srcElm, ar);
                 }
                 : function Elm(ar: Area) {
-                    return bldr(ar).catch((e: string) => {throw OuterOpenTag(srcElm, 40)+' '+e})
+                    return bldr(ar).catch(e => {throw ErrMsg(srcElm, e, 40);})
                 }
-                , 'ws',ws), srcElm, isBl];
+                , ws), srcElm, isBl];
         }
-        catch (err) { 
-            throw OuterOpenTag(srcElm) + ' ' + err;
+        catch (e) { 
+            throw ErrMsg(srcElm, e);
         }
     }
 
@@ -1731,20 +1716,20 @@ class RCompiler {
             rng.errNode = U;
         }
         try {
-            return await builder(ar);
+            await builder(ar);
         } 
-        catch (err) { 
-            let message = 
-                srcNode instanceof HTMLElement ? `${OuterOpenTag(srcNode, 40)} ${err}` : err;
+        catch (e) { 
+            let msg = 
+                srcNode instanceof HTMLElement ? ErrMsg(srcNode, e, 40) : e;
 
             if (this.Settings.bAbortOnError)
-                throw message;
-            console.log(message);
+                throw msg;
+            console.log(msg);
             if (onerr?.bBldr)
-                onerr(err);
+                onerr(e);
             else if (this.Settings.bShowErrors) {
                 let errNode =
-                    ar.parN.insertBefore(createErrNode(message), ar.rng?.FirstOrNext);
+                    ar.parN.insertBefore(createErrNode(msg), ar.rng?.FirstOrNext);
                 if (rng)
                     rng.errNode = errNode;    /*  */
             }
@@ -1843,10 +1828,10 @@ class RCompiler {
         this.rspc = F;
         try {
             if (letNm != N) { /* A regular iteration */
-                let prevNm = atts.g('previous')
-                    , nextNm = atts.g('next');
-                if (prevNm == '') prevNm = 'previous';
-                if (nextNm == '') nextNm = 'next';
+                let pvNm = atts.g('previous')
+                    , nxNm = atts.g('next');
+                if (pvNm == '') pvNm = 'previous';
+                if (nxNm == '') nxNm = 'next';
                 
                 let getRange =
                     this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>
@@ -1862,8 +1847,8 @@ class RCompiler {
                 vLet = this.newV(letNm),
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
                 vIdx = this.newV(idxNm),
-                vPrev = this.newV(prevNm),
-                vNext = this.newV(nextNm),
+                vPrev = this.newV(pvNm),
+                vNext = this.newV(nxNm),
 
                 dKey = this.CompAttrExpr<Key>(atts, 'key'),
                 dHash = this.CompAttrExpr<Hash>(atts, 'hash'),
@@ -1900,7 +1885,7 @@ class RCompiler {
 
                             let nxChR = rng.child,
                                 iterator = nwMap.entries(),
-                                nextIter = nextNm && nwMap.values()
+                                nxIter = nxNm && nwMap.values()
 
                                 , prItem: Item, nxItem: Item
                                 , prRange: Range = N,
@@ -1908,7 +1893,7 @@ class RCompiler {
                             sub.parR = rng;
                             vPrev(); vNext();
 
-                            nextIter?.next();
+                            nxIter?.next();
 
                             while(T) {
                                 let k: Key, nx = iterator.next();
@@ -1927,8 +1912,8 @@ class RCompiler {
                                     , chRng = keyMap.get(key)
                                     , bCr = !chRng;
 
-                                if (nextIter)
-                                    nxItem = nextIter.next().value?.item;
+                                if (nxIter)
+                                    nxItem = nxIter.next().value?.item;
 
                                 if (bCr) {
                                     // Item has to be newly created
@@ -2011,7 +1996,7 @@ class RCompiler {
 
                                     if (bReact)
                                         if (chRng.subs)
-                                            assignEnv(chRng.subs.env, env);
+                                            assEnv(chRng.subs.env, env);
                                         else {
                                             (item as RVAR_Light<Item>).Subscribe(
                                                 chRng.subs = Subscriber(chArea, bodyBldr, chRng.child)
@@ -2028,7 +2013,7 @@ class RCompiler {
                     }
 
                     if (iterable instanceof Promise) {
-                        let subEnv = {env: CloneEnv(env), onerr,  onsuc};
+                        let subEnv = {env: CloneEnv(), onerr,  onsuc};
                         rng.rvars = [RVAR(N, iterable, N, rng.subs = 
                             async iter => {
                                 let save = {env, onerr, onsuc};
@@ -2059,18 +2044,18 @@ class RCompiler {
                 return async function FOREACH_Slot(this: RCompiler, ar: Area) {
                     let {sub} = PrepArea(srcElm, ar),
                         saved= SaveEnv(),
-                        slotDef = env.C[ck];
+                        slotDef = env[ck] as ConstructDef;
                     ixVar();
                     try {
                         let idx = 0;
-                        for (let slotBldr of slotDef.templates) {
+                        for (let slotBldr of slotDef.tmplts) {
                             ixVar(idx++, T);
-                            env.C[ck] = {nm: nm, templates: [slotBldr], CEnv: slotDef.CEnv};
+                            env[ck] = {nm: nm, tmplts: [slotBldr], CEnv: slotDef.CEnv} as ConstructDef;
                             await bodyBldr(sub);
                         }
                     }
                     finally {
-                        env.C[ck] =  slotDef;
+                        env[ck] =  slotDef;
                         RestEnv(saved);
                     }
                 }
@@ -2117,7 +2102,7 @@ class RCompiler {
             bRecurs = atts.gB('recursive'),
             {wspc} = this
             , signats: Array<Signature> = []
-            , templates: Array<ConstructDef> = []
+            , tmplts: Array<ConstructDef> = []
             , {head}=this
             , encStyles = atts.gB('encapsulate') && (this.head = srcElm.ownerDocument.createDocumentFragment()).children
             , save = this.SaveCont();
@@ -2135,15 +2120,15 @@ class RCompiler {
                 signats.push(this.ParseSignat(elm));
 
             if (bRecurs)
-                this.NewConstructs(signats);
+                this.NewCons(signats);
 
             bldr = await this.CompIter(srcElm, arr)
             
-            let mapS = new Map<string, Signature>(signats.map(S => [S.nm, S]));
+            let mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
             async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
                 let S = mapS.get(nm);
                 if (!S) throw `<${nm}> has no signature`;
-                templates.push({nm, templates: [ await RC.CompTempl(S, prnt, elm, F, encStyles) ]})
+                tmplts.push({nm, tmplts: [ await RC.CompTempl(S, prnt, elm, F, encStyles) ]})
                 mapS.delete(nm);
             }
             if (/S/.test(elmTempl.nodeName)) // <TEMPLATES> ?
@@ -2158,28 +2143,28 @@ class RCompiler {
         }
         finally { this.RestoreCont(save); this.head = head; }
 
-        let DefConstrs = this.NewConstructs(signats);
+        let DefCons = this.NewCons(signats);
 
         this.wspc = wspc;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(ar: Area) {
-            let constr: ConstructDef[] = templates.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
+            let constr: ConstructDef[] = tmplts.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
             if (bRecurs)
-                DefConstrs(constr);
+                DefCons(constr);
             let saved = SaveEnv();
             try {
                 bldr && await R.ErrHandling(bldr, srcElm, ar);
 
                 // At runtime, we just have to remember the environment that matches the context
                 // And keep the previous remembered environment, in case of recursive constructs
-                let CEnv = CloneEnv(env);
+                let CEnv = CloneEnv();
                 for(let c of constr)
                     c.CEnv = CEnv;
             }
             finally { RestEnv(saved) }
             if (!bRecurs)
-                DefConstrs(constr);
+                DefCons(constr);
         };
     }
 
@@ -2196,10 +2181,10 @@ class RCompiler {
                     signat.Params.map(
                         ({mode,nm}) => [nm, this.newV((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]
                     ),
-                DC = this.NewConstructs(signat.Slots.values());
+                DC = this.NewCons(signat.Slots.values());
 
             if (!atts)
-                myAtts.ChkNoAttsLeft();
+                myAtts.NoneLeft();
             this.wspc = this.rspc = WSpc.block;
             let
                 builder = await this.CompChilds(contentNode),
@@ -2217,8 +2202,8 @@ class RCompiler {
                         i++;
                     }
                     // Define all slot-constructs
-                    DC(mapIter(mSlotTemplates, 
-                        ([nm, templates]) => ({nm, templates, CEnv: slotEnv, Cnm})
+                    DC(mapI(mSlotTemplates, 
+                        ([nm, tmplts]) => ({nm, tmplts, CEnv: slotEnv, Cnm})
                     ));
 
                     if (encStyles) {
@@ -2239,7 +2224,7 @@ class RCompiler {
                 finally { RestEnv(saved) }
             }
         }
-        catch (err) {throw `${OuterOpenTag(srcElm)} template: ${err}` }
+        catch (e) { throw ErrMsg(srcElm, 'template: '+e); }
         finally { this.RestoreCont(saved) }
     }
 
@@ -2293,17 +2278,17 @@ class RCompiler {
             let modifs = this.CompAtts(atts);
             getArgs.push([
                 RestP.nm, 
-                () => modifs.map(M => ({M, value: M.depV()})) as RestParameter
+                () => modifs.map(M => ({M, v: M.depV()})) as RestParameter
             ]);
         }
         
-        atts.ChkNoAttsLeft();
+        atts.NoneLeft();
         this.wspc = WSpc.inline;
 
         return async function INSTANCE(this: RCompiler, ar: Area) {
-            let IEnv = env,
-                {rng, sub, bCr} = PrepArea(srcElm, ar),
-                cdef = GetC(env, ck),
+            let {rng, sub, bCr} = PrepArea(srcElm, ar),
+                cdef = env[ck] as ConstructDef,
+                IEnv = signat.bIsSlot && signat.Slots.size && cdef.tmplts.length ? CloneEnv() : env,
                 args = rng.res ||= {};
             if (!cdef) return;  //In case of an async imported component, where the client signature has less slots than the real signature
             ro = T;
@@ -2319,8 +2304,8 @@ class RCompiler {
             env = cdef.CEnv;
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
-                for (let templ of cdef.templates) 
-                    await templ(sub, args, SBldrs, signat.bIsSlot && signat.Slots.size ? CloneEnv(IEnv) : IEnv);
+                for (let templ of cdef.tmplts) 
+                    await templ(sub, args, SBldrs, IEnv);
             }
             finally {env = IEnv;}
         }
@@ -2360,8 +2345,8 @@ class RCompiler {
             this.wspc = postWs;
 
         // Now the runtime action
-        return addP(
-            async function ELEMENT(ar: Area) {
+        return setWs(
+            async function ELM(ar: Area) {
                 let {rng: {node}, chArea, bCr} = PrepElm(srcElm, ar, nm || dTag());
                 
                 if (!ar.bRootOnly)
@@ -2376,7 +2361,7 @@ class RCompiler {
                 }
                 ApplyMods(node, modifs, bCr);
             }
-            , 'ws',  postWs == WSpc.block || preWs < WSpc.preserve && childBldr.ws
+            , postWs == WSpc.block || preWs < WSpc.preserve && childBldr.ws
                         // true when whitespace befóre this element may be removed
         );
     }
@@ -2632,7 +2617,7 @@ class RCompiler {
                         let r = hndlr.call(this,ev);
                         if (r instanceof Promise)
                             return r.then(oS && (v => (oS(ev),v)), oE);
-                        if (oS) oS(ev);
+                        oS?.(ev);
                         return r;
                     }
                     catch (e) {
@@ -2713,7 +2698,7 @@ class Atts extends Map<string,string> {
     }
 
     // Check that there are no unrecognized attributes left!
-    public ChkNoAttsLeft() {
+    public NoneLeft() {
         super.delete('hidden'); // Hidden may be added to any construct, so it remains hidden until compiled
         if (super.size)
             throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
@@ -2778,8 +2763,8 @@ function ChkNm(obj: object, nm: string): string {
     return Cnms[nm] = c;
 }
 
-function OuterOpenTag(elm: HTMLElement, maxLen?: number): string {
-    return Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLen-1) + '>';
+function ErrMsg(elm: HTMLElement, e: string, maxLen?: number): string {
+    return Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxLen-1) + '> ' + e;
 }
 function Abbr(s: string, m: number) {
     return (m && s.length > m
@@ -2806,7 +2791,7 @@ function* conc<T>(R: Iterable<T>, S:Iterable<T>)  {
     for (let x of R) yield x;
     for (let x of S) yield x;
 }
-function* mapIter<A, B>(I: Iterable<A>, f: (a:A)=>B): Iterable<B> {
+function* mapI<A, B>(I: Iterable<A>, f: (a:A)=>B): Iterable<B> {
     for (let x of I)
         yield f(x);
 }
@@ -2819,9 +2804,9 @@ function* split(s: string) {
         }        
 }
 
-function addP<T extends object, P extends string, V>(t:T, p: string, v: V): T & {[p in P]: V} {
-    t[p] = v;
-    return t as T & {[p in P]: V};
+function setWs(t:DOMBuilder, v: boolean): DOMBuilder {
+    t.ws = v;
+    return t;
 }
 
 function createErrNode(msg: string) {

@@ -53,9 +53,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     wins?: Set<Window>;
     erase(par: Node): void;
 }
-declare type Environment = Array<any> & {
-    C: Array<ConstructDef>;
-};
+declare type Environment = Array<unknown>;
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
@@ -65,13 +63,6 @@ declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>))
     env?: Environment;
 };
 declare type Handler = (ev: Event) => any;
-declare type ConstructDef = {
-    nm: string;
-    templates: Template[];
-    CEnv?: Environment;
-    Cnm?: string;
-};
-declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
