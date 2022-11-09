@@ -2,7 +2,7 @@ declare const defaults: {
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bRunScripts: boolean;
+    bSubfile: boolean;
     basePattern: string;
     preformatted: string[];
     bNoGlobals: boolean;
@@ -23,7 +23,7 @@ declare type Area = {
     srcN?: ChildNode;
     parR?: Range;
     prevR?: Range;
-    bRootOnly?: boolean;
+    bROnly?: boolean;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
     text?: string;
@@ -53,16 +53,23 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     wins?: Set<Window>;
     erase(par: Node): void;
 }
-declare type Environment = Array<unknown>;
+declare type Environment = Array<unknown | ConstructDef>;
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     sArea?: Area;
     bImm?: boolean;
-    env?: Environment;
+    sEnv?: Environment;
 };
 declare type Handler = (ev: Event) => any;
+declare type ConstructDef = {
+    nm: string;
+    tmplts: Template[];
+    CEnv?: Environment;
+    Cnm?: string;
+};
+declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -97,8 +104,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bRootOnly }: Area, builder: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
-export declare function DoUpdate(): Promise<void>;
+declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
 }
