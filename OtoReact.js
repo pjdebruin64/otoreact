@@ -159,7 +159,6 @@ class Signature {
     constructor(srcElm) {
         this.srcElm = srcElm;
         this.Params = [];
-        this.RestP = N;
         this.Slots = new Map();
         this.nm = srcElm.tagName;
     }
@@ -1240,7 +1239,7 @@ class RCompiler {
                                     throw `Duplicate key '${key}'`;
                                 nwMap.set(key ?? {}, { item, hash, idx: idx++ });
                             }
-                            let nxChR = rng.child, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prRange = N, chArea;
+                            let nxChR = rng.child, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prRange, chArea;
                             sub.parR = rng;
                             vPrev();
                             vNext();

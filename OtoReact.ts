@@ -382,13 +382,14 @@ class Signature {
         this.nm = srcElm.tagName;
     }
     public nm: string;
-    public prom: Promise<any>;
-    public Params: Array<Parameter> = [];
-    public RestP: Parameter = N;
+    public Params: Array<Parameter> = [];   // Parameters
+    public RestP: Parameter;            // Rest parameter (is also in Params)
     public Slots = new Map<string, Signature>();
     public CSlot: Signature;    // Content slot (is also in Slots)
-    public i?: number;
     public bClone: booly;       // truthy when instances need to clone their environment
+
+    // In case of a non-async <import>, details of the signature will initially be missing, and the compilation of instances shall await this promise for the signature to be completed
+    public prom: Promise<any>;              
 
     // Check whether an import signature is compatible with the real module signature
     IsCompat(sig: Signature): boolean {
@@ -1906,7 +1907,7 @@ class RCompiler {
                                 nxIter = nxNm && nwMap.values()
 
                                 , prItem: Item, nxItem: Item
-                                , prRange: Range = N,
+                                , prRange: Range,
                                 chArea: Area;
                             sub.parR = rng;
                             vPrev(); vNext();
