@@ -105,6 +105,7 @@ export declare type RVAR_Light<T> = T & {
     readonly U?: T;
 };
 declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
+export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
 }

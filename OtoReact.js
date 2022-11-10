@@ -280,38 +280,39 @@ function Subscriber({ parN, bROnly }, bldr, rng, ...args) {
 let env, onerr, onsuc, envActs = [], DVars = new Set(), bUpdating, hUpdate, ro = F, updCnt = 0, nodeCnt = 0, start;
 function RUpdate() {
     if (!bUpdating && !hUpdate)
-        hUpdate = setTimeout(async function DoUpdate() {
-            hUpdate = N;
-            if (!R.bCompiled || bUpdating)
-                return;
-            bUpdating = T;
-            try {
-                nodeCnt = 0;
-                start = performance.now();
-                while (DVars.size) {
-                    updCnt++;
-                    let dv = DVars;
-                    DVars = new Set();
-                    for (let rv of dv) {
-                        if (rv.store)
-                            rv.Save();
-                        for (let subs of rv._Subs)
-                            if (!subs.bImm)
-                                try {
-                                    await subs(rv instanceof _RVAR ? rv.V : rv);
-                                }
-                                catch (e) {
-                                    console.log(e = `ERROR: ` + LAbbr(e));
-                                    alert(e);
-                                }
-                    }
-                }
-                R.log(`Updated ${nodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+        hUpdate = setTimeout(DoUpdate, 5);
+}
+export async function DoUpdate() {
+    hUpdate = N;
+    if (!R.bCompiled || bUpdating)
+        return;
+    bUpdating = T;
+    try {
+        nodeCnt = 0;
+        start = performance.now();
+        while (DVars.size) {
+            updCnt++;
+            let dv = DVars;
+            DVars = new Set();
+            for (let rv of dv) {
+                if (rv.store)
+                    rv.Save();
+                for (let subs of rv._Subs)
+                    if (!subs.bImm)
+                        try {
+                            await subs(rv instanceof _RVAR ? rv.V : rv);
+                        }
+                        catch (e) {
+                            console.log(e = `ERROR: ` + LAbbr(e));
+                            alert(e);
+                        }
             }
-            finally {
-                bUpdating = F;
-            }
-        }, 5);
+        }
+        R.log(`Updated ${nodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+    }
+    finally {
+        bUpdating = F;
+    }
 }
 export function RVAR(nm, value, store, subs, storeName) {
     let r = new _RVAR(nm, value, store, storeName);
