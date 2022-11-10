@@ -21,7 +21,7 @@
             <template> <!-- Defines (hulp)c -->
               <para>  <!-- instance -->
                 <c>   <!-- slot template -->
-                  <c beforecreate="debugger // c(hulp)"></c>
+                  <c></c>
                 </c>
               </para>
             </template>
@@ -29,17 +29,16 @@
 
           <content> <!-- instance -->
             <sub1>  <!-- slot template, defines (sub1)c -->
-              <hulp beforecreate="debugger // hulp"> <!-- instance -->
+              <hulp> <!-- instance -->
                 <para> <!-- slot template, defines (para)c -->
                   <def let="x" value="para(hulp)"></def>
                   <h1>
-                    <c beforecreate="debugger // c(para)"></c> <!-- para slot instance -->
+                    <c></c> <!-- para slot instance -->
                   </h1>
                 </para>
                 <c>   <!-- slot template -->
                   <def let="x" value="c(hulp)"></def>
-                  <c beforecreate="debugger // c(sub1)"></c>   <!-- sub1 slot instance-->
-                  <!-- Hier vindt ie c(para) ipv c(sub1) -->
+                  <c></c>   <!-- sub1 slot instance-->
                 </c>
               </hulp>
             </sub1>
@@ -47,7 +46,9 @@
         </template>
       </component>
 
-      <COMP beforecreate="debugger">
+      Dit moet er uit zien zoals <{}h1>SUB1<{}/h1>:
+
+      <COMP #if="1">
         <sub1><c>SUB1</c></sub1>
       </COMP>
 
@@ -75,7 +76,7 @@
 <hr>
         <def rvar="R"></def>
 
-        <radiogroup name="test">
+        <radiogroup name="test" beforecreate="debugger">
           <radiobutton reacton="R" #label="R.V"></radiobutton>
         </radiogroup>
 
@@ -83,16 +84,10 @@
           Will the button still have the correct group name?
         -->
 
-        <button onclick="R.V = 'updated'">Update</button>
+        <button onclick="R.V = 'updated'">Update</button> "test" moet blijven staan als je update
 
         <hr>
         <def beforeupdate="" rvar="N" #value="0" reacton="R"></def>
-        <button onclick="N.V++">{N}</button>
-
-        <hr>
-        Test <pre>pre
-
-          
-        </pre> Post
+        <button onclick="N.V++">{N}</button> Deze moet terugspringen naar 0 als je op 'Update' klikt
     </body>
 </html>

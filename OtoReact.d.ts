@@ -40,7 +40,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     Nodes(): Generator<ChildNode>;
     res?: any;
     val?: any;
-    errNode?: ChildNode;
+    errN?: ChildNode;
     bfDest?: Handler;
     onDest?: Handler;
     hash?: Hash;

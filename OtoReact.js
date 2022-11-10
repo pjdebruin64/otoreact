@@ -154,7 +154,9 @@ function NewEnv() {
 function CloneEnv(e = env) {
     return ass([], e);
 }
-const assEnv = ass;
+function assEnv(target, source) {
+    ass(target, source);
+}
 class Signature {
     constructor(srcElm) {
         this.srcElm = srcElm;
@@ -1147,14 +1149,14 @@ class RCompiler {
             throw ErrMsg(srcElm, e);
         }
     }
-    async ErrHandling(builder, srcNode, ar) {
+    async ErrHandling(bldr, srcNode, ar) {
         let { rng } = ar;
-        if (rng && rng.errNode) {
-            ar.parN.removeChild(rng.errNode);
-            rng.errNode = U;
+        if (rng?.errN) {
+            ar.parN.removeChild(rng.errN);
+            rng.errN = U;
         }
         try {
-            await builder(ar);
+            await bldr(ar);
         }
         catch (e) {
             let msg = srcNode instanceof HTMLElement ? ErrMsg(srcNode, e, 39) : e;
@@ -1164,9 +1166,9 @@ class RCompiler {
             if (onerr?.bBldr)
                 onerr(e);
             else if (this.Settings.bShowErrors) {
-                let errNode = ar.parN.insertBefore(createErrNode(msg), ar.rng?.FirstOrNext);
+                let errN = ar.parN.insertBefore(createErrNode(msg), ar.rng?.FirstOrNext);
                 if (rng)
-                    rng.errNode = errNode;
+                    rng.errN = errN;
             }
         }
     }
@@ -1451,10 +1453,9 @@ class RCompiler {
         }
         finally {
             this.RestoreCont(SC);
-            this.head = head;
+            ass(this.head, { head, ws });
         }
         DC || (DC = this.NewCons(signats));
-        this.ws = ws;
         return async function COMPONENT(ar) {
             let constr = tmplts.map(C => ({ ...C }));
             if (bRec)
@@ -1480,8 +1481,8 @@ class RCompiler {
             if (!atts)
                 myAtts.NoneLeft();
             this.ws = this.rspc = 1;
-            let builder = await this.CompChilds(contentNode), Cnm = signat.nm, custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
-            return async function TEMPLATE(ar, args, mSlotTemplates, slotEnv) {
+            let bldr = await this.CompChilds(contentNode), Cnm = signat.nm, custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
+            return async function TEMPLATE(ar, args, mSlots, CEnv) {
                 let SE = SaveEnv(), i = 0;
                 try {
                     for (let [nm, lv] of lvars) {
@@ -1489,8 +1490,7 @@ class RCompiler {
                         lv(arg !== U ? arg : signat.Params[i]?.pDflt?.());
                         i++;
                     }
-                    DC(mapI(mSlotTemplates, ([nm, tmplts]) => ({ nm, tmplts, CEnv: slotEnv, Cnm,
-                    })));
+                    DC(mapI(mSlots, ([nm, tmplts]) => ({ nm, tmplts, CEnv, Cnm })));
                     if (encStyles) {
                         let { rng: elmRange, chArea, bCr } = PrepElm(srcElm, ar, custNm), elm = elmRange.node, shadow = elm.shadowRoot || elm.attachShadow({ mode: 'open' });
                         if (bCr)
@@ -1501,7 +1501,7 @@ class RCompiler {
                         chArea.parN = shadow;
                         ar = chArea;
                     }
-                    await builder(ar);
+                    await bldr(ar);
                 }
                 finally {
                     RestEnv(SE);
@@ -1554,7 +1554,7 @@ class RCompiler {
         atts.NoneLeft();
         this.ws = 3;
         return async function INSTANCE(ar) {
-            let { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = env[ck], IEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env, args = rng.res || (rng.res = {});
+            let { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = env[ck], IEnv = env, SEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env, args = rng.res || (rng.res = {});
             if (!cdef)
                 return;
             ro = T;
@@ -1569,7 +1569,7 @@ class RCompiler {
             env = cdef.CEnv;
             try {
                 for (let templ of cdef.tmplts)
-                    await templ(sub, args, SBldrs, IEnv);
+                    await templ(sub, args, SBldrs, SEnv);
             }
             finally {
                 env = IEnv;

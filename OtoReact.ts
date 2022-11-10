@@ -78,7 +78,7 @@ type Area = {
 
     /* When rng, i.e. when the DOM has to be updated: */
     bROnly?: boolean,  // true == just update the root node, not its children
-                        // Set by 'thisreactson'.
+                          // Set by 'thisreactson'.
 }
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
@@ -164,7 +164,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     res?: any;  // Some result value to be kept by a builder
     val?: any;  // Some other value to be kept by a builder
 
-    errNode?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
+    errN?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
 
     bfDest?: Handler;   // Before destroy handler
     onDest?: Handler;   // After destroy handler
@@ -357,8 +357,9 @@ function NewEnv(): Environment {
 function CloneEnv(e: Environment = env): Environment {
     return ass([], e);
 }
-//function assEnv(target: Environment, source: Environment) {  ass(target, source); }
-const assEnv = ass;
+function assEnv(target: Environment, source: Environment) {
+    ass(target, source);
+}
 
 type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
     {   sArea?: Area;
@@ -392,9 +393,9 @@ class Signature {
     public prom: Promise<any>;              
 
     // Check whether an import signature is compatible with the real module signature
-    IsCompat(sig: Signature): boolean {
+    IsCompat(sig: Signature): booly {
         if (!sig) return ;
-        let r = T,
+        let r = <booly>T,
             mParams = new Map(mapI(sig.Params,p => [p.nm, !!p.pDflt]));
         // All parameters in the import must be present in the module
         for (let {nm, pDflt} of this.Params)
@@ -585,36 +586,36 @@ function RUpdate() {
     if (!bUpdating && !hUpdate)
         hUpdate = setTimeout(
             async function DoUpdate() {
-                hUpdate = N;
-                if (!R.bCompiled || bUpdating)
-                    return;
+            hUpdate = N;
+    if (!R.bCompiled || bUpdating)
+        return;
 
-                bUpdating = T;
-                try {
-                    nodeCnt = 0;
-                    start = performance.now();
-                    while (DVars.size) {
-                        updCnt++;
-                        let dv = DVars;
-                        DVars = new Set();
-                        for (let rv of dv) {
-                            if (rv.store)
-                                rv.Save();
-                            for (let subs of rv._Subs)
-                                if (!subs.bImm)
-                                    try { 
-                                        await subs(rv instanceof _RVAR ? rv.V : rv); 
-                                    }
-                                    catch (e) {    
-                                        console.log(e = `ERROR: `+LAbbr(e));
-                                        alert(e);
-                                    }
+    bUpdating = T;
+    try {
+        nodeCnt = 0;
+        start = performance.now();
+        while (DVars.size) {
+            updCnt++;
+            let dv = DVars;
+            DVars = new Set();
+            for (let rv of dv) {
+                if (rv.store)
+                    rv.Save();
+                for (let subs of rv._Subs)
+                    if (!subs.bImm)
+                        try { 
+                            await subs(rv instanceof _RVAR ? rv.V : rv); 
                         }
-                    }
-                    R.log(`Updated ${nodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
-                }
-                finally { bUpdating = F; }
+                        catch (e) {    
+                            console.log(e = `ERROR: `+LAbbr(e));
+                            alert(e);
+                        }
             }
+        }
+        R.log(`Updated ${nodeCnt} nodes in ${(performance.now() - start).toFixed(1)} ms`);
+    }
+    finally { bUpdating = F; }
+}
         , 5);
 }
 
@@ -1719,14 +1720,14 @@ class RCompiler {
         }
     }
 
-    private async ErrHandling(builder: DOMBuilder, srcNode: ChildNode, ar: Area){
+    private async ErrHandling(bldr: DOMBuilder, srcNode: ChildNode, ar: Area){
         let {rng} = ar;
-        if (rng && rng.errNode) {
-            ar.parN.removeChild(rng.errNode);
-            rng.errNode = U;
+        if (rng?.errN) {
+            ar.parN.removeChild(rng.errN);
+            rng.errN = U;
         }
         try {
-            await builder(ar);
+            await bldr(ar);
         } 
         catch (e) { 
             let msg = 
@@ -1738,10 +1739,10 @@ class RCompiler {
             if (onerr?.bBldr)
                 onerr(e);
             else if (this.Settings.bShowErrors) {
-                let errNode =
+                let errN =
                     ar.parN.insertBefore(createErrNode(msg), ar.rng?.FirstOrNext);
                 if (rng)
-                    rng.errNode = errNode;    /*  */
+                    rng.errN = errN;    /*  */
             }
         }
     }
@@ -1815,9 +1816,9 @@ class RCompiler {
                             (obj = await prom, 
                                 varlist.map(nm => {
                                     if (!(nm in obj))
-                                        throw `'${nm}' is not exported by this script`;
+                                throw `'${nm}' is not exported by this script`;
                                     return obj[nm];
-                                })
+                        })
                             )
                     );
                 }
@@ -2127,11 +2128,11 @@ class RCompiler {
                 && (this.head = srcElm.ownerDocument.createDocumentFragment()).children
             //, DC: (CDefs: Iterable<ConstructDef>) => void
             , arr = Array.from(srcElm.children) as Array<HTMLElement>
-            , elmSign = arr.shift()
+                , elmSign = arr.shift()
             , elmTempl = arr.pop()
             , t = /^TEMPLATE(S)?$/.exec(elmTempl?.tagName);
 
-        if (!elmSign) throw 'Missing signature(s)';
+            if (!elmSign) throw 'Missing signature(s)';
         if (!t) throw 'Missing template(s)';
 
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
@@ -2163,11 +2164,9 @@ class RCompiler {
             for (let nm of mapS.keys())
                 throw `Signature <${nm}> has no template`;
         }
-        finally { this.RestoreCont(SC); this.head = head; }
+        finally { this.RestoreCont(SC); ass(this.head, {head, ws}); }
 
         DC ||= this.NewCons(signats);
-
-        this.ws = ws;
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMPONENT(ar: Area) {
@@ -2209,12 +2208,16 @@ class RCompiler {
                 myAtts.NoneLeft();
             this.ws = this.rspc = WSpc.block;
             let
-                builder = await this.CompChilds(contentNode),
+                bldr = await this.CompChilds(contentNode),
                 Cnm = signat.nm,
                 custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
 
-            return async function TEMPLATE(ar: Area, args: unknown[], mSlotTemplates, slotEnv
-                ) {
+            // Routine to instantiate the template
+            return async function TEMPLATE(ar: Area
+                , args: unknown[]                   // Arguments to the template
+                , mSlots: Map<string, Template[]>   // Map of slot templates
+                , CEnv: Environment                 // Environment to be used for the slot templates
+            ) {
                 let SE = SaveEnv(), i = 0;
                 try {
                     // Set parameter values as local variables
@@ -2224,9 +2227,8 @@ class RCompiler {
                         i++;
                     }
                     // Define all slot-constructs
-                    DC(mapI(mSlotTemplates, 
-                        ([nm, tmplts]) => ({nm, tmplts, CEnv: slotEnv, Cnm,
-                        })
+                    DC(mapI(mSlots, 
+                        ([nm, tmplts]) => ({nm, tmplts, CEnv, Cnm})
                     ));
 
                     if (encStyles) {
@@ -2242,7 +2244,7 @@ class RCompiler {
                         chArea.parN = shadow;
                         ar = chArea;
                     }
-                    await builder(ar); 
+                    await bldr(ar); 
                 }
                 finally { RestEnv(SE) }
             }
@@ -2311,7 +2313,8 @@ class RCompiler {
         return async function INSTANCE(this: RCompiler, ar: Area) {
             let {rng, sub, bCr} = PrepArea(srcElm, ar),
                 cdef = env[ck] as ConstructDef,
-                IEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env,
+                IEnv = env,
+                SEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env,
                 args = rng.res ||= {};
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
             ro = T;
@@ -2328,7 +2331,7 @@ class RCompiler {
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
                 for (let templ of cdef.tmplts) 
-                    await templ(sub, args, SBldrs, IEnv);
+                    await templ(sub, args, SBldrs, SEnv);
             }
             finally {env = IEnv;}
         }
