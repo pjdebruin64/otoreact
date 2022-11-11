@@ -74,20 +74,81 @@
       </component>
 
 <hr>
-        <def rvar="R"></def>
+      <def rvar="R" value=""></def>
 
-        <radiogroup name="test" beforecreate="debugger">
-          <radiobutton reacton="R" #label="R.V"></radiobutton>
-        </radiogroup>
+      <radiogroup name="test">
+        <radiobutton reacton="R" #label="R.V"></radiobutton>
+      </radiogroup>
 
-        <!-- Now, when we set R dirty, the button will be updated but the group not.
-          Will the button still have the correct group name?
-        -->
+      <!-- Now, when we set R dirty, the button will be updated but the group not.
+        Will the button still have the correct group name?
+      -->
 
-        <button onclick="R.V = 'updated'">Update</button> "test" moet blijven staan als je update
+      <button onclick="R.U = 'updated'">Update</button> "test" moet blijven staan als je update
+      <p><react on="R">Button: {R.V}</react> <button>button</button></p>
 
-        <hr>
-        <def beforeupdate="" rvar="N" #value="0" reacton="R"></def>
-        <button onclick="N.V++">{N}</button> Deze moet terugspringen naar 0 als je op 'Update' klikt
+      <hr>
+      <def beforecreate="debugger" rvar="N" #value="0" reacton="R"></def>
+      <button onclick="N.V++">{N}</button> Deze moet terugspringen naar 0 als je op 'Update' klikt
+
+<hr>
+
+<style>
+  .ShowList {
+      display: flex; flex-wrap: wrap; align-items: center;
+      background-color: goldenrod;
+  }
+  .ShowList > div {
+      background-color: lemonchiffon;
+      margin: 4px; padding: 8px; font-size: 18px;
+  }
+</style>
+<component recursive>
+  <ShowList #arg></ShowList>
+
+  <template #arg>
+      <if cond="Array.isArray(arg)">
+          <then>
+              <div class=ShowList>
+                  <for let=item of=arg>
+                      <div>
+                          <!-- Recursive invocation -->
+                          <ShowList #arg=item></ShowList>
+                      </div>
+                  </for>
+                  ({arg?.length})
+              </div>
+          </then>
+          <else>
+              {arg}
+          </else>
+      </if>
+  </template>
+</component>
+
+    <define rvar=list 
+      value="[1, [2,3], [4,[ ,[[42]]], 5, 'Otolift']]"
+      store=sessionStorage
+    ></define>
+
+    <p>
+        JavaScript list: <input type=text @value="list.V" size=30>
+    </p>
+
+    <ShowList #arg="eval(list.V)"></ShowList>
+<hr>
+
+    <component>
+      <boxed #arg><contents></contents></boxed>
+      <template #arg>
+          <div class=ShowList>
+              <div>
+                  <contents></contents>
+              </div>
+              ({arg})
+          </div>
+      </template>
+    </component>
+    <boxed arg=1>Contents:<boxed arg=2>Ok</boxed></boxed>
     </body>
 </html>

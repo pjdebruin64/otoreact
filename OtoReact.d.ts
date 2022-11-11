@@ -69,7 +69,7 @@ declare type ConstructDef = {
     CEnv?: Environment;
     Cnm?: string;
 };
-declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment) => Promise<void>;
+declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, cdef: ConstructDef, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;

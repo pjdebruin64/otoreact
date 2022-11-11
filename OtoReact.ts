@@ -384,10 +384,10 @@ class Signature {
     }
     public nm: string;
     public Params: Array<Parameter> = [];   // Parameters
-    public RestP: Parameter;            // Rest parameter (is also in Params)
+    public RP: Parameter;            // Rest parameter (is also in Params)
     public Slots = new Map<string, Signature>();
     public CSlot: Signature;    // Content slot (is also in Slots)
-    public bClone: booly;       // truthy when instances need to clone their environment
+    public bCln: booly;       // truthy when instances need to clone their environment
 
     // In case of a non-async <import>, details of the signature will initially be missing, and the compilation of instances shall await this promise for the signature to be completed
     public prom: Promise<any>;              
@@ -427,7 +427,7 @@ type ConstructDef = {
 /*
 */
 type Template = 
-    (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment)
+    (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, cdef: ConstructDef, slotEnv: Environment)
     => Promise<void>;
 
 
@@ -782,9 +782,9 @@ class RCompiler {
 
     // Compile-time "context" data:
     private ct: string;        // comma-separated list of visible variables, to match against 'env'
-    private ctLen: number;     // env length at the current execution point
+    private ctL: number;     // env length at the current execution point
     private ctMap: Context;    // Mapping of visible variable names to 'env' indices
-    private ctSigns: Map<string, [Signature, CKey]>;    // Mapping of visible construct names to construct signatures and 'env' indices
+    private ctSigs: Map<string, [Signature, CKey]>;    // Mapping of visible construct names to construct signatures and 'env' indices
 
     private cRvars = new Map<string,boolean>(); //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
 
@@ -805,8 +805,8 @@ class RCompiler {
         if (bClr) RC=this;
         this.ct    = RC.ct || "";
         this.ctMap = new Map(RC.ctMap);
-        this.ctLen = RC.ctLen || 0;
-        this.ctSigns = new Map(RC.ctSigns);
+        this.ctL = RC.ctL || 0;
+        this.ctSigs = new Map(RC.ctSigs);
     }
 
     private restoreActs: Array<() => void> = [];
@@ -819,28 +819,51 @@ class RCompiler {
             this.restoreActs.pop()();
     }
 
+    private async Framed(gBldr: ()=>Promise<DOMBuilder>): Promise<DOMBuilder> {
+        let {ct,ctL,ctMap,ctSigs} = this;
+        this.ct = `[${ct}],`;
+        this.ctL = 1;
+        this.ctMap = new Map();
+        try {
+            let bldr = await gBldr();
+
+            return async function Frame(ar: Area) {
+                env = [env];
+                try {
+                    await bldr(ar);
+                }
+                finally {
+                    env = env[0] as Environment;
+                }
+            }
+        }
+        finally {
+            ass(this, {ct,ctL,ctMap,ctSigs})
+        }
+    }
+
     private newV(nm: string): LVar {
         let lv: LVar;
         if (!(nm = nm?.trim()))
             // Lege variabelenamen staan we toe; dan wordt er niets gedefinieerd
            lv = dU as LVar;
         else {
-            let {ct,ctLen,ctMap} = this,
+            let {ct,ctL,ctMap} = this,
                 i = ctMap.get(ChkId(nm));
 
             this.restoreActs.push(() => {
                 this.ct = ct;
-                this.ctLen = ctLen;
+                this.ctL = ctL;
                 mapSet(ctMap, nm, i);
             });
 
             this.ct = ct.replace(new RegExp(`\\b${nm}\\b`), '') + nm + ',';
-            ctMap.set(nm , this.ctLen++);
+            ctMap.set(nm , this.ctL++);
 
             lv =
                 ((v: unknown, bUpd?: boolean) => {
                     if (!bUpd) envActs.push(() => env.pop());
-                    env[ctLen] = v;
+                    env[ctL] = v;
                 }) as LVar;
         }
         lv.nm = nm;
@@ -851,22 +874,22 @@ class RCompiler {
     }
 
     private NewCons(listS: Iterable<Signature>) {
-        let {ctLen, ct, ctSigns} = this,
+        let {ctL, ct, ctSigs} = this,
             prevCs: Array<[string, [Signature,CKey]]> = [];
         for (let S of listS) {
-            prevCs.push([S.nm, ctSigns.get(S.nm)]);
-            ctSigns.set(S.nm, [S, this.ctLen++]);
+            prevCs.push([S.nm, ctSigs.get(S.nm)]);
+            ctSigs.set(S.nm, [S, this.ctL++]);
             this.ct += ',';
         }
         if (!prevCs.length) return dU;
         this.restoreActs.push(() => {
-            ass(this, {ctLen, ct});
+            ass(this, {ctL, ct});
             for (let [nm, CS] of prevCs)
-                mapSet(ctSigns, nm, CS);
+                mapSet(ctSigs, nm, CS);
         });
         return (CDefs: Iterable<ConstructDef>) => {
-            envActs.push(() => env.length = ctLen );
-            let i = ctLen;
+            envActs.push(() => env.length = ctL );
+            let i = ctL;
             for (let C of CDefs)
                 env[i++] = C;
         }
@@ -1044,7 +1067,7 @@ class RCompiler {
                 tag = srcElm.tagName,
                 // List of source attributes, to check for unrecognized attributes
                 atts =  new Atts(srcElm),
-                cl = this.ctLen,
+                cl = this.ctL,
                 // (this)react(s)on handlers
                 reacts: Array<{att: string, dRV: Dependent<RVAR[]>}> = [],
 
@@ -1069,7 +1092,7 @@ class RCompiler {
                 , m: RegExpExecArray, nm: string
 
                 // See if this node is a user-defined construct (component or slot) instance
-                ,constr = this.ctSigns.get(tag)
+                ,constr = this.ctSigs.get(tag)
 
                 // Check for generic attributes
                 , dIf = this.CompAttrExpr(atts, 'if')
@@ -1355,7 +1378,7 @@ class RCompiler {
 
                                 // Check or register the imported signatures
                                 for (let clientSig of listImps) {
-                                    let signat = C.ctSigns.get(clientSig.nm);
+                                    let signat = C.ctSigs.get(clientSig.nm);
                                     if (!signat)
                                         throw `<${clientSig.nm}> is missing in '${src}'`;
                                     if (bAsync && !clientSig.IsCompat(signat[0]))
@@ -1365,7 +1388,7 @@ class RCompiler {
                                     if ((v.i = C.ctMap.get(v.nm)) == N)
                                         throw `Module does not define '${v.nm}'`;
                                         
-                                return [bldr.bind(C), C.ctSigns];
+                                return [bldr.bind(C), C.ctSigs];
 
                             });
                             RModules.set(src, promModule);
@@ -1706,7 +1729,7 @@ class RCompiler {
             }
 
             return bldr == dumB ? N : [elmBldr = setWs(
-                this.ctLen == cl
+                this.ctL == cl
                 ? function Elm(ar: Area) {
                     return R.ErrHandling(bldr, srcElm, ar);
                 }
@@ -2048,7 +2071,7 @@ class RCompiler {
             else { 
                 /* Iterate over multiple slot instances */
                 let nm = atts.g('of', T, T).toUpperCase(),
-                    CS = this.ctSigns.get(nm);
+                    CS = this.ctSigs.get(nm);
 
                 if (!CS)
                     // Slot doesn't exist; it's probably a missing 'let'
@@ -2082,11 +2105,11 @@ class RCompiler {
         finally { this.RestoreCont(SC) }
     }
 
-    private ParseSign(elmSignat: Element, bClone?: boolean):  Signature {
+    private ParseSign(elmSignat: Element):  Signature {
         let sig = new Signature(elmSignat);
         for (let attr of elmSignat.attributes) {
-            if (sig.RestP) 
-                throw `Rest parameter must be the last`;
+            if (sig.RP) 
+                throw `Rest parameter must be last`;
             let m = /^(#|@|\.\.\.|_|)(.*?)(\?)?$/.exec(attr.name);
             if (m[1] != '_') {
                 let param = { 
@@ -2101,19 +2124,18 @@ class RCompiler {
                     }
                 sig.Params.push(param);
                 if (m[1] == '...')
-                    sig.RestP = param;
+                    sig.RP = param;
             }
         }
         for (let elmSlot of elmSignat.children) {
             let s = this.ParseSign(elmSlot);
-            s.bClone = s.Slots.size;
+            s.bCln = s.Slots.size;
             mapNm(sig.Slots, s);
             if (/^CONTENT/.test(s.nm)) {
                 if (sig.CSlot) throw 'Multiple content slots';
                 sig.CSlot = s;
             }
         }
-        sig.bClone = bClone;
         return sig;
     }
 
@@ -2136,7 +2158,7 @@ class RCompiler {
         if (!t) throw 'Missing template(s)';
 
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
-            signats.push(this.ParseSign(elm, bRec));
+            signats.push(this.ParseSign(elm));
 
         let DC = bRec && this.NewCons(signats)
             , SC = this.SaveCont();
@@ -2197,6 +2219,7 @@ class RCompiler {
             SC = this.SaveCont();
         try {
             let 
+                {ctL} = this,
                 myAtts = atts || new Atts(srcElm),
                 lvars: Array<[string, LVar]> =
                     signat.Params.map(
@@ -2216,8 +2239,12 @@ class RCompiler {
             return async function TEMPLATE(ar: Area
                 , args: unknown[]                   // Arguments to the template
                 , mSlots: Map<string, Template[]>   // Map of slot templates
+                , cdef: ConstructDef
                 , CEnv: Environment                 // Environment to be used for the slot templates
             ) {
+                env = cdef.CEnv;
+                if (env.length > ctL) 
+                    env = cdef.CEnv = env.slice(0, ctL);
                 let SE = SaveEnv(), i = 0;
                 try {
                     // Set parameter values as local variables
@@ -2239,8 +2266,8 @@ class RCompiler {
                             for (let style of encStyles)
                                 shadow.appendChild(style.cloneNode(T));
                         
-                        if (signat.RestP)
-                            ApplyMod(elm, {mt: MType.RestArgument, nm: N, depV: null}, args[signat.RestP.nm], bCr);
+                        if (signat.RP)
+                            ApplyMod(elm, {mt: MType.RestArgument, nm: N, depV: null}, args[signat.RP.nm], bCr);
                         chArea.parN = shadow;
                         ar = chArea;
                     }
@@ -2260,7 +2287,9 @@ class RCompiler {
     ) {
         if (signat.prom)
             await signat.prom;
-        let {RestP, CSlot} = signat,
+        let 
+            
+            {RP, CSlot} = signat,
             getArgs: Array<[string,Dependent<unknown>,Dependent<Handler>?]> = [],
             SBldrs = new Map<string, Template[]>();
 
@@ -2299,10 +2328,10 @@ class RCompiler {
                 await this.CompTempl(CSlot, srcElm, srcElm, T, N, atts)
             );
 
-        if (RestP) {
+        if (RP) {
             let modifs = this.CompAtts(atts);
             getArgs.push([
-                RestP.nm, 
+                RP.nm, 
                 () => modifs.map(M => ({M, v: M.depV()})) as RestParameter
             ]);
         }
@@ -2314,7 +2343,7 @@ class RCompiler {
             let {rng, sub, bCr} = PrepArea(srcElm, ar),
                 cdef = env[ck] as ConstructDef,
                 IEnv = env,
-                SEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env,
+                SEnv = signat.bCln && cdef?.tmplts?.length ? CloneEnv() : env,
                 args = rng.res ||= {};
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
             ro = T;
@@ -2327,11 +2356,10 @@ class RCompiler {
                     args[nm].V = dGet();
             
             ro = F;
-            env = cdef.CEnv;
             try {
                 //for (let {nm, pDflt} of signat.Params) if (args[nm] === u) args[nm] = pDflt();
                 for (let templ of cdef.tmplts) 
-                    await templ(sub, args, SBldrs, SEnv);
+                    await templ(sub, args, SBldrs, cdef, SEnv);
             }
             finally {env = IEnv;}
         }

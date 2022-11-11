@@ -450,8 +450,8 @@ class RCompiler {
             RC = this;
         this.ct = RC.ct || "";
         this.ctMap = new Map(RC.ctMap);
-        this.ctLen = RC.ctLen || 0;
-        this.ctSigns = new Map(RC.ctSigns);
+        this.ctL = RC.ctL || 0;
+        this.ctSigs = new Map(RC.ctSigs);
     }
     SaveCont() {
         return this.restoreActs.length;
@@ -460,24 +460,45 @@ class RCompiler {
         for (let j = this.restoreActs.length; j > sv; j--)
             this.restoreActs.pop()();
     }
+    async Framed(gBldr) {
+        let { ct, ctL, ctMap, ctSigs } = this;
+        this.ct = `[${ct}],`;
+        this.ctL = 1;
+        this.ctMap = new Map();
+        try {
+            let bldr = await gBldr();
+            return async function Frame(ar) {
+                env = [env];
+                try {
+                    await bldr(ar);
+                }
+                finally {
+                    env = env[0];
+                }
+            };
+        }
+        finally {
+            ass(this, { ct, ctL, ctMap, ctSigs });
+        }
+    }
     newV(nm) {
         let lv;
         if (!(nm = nm?.trim()))
             lv = dU;
         else {
-            let { ct, ctLen, ctMap } = this, i = ctMap.get(ChkId(nm));
+            let { ct, ctL, ctMap } = this, i = ctMap.get(ChkId(nm));
             this.restoreActs.push(() => {
                 this.ct = ct;
-                this.ctLen = ctLen;
+                this.ctL = ctL;
                 mapSet(ctMap, nm, i);
             });
             this.ct = ct.replace(new RegExp(`\\b${nm}\\b`), '') + nm + ',';
-            ctMap.set(nm, this.ctLen++);
+            ctMap.set(nm, this.ctL++);
             lv =
                 ((v, bUpd) => {
                     if (!bUpd)
                         envActs.push(() => env.pop());
-                    env[ctLen] = v;
+                    env[ctL] = v;
                 });
         }
         lv.nm = nm;
@@ -487,22 +508,22 @@ class RCompiler {
         return Array.from(split(varlist), nm => this.newV(nm));
     }
     NewCons(listS) {
-        let { ctLen, ct, ctSigns } = this, prevCs = [];
+        let { ctL, ct, ctSigs } = this, prevCs = [];
         for (let S of listS) {
-            prevCs.push([S.nm, ctSigns.get(S.nm)]);
-            ctSigns.set(S.nm, [S, this.ctLen++]);
+            prevCs.push([S.nm, ctSigs.get(S.nm)]);
+            ctSigs.set(S.nm, [S, this.ctL++]);
             this.ct += ',';
         }
         if (!prevCs.length)
             return dU;
         this.restoreActs.push(() => {
-            ass(this, { ctLen, ct });
+            ass(this, { ctL, ct });
             for (let [nm, CS] of prevCs)
-                mapSet(ctSigns, nm, CS);
+                mapSet(ctSigs, nm, CS);
         });
         return (CDefs) => {
-            envActs.push(() => env.length = ctLen);
-            let i = ctLen;
+            envActs.push(() => env.length = ctL);
+            let i = ctL;
             for (let C of CDefs)
                 env[i++] = C;
         };
@@ -629,7 +650,7 @@ class RCompiler {
     }
     async CompElm(srcPrnt, srcElm, bUnhide) {
         try {
-            let tag = srcElm.tagName, atts = new Atts(srcElm), cl = this.ctLen, reacts = [], bfor = [], after = [], raLength = this.restoreActs.length, dOnerr, dOnsuc, bldr, elmBldr, isBl, m, nm, constr = this.ctSigns.get(tag), dIf = this.CompAttrExpr(atts, 'if'), dHash = tag != 'FOR' && this.compAttrExprList(atts, 'hash');
+            let tag = srcElm.tagName, atts = new Atts(srcElm), cl = this.ctL, reacts = [], bfor = [], after = [], raLength = this.restoreActs.length, dOnerr, dOnsuc, bldr, elmBldr, isBl, m, nm, constr = this.ctSigs.get(tag), dIf = this.CompAttrExpr(atts, 'if'), dHash = tag != 'FOR' && this.compAttrExprList(atts, 'hash');
             for (let att of atts.keys())
                 if (m = genAtts.exec(att))
                     if (m[1])
@@ -842,7 +863,7 @@ class RCompiler {
                                 promModule = this.fetchModule(src).then(async (nodes) => {
                                     let bldr = (await C.CompIter(N, nodes)) || dumB;
                                     for (let clientSig of listImps) {
-                                        let signat = C.ctSigns.get(clientSig.nm);
+                                        let signat = C.ctSigs.get(clientSig.nm);
                                         if (!signat)
                                             throw `<${clientSig.nm}> is missing in '${src}'`;
                                         if (bAsync && !clientSig.IsCompat(signat[0]))
@@ -851,7 +872,7 @@ class RCompiler {
                                     for (let v of lvars)
                                         if ((v.i = C.ctMap.get(v.nm)) == N)
                                             throw `Module does not define '${v.nm}'`;
-                                    return [bldr.bind(C), C.ctSigns];
+                                    return [bldr.bind(C), C.ctSigs];
                                 });
                                 RModules.set(src, promModule);
                             }
@@ -1138,7 +1159,7 @@ class RCompiler {
                     }
                 };
             }
-            return bldr == dumB ? N : [elmBldr = setWs(this.ctLen == cl
+            return bldr == dumB ? N : [elmBldr = setWs(this.ctL == cl
                     ? function Elm(ar) {
                         return R.ErrHandling(bldr, srcElm, ar);
                     }
@@ -1361,7 +1382,7 @@ class RCompiler {
                 };
             }
             else {
-                let nm = atts.g('of', T, T).toUpperCase(), CS = this.ctSigns.get(nm);
+                let nm = atts.g('of', T, T).toUpperCase(), CS = this.ctSigs.get(nm);
                 if (!CS)
                     throw `Missing attribute [let]`;
                 let ck = CS[1], vIdx = this.newV(idxNm), bodyBldr = await this.CompChilds(srcElm);
@@ -1387,11 +1408,11 @@ class RCompiler {
             this.RestoreCont(SC);
         }
     }
-    ParseSign(elmSignat, bClone) {
+    ParseSign(elmSignat) {
         let sig = new Signature(elmSignat);
         for (let attr of elmSignat.attributes) {
-            if (sig.RestP)
-                throw `Rest parameter must be the last`;
+            if (sig.RP)
+                throw `Rest parameter must be last`;
             let m = /^(#|@|\.\.\.|_|)(.*?)(\?)?$/.exec(attr.name);
             if (m[1] != '_') {
                 let param = {
@@ -1405,12 +1426,12 @@ class RCompiler {
                 };
                 sig.Params.push(param);
                 if (m[1] == '...')
-                    sig.RestP = param;
+                    sig.RP = param;
             }
         }
         for (let elmSlot of elmSignat.children) {
             let s = this.ParseSign(elmSlot);
-            s.bClone = s.Slots.size;
+            s.bCln = s.Slots.size;
             mapNm(sig.Slots, s);
             if (/^CONTENT/.test(s.nm)) {
                 if (sig.CSlot)
@@ -1418,7 +1439,6 @@ class RCompiler {
                 sig.CSlot = s;
             }
         }
-        sig.bClone = bClone;
         return sig;
     }
     async CompComponent(srcElm, atts) {
@@ -1429,7 +1449,7 @@ class RCompiler {
         if (!t)
             throw 'Missing template(s)';
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
-            signats.push(this.ParseSign(elm, bRec));
+            signats.push(this.ParseSign(elm));
         let DC = bRec && this.NewCons(signats), SC = this.SaveCont();
         try {
             bldr = await this.CompIter(srcElm, arr);
@@ -1478,12 +1498,15 @@ class RCompiler {
     async CompTempl(signat, contentNode, srcElm, bIsSlot, encStyles, atts) {
         let SC = this.SaveCont();
         try {
-            let myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.newV((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]), DC = this.NewCons(signat.Slots.values());
+            let { ctL } = this, myAtts = atts || new Atts(srcElm), lvars = signat.Params.map(({ mode, nm }) => [nm, this.newV((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]), DC = this.NewCons(signat.Slots.values());
             if (!atts)
                 myAtts.NoneLeft();
             this.ws = this.rspc = 1;
             let bldr = await this.CompChilds(contentNode), Cnm = signat.nm, custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
-            return async function TEMPLATE(ar, args, mSlots, CEnv) {
+            return async function TEMPLATE(ar, args, mSlots, cdef, CEnv) {
+                env = cdef.CEnv;
+                if (env.length > ctL)
+                    env = cdef.CEnv = env.slice(0, ctL);
                 let SE = SaveEnv(), i = 0;
                 try {
                     for (let [nm, lv] of lvars) {
@@ -1497,8 +1520,8 @@ class RCompiler {
                         if (bCr)
                             for (let style of encStyles)
                                 shadow.appendChild(style.cloneNode(T));
-                        if (signat.RestP)
-                            ApplyMod(elm, { mt: 8, nm: N, depV: null }, args[signat.RestP.nm], bCr);
+                        if (signat.RP)
+                            ApplyMod(elm, { mt: 8, nm: N, depV: null }, args[signat.RP.nm], bCr);
                         chArea.parN = shadow;
                         ar = chArea;
                     }
@@ -1519,7 +1542,7 @@ class RCompiler {
     async CompInstance(srcElm, atts, [signat, ck]) {
         if (signat.prom)
             await signat.prom;
-        let { RestP, CSlot } = signat, getArgs = [], SBldrs = new Map();
+        let { RP, CSlot } = signat, getArgs = [], SBldrs = new Map();
         for (let [nm] of signat.Slots)
             SBldrs.set(nm, []);
         for (let { mode, nm, pDflt } of signat.Params)
@@ -1545,17 +1568,17 @@ class RCompiler {
             }
         if (CSlot)
             SBldrs.get(CSlot.nm).push(await this.CompTempl(CSlot, srcElm, srcElm, T, N, atts));
-        if (RestP) {
+        if (RP) {
             let modifs = this.CompAtts(atts);
             getArgs.push([
-                RestP.nm,
+                RP.nm,
                 () => modifs.map(M => ({ M, v: M.depV() }))
             ]);
         }
         atts.NoneLeft();
         this.ws = 3;
         return async function INSTANCE(ar) {
-            let { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = env[ck], IEnv = env, SEnv = signat.bClone && cdef?.tmplts?.length ? CloneEnv() : env, args = rng.res || (rng.res = {});
+            let { rng, sub, bCr } = PrepArea(srcElm, ar), cdef = env[ck], IEnv = env, SEnv = signat.bCln && cdef?.tmplts?.length ? CloneEnv() : env, args = rng.res || (rng.res = {});
             if (!cdef)
                 return;
             ro = T;
@@ -1567,10 +1590,9 @@ class RCompiler {
                 else if (dGet)
                     args[nm].V = dGet();
             ro = F;
-            env = cdef.CEnv;
             try {
                 for (let templ of cdef.tmplts)
-                    await templ(sub, args, SBldrs, SEnv);
+                    await templ(sub, args, SBldrs, cdef, SEnv);
             }
             finally {
                 env = IEnv;
