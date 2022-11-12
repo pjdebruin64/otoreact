@@ -841,6 +841,7 @@ class RCompiler {
         finally {
             CT.ct += ','.repeat(this.CT.L - CT.L);
             CT.L = this.CT.L;
+            this.CT = CT;
             while (rActs.length > A)
                 rActs.pop()();
         }
@@ -1845,23 +1846,25 @@ class RCompiler {
         if (idxNm == '') idxNm = 'index';
         this.rspc = F;
 
-        return this.Framed(async () => {
-            if (letNm != N) { /* A regular iteration */
-                let pvNm = atts.g('previous')
-                    , nxNm = atts.g('next');
-                if (pvNm == '') pvNm = 'previous';
-                if (nxNm == '') nxNm = 'next';
+        if (letNm != N) { /* A regular iteration */
+            let getRange =
+                this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>
+                (atts, 'of', T
+                // Check for being iterable
+                , iter => iter && !(Symbol.iterator in iter || Symbol.asyncIterator in iter)
+                            && `Value (${iter}) is not iterable`
+                )
+                , pvNm = atts.g('previous')
+                , nxNm = atts.g('next')
+                , dUpd = this.CompAttrExpr<RVAR>(atts, 'updates')
+                , bReact = atts.gB('reacting') || atts.gB('reactive') || !!dUpd;
+
+            if (pvNm == '') pvNm = 'previous';
+            if (nxNm == '') nxNm = 'next';
+
+            let bodyBldr = await this.Framed(async () => {
                 
-                let getRange =
-                    this.CompAttrExpr<Iterable<Item> | Promise<Iterable<Item>>>
-                    (atts, 'of', T
-                    // Check for being iterable
-                    , iter => iter && !(Symbol.iterator in iter || Symbol.asyncIterator in iter)
-                                && `Value (${iter}) is not iterable`
-                    ),
-                dUpd = this.CompAttrExpr<RVAR>(atts, 'updates'),
-                bReact = atts.gB('reacting') || atts.gB('reactive') || !!dUpd,
-            
+                let             
                 // Voeg de loop-variabele toe aan de context
                 vLet = this.newV(letNm),
                 // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
@@ -1873,7 +1876,8 @@ class RCompiler {
                 dHash = this.compAttrExprList<Hash>(atts, 'hash'),
 
                 // Compileer alle childNodes
-                bodyBldr = await this.CompChilds(srcElm);
+                return await this.CompChilds(srcElm);
+            });
 
                 // Dit wordt de runtime routine voor het updaten:
                 return async function FOR(this: RCompiler, ar: Area) {
@@ -2066,7 +2070,6 @@ class RCompiler {
                     }
                 }
             }
-        });
     }
 
     private ParseSign(elmSignat: Element):  Signature {
