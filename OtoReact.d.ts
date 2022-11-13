@@ -53,23 +53,14 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     wins?: Set<Window>;
     erase(par: Node): void;
 }
-declare type Environment = Array<unknown | ConstructDef>;
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     sArea?: Area;
     bImm?: boolean;
-    sEnv?: Environment;
 };
 declare type Handler = (ev: Event) => any;
-declare type ConstructDef = {
-    nm: string;
-    tmplts: Template[];
-    CEnv?: Environment;
-    Cnm?: string;
-};
-declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, cdef: ConstructDef, slotEnv: Environment) => Promise<void>;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
