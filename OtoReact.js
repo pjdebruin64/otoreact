@@ -104,7 +104,7 @@ function getV(D, env, [F, i]) {
     return e[i];
 }
 function PrepArea(srcE, ar, text = '', nWipe, res) {
-    let { parN, r } = ar, sub = { parN, r: N }, bCr = !r;
+    let { parN, r, bROnly } = ar, sub = { parN, r: N, bROnly }, bCr = !r;
     if (bCr) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
@@ -280,7 +280,7 @@ function Subscriber({ parN, bROnly }, bldr, r, arg) {
         let { r } = sArea;
         if (!r || r.updated < updCnt) {
             ({ env, onerr, onsuc } = subEnv);
-            if (r)
+            if (r && !bROnly)
                 r.updated = updCnt;
             nodeCnt++;
             await bldr({ ...sArea }, arg);
@@ -486,6 +486,14 @@ class RCompiler {
             this.CT.ct = ct + ','.repeat(this.CT.L - L);
         }
     }
+    StartScope() {
+        let { CT: { ct, L }, rActs } = this, A = rActs.length;
+        return () => {
+            while (rActs.length > A)
+                rActs.pop()();
+            this.CT.ct = ct + ','.repeat(this.CT.L - L);
+        };
+    }
     newV(nm) {
         let lv;
         if (!(nm = nm?.trim()))
@@ -543,7 +551,13 @@ class RCompiler {
         R = saveR;
     }
     async CompChilds(srcParent, childNodes = srcParent.childNodes) {
-        return this.Scoped(async () => await this.CompIter(srcParent, childNodes) || dumB);
+        let ES = this.StartScope();
+        try {
+            return await this.CompIter(srcParent, childNodes);
+        }
+        finally {
+            ES();
+        }
     }
     async CompIter(srcParent, iter) {
         let bldrs = [], { rspc } = this, arr = Array.from(iter), i = 0;
@@ -708,44 +722,46 @@ class RCompiler {
                             let caseList = [], { ws, rspc, CT } = this, PostCT = CT, postWs = 0;
                             for (let { node, atts, body } of caseNodes) {
                                 ass(this, { ws, rspc, CT: new Context(CT) });
-                                await this.Scoped(async () => {
-                                    try {
-                                        let cond, not = T, patt, p;
-                                        switch (node.tagName) {
-                                            case 'IF':
-                                            case 'THEN':
-                                            case 'WHEN':
-                                                cond = this.CompAttrExpr(atts, 'cond');
-                                                not = !atts.gB('not');
-                                                patt =
-                                                    (p = atts.g('match')) != N
-                                                        ? this.CompPatt(p)
-                                                        : (p = atts.g('urlmatch')) != N
-                                                            ? this.CompPatt(p, T)
-                                                            : (p = atts.g('regmatch')) != N
-                                                                ? { regex: new RegExp(p, 'i'),
-                                                                    lvars: this.NewVars(atts.g('captures'))
-                                                                }
-                                                                : N;
-                                                if (bHiding && patt?.lvars.length)
-                                                    throw `Pattern capturing cannot be combined with hiding`;
-                                                if (patt && !dVal)
-                                                    throw `Match requested but no 'value' specified.`;
-                                            case 'ELSE':
-                                                caseList.push({
-                                                    cond, not, patt,
-                                                    bldr: await this.CompChilds(node, body),
-                                                    node
-                                                });
-                                                atts.NoneLeft();
-                                                postWs = Math.max(postWs, this.ws);
-                                        }
-                                    }
-                                    catch (e) {
-                                        throw node.tagName == 'IF' ? e : ErrMsg(node, e);
+                                let ES = this.StartScope();
+                                try {
+                                    let cond, not = T, patt, p;
+                                    switch (node.tagName) {
+                                        case 'IF':
+                                        case 'THEN':
+                                        case 'WHEN':
+                                            cond = this.CompAttrExpr(atts, 'cond');
+                                            not = !atts.gB('not');
+                                            patt =
+                                                (p = atts.g('match')) != N
+                                                    ? this.CompPatt(p)
+                                                    : (p = atts.g('urlmatch')) != N
+                                                        ? this.CompPatt(p, T)
+                                                        : (p = atts.g('regmatch')) != N
+                                                            ? { regex: new RegExp(p, 'i'),
+                                                                lvars: this.NewVars(atts.g('captures'))
+                                                            }
+                                                            : N;
+                                            if (bHiding && patt?.lvars.length)
+                                                throw `Pattern capturing cannot be combined with hiding`;
+                                            if (patt && !dVal)
+                                                throw `Match requested but no 'value' specified.`;
+                                        case 'ELSE':
+                                            caseList.push({
+                                                cond, not, patt,
+                                                bldr: await this.CompChilds(node, body),
+                                                node
+                                            });
+                                            atts.NoneLeft();
+                                            postWs = Math.max(postWs, this.ws);
                                     }
                                     PostCT = PostCT.max(this.CT);
-                                });
+                                }
+                                catch (e) {
+                                    throw node.tagName == 'IF' ? e : ErrMsg(node, e);
+                                }
+                                finally {
+                                    ES();
+                                }
                             }
                             this.ws = postWs;
                             this.CT = PostCT;
@@ -856,7 +872,13 @@ class RCompiler {
                         break;
                     case 'REACT':
                         {
-                            let b = bldr = await this.Scoped(() => this.CompChilds(srcElm));
+                            let ES = this.StartScope(), b;
+                            try {
+                                b = bldr = await this.CompChilds(srcElm);
+                            }
+                            finally {
+                                ES();
+                            }
                             isBl = b == dumB;
                             if (atts.gB('renew')) {
                                 bldr = function renew(sub) {
@@ -1389,31 +1411,30 @@ class RCompiler {
             throw 'Missing template(s)';
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.ParseSign(elm));
-        let DC = bRec && this.NewCons(signats);
+        let DC = bRec && this.NewCons(signats), ES = this.StartScope();
         try {
-            await this.Scoped(async () => {
-                bldr = await this.CompIter(srcElm, arr);
-                let mapS = new Map(mapI(signats, S => [S.nm, S]));
-                async function AddTemp(RC, nm, prnt, elm) {
-                    let S = mapS.get(nm);
-                    if (!S)
-                        throw `<${nm}> has no signature`;
-                    tmplts.push({
-                        nm,
-                        tmplts: [await RC.CompTempl(S, prnt, elm, F, encStyles)]
-                    });
-                    mapS.delete(nm);
-                }
-                if (t[1])
-                    for (let elm of elmTempl.children)
-                        await AddTemp(this, elm.tagName, elm, elm);
-                else
-                    await AddTemp(this, signats[0].nm, elmTempl.content, elmTempl);
-                for (let nm of mapS.keys())
-                    throw `Signature <${nm}> has no template`;
-            });
+            bldr = await this.CompIter(srcElm, arr);
+            let mapS = new Map(mapI(signats, S => [S.nm, S]));
+            async function AddTemp(RC, nm, prnt, elm) {
+                let S = mapS.get(nm);
+                if (!S)
+                    throw `<${nm}> has no signature`;
+                tmplts.push({
+                    nm,
+                    tmplts: [await RC.CompTempl(S, prnt, elm, F, encStyles)]
+                });
+                mapS.delete(nm);
+            }
+            if (t[1])
+                for (let elm of elmTempl.children)
+                    await AddTemp(this, elm.tagName, elm, elm);
+            else
+                await AddTemp(this, signats[0].nm, elmTempl.content, elmTempl);
+            for (let nm of mapS.keys())
+                throw `Signature <${nm}> has no template`;
         }
         finally {
+            ES();
             ass(this.head, { head, ws });
         }
         DC || (DC = this.NewCons(signats));
@@ -1456,7 +1477,7 @@ class RCompiler {
                             chAr.parN = shadow;
                             sub = chAr;
                         }
-                        await bldr(sub);
+                        await bldr?.(sub);
                     }, ar);
                 };
             }
@@ -1543,7 +1564,7 @@ class RCompiler {
         return setWs(async function ELM(ar) {
             let { r: { node }, chAr, bCr } = PrepElm(srcElm, ar, nm || dTag());
             if (!ar.bROnly)
-                await childBldr(chAr);
+                await childBldr?.(chAr);
             node.removeAttribute('class');
             if (node.hndlrs) {
                 for (let { evType, listener } of node.hndlrs)
@@ -1551,7 +1572,7 @@ class RCompiler {
                 node.hndlrs = [];
             }
             ApplyMods(node, modifs, bCr);
-        }, postWs == 1 || preWs < 4 && childBldr.ws);
+        }, postWs == 1 || preWs < 4 && childBldr?.ws);
     }
     CompAtts(atts) {
         let modifs = [], m;

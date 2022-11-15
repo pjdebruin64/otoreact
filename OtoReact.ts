@@ -273,8 +273,8 @@ function PrepArea(
     bCr: booly    // True when the sub-range has to be created
 }
 {
-    let {parN, r} = ar,  // Initially 'r' is the parent range
-        sub: Area = {parN, r: N }
+    let {parN, r, bROnly} = ar,  // Initially 'r' is the parent range
+        sub: Area = {parN, r: N, bROnly }
         , bCr = !r;
     if (bCr) {
         sub.srcN = ar.srcN;
@@ -575,7 +575,7 @@ function Subscriber({parN, bROnly}: Area, bldr: DOMBuilder, r: Range, arg?: any 
             if (!r || r.updated < updCnt)
             {
                 ({env, onerr, onsuc} = subEnv);
-                if (r) r.updated = updCnt;
+                if (r && !bROnly) r.updated = updCnt;
                 nodeCnt++;
                 await bldr({...sArea}, arg);
             }
@@ -872,6 +872,17 @@ class RCompiler {
         }
     }
 
+    private StartScope() {       
+        let {CT: {ct, L}, rActs} = this
+            , A=rActs.length;
+
+        return () => {
+            while (rActs.length > A)
+                rActs.pop()();
+            this.CT.ct = ct + ','.repeat(this.CT.L - L)
+        }
+    }
+
     private newV(nm: string): LVar {
         let lv: LVar;
         if (!(nm = nm?.trim()))
@@ -961,9 +972,11 @@ class RCompiler {
         srcParent: ParentNode,
         childNodes: Iterable<ChildNode> = srcParent.childNodes,
     ): Promise<DOMBuilder> {
-        return this.Scoped(
-            async () => await this.CompIter(srcParent, childNodes) || dumB
-        );
+        let ES = this.StartScope();
+        try {
+            return await this.CompIter(srcParent, childNodes);
+        }
+        finally { ES() }    // End scope
     }
 
     // Compile some stretch of childnodes
@@ -1227,49 +1240,49 @@ class RCompiler {
                         for (let {node, atts, body} of caseNodes) {
                             ass(this, {ws, rspc, CT: new Context(CT)});
 
-                            await this.Scoped(async () => {
-                                try {
-                                    let cond: Dependent<unknown>, 
-                                        not = T,
-                                        patt:  {lvars: LVar[], regex: RegExp, url?: boolean},
-                                        p: string;
-                                    switch (node.tagName) {
-                                        case 'IF':
-                                        case 'THEN':
-                                        case 'WHEN':
-                                            cond = this.CompAttrExpr<unknown>(atts, 'cond');
-                                            not = !atts.gB('not');
-                                            patt =
-                                                (p = atts.g('match')) != N
-                                                    ? this.CompPatt(p)
-                                                : (p = atts.g('urlmatch')) != N
-                                                    ? this.CompPatt(p, T)
-                                                : (p = atts.g('regmatch')) != N
-                                                    ?  {regex: new RegExp(p, 'i'), 
-                                                    lvars: this.NewVars(atts.g('captures'))
-                                                    }
-                                                : N;
+                            let ES = this.StartScope();
+                            try {
+                                let cond: Dependent<unknown>, 
+                                    not = T,
+                                    patt:  {lvars: LVar[], regex: RegExp, url?: boolean},
+                                    p: string;
+                                switch (node.tagName) {
+                                    case 'IF':
+                                    case 'THEN':
+                                    case 'WHEN':
+                                        cond = this.CompAttrExpr<unknown>(atts, 'cond');
+                                        not = !atts.gB('not');
+                                        patt =
+                                            (p = atts.g('match')) != N
+                                                ? this.CompPatt(p)
+                                            : (p = atts.g('urlmatch')) != N
+                                                ? this.CompPatt(p, T)
+                                            : (p = atts.g('regmatch')) != N
+                                                ?  {regex: new RegExp(p, 'i'), 
+                                                lvars: this.NewVars(atts.g('captures'))
+                                                }
+                                            : N;
 
-                                            if (bHiding && patt?.lvars.length)
-                                                throw `Pattern capturing cannot be combined with hiding`;
-                                            if (patt && !dVal)
-                                                throw `Match requested but no 'value' specified.`;
+                                        if (bHiding && patt?.lvars.length)
+                                            throw `Pattern capturing cannot be combined with hiding`;
+                                        if (patt && !dVal)
+                                            throw `Match requested but no 'value' specified.`;
 
-                                            // Fall through!
+                                        // Fall through!
 
-                                        case 'ELSE':
-                                            caseList.push({
-                                                cond, not, patt,
-                                                bldr: await this.CompChilds(node, body),
-                                                node
-                                            });
-                                            atts.NoneLeft();
-                                            postWs = Math.max(postWs, this.ws);
-                                    }
-                                } 
-                                catch (e) { throw node.tagName=='IF' ? e : ErrMsg(node, e); }
-                            PostCT = PostCT.max(this.CT);
-                        });
+                                    case 'ELSE':
+                                        caseList.push({
+                                            cond, not, patt,
+                                            bldr: await this.CompChilds(node, body),
+                                            node
+                                        });
+                                        atts.NoneLeft();
+                                        postWs = Math.max(postWs, this.ws);
+                                }
+                                PostCT = PostCT.max(this.CT);
+                            } 
+                            catch (e) { throw node.tagName=='IF' ? e : ErrMsg(node, e); }
+                            finally { ES(); }
                         }
                         this.ws = postWs;
                         this.CT = PostCT
@@ -1418,7 +1431,12 @@ class RCompiler {
                     } break;
 
                     case 'REACT': {
-                        let b = bldr = await this.Scoped(() => this.CompChilds(srcElm));
+                        let ES= this.StartScope(), b: DOMBuilder;
+                        try {
+                            b = bldr = await this.CompChilds(srcElm);
+                        }
+                        finally { ES() }
+
                         isBl = b == dumB;
                         if (atts.gB('renew')) {
                             bldr = function renew(sub: Area) {
@@ -2149,33 +2167,35 @@ class RCompiler {
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.ParseSign(elm));
 
-        let DC = bRec && this.NewCons(signats);
+        let DC = bRec && this.NewCons(signats)
+            , ES = this.StartScope();
         try {
-            await this.Scoped(async () => {
-                bldr = await this.CompIter(srcElm, arr);
-                
-                let mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
-                async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
-                    let S = mapS.get(nm);
-                    if (!S) throw `<${nm}> has no signature`;
-                    tmplts.push({
-                        nm,
-                        tmplts: [ await RC.CompTempl(S, prnt, elm, F, encStyles) ]
-                    });
-                    mapS.delete(nm);
-                }
-                if (t[1]) // <TEMPLATES> ?
-                    // Each child is a template
-                    for (let elm of elmTempl.children as Iterable<HTMLElement>)
-                        await AddTemp(this, elm.tagName, elm, elm);
-                else
-                    // All content forms one template
-                    await AddTemp(this, signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl);
-                for (let nm of mapS.keys())
-                    throw `Signature <${nm}> has no template`;
-            });
+            bldr = await this.CompIter(srcElm, arr);
+            
+            let mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
+            async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
+                let S = mapS.get(nm);
+                if (!S) throw `<${nm}> has no signature`;
+                tmplts.push({
+                    nm,
+                    tmplts: [ await RC.CompTempl(S, prnt, elm, F, encStyles) ]
+                });
+                mapS.delete(nm);
+            }
+            if (t[1]) // <TEMPLATES> ?
+                // Each child is a template
+                for (let elm of elmTempl.children as Iterable<HTMLElement>)
+                    await AddTemp(this, elm.tagName, elm, elm);
+            else
+                // All content forms one template
+                await AddTemp(this, signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl);
+            for (let nm of mapS.keys())
+                throw `Signature <${nm}> has no template`;
         }
-        finally { ass(this.head, {head, ws}); }
+        finally { 
+            ES();
+            ass(this.head, {head, ws}); 
+        }
 
         DC ||= this.NewCons(signats);
 
@@ -2253,7 +2273,7 @@ class RCompiler {
                             chAr.parN = shadow;
                             sub = chAr;
                         }
-                        await bldr(sub);
+                        await bldr?.(sub);
                     }, ar);
                 }
             }
@@ -2386,7 +2406,7 @@ class RCompiler {
                 
                 if (!ar.bROnly)
                     // Build children
-                    await childBldr(chAr);
+                    await childBldr?.(chAr);
 
                 node.removeAttribute('class');
                 if (node.hndlrs) {
@@ -2396,7 +2416,7 @@ class RCompiler {
                 }
                 ApplyMods(node, modifs, bCr);
             }
-            , postWs == WSpc.block || preWs < WSpc.preserve && childBldr.ws
+            , postWs == WSpc.block || preWs < WSpc.preserve && childBldr?.ws
                         // true when whitespace befóre this element may be removed
         );
     }
