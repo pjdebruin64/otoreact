@@ -17,7 +17,7 @@ declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     auto?: boolean;
 };
 declare type Area = {
-    rng?: Range;
+    r?: Range;
     parN: Node;
     bfor?: ChildNode;
     srcN?: ChildNode;
@@ -95,7 +95,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, rng: Range, ...args: any[]): Subscriber;
+declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, r: Range, arg?: any): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
