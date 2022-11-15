@@ -221,14 +221,9 @@
         "signature": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
         "affectsGlobalScope": true
       },
-      "./otoreact - kopie.ts": {
-        "version": "9da82f324c7460bbc6fd79a536b7f580f360dd36c06842715aa1031b385b9d3a",
-        "signature": "b064cf10fc83e6ae01efd4c7428e502b163d4e049e1eed0be3d3966d786af2ec",
-        "affectsGlobalScope": false
-      },
       "./otoreact.ts": {
-        "version": "1066cba1ecdadb9b94c136b775832f84bcdb2886a61a3382f1d979108f7f502c",
-        "signature": "5dff03c10b68e6d8fbe8f227050314dda0b687baaba84f12dee39519e1b7726c",
+        "version": "9c8750dc8c5b076d87fa0546f80069cc74f74e32c21cdc52fcfda22dc0ffcb32",
+        "signature": "1b56403e910d9ba35ea032a120c2b0f8c8bb51055fe004123ba087e6a7e7c1c6",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
@@ -300,7 +295,6 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
-      "./otoreact - kopie.ts",
       "./otoreact.ts",
       "./samples.ts"
     ]
