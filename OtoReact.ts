@@ -934,7 +934,7 @@ class RCompiler {
         R = this;
         env = NewEnv();
         nodeCnt++;
-        await this.Builder(ar);
+        await this.Builder?.(ar);
         R = saveR;        
     }
 
