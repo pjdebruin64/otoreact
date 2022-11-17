@@ -454,7 +454,7 @@ class RCompiler {
         this.CT = new Context(CT, T);
     }
     async Framed(Comp) {
-        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M > 4;
+        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M > 6;
         try {
             if (nf) {
                 CT.ct = `[${ct}]`;

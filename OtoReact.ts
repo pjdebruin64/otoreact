@@ -832,7 +832,7 @@ class RCompiler {
         let {CT, rActs} = this
             , {ct,d,L,M} = CT
             , A = rActs.length
-            , nf = L - M > 4;    // Is it worthwile to start a new frame? Limit 4 seems more efficient than 0 or 9
+            , nf = L - M > 6;    // Is it worthwile to start a new frame? Limit 6 seems more efficient than 0, 4 or 9
 
         try {
             if (nf) {
@@ -841,17 +841,21 @@ class RCompiler {
                 CT.d++;
                 CT.L = CT.M = 0;
             }
-            return await Comp((sub, r?) => {
-                if (!r)
-                    ({r,sub} = PrepArea(N, sub));
-                let e = env;
-                env = r.val ||= nf ? [e] : ass([], e);
-                return {sub, ES: () => {env = e} }; // 'EndScope' routine
-            });
+            return await Comp(
+                // 'StartScope' routine
+                (sub, r?) => {
+                    if (!r)
+                        ({r,sub} = PrepArea(N, sub));
+                    let e = env;
+                    env = r.val ||= nf ? [e] : ass([], e);
+                    return {sub, ES: () => {env = e} }; // 'EndScope' routine
+                }
+            );
         }
         finally {
             // Restore the context (apart from the maps of visible variables and constructs)
             ass(this.CT, <Context>{ct,d,L,M});
+            
             // When new variables or constructs have been set in the maps,
             // 'rActs' contains the restore actions to restore the maps to their previous state
             while (rActs.length > A) 
