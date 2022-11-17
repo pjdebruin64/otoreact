@@ -14,7 +14,7 @@ declare const defaults: {
 };
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
-    auto?: boolean;
+    auto?: LVar<RVAR>;
 };
 declare type Area = {
     r?: Range;
@@ -57,10 +57,13 @@ declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
-    sArea?: Area;
+    sAr?: Area;
     bImm?: boolean;
 };
 declare type Handler = (ev: Event) => any;
+declare type LVar<T = unknown> = ((value?: T) => T) & {
+    nm: string;
+};
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
