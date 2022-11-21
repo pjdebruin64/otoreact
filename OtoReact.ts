@@ -22,6 +22,7 @@ const
     parser = new DOMParser(),
     gEval = eval,
     ass = Object.assign,
+    aWs = (b: DOMBuilder, ws: boolean) => ass(b, {ws}) as DOMBuilder,
     now = () => performance.now(),
 
     dU: Dependent<any> = () => U,       // Undefined dependent value
@@ -984,10 +985,9 @@ class RCompiler {
     }
 
     // Compile some stretch of childnodes
-    private async CIter(srcParent: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
+    private async CIter(srcP: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         type Triple = [
             DOMBuilder,         // Builder for a single childnode
-            ChildNode,          // The source childnode
             boolean|1    // true: this builder will only produce whitespace and does not modify 'env'
                          // 1: this builder will only produce whitespace
         ];
@@ -997,20 +997,22 @@ class RCompiler {
             , i=0;
         while(rspc && arr.length && reWS.test(arr[arr.length-1].nodeValue)) 
             arr.pop();
+        
+        //return this.CArr(srcP, arr, 0);
 
-        for (let srcNode of arr) {
+        for (let srcN of arr) {
             this.rspc = ++i==arr.length && rspc;
             let trip: Triple;
-            switch (srcNode.nodeType) {
+            switch (srcN.nodeType) {
                 
                 case Node.ELEMENT_NODE:
                     this.srcNodeCnt ++;
-                    trip = await this.CElm(srcParent, srcNode as HTMLElement);
+                    trip = await this.CElm(srcP, srcN as HTMLElement);
                     break;
 
                 case Node.TEXT_NODE:
                     this.srcNodeCnt ++;
-                    let str = srcNode.nodeValue;
+                    let str = srcN.nodeValue;
                     
                     let getText = this.CString( str ), {fixed} = getText;
                     if (fixed !== '') { // Either nonempty or undefined
@@ -1018,7 +1020,6 @@ class RCompiler {
                             [ fixed 
                                 ? async (ar: Area) => PrepCharData(ar, fixed)
                                 : async (ar: Area) => PrepCharData(ar, getText())
-                            , srcNode
                             , fixed==' ' ];
                         
                         // Update the compiler whitespace mode
@@ -1029,9 +1030,9 @@ class RCompiler {
 
                 case Node.COMMENT_NODE:
                     if (this.Settings.bKeepComments) {
-                        let getText = this.CString(srcNode.nodeValue, 'Comment');
+                        let getText = this.CString(srcN.nodeValue, 'Comment');
                         trip =
-                            [ async (ar:Area)=> PrepCharData(ar, getText(), T), srcNode, 1]
+                            [ async (ar:Area)=> PrepCharData(ar, getText(), T), 1]
                     }
                     break;
             }
@@ -1044,7 +1045,7 @@ class RCompiler {
         function prune() {
             // Builders producing trailing whitespace are not needed
             let i = bldrs.length, isB: boolean|number;
-            while (i-- && (isB= bldrs[i][2]))
+            while (i-- && (isB= bldrs[i][1]))
                 if (isB === T)
                     bldrs.splice(i, 1);
         }
@@ -1053,7 +1054,7 @@ class RCompiler {
 
         if (!bldrs.length) return N;
 
-        return ass(
+        return aWs(
             async function Iter(ar: Area, start: number = 0)
                 // start > 0 is used by auto-generated subscribers
             {                
@@ -1084,11 +1085,113 @@ class RCompiler {
                         if (i++ >= start) 
                             await t[0](ar);
             }
-            , "ws", bldrs[0][0].ws);
+            , bldrs[0][0].ws);
     }
+/*
+    private async CArr(srcP: ParentNode, arr: Array<ChildNode>, i: number) : Promise<DOMBuilder> {
+        type Triple = [
+            DOMBuilder,         // Builder for a single childnode
+            boolean|1    // true: this builder will only produce whitespace and does not modify 'env'
+                         // 1: this builder will only produce whitespace
+        ];
+        let bldrs = [] as Array< Triple >
+            , {rspc} = this     // Indicates whether the output may be right-trimmed
+            , L = arr.length
+        while (i<L) {
+            let srcN = arr[i++], trip: Triple;
+            this.rspc = i==L && rspc;
+            switch (srcN.nodeType) {
+                
+                case Node.ELEMENT_NODE:
+                    this.srcNodeCnt ++;
+                    trip = await this.CElm(srcP, srcN as HTMLElement);
 
+                    if (trip?.[0].auto) {
+                        this.rspc = rspc;
+                        let bldr = await this.CArr(srcP, arr, i);
+                        i = L;
+                        if (bldr) {
+                            let defB = trip[0];
+                            trip =[ async function Auto(ar: Area) {
+                                await defB(ar);
+                                if (!ar.r) {
+                                    let r = ar.prevR
+                                        , rv = r.val as RVAR, s = rv._Subs.size
+                                        , subs = Subscriber(ar, Auto, r);
+                                    await bldr(ar);
+                                    let {sAr} = subs;
+                                    r = r ? r.next : ar.parR.child;
+                                    if (rv._Subs.size==s && r) // No new subscribers yet?
+                                    {   // Then auto-subscribe with the correct range
+                                        (sAr.r = r).updated = updCnt;
+                                        rv.Subscribe(rv.auto = subs);
+                                    }
+                                }
+                                else
+                                    await bldr(ar);
+                            }
+                            , F];
+                        }
+                    }
+
+                    break;
+
+                case Node.TEXT_NODE:
+                    this.srcNodeCnt ++;
+                    let str = srcN.nodeValue;
+                    
+                    let getText = this.CString( str ), {fixed} = getText;
+                    if (fixed !== '') { // Either nonempty or undefined
+                        trip = 
+                            [ fixed 
+                                ? async (ar: Area) => PrepCharData(ar, fixed)
+                                : async (ar: Area) => PrepCharData(ar, getText())
+                            , fixed==' ' ];
+                        
+                        // Update the compiler whitespace mode
+                        if (this.ws < WSpc.preserve)
+                            this.ws = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
+                    }
+                    break;
+
+                case Node.COMMENT_NODE:
+                    if (this.Settings.bKeepComments) {
+                        let getText = this.CString(srcN.nodeValue, 'Comment');
+                        trip =
+                            [ async (ar:Area)=> PrepCharData(ar, getText(), T), 1]
+                    }
+                    break;
+            }
+                       
+            if (trip ? trip[0].ws : this.rspc)
+                prune();
+            if (trip) 
+                bldrs.push(trip);
+        }
+        function prune() {
+            // Builders producing trailing whitespace are not needed
+            let i = bldrs.length, isB: boolean|number;
+            while (i-- && (isB= bldrs[i][1]))
+                if (isB === T)
+                    bldrs.splice(i, 1);
+        }
+        if (rspc)
+            prune();
+
+        if (!bldrs.length) return N;
+
+        return aWs(
+            async function Iter(ar: Area)
+                // start > 0 is used by auto-generated subscribers
+            {                
+                for (let t of bldrs)
+                    await t[0](ar);
+            }
+            , bldrs[0][0].ws);
+    }
+*/
     private async CElm(srcPrnt: ParentNode, srcE: HTMLElement, bUnhide?: boolean
-        ): Promise<[DOMBuilder, ChildNode, boolean|1]> {       
+        ): Promise<[DOMBuilder, boolean|1]> {       
         try {
             let 
                 tag = srcE.tagName,
@@ -1686,18 +1789,7 @@ class RCompiler {
                 }
                 isBl &&= 1;
             }
-            if (dH)  {
-                let b = bldr;
-                bldr = async function HASH(ar: Area) {
-                    let {sub, r,bCr} = PrepRange(srcE, ar, 'hash')
-                        , hashes = dH();
 
-                    if (bCr || hashes.some((hash, i) => hash !== r.val[i])) {
-                        r.val = hashes;
-                        await b(sub);
-                    }
-                }
-            }
             if (dIf) {
                 let b = bldr;
                 bldr = function hif(ar: Area) {
@@ -1742,7 +1834,20 @@ class RCompiler {
                 }
             }
 
-            return bldr == dumB ? N : [elmBldr = ass(
+            if (dH)  {
+                let b = bldr;
+                bldr = async function HASH(ar: Area) {
+                    let {sub, r,bCr} = PrepRange(srcE, ar, 'hash')
+                        , hashes = dH();
+
+                    if (bCr || hashes.some((hash, i) => hash !== r.val[i])) {
+                        r.val = hashes;
+                        await b(sub);
+                    }
+                }
+            }
+
+            return bldr == dumB ? N : [elmBldr = aWs(
                 this.rActs.length == CTL
                 ? function Elm(ar: Area) {
                     return R.ErrHandling(bldr, srcE, ar);
@@ -1750,7 +1855,7 @@ class RCompiler {
                 : function Elm(ar: Area) {
                     return bldr(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
                 }
-                , "ws", ws), srcE, isBl];
+                , ws), isBl];
         }
         catch (e) { throw ErrMsg(srcE, e); }
     }
@@ -2398,7 +2503,7 @@ class RCompiler {
             this.ws = postWs;
 
         // Now the runtime action
-        return ass(
+        return aWs(
             async function ELM(ar: Area) {
                 let {r: {node}, chAr, bCr} = PrepElm(srcElm, ar, nm || dTag());
                 
@@ -2414,7 +2519,7 @@ class RCompiler {
                 }
                 ApplyMods(node, modifs, bCr);
             }
-            , "ws", postWs == WSpc.block || preWs < WSpc.preserve && childBldr?.ws
+            , postWs == WSpc.block || preWs < WSpc.preserve && childBldr?.ws
                         // true when whitespace befóre this element may be removed
         );
     }
