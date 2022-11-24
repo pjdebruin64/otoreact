@@ -113,7 +113,7 @@ RHTML recognizes the following global attributes on every element and construct.
     <dd>
         This tells OtoReact that <i>only the attributes</i> of the current node itself should react on the listed RVAR's. Not its contents, unless specified otherwise.
     </dd>
-    <dt><code class=sourcecode>#if="<i>condition</i>"</code> or <code>if="<i>condition</i>"</code></dt>
+    <dt><code class=sourcecode>#if="<i>condition</i>"</code></dt>
     <dd>
         The element or construct with this attribute will be built only when the given condition evaluates to a truthy value.
         <br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
@@ -132,6 +132,18 @@ RHTML recognizes the following global attributes on every element and construct.
 </dl>
 
 When you want to apply these attributes to a <i>range</i> of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
+<p>
+    * When multiple global attributes are applied to the same node, then:
+    <ul>
+        <li>The <code>#if</code> attribute is treated 'inner' to, or subjected to, the <code>hash</code> and react attributes</li>
+        <li>The <code>hash</code> and react attributes are handled in order of appearance:
+            <ul>
+                <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed</li>
+                <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty, but <i>hash</i> has not changed</li>
+            </ul>
+        </li>
+    </ul>
+</p>
 
 <h2 id="PseudoEvents">RHTML pseudo-events: oncreate, onupdate, ondestroy*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
@@ -240,7 +252,8 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
     <dd>
         When the value of the expression is a string, then it is added to the list of class names.
         <br>When it is an array, then every element of the array is added to the list of class names
-        <br>When it is an object, then for every property <i>name</i> in the object, <i>name</i> will be included in the list of class names if and only if the property value is truthy.
+        <br>When it is an object, then for its every own enumerable property <i>name</i>, <i>name</i> will be included in the list of class names if and only if the property value is truthy.
+        <br>So <code>+class="\{<i>name</i>: <i>booleanExpression</i>\}"</code> is the same as <code>#class:<i>name</i>="<i>booleanExpression</i>"</code>, but works for names containing uppercase as well.
     </dd>
 </dl>
 Just as other DOM properties, class names are recomputed at every update of the element.

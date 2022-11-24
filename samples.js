@@ -570,7 +570,7 @@ const sampleDocument = `<def rvar=check #value="false"></def>
         width=250,height=120\`
         )"
 >Pop up</button>
-
+<p>
 <label reacton=check>
     <input type=checkbox @checked=check.V> Checked.
 </label>

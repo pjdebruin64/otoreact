@@ -221,14 +221,19 @@
         "signature": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
         "affectsGlobalScope": true
       },
+      "./otoreact - kopie.ts": {
+        "version": "627d5c74cc584e2efb522fa0f6474a8b8dabf8c30e75c5ef3c91f4f386039d92",
+        "signature": "550032bfaed03f490cc4cf4cb4584323e9420f3867e50d2b1992d1848526ad07",
+        "affectsGlobalScope": false
+      },
       "./otoreact.ts": {
-        "version": "cc2b88f095826232b28dbff63799ecc2c4968e9c1754a3ab271159ba4782c4ad",
-        "signature": "68d9753042116b9817875d0d049b1d7d800f50b610d3a5190fd2d63530b3da13",
+        "version": "3f24a21490643e44069cf4a91e55caa1eccc56807e1d7e1dec3f1d7915c9d917",
+        "signature": "6000d976546a4fab0c5cdd9060b957545ae527989db73e0b58fd1e3a26e8754c",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "d7c25e33798a5fbc04f8aa30cca2b3ab7989b1490fcc1eabd4257250732d8a37",
-        "signature": "204e2adfa6e3e71d8e4a17e288bcd1c01898d456b46255860471850ff1e852d0",
+        "version": "d7cdb163442b33744f011cb54e9c2422769529bba88e035e908cb6da8ec654c5",
+        "signature": "4d0529cd87bcee5f8404c1eb21a9fb905d584cf0f7eb6204a4f6180d4d5d7aed",
         "affectsGlobalScope": true
       }
     },
@@ -244,7 +249,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -295,6 +299,7 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
+      "./otoreact - kopie.ts",
       "./otoreact.ts",
       "./samples.ts"
     ]

@@ -13,7 +13,7 @@ declare const defaults: {
     storePrefix: string;
 };
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
-    ws?: boolean;
+    iB?: boolean | 0 | 1;
     auto?: LVar<RVAR>;
 };
 declare type Area = {
@@ -71,7 +71,7 @@ interface Store {
 declare class _RVAR<T = unknown> {
     name?: string;
     store?: Store;
-    storeName?: string;
+    storeName: string;
     constructor(name?: string, initial?: T | Promise<T>, store?: Store, storeName?: string);
     private v;
     _Subs: Set<Subscriber<T>>;
@@ -98,7 +98,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bR }: Area, bldr: DOMBuilder, r: Range, arg?: any): Subscriber;
+declare function Subscriber({ parN, bR }: Area, bldr: DOMBuilder, r: Range, x?: any): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
