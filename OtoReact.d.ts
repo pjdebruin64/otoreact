@@ -13,7 +13,7 @@ declare const defaults: {
     storePrefix: string;
 };
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
-    iB?: boolean | 0 | 1;
+    iB?: boolean | number;
     auto?: LVar<RVAR>;
 };
 declare type Area = {
