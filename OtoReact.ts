@@ -650,7 +650,7 @@ export async function DoUpdate() {
     }
     R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
-    finally { bUpdating = F; }
+    finally { env=U; bUpdating = F; }
 }
 
 /* A "responsive variable" is a variable that listeners can subscribe to. */
@@ -1283,7 +1283,7 @@ class RCompiler {
                                             RVAR(N, v,
                                                 dSto?.(),
                                                 dSet?.(), 
-                                                dSNm?.()
+                                                dSNm?.() || rv
                                             )
                                         )
                                         .Subscribe(upd?.SetDirty?.bind(upd))
@@ -1594,6 +1594,7 @@ class RCompiler {
                                     // Parsing
                                     tempElm.innerHTML = src;
                                     // Compiling
+                                    C.CT = new Context();
                                     await C.Compile(tempElm, {bSubfile: T, bTiming: R.Settings.bTiming}, tempElm.childNodes);
                                     // Building
                                     await C.Build(sAr);
@@ -1783,7 +1784,7 @@ class RCompiler {
                                 r?.node || ar.parN
                             );
                     }
-                    await b(ar, x);
+                    await b(ar, x, T);
                     if (bfD)
                         ar.prevR.bfDest = bfD;
                     for (let g of after) {
@@ -1821,28 +1822,26 @@ class RCompiler {
                         }
                     }
                     : async function REACT(ar: Area) {                
-                        let {r, sub, bCr} = PrepRange(srcE, ar, att);
+                        let {r, sub} = PrepRange(srcE, ar, att);
         
                         await b(sub);
 
-                        //let subs: Subscriber, pVars: RVAR[];
-                        if (bCr)
-                            // Create new subscriber
-                            subs = r.subs = Subscriber(ass(sub,{bR}), b, r.child);
-                        else {
-                            var {subs, rvars: pVars} = r;
-                            if(!subs) return;   // Might happen in case of errors during Create
-                        }
+                        let 
+                            subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.child)
+                            , pVars: RVAR[] = r.rvars
+                            , i = 0;
+                        if(!subs) return;   // Might happen in case of errors during Create
 
-                        let rvars = r.rvars = dRV(), i = 0;
                         r.val = sub.prevR?.val;
-                        for (let rvar of rvars) {
+                        for (let rvar of r.rvars = dRV()) {
                             if (pVars) {
+                                // Check whether the current rvar(s) are the same as the previous one(s)
                                 let p = pVars[i++];
                                 if (rvar==p)
-                                    continue;
-                                p._Subs.delete(subs);
+                                    continue;           // Yes, continue
+                                p._Subs.delete(subs);   // No, unsubscribe from the previous one
                             }
+
                             try { rvar.Subscribe(subs); }
                             catch { ErrAtt('This is not an RVAR', att) }
                         }

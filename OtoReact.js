@@ -323,6 +323,7 @@ export async function DoUpdate() {
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
     finally {
+        env = U;
         bUpdating = F;
     }
 }
@@ -661,7 +662,7 @@ class RCompiler {
                                         if (bCr) {
                                             let upd = dUpd?.();
                                             vLet(r.val =
-                                                RVAR(N, v, dSto?.(), dSet?.(), dSNm?.()))
+                                                RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
                                                 .Subscribe(upd?.SetDirty?.bind(upd))
                                                 .Subscribe(onMod?.());
                                         }
@@ -896,6 +897,7 @@ class RCompiler {
                                     sRoot.innerHTML = '';
                                     try {
                                         tempElm.innerHTML = src;
+                                        C.CT = new Context();
                                         await C.Compile(tempElm, { bSubfile: T, bTiming: R.Settings.bTiming }, tempElm.childNodes);
                                         await C.Build(sAr);
                                     }
@@ -1066,7 +1068,7 @@ class RCompiler {
                         if (r ? g.U : g.C)
                             g.hndlr().call(r?.node || ar.parN);
                     }
-                    await b(ar, x);
+                    await b(ar, x, T);
                     if (bfD)
                         ar.prevR.bfDest = bfD;
                     for (let g of after) {
@@ -1096,18 +1098,13 @@ class RCompiler {
                         }
                     }
                     : async function REACT(ar) {
-                        let { r, sub, bCr } = PrepRange(srcE, ar, att);
+                        let { r, sub } = PrepRange(srcE, ar, att);
                         await b(sub);
-                        if (bCr)
-                            subs = r.subs = Subscriber(ass(sub, { bR }), b, r.child);
-                        else {
-                            var { subs, rvars: pVars } = r;
-                            if (!subs)
-                                return;
-                        }
-                        let rvars = r.rvars = dRV(), i = 0;
+                        let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.child)), pVars = r.rvars, i = 0;
+                        if (!subs)
+                            return;
                         r.val = sub.prevR?.val;
-                        for (let rvar of rvars) {
+                        for (let rvar of r.rvars = dRV()) {
                             if (pVars) {
                                 let p = pVars[i++];
                                 if (rvar == p)
