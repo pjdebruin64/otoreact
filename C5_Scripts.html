@@ -159,7 +159,8 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         <tr>
             <td>preformatted</td><td>[ ]</td>
             <td>
-                By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page. Only within the preformatted <elm>pre</elm> element white space is always preserved.
+                By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page.
+                <br>Only within the preformatted <elm>pre</elm> element, and within elements with an explicit in-line <code>style="white-space: pre..."</code> style setting, all white space is preserved.
                 <br>With the 'preformatted' option, you can set an array of other (case insensitive) element names that should have all white space preserved in the DOM.
                 <p>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
             </td>

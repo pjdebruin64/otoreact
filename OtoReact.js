@@ -1,4 +1,4 @@
-const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = W.globalThis || (W.globalThis = W.self), defaults = {
+const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = self, defaults = {
     bTiming: F,
     bAbortOnError: F,
     bShowErrors: T,
@@ -203,24 +203,23 @@ class Signature {
     }
 }
 class _RVAR {
-    constructor(name, initial, store, storeName) {
+    constructor(name, init, store, storeNm) {
         this._Subs = new Set();
-        ass(this, { name, store, storeName });
+        this.name = name || storeNm;
         if (name)
             G[name] = this;
-        let s = store && store.getItem(this._sNm), t = initial;
-        if (s)
-            try {
-                this.v = JSON.parse(s);
-                return;
-            }
-            catch { }
-        t instanceof Promise ?
-            t.then(v => this.V = v, onerr)
-            : (this.v = t);
-    }
-    get _sNm() {
-        return this.storeName || R.Settings.storePrefix + this.name;
+        if (store) {
+            let sNm = storeNm || R.Settings.storePrefix + name, s = store.getItem(sNm);
+            if (s)
+                try {
+                    init = JSON.parse(s);
+                }
+                catch { }
+            this.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
+        }
+        init instanceof Promise ?
+            init.then(v => this.V = v, onerr)
+            : (this.v = init);
     }
     Subscribe(s, bImmediate, bCr = bImmediate) {
         if (s) {
@@ -242,7 +241,7 @@ class _RVAR {
         }
     }
     get Set() {
-        return (t) => t instanceof Promise ?
+        return t => t instanceof Promise ?
             ((this.V = U), t.then(v => this.V = v, onerr))
             : (this.V = t);
     }
@@ -262,13 +261,10 @@ class _RVAR {
                 sub(this.v);
             else
                 b = T;
-        if (b || this.store) {
+        if (b) {
             DVars.add(this);
             RUpdate();
         }
-    }
-    Save() {
-        this.store.setItem(this._sNm, JSON.stringify(this.v ?? N));
     }
     toString() {
         return this.v?.toString() ?? '';
@@ -306,19 +302,18 @@ export async function DoUpdate() {
             updCnt++;
             let dv = DVars;
             DVars = new Set();
-            for (let rv of dv) {
-                if (rv.store)
-                    rv.Save();
+            for (let rv of dv)
                 for (let subs of rv._Subs)
                     if (!subs.bImm)
                         try {
-                            await subs(rv instanceof _RVAR ? rv.V : rv);
+                            let P = subs(rv instanceof _RVAR ? rv.v : rv);
+                            if (subs.sAr)
+                                await P;
                         }
                         catch (e) {
                             console.log(e = `ERROR: ` + LAbbr(e));
                             alert(e);
                         }
-            }
         }
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
@@ -514,12 +509,14 @@ class RCompiler {
         ass(this.Settings, settings);
         for (let tag of this.Settings.preformatted)
             this.setPRE.add(tag.toUpperCase());
-        let t0 = now(), bldr = this.bldr = childnodes
-            ? await this.CChilds(elm, childnodes)
-            : await this.CElm(elm.parentElement, elm, T);
+        let t0 = now();
+        this.bldr =
+            (childnodes
+                ? await this.CChilds(elm, childnodes)
+                : await this.CElm(elm.parentElement, elm, T)) || dumB;
         this.bCompiled = T;
         this.log(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return bldr;
+        return this.bldr;
     }
     log(msg) {
         if (this.Settings.bTiming)
@@ -530,7 +527,7 @@ class RCompiler {
         R = this;
         env = NewEnv();
         nodeCnt++;
-        await this.bldr?.(ar);
+        await this.bldr(ar);
         R = saveR;
     }
     async CChilds(srcParent, childNodes = srcParent.childNodes) {
@@ -908,7 +905,6 @@ class RCompiler {
                                         env = svEnv;
                                     }
                                 }
-                                debugger;
                             };
                         }
                         break;
@@ -1528,7 +1524,7 @@ class RCompiler {
     }
     async CHTMLElm(srcE, atts, dTag) {
         let nm = dTag ? N : srcE.tagName.replace(/\.+$/, ''), preWs = this.ws, postWs;
-        if (this.setPRE.has(nm)) {
+        if (this.setPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = 4;
             postWs = 1;
         }
@@ -1921,7 +1917,7 @@ class DocLoc extends _RVAR {
         this.V = this.url.href;
     }
     search(fld, val) {
-        let U = new URL(this.V);
+        let U = new URL(this.v);
         mapSet(U.searchParams, fld, val);
         return U.href;
     }

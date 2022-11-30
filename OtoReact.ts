@@ -2,9 +2,9 @@
 const
     U = undefined, N = null, T = true, F = false, E = [], 
     W = window, D = document, L = location,
-    G = // Polyfill for globalThis
-        W.globalThis || ((W as any).globalThis = W.self),
-    defaults = {
+    G = self // Polyfill for globalThis
+        //W.globalThis || ((W as any).globalThis = W.self)
+    , defaults = {
         bTiming:        F,
         bAbortOnError:  F,      // Abort processing on runtime errors,
                                 // When false, only the element producing the error will be skipped
@@ -471,40 +471,38 @@ interface Store {
 }
 class _RVAR<T = unknown>{
     public name?: string;
-    public store?: Store;
-    public storeName: string;
     constructor(
         name?: string, 
-        initial?: T | Promise<T>, 
+        init?: T | Promise<T>, 
         store?: Store,
-        storeName?: string,
+        storeNm?: string,
     ) {
-        ass(this,{name,store,storeName})
+        this.name = name || storeNm;
         if (name) G[name] = this;
-        
-        let s = store && store.getItem(this._sNm), 
-            t= initial;
-        if (s)
-            try {
-                this.v = JSON.parse(s);
-                return;
-            }
-            catch{}
 
-        t instanceof Promise ?
-            t.then(v => this.V = v, onerr)
-            : (this.v = t)
+        if (store) {
+            let sNm = storeNm || R.Settings.storePrefix + name
+                , s = store.getItem(sNm);
+            if (s)
+                try { init = JSON.parse(s); }
+                catch{}
+            this.Subscribe(v => 
+                store.setItem(sNm, JSON.stringify(v ?? N))
+            );
+        }
+        init instanceof Promise ? 
+            init.then( v => this.V = v,
+                onerr
+            )
+            : (this.v = init)
     }
     // The value of the variable
-    private v: T;
+    v: T;
     // The subscribers
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
     _Subs: Set<Subscriber<T>> = new Set();
     auto: Subscriber;
-    private get _sNm() {
-        return this.storeName || R.Settings.storePrefix + this.name;
-    }
 
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr: boolean = bImmediate) {
         if (s) {
@@ -527,8 +525,9 @@ class _RVAR<T = unknown>{
             this.SetDirty();
         }
     }
-    get Set() {
-        return (t: T | Promise<T>): T | Promise<T> =>
+    get Set() : (t:T | Promise<T>) => T | Promise<T>
+    {
+        return t =>
             t instanceof Promise ?
                 ( (this.V = U), t.then(v => this.V = v, onerr))
                 : (this.V = t);
@@ -552,14 +551,10 @@ class _RVAR<T = unknown>{
             if (sub.bImm)
                 sub(this.v);
             else b=T;
-        if (b || this.store) {
+        if (b) {
             DVars.add(this);
             RUpdate();
         }
-    }
-
-    public Save() {
-        this.store.setItem(this._sNm, JSON.stringify(this.v ?? N));
     }
 
     toString() {
@@ -606,7 +601,7 @@ let
     onsuc: Handler,        // Current onsuccess routine
 
     // Dirty variables, which can be either RVAR's or RVAR_Light
-    DVars = new Set<{_Subs: Set<Subscriber>; store?: any; Save?: () => void}>(),
+    DVars = new Set<{_Subs: Set<Subscriber>;}>(),
 
     bUpdating: boolean,     // True while we are in the update-loop
     hUpdate: number,        // Handle to a scheduled update
@@ -634,19 +629,17 @@ export async function DoUpdate() {
         updCnt++;
         let dv = DVars;
         DVars = new Set();
-        for (let rv of dv) {
-            if (rv.store)
-                rv.Save();
+        for (let rv of dv)
             for (let subs of rv._Subs)
                 if (!subs.bImm)
                     try { 
-                        await subs(rv instanceof _RVAR ? rv.V : rv); 
+                        let P = subs(rv instanceof _RVAR ? rv.v : rv);
+                        if (subs.sAr) await P;
                     }
                     catch (e) {    
                         console.log(e = `ERROR: `+LAbbr(e));
                         alert(e);
                     }
-        }
     }
     R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
@@ -948,13 +941,15 @@ class RCompiler {
         ass(this.Settings, settings);
         for (let tag of this.Settings.preformatted)
         this.setPRE.add(tag.toUpperCase());
-        let t0 = now(),
-            bldr = this.bldr = childnodes
+        let t0 = now();
+        this.bldr =
+            ( childnodes
             ? await this.CChilds(elm, childnodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
+            ) || dumB;
         this.bCompiled = T;
         this.log(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return bldr;
+        return this.bldr;
     }
 
     log(msg: string) {
@@ -969,7 +964,7 @@ class RCompiler {
         R = this;
         env = NewEnv();
         nodeCnt++;
-        await this.bldr?.(ar);
+        await this.bldr(ar);
         R = saveR;        
     }
 
@@ -1604,7 +1599,6 @@ class RCompiler {
                                 }
                                 finally { env = svEnv; }
                             }
-                            debugger;
                         };
                     } break;
 
@@ -2492,7 +2486,7 @@ class RCompiler {
             // Whitespace-mode after this element
             , postWs: WSpc;
 
-        if (this.setPRE.has(nm)) {
+        if (this.setPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = WSpc.preserve; postWs = WSpc.block;
         }
         else if (reBlock.test(nm))
@@ -3041,7 +3035,7 @@ class DocLoc extends _RVAR<string> {
         }
         query: {[fld: string]: string};
         search(fld: string, val: string) {
-            let U = new URL(this.V);
+            let U = new URL(this.v);
             mapSet(U.searchParams as any, fld, val);
             return U.href;
         }

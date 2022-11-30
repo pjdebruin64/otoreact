@@ -70,13 +70,10 @@ interface Store {
 }
 declare class _RVAR<T = unknown> {
     name?: string;
-    store?: Store;
-    storeName: string;
-    constructor(name?: string, initial?: T | Promise<T>, store?: Store, storeName?: string);
-    private v;
+    constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
+    v: T;
     _Subs: Set<Subscriber<T>>;
     auto: Subscriber;
-    private get _sNm();
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
@@ -86,7 +83,6 @@ declare class _RVAR<T = unknown> {
     get U(): T;
     set U(t: T);
     SetDirty(): void;
-    Save(): void;
     toString(): string;
 }
 export declare type RVAR<T = unknown> = _RVAR<T>;
