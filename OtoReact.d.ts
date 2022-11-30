@@ -14,7 +14,7 @@ declare const defaults: {
 };
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     iB?: boolean | number;
-    auto?: LVar<RVAR>;
+    auto?: string;
 };
 declare type Area = {
     r?: Range;
@@ -61,9 +61,6 @@ declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>))
     bImm?: boolean;
 };
 declare type Handler = (ev: Event) => any;
-declare type LVar<T = unknown> = ((value?: T) => T) & {
-    nm: string;
-};
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -73,7 +70,6 @@ declare class _RVAR<T = unknown> {
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;
     _Subs: Set<Subscriber<T>>;
-    auto: Subscriber;
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;

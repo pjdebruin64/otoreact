@@ -57,7 +57,7 @@ type hHTMLElement = HTMLElement & {
 type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) 
     & {
         iB?: boolean|number;   // Truthy when the builder won't create any DOM other than blank text
-        auto?: LVar<RVAR>; /* When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing. */
+        auto?: string; /* When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing. */
     };
 
 
@@ -502,7 +502,6 @@ class _RVAR<T = unknown>{
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
     _Subs: Set<Subscriber<T>> = new Set();
-    auto: Subscriber;
 
     Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr: boolean = bImmediate) {
         if (s) {
@@ -783,12 +782,9 @@ function ApplyMods(elm: HTMLElement, mods: Modifier[], bCr?: boolean) {
     // Apply all modifiers: adding attributes, classes, styles, events
     ro= T;
     for (let M of mods)
-        //try {
-            // See what to do with it
-            ApplyMod(elm, M, M.depV.call(elm)    // Evaluate the dependent value in the current environment
-                    , bCr);
-        //} catch (e) { ErrAtt(e, M.nm) }
-    
+        // See what to do with it
+        ApplyMod(elm, M, M.depV.call(elm)    // Evaluate the dependent value in the current environment
+                , bCr);
     ro = F;
 }
 
@@ -799,7 +795,7 @@ class RCompiler {
 
     private CT: Context         // Compile-time context
 
-    private cRvars = new Map<string,LVar<RVAR>>(); //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
+    private cRvars = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
 
     private doc: Document;
     private head: Node;
@@ -991,182 +987,108 @@ class RCompiler {
 
     // Compile some stretch of childnodes
     private async CIter(srcP: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
-        let bldrs = [] as Array< DOMBuilder >
-            , {rspc} = this     // Indicates whether the output may be right-trimmed
-            , arr = Array.from(iter)
-            , i=0;
+        let {rspc} = this     // Indicates whether the output may be right-trimmed
+            , arr = Array.from(iter);
         while(rspc && arr.length && reWS.test(arr[arr.length-1].nodeValue)) 
             arr.pop();
         
-        //return this.CArr(srcP, arr, 0);
+        let bldrs = await this.CArr(srcP, arr, this.rspc);
 
-        for (let srcN of arr) {
-            this.rspc = ++i==arr.length && rspc;
-            let bldr: DOMBuilder;
+        return bldrs.length ? aIb(
+            async function Iter(ar: Area)
+            {   
+                for (let b of bldrs)
+                    await b(ar);
+            }
+            , bldrs.every(b => b.iB))
+            : N;
+    }
+
+    private async CArr(srcP: ParentNode, arr: Array<ChildNode>, rspc: booly, i=0) : Promise<DOMBuilder[]> {
+        let bldrs = [] as Array< DOMBuilder >
+            , L = arr.length
+            , rv: string
+        while (i<L) {
+            let srcN = arr[i++], bldr: DOMBuilder;
+            this.rspc = i==L && rspc;
             switch (srcN.nodeType) {
                 
                 case Node.ELEMENT_NODE:
                     this.srcNodeCnt ++;
                     bldr = await this.CElm(srcP, srcN as HTMLElement);
+
+                    if (rv = bldr?.auto) {
+
+                        // Check for compile-time subscribers
+                        let a = this.cRvars[rv],    // Save previous value
+                            bs = await this.CArr(this.cRvars[rv] = srcP, arr, rspc, i);
+                        i = L;
+
+                        bldrs.push(bldr);
+                        bldr = N;
+
+                        // Were there no compile-time reacts for this rvar?
+                        if (bs.length && this.cRvars[rv]) {
+                            bldr = aIb(async function Auto(ar: Area) {
+                                if (!ar.r) {
+                                    let r = ar.prevR
+                                        , rv = r.val as RVAR, s = rv._Subs.size
+                                        , subs = Subscriber(ar, Auto, r);
+                                    for (let b of bs)
+                                        await b(ar);
+                                    let {sAr} = subs;
+                                    r = r ? r.next : ar.parR.child;
+                                    if (rv._Subs.size==s && r) // No new subscribers still?
+                                    {   // Then auto-subscribe with the correct range
+                                        (sAr.r = r).updated = updCnt;
+                                        rv.Subscribe(subs);
+                                    }
+                                }
+                                else
+                                    for (let b of bs)
+                                        await b(ar);
+                            }
+                            , bs.every(b => b.iB))
+                        }
+                        else
+                            bldrs.push(...bs);
+
+                        this.cRvars[rv] = a;
+                    }
+
                     break;
 
-                case Node.TEXT_NODE:
-                    this.srcNodeCnt ++;
-                    let str = srcN.nodeValue;
-                    
-                    let getText = this.CString( str ), {fixed} = getText;
-                    if (fixed !== '') { // Either nonempty or undefined
-                        bldr = aIb(
-                            fixed 
-                                ? async (ar: Area) => PrepCharData(ar, fixed)
-                                : async (ar: Area) => PrepCharData(ar, getText())
-                            , fixed==' ' && 2 );
+                    case Node.TEXT_NODE:
+                        this.srcNodeCnt ++;
+                        let str = srcN.nodeValue;
                         
-                        // Update the compiler whitespace mode
-                        if (this.ws < WSpc.preserve)
-                            this.ws = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
-                    }
-                    break;
-
-                case Node.COMMENT_NODE:
-                    if (this.Settings.bKeepComments) {
-                        let getText = this.CString(srcN.nodeValue, 'Comment');
-                        bldr =
-                            aIb(async (ar:Area)=> PrepCharData(ar, getText(), T), 1)
-                    }
-                    break;
+                        let getText = this.CString( str ), {fixed} = getText;
+                        if (fixed !== '') { // Either nonempty or undefined
+                            bldr = aIb(
+                                fixed 
+                                    ? async (ar: Area) => PrepCharData(ar, fixed)
+                                    : async (ar: Area) => PrepCharData(ar, getText())
+                                , fixed==' ' && 2 );
+                            
+                            // Update the compiler whitespace mode
+                            if (this.ws < WSpc.preserve)
+                                this.ws = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
+                        }
+                        break;
+    
+                    case Node.COMMENT_NODE:
+                        if (this.Settings.bKeepComments) {
+                            let getText = this.CString(srcN.nodeValue, 'Comment');
+                            bldr =
+                                aIb(async (ar:Area)=> PrepCharData(ar, getText(), T), 1)
+                        }
+                        break;
             }
                        
             if (bldr ? bldr.iB : this.rspc)
                 prune();
             if (bldr) 
                 bldrs.push(bldr);
-        }
-        function prune() {
-            // Builders producing trailing whitespace are not needed
-            let i = bldrs.length, iB: boolean|number;
-            while (i-- && (iB= bldrs[i].iB))
-                if (iB > 1)
-                    bldrs.splice(i, 1);
-        }
-        if (rspc)
-            prune();
-
-        if (!bldrs.length) return N;
-
-        return aIb(
-            async function Iter(ar: Area, start: number = 0)
-                // start > 0 is used by auto-generated subscribers
-            {                
-                let i=0, toSubs: Array<[Subscriber, RVAR,number]> = [];
-                if (!ar.r) {
-                    for (let bldr of bldrs) {
-                        i++;
-                        await bldr(ar);
-                        if (bldr.auto) {  // Auto subscribe?
-                            let rv = ar.prevR.val as RVAR; // env[bldr.auto.i] as RVAR;
-                            toSubs.push([
-                                Subscriber(ar, Iter, ar.prevR, i)   // Not yet the correct range, we need the next range
-                                , rv
-                                , rv._Subs.size]); 
-                        }
-                    }
-                    for (let [subs,rv,s] of toSubs) {
-                        let {sAr} = subs
-                            , r = sAr.r ? sAr.r.next : ar.parR.child;
-                        if (rv._Subs.size==s && r) // No new subscribers yet?
-                        {   // Then auto-subscribe with the correct range
-                            (sAr.r = r).updated = updCnt;
-                            rv.Subscribe(rv.auto = subs);
-                        }
-                    }
-                } else
-                    for (let t of bldrs)
-                        if (i++ >= start) 
-                            await t(ar);
-            }
-            , bldrs.every(b => b.iB));
-    }
-/*
-    private async CArr(srcP: ParentNode, arr: Array<ChildNode>, i: number) : Promise<DOMBuilder> {
-        type Triple = [
-            DOMBuilder,         // Builder for a single childnode
-            boolean|1    // true: this builder will only produce whitespace and does not modify 'env'
-                         // 1: this builder will only produce whitespace
-        ];
-        let bldrs = [] as Array< Triple >
-            , {rspc} = this     // Indicates whether the output may be right-trimmed
-            , L = arr.length
-        while (i<L) {
-            let srcN = arr[i++], trip: Triple;
-            this.rspc = i==L && rspc;
-            switch (srcN.nodeType) {
-                
-                case Node.ELEMENT_NODE:
-                    this.srcNodeCnt ++;
-                    trip = await this.CElm(srcP, srcN as HTMLElement);
-
-                    if (trip?.[0].auto) {
-                        this.rspc = rspc;
-                        let bldr = await this.CArr(srcP, arr, i);
-                        i = L;
-                        if (bldr) {
-                            let defB = trip[0];
-                            trip =[ async function Auto(ar: Area) {
-                                await defB(ar);
-                                if (!ar.r) {
-                                    let r = ar.prevR
-                                        , rv = r.val as RVAR, s = rv._Subs.size
-                                        , subs = Subscriber(ar, Auto, r);
-                                    await bldr(ar);
-                                    let {sAr} = subs;
-                                    r = r ? r.next : ar.parR.child;
-                                    if (rv._Subs.size==s && r) // No new subscribers yet?
-                                    {   // Then auto-subscribe with the correct range
-                                        (sAr.r = r).updated = updCnt;
-                                        rv.Subscribe(rv.auto = subs);
-                                    }
-                                }
-                                else
-                                    await bldr(ar);
-                            }
-                            , F];
-                        }
-                    }
-
-                    break;
-
-                case Node.TEXT_NODE:
-                    this.srcNodeCnt ++;
-                    let str = srcN.nodeValue;
-                    
-                    let getText = this.CString( str ), {fixed} = getText;
-                    if (fixed !== '') { // Either nonempty or undefined
-                        trip = 
-                            [ fixed 
-                                ? async (ar: Area) => PrepCharData(ar, fixed)
-                                : async (ar: Area) => PrepCharData(ar, getText())
-                            , fixed==' ' ];
-                        
-                        // Update the compiler whitespace mode
-                        if (this.ws < WSpc.preserve)
-                            this.ws = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
-                    }
-                    break;
-
-                case Node.COMMENT_NODE:
-                    if (this.Settings.bKeepComments) {
-                        let getText = this.CString(srcN.nodeValue, 'Comment');
-                        trip =
-                            [ async (ar:Area)=> PrepCharData(ar, getText(), T), 1]
-                    }
-                    break;
-            }
-                       
-            if (trip ? trip[0].ws : this.rspc)
-                prune();
-            if (trip) 
-                bldrs.push(trip);
         }
         function prune() {
             // Builders producing trailing whitespace are not needed
@@ -1178,18 +1100,9 @@ class RCompiler {
         if (rspc)
             prune();
 
-        if (!bldrs.length) return N;
-
-        return aWs(
-            async function Iter(ar: Area)
-                // start > 0 is used by auto-generated subscribers
-            {                
-                for (let t of bldrs)
-                    await t[0](ar);
-            }
-            , bldrs[0][0].ws);
+        return bldrs;
     }
-*/
+
     private async CElm(srcPrnt: ParentNode, srcE: HTMLElement, bUnhide?: boolean
         ): Promise<DOMBuilder> {       
         try {
@@ -1213,10 +1126,9 @@ class RCompiler {
                 
                 // The intermediate builder will be put here
                 bldr: DOMBuilder,
-                // The final builder will be put here
-                elmBldr: DOMBuilder,
                 
                 iB: boolean|number  // truthy when bldr won't produce non-blank output, 2 when no side effects
+                , auto: string
                 , m: RegExpExecArray, nm: string
 
                 // See if this node is a user-defined construct (component or slot) instance
@@ -1290,16 +1202,8 @@ class RCompiler {
                             }
                         }
 
-                        if (rv && !onMod) {
-                            // Check for compile-time subscribers
-                            let a = this.cRvars.get(rv);    // Save previous value
-                            this.cRvars.set(rv, vLet as LVar<RVAR>);
-                            this.rActs.push(() => {
-                                // Possibly auto-subscribe when there were no compile-time subscribers
-                                if (elmBldr) elmBldr.auto = this.cRvars.get(rv);
-                                this.cRvars.set(rv, a);
-                            });
-                        }
+                        if (!onMod)
+                            auto = rv;
                         
                         iB = 1;
                     } break;
@@ -1703,7 +1607,7 @@ class RCompiler {
                     }
             }
 
-            return bldr == dumB ? N : elmBldr = aIb(
+            return bldr == dumB ? N : ass(
                 this.rActs.length == CTL
                 ? function Elm(ar: Area) {
                     return R.ErrHandling(bldr, srcE, ar);
@@ -1711,7 +1615,7 @@ class RCompiler {
                 : function Elm(ar: Area) {
                     return bldr(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
                 }
-                , iB);
+                , {iB,auto});
         }
         catch (e) { throw ErrMsg(srcE, e); }
     }
@@ -2780,7 +2684,7 @@ class RCompiler {
         if (list==N) return N;
         if (bReacts)
             for (let nm of split(list))
-                this.cRvars.set(nm, N);
+                this.cRvars[nm] = N;
         return this.CJScript<T[]>(`[${list}\n]`, attNm);
     }
 

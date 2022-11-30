@@ -429,7 +429,7 @@ function ApplyMods(elm, mods, bCr) {
 class RCompiler {
     constructor(RC, FilePath, CT = RC?.CT) {
         this.num = RCompiler.iNum++;
-        this.cRvars = new Map();
+        this.cRvars = {};
         this.rActs = [];
         this.setPRE = new Set(['PRE']);
         this.ws = 1;
@@ -540,16 +540,52 @@ class RCompiler {
         }
     }
     async CIter(srcP, iter) {
-        let bldrs = [], { rspc } = this, arr = Array.from(iter), i = 0;
+        let { rspc } = this, arr = Array.from(iter);
         while (rspc && arr.length && reWS.test(arr[arr.length - 1].nodeValue))
             arr.pop();
-        for (let srcN of arr) {
-            this.rspc = ++i == arr.length && rspc;
-            let bldr;
+        let bldrs = await this.CArr(srcP, arr, this.rspc);
+        return bldrs.length ? aIb(async function Iter(ar) {
+            for (let b of bldrs)
+                await b(ar);
+        }, bldrs.every(b => b.iB))
+            : N;
+    }
+    async CArr(srcP, arr, rspc, i = 0) {
+        let bldrs = [], L = arr.length, rv;
+        while (i < L) {
+            let srcN = arr[i++], bldr;
+            this.rspc = i == L && rspc;
             switch (srcN.nodeType) {
                 case Node.ELEMENT_NODE:
                     this.srcNodeCnt++;
                     bldr = await this.CElm(srcP, srcN);
+                    if (rv = bldr?.auto) {
+                        let a = this.cRvars[rv], bs = await this.CArr(this.cRvars[rv] = srcP, arr, rspc, i);
+                        i = L;
+                        bldrs.push(bldr);
+                        bldr = N;
+                        if (bs.length && this.cRvars[rv]) {
+                            bldr = aIb(async function Auto(ar) {
+                                if (!ar.r) {
+                                    let r = ar.prevR, rv = r.val, s = rv._Subs.size, subs = Subscriber(ar, Auto, r);
+                                    for (let b of bs)
+                                        await b(ar);
+                                    let { sAr } = subs;
+                                    r = r ? r.next : ar.parR.child;
+                                    if (rv._Subs.size == s && r) {
+                                        (sAr.r = r).updated = updCnt;
+                                        rv.Subscribe(subs);
+                                    }
+                                }
+                                else
+                                    for (let b of bs)
+                                        await b(ar);
+                            }, bs.every(b => b.iB));
+                        }
+                        else
+                            bldrs.push(...bs);
+                        this.cRvars[rv] = a;
+                    }
                     break;
                 case Node.TEXT_NODE:
                     this.srcNodeCnt++;
@@ -577,47 +613,18 @@ class RCompiler {
                 bldrs.push(bldr);
         }
         function prune() {
-            let i = bldrs.length, iB;
-            while (i-- && (iB = bldrs[i].iB))
-                if (iB > 1)
+            let i = bldrs.length, isB;
+            while (i-- && (isB = bldrs[i][1]))
+                if (isB === T)
                     bldrs.splice(i, 1);
         }
         if (rspc)
             prune();
-        if (!bldrs.length)
-            return N;
-        return aIb(async function Iter(ar, start = 0) {
-            let i = 0, toSubs = [];
-            if (!ar.r) {
-                for (let bldr of bldrs) {
-                    i++;
-                    await bldr(ar);
-                    if (bldr.auto) {
-                        let rv = ar.prevR.val;
-                        toSubs.push([
-                            Subscriber(ar, Iter, ar.prevR, i),
-                            rv,
-                            rv._Subs.size
-                        ]);
-                    }
-                }
-                for (let [subs, rv, s] of toSubs) {
-                    let { sAr } = subs, r = sAr.r ? sAr.r.next : ar.parR.child;
-                    if (rv._Subs.size == s && r) {
-                        (sAr.r = r).updated = updCnt;
-                        rv.Subscribe(rv.auto = subs);
-                    }
-                }
-            }
-            else
-                for (let t of bldrs)
-                    if (i++ >= start)
-                        await t(ar);
-        }, bldrs.every(b => b.iB));
+        return bldrs;
     }
     async CElm(srcPrnt, srcE, bUnhide) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], befor = [], after = [], dOnerr, dOnsuc, bldr, elmBldr, iB, m, nm, constr = this.CT.csMap.get(tag), dIf = this.CAttExp(atts, 'if');
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], befor = [], after = [], dOnerr, dOnsuc, bldr, iB, auto, m, nm, constr = this.CT.csMap.get(tag), dIf = this.CAttExp(atts, 'if');
             for (let att of atts.keys())
                 if (m =
                     /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/
@@ -669,15 +676,8 @@ class RCompiler {
                                         vLet(v);
                                 }
                             };
-                            if (rv && !onMod) {
-                                let a = this.cRvars.get(rv);
-                                this.cRvars.set(rv, vLet);
-                                this.rActs.push(() => {
-                                    if (elmBldr)
-                                        elmBldr.auto = this.cRvars.get(rv);
-                                    this.cRvars.set(rv, a);
-                                });
-                            }
+                            if (!onMod)
+                                auto = rv;
                             iB = 1;
                         }
                         break;
@@ -1008,13 +1008,13 @@ class RCompiler {
                         }
                     };
             }
-            return bldr == dumB ? N : elmBldr = aIb(this.rActs.length == CTL
+            return bldr == dumB ? N : ass(this.rActs.length == CTL
                 ? function Elm(ar) {
                     return R.ErrHandling(bldr, srcE, ar);
                 }
                 : function Elm(ar) {
                     return bldr(ar).catch(e => { throw ErrMsg(srcE, e, 39); });
-                }, iB);
+                }, { iB, auto });
         }
         catch (e) {
             throw ErrMsg(srcE, e);
@@ -1714,7 +1714,7 @@ class RCompiler {
             return N;
         if (bReacts)
             for (let nm of split(list))
-                this.cRvars.set(nm, N);
+                this.cRvars[nm] = N;
         return this.CJScript(`[${list}\n]`, attNm);
     }
     AddErrH(dHndlr) {
