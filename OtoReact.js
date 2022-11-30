@@ -683,114 +683,7 @@ class RCompiler {
                         break;
                     case 'IF':
                     case 'CASE':
-                        {
-                            let bHiding = atts.gB('hiding'), dVal = this.CAttExp(atts, 'value'), caseNodes = [], body = [];
-                            for (let node of srcE.childNodes) {
-                                if (node instanceof HTMLElement)
-                                    switch (node.tagName) {
-                                        case 'THEN':
-                                            var bThen = T;
-                                            new Atts(node).NoneLeft();
-                                            caseNodes.push({ node, atts });
-                                            continue;
-                                        case 'ELSE':
-                                        case 'WHEN':
-                                            caseNodes.push({ node, atts: new Atts(node) });
-                                            continue;
-                                    }
-                                body.push(node);
-                            }
-                            if (!bThen)
-                                if (srcE.tagName == 'IF')
-                                    caseNodes.unshift({ node: srcE, atts, body });
-                                else
-                                    atts.NoneLeft();
-                            let caseList = [], { ws, rspc, CT } = this, postCT = CT, postWs = 0, bElse;
-                            for (let { node, atts, body } of caseNodes) {
-                                ass(this, { ws, rspc, CT: new Context(CT) });
-                                let ES = this.SScope();
-                                try {
-                                    let cond, not, patt, p;
-                                    switch (node.tagName) {
-                                        case 'IF':
-                                        case 'THEN':
-                                        case 'WHEN':
-                                            cond = this.CAttExp(atts, 'cond');
-                                            not = atts.gB('not');
-                                            patt =
-                                                (p = atts.g('match')) != N
-                                                    ? this.CPatt(p)
-                                                    : (p = atts.g('urlmatch')) != N
-                                                        ? this.CPatt(p, T)
-                                                        : (p = atts.g('regmatch')) != N
-                                                            ? { regex: new RegExp(p, 'i'),
-                                                                lvars: this.LVars(atts.g('captures'))
-                                                            }
-                                                            : N;
-                                            if (bHiding && patt?.lvars.length)
-                                                throw `Pattern capturing cannot be combined with hiding`;
-                                            if (patt && !dVal)
-                                                throw `Match requested but no 'value' specified.`;
-                                        case 'ELSE':
-                                            bldr = await this.CChilds(node, body || node.childNodes);
-                                            if (bldr) {
-                                                caseList.push({
-                                                    cond, not, patt,
-                                                    bldr,
-                                                    node
-                                                });
-                                                atts.NoneLeft();
-                                                postWs = Math.max(postWs, this.ws);
-                                                postCT = postCT.max(this.CT);
-                                                if (cond !== U)
-                                                    bElse = T;
-                                            }
-                                    }
-                                }
-                                catch (e) {
-                                    throw node.tagName == 'IF' ? e : ErrMsg(node, e);
-                                }
-                                finally {
-                                    ES();
-                                }
-                            }
-                            this.ws = !bElse && ws > postWs ? ws : postWs;
-                            this.CT = postCT;
-                            bldr =
-                                async function CASE(ar) {
-                                    let val = dVal?.(), RRE;
-                                    try {
-                                        for (var alt of caseList)
-                                            if (!((!alt.cond || alt.cond())
-                                                && (!alt.patt || val != N && (RRE = alt.patt.regex.exec(val)))) != !alt.not) {
-                                                var cAlt = alt;
-                                                break;
-                                            }
-                                    }
-                                    catch (e) {
-                                        throw alt.node.tagName == 'IF' ? e : ErrMsg(alt.node, e);
-                                    }
-                                    finally {
-                                        if (bHiding) {
-                                            for (let alt of caseList) {
-                                                let { r, chAr, bCr } = PrepElm(alt.node, ar);
-                                                if (!(r.node.hidden = alt != cAlt) && !ar.bR
-                                                    || bCr)
-                                                    await R.ErrHandling(alt.bldr, alt.node, chAr);
-                                            }
-                                        }
-                                        else {
-                                            let { sub, bCr } = PrepRange(srcE, ar, '', 1, cAlt);
-                                            if (cAlt && (bCr || !ar.bR)) {
-                                                if (RRE)
-                                                    RRE.shift(),
-                                                        SetLVars(cAlt.patt.lvars, cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE);
-                                                await R.ErrHandling(cAlt.bldr, cAlt.node, sub);
-                                            }
-                                        }
-                                    }
-                                };
-                        }
+                        bldr = await this.CCase(srcE, atts);
                         break;
                     case 'FOR':
                         bldr = await this.CFor(srcE, atts);
@@ -914,7 +807,6 @@ class RCompiler {
                         break;
                     case 'STYLE':
                         this.head.appendChild(srcE);
-                        iB = 1;
                         break;
                     case 'COMPONENT':
                         bldr = await this.CComponent(srcE, atts);
@@ -1189,6 +1081,113 @@ class RCompiler {
                 };
             }
         }
+    }
+    async CCase(srcE, atts) {
+        let bHiding = atts.gB('hiding'), dVal = this.CAttExp(atts, 'value'), caseNodes = [], body = [];
+        for (let node of srcE.childNodes) {
+            if (node instanceof HTMLElement)
+                switch (node.tagName) {
+                    case 'THEN':
+                        var bThen = T;
+                        new Atts(node).NoneLeft();
+                        caseNodes.push({ node, atts });
+                        continue;
+                    case 'ELSE':
+                    case 'WHEN':
+                        caseNodes.push({ node, atts: new Atts(node) });
+                        continue;
+                }
+            body.push(node);
+        }
+        if (!bThen)
+            if (srcE.tagName == 'IF')
+                caseNodes.unshift({ node: srcE, atts, body });
+            else
+                atts.NoneLeft();
+        let caseList = [], { ws, rspc, CT } = this, postCT = CT, postWs = 0, bElse;
+        for (let { node, atts, body } of caseNodes) {
+            ass(this, { ws, rspc, CT: new Context(CT) });
+            let ES = this.SScope();
+            try {
+                let cond, not, patt, p;
+                switch (node.tagName) {
+                    case 'IF':
+                    case 'THEN':
+                    case 'WHEN':
+                        cond = this.CAttExp(atts, 'cond');
+                        not = atts.gB('not');
+                        patt =
+                            (p = atts.g('match')) != N
+                                ? this.CPatt(p)
+                                : (p = atts.g('urlmatch')) != N
+                                    ? this.CPatt(p, T)
+                                    : (p = atts.g('regmatch')) != N
+                                        ? { regex: new RegExp(p, 'i'),
+                                            lvars: this.LVars(atts.g('captures'))
+                                        }
+                                        : N;
+                        if (bHiding && patt?.lvars.length)
+                            throw `Pattern capturing cannot be combined with hiding`;
+                        if (patt && !dVal)
+                            throw `Match requested but no 'value' specified.`;
+                    case 'ELSE':
+                        let b = await this.CChilds(node, body || node.childNodes);
+                        if (b) {
+                            caseList.push({
+                                cond, not, patt,
+                                b,
+                                node
+                            });
+                            atts.NoneLeft();
+                            postWs = Math.max(postWs, this.ws);
+                            postCT = postCT.max(this.CT);
+                            if (cond !== U)
+                                bElse = T;
+                        }
+                }
+            }
+            catch (e) {
+                throw node.tagName == 'IF' ? e : ErrMsg(node, e);
+            }
+            finally {
+                ES();
+            }
+        }
+        this.ws = !bElse && ws > postWs ? ws : postWs;
+        this.CT = postCT;
+        return async function CASE(ar) {
+            let val = dVal?.(), RRE;
+            try {
+                for (var alt of caseList)
+                    if (!((!alt.cond || alt.cond())
+                        && (!alt.patt || val != N && (RRE = alt.patt.regex.exec(val)))) != !alt.not) {
+                        var cAlt = alt;
+                        break;
+                    }
+            }
+            catch (e) {
+                throw alt.node.tagName == 'IF' ? e : ErrMsg(alt.node, e);
+            }
+            finally {
+                if (bHiding) {
+                    for (let alt of caseList) {
+                        let { r, chAr, bCr } = PrepElm(alt.node, ar);
+                        if (!(r.node.hidden = alt != cAlt) && !ar.bR
+                            || bCr)
+                            await R.ErrHandling(alt.b, alt.node, chAr);
+                    }
+                }
+                else {
+                    let { sub, bCr } = PrepRange(srcE, ar, '', 1, cAlt);
+                    if (cAlt && (bCr || !ar.bR)) {
+                        if (RRE)
+                            RRE.shift(),
+                                SetLVars(cAlt.patt.lvars, cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE);
+                        await R.ErrHandling(cAlt.b, cAlt.node, sub);
+                    }
+                }
+            }
+        };
     }
     async CFor(srcE, atts) {
         let letNm = atts.g('let') ?? atts.g('var'), ixNm = atts.g('index', U, U, T);
