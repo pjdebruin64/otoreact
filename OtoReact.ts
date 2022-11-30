@@ -826,7 +826,7 @@ class RCompiler {
         let {CT, rActs} = this
             , {ct,d,L,M} = CT
             , A = rActs.length
-            , nf = L - M > 6;    // Is it worthwile to start a new frame? Limit 6 seems more efficient than 0, 4 or 9
+            , nf = L - M > 5;    // Is it worthwile to start a new frame? Limit 6 seems more efficient than 0, 4 or 9
 
         try {
             if (nf) {
@@ -841,7 +841,10 @@ class RCompiler {
                     if (!r)
                         ({r,sub} = PrepRange(N, sub));
                     let e = env;
-                    env = r.val ||= nf ? [e] : ass([], e);
+                    //env = r.val ||= nf ? [e] : ass([], e);
+                    env = nf 
+                        ? r.val ||= [e] 
+                        : ass(r.val ||= [], e);
                     return {sub, ES: () => {env = e} }; // 'EndScope' routine
                 }
             );
@@ -1125,7 +1128,7 @@ class RCompiler {
                 dOnsuc: Dependent<Handler>,
                 
                 // The intermediate builder will be put here
-                bldr: DOMBuilder,
+                bl: DOMBuilder,
                 
                 iB: boolean|number  // truthy when bldr won't produce non-blank output, 2 when no side effects
                 , auto: string
@@ -1159,7 +1162,7 @@ class RCompiler {
 
             if (bUnhide) atts.set('#hidden', 'false'); 
             if (constr)
-                bldr = await this.CInstance(srcE, atts, constr);
+                bl = await this.CInstance(srcE, atts, constr);
             else {
                 switch (tag) {
                     case 'DEF':
@@ -1177,7 +1180,7 @@ class RCompiler {
                             bUpd    = atts.gB('reacting') || atts.gB('updating') || t_val,
                             vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
-                        bldr = async function DEF(ar, _, bReact?: boolean) {
+                        bl = async function DEF(ar, _, bReact?: boolean) {
                             let {bCr, r} = PrepRange(srcE, ar)
                             if (bCr || bUpd || bReact){
                                 ro=T;
@@ -1210,11 +1213,11 @@ class RCompiler {
 
                     case 'IF':
                     case 'CASE': 
-                        bldr = await this.CCase(srcE, atts);
+                        bl = await this.CCase(srcE, atts);
                     break;
 
                     case 'FOR':
-                        bldr = await this.CFor(srcE, atts);
+                        bl = await this.CFor(srcE, atts);
                     break;
 
                     case 'MODULE': // Skip completely!
@@ -1223,7 +1226,7 @@ class RCompiler {
                         
                     case 'INCLUDE':
                         let src = atts.g('src', T);
-                        bldr = await (
+                        bl = await (
                             srcE.children.length || srcE.textContent.trim()
                             ? this.CChilds(srcE)
                             :  this.Framed(async SScope => {
@@ -1290,7 +1293,7 @@ class RCompiler {
                                 sig.prom = prom;
                         }
                         
-                        bldr = async function IMPORT(ar: Area) {
+                        bl = async function IMPORT(ar: Area) {
                             let {sub,bCr,r}=PrepRange(srcE, ar)
                             if (bCr || bIncl) {
                                 let [bldr, CT] = await promModule
@@ -1312,13 +1315,13 @@ class RCompiler {
                     case 'REACT':
                         try {
                             var ES= this.SScope(),
-                                b = bldr = await this.CChilds(srcE);
+                                b = bl = await this.CChilds(srcE);
                         }
                         finally { ES() }
 
                         iB = b == dumB && 2;
                         if (atts.gB('renew')) {
-                            bldr = function renew(sub: Area) {
+                            bl = function renew(sub: Area) {
                                 return b(PrepRange(srcE, sub, 'renew', 2).sub);
                             };
                         }
@@ -1332,7 +1335,7 @@ class RCompiler {
                             , C = new RCompiler(N, R.FilePath);
                         this.ws=WSpc.block;
                         
-                        bldr = async function RHTML(ar) {
+                        bl = async function RHTML(ar) {
                             let src = dSrc()
                             
                                 , {r, bCr} = PrepElm(srcE, ar, 'rhtml-rhtml')
@@ -1369,7 +1372,7 @@ class RCompiler {
                     } break;
 
                     case 'SCRIPT': 
-                        bldr = await this.CScript(srcPrnt, srcE as HTMLScriptElement, atts); 
+                        bl = await this.CScript(srcPrnt, srcE as HTMLScriptElement, atts); 
                         iB = 1;
                         break;
 
@@ -1378,7 +1381,7 @@ class RCompiler {
                         break;
 
                     case 'COMPONENT':
-                        bldr = await this.CComponent(srcE, atts);
+                        bl = await this.CComponent(srcE, atts);
                         iB = 1;
                         break;
 
@@ -1389,7 +1392,7 @@ class RCompiler {
                             vParams = RC.LVars(atts.g('params')),
                             vWin = RC.LVar(atts.g('window')),
                             docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CChilds(srcE));
-                        bldr = async function DOCUMENT(ar: Area) {
+                        bl = async function DOCUMENT(ar: Area) {
                             let {r, bCr} = PrepRange(srcE, ar, vDoc.name);
                             if (bCr) {
                                 let doc = ar.parN.ownerDocument,
@@ -1454,7 +1457,7 @@ class RCompiler {
                             b = await this.CChilds(srcE);
                         this.ws = ws;
                         
-                        bldr = async function HEAD(ar: Area) {
+                        bl = async function HEAD(ar: Area) {
                             let {sub} = PrepRange(srcE, ar);
                             sub.parN = ar.parN.ownerDocument.head;
                             sub.bfor = N;
@@ -1472,7 +1475,7 @@ class RCompiler {
                             this.ws = WSpc.preserve;
                             b = await this.CChilds(srcE);
                         
-                            bldr = function RSTYLE(ar: Area) {
+                            bl = function RSTYLE(ar: Area) {
                                 return b(PrepElm(srcE, ar, 'STYLE').chAr);
                             };
                         }
@@ -1483,7 +1486,7 @@ class RCompiler {
                         break;
 
                     case 'ELEMENT':                        
-                        bldr = await this.CHTMLElm(srcE, atts
+                        bl = await this.CHTMLElm(srcE, atts
                             , this.CParam(atts, 'tagname', T)
                         );
                         this.ws = WSpc.inline;
@@ -1493,7 +1496,7 @@ class RCompiler {
                         NoChildren(srcE);
                         let dNm = this.CParam<string>(atts, 'name', T),
                             dVal= this.CParam<string>(atts, 'value', T);
-                        bldr = async function ATTRIB(ar: Area){
+                        bl = async function ATTRIB(ar: Area){
                             let nm = dNm(),
                                 {r} = PrepRange(srcE, ar);
                             if (r.val && nm != r.val)
@@ -1506,17 +1509,17 @@ class RCompiler {
 
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        bldr = await this.CHTMLElm(srcE, atts);
+                        bl = await this.CHTMLElm(srcE, atts);
                         break;
                 }
                 atts.NoneLeft();
             }
             
-            bldr ||= dumB;
+            nm = (bl ||= dumB).name;
             
             if (dOnerr || dOnsuc) {
-                let b = bldr;
-                bldr = async function SetOnError(ar: Area) {
+                let b = bl;
+                bl = async function SetOnError(ar: Area) {
                     let oo = {onerr, onsuc};
                     try {
                         if (dOnerr) 
@@ -1532,8 +1535,8 @@ class RCompiler {
                 if(iB>1) iB = 1
                 for (let g of conc(befor, after))
                     g.hndlr = this.CHandlr(g.att, g.txt);
-                let b = bldr;
-                bldr = async function ON(ar: Area, x) {
+                let b = bl;
+                bl = async function ON(ar: Area, x) {
                     let r = ar.r, bfD: Handler;
                     for (let g of befor) {
                         if (g.D && !r)
@@ -1558,8 +1561,8 @@ class RCompiler {
             }
 
             if (dIf) {
-                let b = bldr;
-                bldr = function hIf(ar: Area) {
+                let b = bl;
+                bl = function hIf(ar: Area) {
                     let c = dIf(),
                         {sub} = PrepRange(srcE, ar, '#if', 1, !c)
                     if (c)
@@ -1568,9 +1571,9 @@ class RCompiler {
             }
 
             for (let {att, dRV} of reacts.reverse()) {
-                let b = bldr,
+                let b = bl,
                     bR = /^this/.test(att);
-                bldr = att == 'hash'
+                bl = att == 'hash'
                     ? async function HASH(ar: Area) {
                         let {sub, r,bCr} = PrepRange(srcE, ar, 'hash')
                             , hashes = dRV();
@@ -1607,15 +1610,15 @@ class RCompiler {
                     }
             }
 
-            return bldr == dumB ? N : ass(
+            return bl == dumB ? N : ass(
                 this.rActs.length == CTL
                 ? function Elm(ar: Area) {
-                    return R.ErrHandling(bldr, srcE, ar);
+                    return R.ErrHandling(bl, srcE, ar);
                 }
                 : function Elm(ar: Area) {
-                    return bldr(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
+                    return bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
                 }
-                , {iB,auto});
+                , {iB,auto,nm});
         }
         catch (e) { throw ErrMsg(srcE, e); }
     }
