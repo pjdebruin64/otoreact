@@ -97,9 +97,8 @@ class Context {
         return ass(C.L > this.L ? C : this, { N: Math.min(this.M, C.M) });
     }
 }
-function getV(D, env, [F, i]) {
-    let e = env;
-    for (; F < D; F++)
+function getV([F, i], d, e = env) {
+    for (; F < d; F++)
         e = e[0];
     return e[i];
 }
@@ -721,7 +720,7 @@ class RCompiler {
                                             throw `Import signature ${clientSig.srcE.outerHTML} is incompatible with module signature ${signat[0].srcE.outerHTML}`;
                                     }
                                     for (let v of lvars)
-                                        if ((v.k = CT.varM.get(v.nm)) == N)
+                                        if (!(v.k = CT.varM.get(v.nm)))
                                             throw `Module does not define '${v.nm}'`;
                                     return [bl, CT];
                                 });
@@ -738,12 +737,12 @@ class RCompiler {
                             bl = async function IMPORT(ar) {
                                 let { sub, cr, r } = PrepRange(srcE, ar);
                                 if (cr || bIncl) {
-                                    let [bl, CT] = await promModule, saveEnv = env, MEnv = env = r.val || (r.val = NewEnv());
+                                    let [bl, { d, csMap }] = await promModule, saveEnv = env, MEnv = env = r.val || (r.val = NewEnv());
                                     await bl?.(bIncl ? sub : { parN: D.createDocumentFragment() });
                                     env = saveEnv;
-                                    DC(mapI(listImps, S => getV(CT.d, MEnv, CT.csMap.get(S.nm)[1])));
+                                    DC(mapI(listImps, S => getV(csMap.get(S.nm)[1], d, MEnv)));
                                     for (let lv of lvars)
-                                        lv(getV(CT.d, MEnv, lv.k));
+                                        lv(getV(lv.k, d, MEnv));
                                 }
                             };
                             iB = 1;
@@ -969,7 +968,7 @@ class RCompiler {
                 };
             }
             for (let { att, dRV } of reacts.reverse()) {
-                let b = bl, bR = /^this/.test(att);
+                let b = bl, bR = /^t/.test(att);
                 bl = att == 'hash'
                     ? async function HASH(ar) {
                         let { sub, r, cr } = PrepRange(srcE, ar, 'hash'), hashes = dRV();
@@ -1326,7 +1325,7 @@ class RCompiler {
                 throw `Missing attribute [let]`;
             let ck = CSK[1], vIdx = this.LVar(ixNm), DC = this.LCons([CSK[0]]), bl = await this.CChilds(srcE);
             return bl && async function FOREACH_Slot(ar) {
-                let { sub } = PrepRange(srcE, ar), slotDef = getV(d, env, ck), idx = 0;
+                let { sub } = PrepRange(srcE, ar), slotDef = getV(ck, d), idx = 0;
                 for (let slotBldr of slotDef.tmplts) {
                     vIdx(idx++);
                     DC([
@@ -1416,7 +1415,7 @@ class RCompiler {
                 DC(constr);
         };
     }
-    async CTempl(signat, contentNode, srcE, bIsSlot, encStyles, atts) {
+    async CTempl(signat, contentNode, srcE, bIsSlot, styles, atts) {
         return this.Framed(async (SScope) => {
             try {
                 let myAtts = atts || new Atts(srcE), lvars = signat.Params.map(({ mode, nm }) => [nm, this.LVar((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]), DC = this.LCons(signat.Slots.values());
@@ -1432,10 +1431,10 @@ class RCompiler {
                             lv(arg !== U ? arg : signat.Params[i]?.pDflt?.());
                         });
                         DC(mapI(signat.Slots.keys(), nm => ({ nm, tmplts: mSlots.get(nm) || E, CEnv, Cnm })));
-                        if (encStyles) {
+                        if (styles) {
                             let { r: { node }, chAr, cr } = PrepElm(srcE, sub, custNm), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
                             if (cr)
-                                for (let style of encStyles)
+                                for (let style of styles)
                                     shadow.appendChild(style.cloneNode(T));
                             if (signat.RP)
                                 ApplyMod(node, { mt: 8, nm: N, depV: N }, args[signat.RP.nm], cr);
@@ -1491,7 +1490,7 @@ class RCompiler {
         atts.NoneLeft();
         this.ws = 3;
         return async function INST(ar) {
-            let { r, sub, cr } = PrepRange(srcE, ar), cdef = getV(d, env, ck), IEnv = env, args = r.res || (r.res = {});
+            let { r, sub, cr } = PrepRange(srcE, ar), IEnv = env, cdef = getV(ck, d), args = r.res || (r.res = {});
             if (!cdef)
                 return;
             ro = T;
@@ -1698,7 +1697,7 @@ class RCompiler {
         let k = this.CT.varM.get(nm), d = this.CT.d;
         if (!k)
             throw `Unknown name '${nm}'`;
-        return () => getV(d, env, k);
+        return () => getV(k, d);
     }
     CAttExpList(atts, attNm, bReacts) {
         let list = atts.g(attNm, F, T);

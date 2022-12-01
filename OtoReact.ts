@@ -242,9 +242,8 @@ class Context {
             {N: Math.min(this.M, C.M)})
     }
 }
-function getV(D: number, env: Environment, [F,i]: EnvKey): unknown {
-    let e = env
-    for(;F < D; F++)
+function getV([F,i]: EnvKey, d: number, e: Environment = env): unknown {
+    for(;F < d; F++)
         e = e[0];
     return e[i];
 }
@@ -1269,7 +1268,7 @@ class RCompiler {
                                         throw `Import signature ${clientSig.srcE.outerHTML} is incompatible with module signature ${signat[0].srcE.outerHTML}`;
                                 }
                                 for (let v of lvars)
-                                    if ((v.k = CT.varM.get(v.nm)) == N)
+                                    if (!(v.k = CT.varM.get(v.nm)))
                                         throw `Module does not define '${v.nm}'`;
                                         
                                 return [bl, CT];
@@ -1289,16 +1288,16 @@ class RCompiler {
                         bl = async function IMPORT(ar: Area) {
                             let {sub,cr,r}=PrepRange(srcE, ar)
                             if (cr || bIncl) {
-                                let [bl, CT] = await promModule
+                                let [bl, {d,csMap}] = await promModule
                                     , saveEnv = env
                                     , MEnv = env = r.val ||= NewEnv();
                                 await bl?.(bIncl ? sub : {parN: D.createDocumentFragment()});
                                 env = saveEnv;
                                 
-                                DC(mapI(listImps, S => getV(CT.d, MEnv, CT.csMap.get(S.nm)[1]) as ConstructDef));
+                                DC(mapI(listImps, S => getV(csMap.get(S.nm)[1], d, MEnv) as ConstructDef));
                                     
                                 for (let lv of lvars)
-                                    lv(getV(CT.d, MEnv,lv.k));
+                                    lv(getV(lv.k, d, MEnv));
                             }
                         };
                         iB = 1;
@@ -1565,7 +1564,7 @@ class RCompiler {
 
             for (let {att, dRV} of reacts.reverse()) {
                 let b = bl,
-                    bR = /^this/.test(att);
+                    bR = /^t/.test(att);    // 'thisreactson'?
                 bl = att == 'hash'
                     ? async function HASH(ar: Area) {
                         let {sub, r,cr} = PrepRange(srcE, ar, 'hash')
@@ -2112,7 +2111,7 @@ class RCompiler {
                 
                 return bl && async function FOREACH_Slot(this: RCompiler, ar: Area) {
                     let {sub}   = PrepRange(srcE, ar),
-                        slotDef = getV(d, env, ck) as ConstructDef,
+                        slotDef = getV(ck, d) as ConstructDef,
                         idx = 0;
                     for (let slotBldr of slotDef.tmplts) {
                         vIdx(idx++);
@@ -2184,6 +2183,7 @@ class RCompiler {
                 , bl = this.ErrH(await this.CIter(srcE, arr), srcE);
             
             let mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
+            //let mapS: {[nm: string]: Signature} = Object.fromEntries(mapI(signats, S => [S.nm, S]))
             async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
                 let S = mapS.get(nm);
                 if (!S) throw `<${nm}> has no signature`;
@@ -2229,7 +2229,7 @@ class RCompiler {
     }
 
     private async CTempl(signat: Signature, contentNode: ParentNode, srcE: HTMLElement, 
-        bIsSlot?: boolean, encStyles?: Iterable<Node>, atts?: Atts
+        bIsSlot?: boolean, styles?: Iterable<Node>, atts?: Atts
     ): Promise<Template>
     {
         return this.Framed(async SScope => {
@@ -2269,11 +2269,11 @@ class RCompiler {
                         // Define all slot-constructs
                         DC(mapI(signat.Slots.keys(), nm => ({nm, tmplts: mSlots.get(nm) || E, CEnv, Cnm})));
 
-                        if (encStyles) {
+                        if (styles) {
                             let {r: {node}, chAr, cr} = PrepElm(srcE, sub, custNm), 
                                 shadow = node.shadowRoot || node.attachShadow({mode: 'open'});
                             if (cr)
-                                for (let style of encStyles)
+                                for (let style of styles)
                                     shadow.appendChild(style.cloneNode(T));
                             
                             if (signat.RP)
@@ -2352,8 +2352,8 @@ class RCompiler {
 
         return async function INST(this: RCompiler, ar: Area) {
             let {r, sub, cr} = PrepRange(srcE, ar),
-                cdef = getV(d, env, ck) as ConstructDef,
                 IEnv = env,
+                cdef = getV(ck, d) as ConstructDef,
                 args = r.res ||= {};
             
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
@@ -2671,7 +2671,7 @@ class RCompiler {
     private CName(nm: string): Dependent<unknown> {
         let k = this.CT.varM.get(nm), d = this.CT.d;
         if (!k) throw `Unknown name '${nm}'`;
-        return () => getV(d, env, k);
+        return () => getV(k, d);
     }
     private CAttExpList<T>(atts: Atts, attNm: string, bReacts?: boolean): Dependent<T[]> {
         let list = atts.g(attNm, F, T);
