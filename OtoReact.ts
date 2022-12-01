@@ -25,8 +25,8 @@ const
     aIb = (b: DOMBuilder, iB: boolean|number) => ass(b, {iB}) as DOMBuilder,
     now = () => performance.now(),
 
-    dU: Dependent<any> = () => U,       // Undefined dependent value
-    dumB: DOMBuilder = async _ => {},   // A dummy DOMBuilder
+    dU: Dependent<any> = () => U,                       // Undefined dependent value
+    dumB: DOMBuilder = async ar => {PrepRange(N,ar)},   // A dummy DOMBuilder
 
     // Child windows to be closed when the app is closed
     childWins = new Set<Window>(),
@@ -274,7 +274,7 @@ function PrepRange(
 }
 {
     let {parN, r, bR} = ar,  // Initially 'r' is the parent range
-        sub: Area = {parN, r: N, bR }
+        sub: Area = {parN, bR }
         , cr = !r;
     if (cr) {
         sub.srcN = ar.srcN;
@@ -572,7 +572,7 @@ export type RVAR_Light<T> = T & {
 };
 
         
-function Subscriber({parN, bR}: Area, bldr: DOMBuilder, r: Range, x?): Subscriber {
+function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range, x?): Subscriber {
     if (r) r.updated = updCnt;
     let sAr: Area = {parN, bR, r }, // No parR (parent range); this is used by DEF()
         subEnv = {env, onerr, onsuc};
@@ -584,8 +584,7 @@ function Subscriber({parN, bR}: Area, bldr: DOMBuilder, r: Range, x?): Subscribe
             {
                 ({env, onerr, onsuc} = subEnv);
                 if (r && !bR) r.updated = updCnt;
-                nodeCnt++;
-                await bldr({...sAr}, x,T);
+                await bl({...sAr}, x,T);
             }
         }
         , {sAr});
@@ -617,30 +616,30 @@ function RUpdate() {
 
 export async function DoUpdate() {
     hUpdate = N;
-    if (!R.bCompiled || bUpdating)
+    if (!R.bldr || bUpdating)
     return;
 
     bUpdating = T;
     try {
-    nodeCnt = 0;
-    start = now();
-    while (DVars.size) {
-        updCnt++;
-        let dv = DVars;
-        DVars = new Set();
-        for (let rv of dv)
-            for (let subs of rv._Subs)
-                if (!subs.bImm)
-                    try { 
-                        let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                        if (subs.sAr) await P;
-                    }
-                    catch (e) {    
-                        console.log(e = `ERROR: `+LAbbr(e));
-                        alert(e);
-                    }
-    }
-    R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
+        nodeCnt = 0;
+        start = now();
+        while (DVars.size) {
+            updCnt++;
+            let dv = DVars;
+            DVars = new Set();
+            for (let rv of dv)
+                for (let subs of rv._Subs)
+                    if (!subs.bImm)
+                        try { 
+                            let P = subs(rv instanceof _RVAR ? rv.v : rv);
+                            if (subs.sAr) await P;
+                        }
+                        catch (e) {    
+                            console.log(e = `ERROR: `+LAbbr(e));
+                            alert(e);
+                        }
+        }
+        R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
     finally { env=U; bUpdating = F; }
 }
@@ -775,7 +774,6 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             break;
         case MType.onupdate:
             !cr && (val as ()=>void).call(elm); 
-            break;
     }
 }
 function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
@@ -820,13 +818,13 @@ class RCompiler {
 */  
     private async Framed<T>(
         Comp: (
-            SScope: (sub: Area, r?:Range) => {sub: Area, ES: () => void }
+            StartScope: (sub: Area, r?:Range) => {sub: Area, ES: () => void }
         )=>Promise<T>
     ): Promise<T> {
         let {CT, rActs} = this
             , {ct,d,L,M} = CT
             , A = rActs.length
-            , nf = L - M > 5;    // Is it worthwile to start a new frame? Limit 6 seems more efficient than 0, 4 or 9
+            , nf = L - M > 6;    // Is it worthwile to start a new frame? Limit 6 seems more efficient than 0, 4 or 9
         if (nf) {
             // Modify the context to account for the new frame
             CT.ct = `[${ct}]`;
@@ -836,15 +834,14 @@ class RCompiler {
 
         try {
             return await Comp(
-                // 'SScope' routine
+                // 'StartScope' routine
                 (sub, r?) => {
                     if (!r)
                         ({r,sub} = PrepRange(N, sub));
                     let e = env;
-                    //env = r.val ||= nf ? [e] : ass([], e);
-                    env = nf 
-                        ? r.val ||= [e] 
-                        : ass(r.val ||= [], e);
+                    env = nf // Either:
+                        ? r.val ||= [e] // Pass the old env as a sub-frame
+                        : ass(r.val ||= [], e); // Or copy the old env
                     return {sub, ES: () => {env = e} }; // 'EndScope' routine
                 }
             );
@@ -939,14 +936,13 @@ class RCompiler {
     ) {
         ass(this.Settings, settings);
         for (let tag of this.Settings.preformatted)
-        this.setPRE.add(tag.toUpperCase());
+            this.setPRE.add(tag.toUpperCase());
         let t0 = now();
         this.bldr =
             ( childnodes
             ? await this.CChilds(elm, childnodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
             ) || dumB;
-        this.bCompiled = T;
         this.log(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
@@ -962,14 +958,12 @@ class RCompiler {
         let saveR = R;
         R = this;
         env = NewEnv();
-        nodeCnt++;
         await this.bldr(ar);
         R = saveR;        
     }
 
     public Settings: FullSettings;
-    private bldr: DOMBuilder;
-    public bCompiled: boolean;
+    public bldr: DOMBuilder;
 
     private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
     private rspc: booly = T;     // While compiling: may the generated DOM output be right-trimmed
@@ -1012,27 +1006,27 @@ class RCompiler {
             , L = arr.length
             , rv: string
         while (i<L) {
-            let srcN = arr[i++], bldr: DOMBuilder;
+            let srcN = arr[i++], bl: DOMBuilder;
             this.rspc = i==L && rspc;
             switch (srcN.nodeType) {
                 
                 case Node.ELEMENT_NODE:
                     this.srcNodeCnt ++;
-                    bldr = await this.CElm(srcP, srcN as HTMLElement);
+                    bl = await this.CElm(srcP, srcN as HTMLElement);
 
-                    if (rv = bldr?.auto) {
+                    if (rv = bl?.auto) {
 
                         // Check for compile-time subscribers
                         let a = this.cRvars[rv],    // Save previous value
                             bs = await this.CArr(this.cRvars[rv] = srcP, arr, rspc, i);
                         i = L;
 
-                        bldrs.push(bldr);
-                        bldr = N;
+                        bldrs.push(bl);
+                        bl = N;
 
                         // Were there no compile-time reacts for this rvar?
                         if (bs.length && this.cRvars[rv]) {
-                            bldr = aIb(async function Auto(ar: Area) {
+                            bl = aIb(async function Auto(ar: Area) {
                                 if (!ar.r) {
                                     let r = ar.prevR
                                         , rv = r.val as RVAR, s = rv._Subs.size
@@ -1067,7 +1061,7 @@ class RCompiler {
                         
                         let getText = this.CString( str ), {fixed} = getText;
                         if (fixed !== '') { // Either nonempty or undefined
-                            bldr = aIb(
+                            bl = aIb(
                                 fixed 
                                     ? async (ar: Area) => PrepCharData(ar, fixed)
                                     : async (ar: Area) => PrepCharData(ar, getText())
@@ -1082,16 +1076,15 @@ class RCompiler {
                     case Node.COMMENT_NODE:
                         if (this.Settings.bKeepComments) {
                             let getText = this.CString(srcN.nodeValue, 'Comment');
-                            bldr =
+                            bl =
                                 aIb(async (ar:Area)=> PrepCharData(ar, getText(), T), 1)
                         }
-                        break;
             }
                        
-            if (bldr ? bldr.iB : this.rspc)
+            if (bl ? bl.iB : this.rspc)
                 prune();
-            if (bldr) 
-                bldrs.push(bldr);
+            if (bl) 
+                bldrs.push(bl);
         }
         function prune() {
             // Builders producing trailing whitespace are not needed
@@ -1130,7 +1123,7 @@ class RCompiler {
                 // The intermediate builder will be put here
                 bl: DOMBuilder,
                 
-                iB: boolean|number  // truthy when bldr won't produce non-blank output, 2 when no side effects
+                iB: boolean|number  // truthy when bl won't produce non-blank output, 2 when no side effects
                 , auto: string
                 , m: RegExpExecArray, nm: string
 
@@ -1238,11 +1231,11 @@ class RCompiler {
                                         C.Compile(N, {bSubfile: T}
                                             , await this.fetchModule(src));
                                 return async function INCLUDE(ar) {
-                                        let t0 = now();
-                                        let bldr = await task;
+                                        let t0 = now()
+                                            , bl = await task
+                                            , {sub,ES} = SScope(ar);
                                         start += now() - t0;
-                                        let {sub,ES} = SScope(ar);
-                                        try { await bldr(sub); }
+                                        try { await bl(sub); }
                                         finally { ES() }
                                     };
                             })
@@ -1264,7 +1257,7 @@ class RCompiler {
                             C.Settings.bSubfile = T;
 
                             promModule = this.fetchModule(src).then(async nodes => {
-                                let bldr = (await C.CIter(N, nodes)) || dumB, 
+                                let bl = await C.CIter(N, nodes), 
                                     {CT}=C;
 
                                 // Check or register the imported signatures
@@ -1279,7 +1272,7 @@ class RCompiler {
                                     if ((v.k = CT.varM.get(v.nm)) == N)
                                         throw `Module does not define '${v.nm}'`;
                                         
-                                return [bldr, CT];
+                                return [bl, CT];
 
                             });
                             RModules.set(src, promModule);
@@ -1296,10 +1289,10 @@ class RCompiler {
                         bl = async function IMPORT(ar: Area) {
                             let {sub,cr,r}=PrepRange(srcE, ar)
                             if (cr || bIncl) {
-                                let [bldr, CT] = await promModule
+                                let [bl, CT] = await promModule
                                     , saveEnv = env
                                     , MEnv = env = r.val ||= NewEnv();
-                                await bldr(bIncl ? sub : {parN: D.createDocumentFragment()});
+                                await bl?.(bIncl ? sub : {parN: D.createDocumentFragment()});
                                 env = saveEnv;
                                 
                                 DC(mapI(listImps, S => getV(CT.d, MEnv, CT.csMap.get(S.nm)[1]) as ConstructDef));
@@ -1319,7 +1312,7 @@ class RCompiler {
                         }
                         finally { ES() }
 
-                        iB = b == dumB && 2;
+                        iB = !b && 2;
                         if (atts.gB('renew')) {
                             bl = function renew(sub: Area) {
                                 return b(PrepRange(srcE, sub, 'renew', 2).sub);
@@ -1454,10 +1447,10 @@ class RCompiler {
                     case 'RHEAD':
                         let {ws} = this;
                         this.ws = this.rspc = WSpc.block;
-                            b = await this.CChilds(srcE);
+                        b = await this.CChilds(srcE);
                         this.ws = ws;
                         
-                        bl = async function HEAD(ar: Area) {
+                        bl = b && async function HEAD(ar: Area) {
                             let {sub} = PrepRange(srcE, ar);
                             sub.parN = ar.parN.ownerDocument.head;
                             sub.bfor = N;
@@ -1475,7 +1468,7 @@ class RCompiler {
                             this.ws = WSpc.preserve;
                             b = await this.CChilds(srcE);
                         
-                            bl = function RSTYLE(ar: Area) {
+                            bl = b && function RSTYLE(ar: Area) {
                                 return b(PrepElm(srcE, ar, 'STYLE').chAr);
                             };
                         }
@@ -1486,7 +1479,8 @@ class RCompiler {
                         break;
 
                     case 'ELEMENT':                        
-                        bl = await this.CHTMLElm(srcE, atts
+                        bl = await this.CHTMLElm(
+                            srcE, atts
                             , this.CParam(atts, 'tagname', T)
                         );
                         this.ws = WSpc.inline;
@@ -1510,7 +1504,6 @@ class RCompiler {
                     default:             
                         /* It's a regular element that should be included in the runtime output */
                         bl = await this.CHTMLElm(srcE, atts);
-                        break;
                 }
                 atts.NoneLeft();
             }
@@ -1621,16 +1614,16 @@ class RCompiler {
         catch (e) { throw ErrMsg(srcE, e); }
     }
 
-    private ErrH(bldr: DOMBuilder, srcN: ChildNode): DOMBuilder{
+    private ErrH(bl: DOMBuilder, srcN: ChildNode): DOMBuilder{
 
-        return bldr && async function ErrH(ar: Area) {
+        return bl && async function ErrH(ar: Area) {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
                 r.errN = U;
             }
             try {
-                await bldr(ar);
+                await bl(ar);
             } 
             catch (e) { 
                 let msg = 
@@ -1786,7 +1779,7 @@ class RCompiler {
             {ws, rspc, CT}= this,
             postCT = CT,
             postWs: WSpc = 0, // Highest whitespace mode to be reached after any alternative
-            bElse: booly;
+            bEls: booly;
         
         for (let {node, atts, body} of caseNodes) {
             ass(this, {ws, rspc, CT: new Context(CT)});
@@ -1833,19 +1826,18 @@ class RCompiler {
                             postWs = Math.max(postWs, this.ws);
                             postCT = postCT.max(this.CT);
 
-                            if (cond !== U) bElse=T;
+                            if (cond !== U) bEls=T;
                         }
                 }
             } 
             catch (e) { throw node.tagName=='IF' ? e : ErrMsg(node, e); }
             finally { ES(); }
         }
-        this.ws = !bElse && ws > postWs ? ws : postWs;
+        this.ws = !bEls && ws > postWs ? ws : postWs;
         this.CT = postCT
 
         return async function CASE(ar: Area) {
             let val = dVal?.()
-                //, cAlt: typeof caseList[0]      // Choosen alternative
                 , RRE: RegExpExecArray;
             try {
                 for (var alt of caseList)
@@ -1912,10 +1904,10 @@ class RCompiler {
                 dHash = this.CAttExpList<Hash>(atts, 'hash'),
 
                 // Compileer alle childNodes
-                bldr = await this.CChilds(srcE);
+                bl = await this.CChilds(srcE);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return bldr && async function FOR(this: RCompiler, ar: Area) {
+                return bl && async function FOR(this: RCompiler, ar: Area) {
                     let {r, sub} = PrepRange(srcE, ar, ''),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Next,
@@ -2071,12 +2063,12 @@ class RCompiler {
                                         vNx(nxItem);
 
                                         // Build
-                                        await bldr(sub);
+                                        await bl(sub);
 
                                         if (bReact && !chR.subs)
                                             // Subscribe the range to the new RVAR_Light
                                             (item as RVAR_Light<Item>).Subscribe(
-                                                chR.subs = Subscriber(sub, bldr, chR.child)
+                                                chR.subs = Subscriber(sub, bl, chR.child)
                                             );
                                     }
                                     finally { ES() }
@@ -2116,9 +2108,9 @@ class RCompiler {
                 let ck: EnvKey = CSK[1],
                     vIdx = this.LVar(ixNm),
                     DC = this.LCons([CSK[0]]),
-                    bldr = await this.CChilds(srcE);
+                    bl = await this.CChilds(srcE);
                 
-                return bldr && async function FOREACH_Slot(this: RCompiler, ar: Area) {
+                return bl && async function FOREACH_Slot(this: RCompiler, ar: Area) {
                     let {sub}   = PrepRange(srcE, ar),
                         slotDef = getV(d, env, ck) as ConstructDef,
                         idx = 0;
@@ -2127,7 +2119,7 @@ class RCompiler {
                         DC([
                             {nm, tmplts: [slotBldr], CEnv: slotDef.CEnv} as ConstructDef
                         ]);
-                        await bldr(sub);
+                        await bl(sub);
                     }
                 }
             }
@@ -2169,14 +2161,12 @@ class RCompiler {
 
     private async CComponent(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
-        let bldr: DOMBuilder,
-            bRec = atts.gB('recursive'),
+        let bRec = atts.gB('recursive'),
             {head, ws} = this
             , signats: Array<Signature> = []
-            , tmplts: Array<ConstructDef> = []
+            , CDefs: Array<ConstructDef> = []
             , encStyles = atts.gB('encapsulate')
                 && (this.head = srcE.ownerDocument.createDocumentFragment()).children
-            //, DC: (CDefs: Iterable<ConstructDef>) => void
             , arr = Array.from(srcE.children) as Array<HTMLElement>
                 , elmSign = arr.shift()
             , elmTempl = arr.pop()
@@ -2188,16 +2178,16 @@ class RCompiler {
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.ParseSign(elm));
 
-        let DC = bRec && this.LCons(signats)
-            , ES = this.SScope();
         try {
-            bldr = this.ErrH(await this.CIter(srcE, arr), srcE);
+            var DC = bRec && this.LCons(signats)
+                , ES = this.SScope()
+                , bl = this.ErrH(await this.CIter(srcE, arr), srcE);
             
             let mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
             async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
                 let S = mapS.get(nm);
                 if (!S) throw `<${nm}> has no signature`;
-                tmplts.push({
+                CDefs.push({
                     nm,
                     tmplts: [ await RC.CTempl(S, prnt, elm, F, encStyles) ]
                 });
@@ -2222,11 +2212,11 @@ class RCompiler {
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
         return async function COMP(ar: Area) {
-            let constr: ConstructDef[] = tmplts.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
+            let constr: ConstructDef[] = CDefs.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
             if (bRec)
                 DC(constr);
 
-            bldr && await bldr(ar);
+            await bl?.(ar);
 
             // At runtime, we just have to remember the environment that matches the context
             // And keep the previous remembered environment, in case of recursive constructs
@@ -2258,12 +2248,12 @@ class RCompiler {
                     myAtts.NoneLeft();
                 this.ws = this.rspc = WSpc.block;
                 let
-                    bldr = await this.CChilds(contentNode),
+                    bl = await this.CChilds(contentNode),
                     Cnm = signat.nm,
                     custNm = /^[A-Z].*-/.test(Cnm) ? Cnm : `rhtml-${Cnm}`;
 
                 // Routine to instantiate the template
-                return async function TEMPL(
+                return bl && async function TEMPL(
                     args: unknown[]                   // Arguments to the template
                     , mSlots: Map<string, Template[]>   // Map of slot templates
                     , CEnv: Environment                 // Environment to be used for the slot templates
@@ -2291,7 +2281,7 @@ class RCompiler {
                             chAr.parN = shadow;
                             sub = chAr;
                         }
-                        await bldr?.(sub);
+                        await bl(sub);
                     }
                     finally { ES() }
                 }
@@ -2365,7 +2355,7 @@ class RCompiler {
                 cdef = getV(d, env, ck) as ConstructDef,
                 IEnv = env,
                 args = r.res ||= {};
-            //if (cdef?.nm != srcE.tagName) debugger;
+            
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
             ro = T;
             for (let [nm, dGet, dSet] of getArgs)
@@ -2380,7 +2370,7 @@ class RCompiler {
             try {
                 env = cdef.CEnv;
                 for (let templ of cdef.tmplts) 
-                    await templ(args, SBldrs, IEnv, sub);
+                    await templ?.(args, SBldrs, IEnv, sub);
             }
             finally {env = IEnv;}
         }

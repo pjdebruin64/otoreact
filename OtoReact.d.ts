@@ -70,7 +70,7 @@ declare class _RVAR<T = unknown> {
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;
     _Subs: Set<Subscriber<T>>;
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): this;
+    Subscribe(s: Subscriber<T>, bImmediate?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);
@@ -90,7 +90,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bR }: Area, bldr: DOMBuilder, r: Range, x?: any): Subscriber;
+declare function Subscriber({ parN, bR }: Area, bl: DOMBuilder, r: Range, x?: any): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 interface Key {
