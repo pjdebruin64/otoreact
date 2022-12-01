@@ -1616,7 +1616,7 @@ class RCompiler {
 
     private ErrH(bl: DOMBuilder, srcN: ChildNode): DOMBuilder{
 
-        return bl && async function ErrH(ar: Area) {
+        return bl && (async (ar: Area) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
@@ -1641,7 +1641,7 @@ class RCompiler {
                         r.errN = errN;    /*  */
                 }
             }
-        }
+        });
     }
 
     private async CScript(_srcParent: ParentNode, srcE: HTMLScriptElement, atts: Atts) {

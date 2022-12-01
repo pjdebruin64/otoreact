@@ -1012,7 +1012,7 @@ class RCompiler {
         }
     }
     ErrH(bl, srcN) {
-        return bl && async function ErrH(ar) {
+        return bl && (async (ar) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
@@ -1034,7 +1034,7 @@ class RCompiler {
                         r.errN = errN;
                 }
             }
-        };
+        });
     }
     async CScript(_srcParent, srcE, atts) {
         let { type, text, defer, async } = srcE, src = atts.g('src'), defs = atts.g('defines'), varlist = [...split(defs)], bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), bUpd = atts.gB('updating'), { ct } = this.CT, lvars = mOto && mOto[2] && this.LVars(defs), exp, SetVars = lvars
