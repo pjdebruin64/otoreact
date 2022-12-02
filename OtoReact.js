@@ -11,7 +11,7 @@ const U = undefined, N = null, T = true, F = false, E = [], W = window, D = docu
     bKeepWhiteSpace: F,
     bKeepComments: F,
     storePrefix: "RVAR_"
-}, parser = new DOMParser(), gEval = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), dU = () => U, dumB = async (ar) => { PrepRange(N, ar); }, childWins = new Set(), RModules = new Map();
+}, parser = new DOMParser(), gEval = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), dU = () => U, dumB = async (ar) => PrepDummy(ar), childWins = new Set(), RModules = new Map();
 class Range {
     constructor(ar, node, text) {
         this.text = text;
@@ -122,6 +122,13 @@ function PrepRange(srcE, ar, text = '', nWipe, res) {
         }
     }
     return { r, sub, cr };
+}
+function PrepDummy(ar) {
+    if (!ar.r) {
+        let p = ar.prevR;
+        new Range(ar);
+        ar.prevR = p;
+    }
 }
 function PrepElm(srcE, ar, tag = srcE.tagName) {
     let r = ar.r, cr = !r;
@@ -269,17 +276,16 @@ class _RVAR {
         return this.v?.toString() ?? '';
     }
 }
-function Subscriber({ parN, bR }, bl, r, x) {
-    if (r)
-        r.updated = updCnt;
+function Subscriber({ parN, bR }, bl, r) {
+    r.updated = updCnt;
     let sAr = { parN, bR, r }, subEnv = { env, onerr, onsuc };
     return ass(async (_) => {
         let r = sAr.r;
-        if (!r || r.updated < updCnt) {
+        if (r.updated < updCnt) {
             ({ env, onerr, onsuc } = subEnv);
-            if (r && !bR)
+            if (!bR)
                 r.updated = updCnt;
-            await bl({ ...sAr }, x, T);
+            await bl({ ...sAr }, T);
         }
     }, { sAr });
 }
@@ -419,9 +425,13 @@ function ApplyMod(elm, M, val, cr) {
 }
 function ApplyMods(elm, mods, cr) {
     ro = T;
-    for (let M of mods)
-        ApplyMod(elm, M, M.depV.call(elm), cr);
-    ro = F;
+    try {
+        for (let M of mods)
+            ApplyMod(elm, M, M.depV.call(elm), cr);
+    }
+    finally {
+        ro = F;
+    }
 }
 class RCompiler {
     constructor(RC, FilePath, CT = RC?.CT) {
@@ -439,7 +449,7 @@ class RCompiler {
         this.CT = new Context(CT, T);
     }
     async Framed(Comp) {
-        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M > 6;
+        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M > 0;
         if (nf) {
             CT.ct = `[${ct}]`;
             CT.d++;
@@ -450,8 +460,7 @@ class RCompiler {
                 if (!r)
                     ({ r, sub } = PrepRange(N, sub));
                 let e = env;
-                env = nf
-                    ? r.val || (r.val = [e]) : ass(r.val || (r.val = []), e);
+                env = r.val || (r.val = nf ? [e] : [e[0]]);
                 return { sub, ES: () => { env = e; } };
             });
         }
@@ -540,10 +549,11 @@ class RCompiler {
         while (rspc && arr.length && reWS.test(arr[arr.length - 1].nodeValue))
             arr.pop();
         let bldrs = await this.CArr(srcP, arr, this.rspc);
-        return bldrs.length ? aIb(async function Iter(ar) {
-            for (let b of bldrs)
-                await b(ar);
-        }, bldrs.every(b => b.iB))
+        return bldrs.length ?
+            aIb(async function Iter(ar) {
+                for (let b of bldrs)
+                    await b(ar);
+            }, bldrs.every(b => b.iB))
             : N;
     }
     async CArr(srcP, arr, rspc, i = 0) {
@@ -562,20 +572,18 @@ class RCompiler {
                         bl = N;
                         if (bs.length && this.cRvars[rv]) {
                             bl = aIb(async function Auto(ar) {
-                                if (!ar.r) {
+                                if (ar.r)
+                                    for (let b of bs)
+                                        await b(ar);
+                                else {
                                     let r = ar.prevR, rv = r.val, s = rv._Subs.size, subs = Subscriber(ar, Auto, r);
                                     for (let b of bs)
                                         await b(ar);
-                                    let { sAr } = subs;
-                                    r = r ? r.next : ar.parR.child;
-                                    if (rv._Subs.size == s && r) {
-                                        (sAr.r = r).updated = updCnt;
+                                    if (rv._Subs.size == s) {
+                                        (subs.sAr.r = r.next).updated = updCnt;
                                         rv.Subscribe(subs);
                                     }
                                 }
-                                else
-                                    for (let b of bs)
-                                        await b(ar);
                             }, bs.every(b => b.iB));
                         }
                         else
@@ -622,7 +630,7 @@ class RCompiler {
             let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], befor = [], after = [], dOnerr, dOnsuc, bl, iB, auto, m, nm, constr = this.CT.csMap.get(tag), dIf = this.CAttExp(atts, 'if');
             for (let att of atts.keys())
                 if (m =
-                    /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)-?|success))$/
+                    /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
                         .exec(att))
                     if (m[1])
                         m[2] && tag != 'REACT'
@@ -651,24 +659,28 @@ class RCompiler {
                         {
                             NoChildren(srcE);
                             let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dSet = t_val && this.CTarget(t_val, t), dGet = t_val ? this.CJScript(t_val, t) : this.CParam(atts, 'value'), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), onMod = rv && this.CParam(atts, 'onmodified');
-                            bl = async function DEF(ar, _, bReact) {
+                            bl = async function DEF(ar, bReact) {
                                 let { cr, r } = PrepRange(srcE, ar);
                                 if (cr || bUpd || bReact) {
                                     ro = T;
-                                    let v = dGet?.();
-                                    ro = F;
-                                    if (rv)
-                                        if (cr) {
-                                            let upd = dUpd?.();
-                                            vLet(r.val =
-                                                RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
-                                                .Subscribe(upd?.SetDirty?.bind(upd))
-                                                .Subscribe(onMod?.());
-                                        }
+                                    try {
+                                        let v = dGet?.();
+                                        if (rv)
+                                            if (cr) {
+                                                let upd = dUpd?.();
+                                                vLet(r.val =
+                                                    RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
+                                                    .Subscribe(upd?.SetDirty?.bind(upd))
+                                                    .Subscribe(onMod?.());
+                                            }
+                                            else
+                                                r.val.Set(v);
                                         else
-                                            r.val.Set(v);
-                                    else
-                                        vLet(v);
+                                            vLet(v);
+                                    }
+                                    finally {
+                                        ro = F;
+                                    }
                                 }
                             };
                             if (!onMod)
@@ -904,11 +916,11 @@ class RCompiler {
                         NoChildren(srcE);
                         let dNm = this.CParam(atts, 'name', T), dVal = this.CParam(atts, 'value', T);
                         bl = async function ATTRIB(ar) {
-                            let nm = dNm(), { r } = PrepRange(srcE, ar);
+                            let nm = dNm(), { r } = PrepRange(srcE, ar), p = ar.parN;
                             if (r.val && nm != r.val)
-                                ar.parN.removeAttribute(r.val);
+                                p.removeAttribute(r.val);
                             if (r.val = nm)
-                                ar.parN.setAttribute(nm, dVal());
+                                p.setAttribute(nm, dVal());
                         };
                         iB = 1;
                         break;
@@ -940,7 +952,7 @@ class RCompiler {
                 for (let g of conc(befor, after))
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function ON(ar, x) {
+                bl = async function ON(ar) {
                     let r = ar.r, bfD;
                     for (let g of befor) {
                         if (g.D && !r)
@@ -948,7 +960,7 @@ class RCompiler {
                         if (r ? g.U : g.C)
                             g.hndlr().call(r?.node || ar.parN);
                     }
-                    await b(ar, x, T);
+                    await b(ar, T);
                     if (bfD)
                         ar.prevR.bfDest = bfD;
                     for (let g of after) {
@@ -1042,8 +1054,9 @@ class RCompiler {
         atts.clear();
         if (mOto || (bCls || bMod) && this.Settings.bSubfile) {
             if (mOto && mOto[3]) {
-                let prom = (async () => gEval(`'use strict';([${ct}])=>{${src ? await this.FetchText(src) : text}\n;return[${defs}]}`))();
+                let prom = (async () => gEval(`'use strict';([${ct}])=>{{${src ? await this.FetchText(src) : text}\n;return[${defs}]}}`))();
                 return async function LSCRIPT(ar) {
+                    PrepDummy(ar);
                     if (!ar.r || bUpd)
                         SetVars((await prom)(env));
                 };
@@ -1052,7 +1065,8 @@ class RCompiler {
                 let prom = src
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIPT() {
+                return async function MSCRIPT(ar) {
+                    PrepDummy(ar);
                     let obj;
                     SetVars(exp || (exp = (obj = await prom,
                         varlist.map(nm => {
@@ -1068,7 +1082,8 @@ class RCompiler {
                     prom = prom.then(txt => void (exp = gEval(txt)));
                 else if (!mOto && !defer)
                     exp = gEval(await prom);
-                return async function SCRIPT() {
+                return async function SCRIPT(ar) {
+                    PrepDummy(ar);
                     SetVars(exp || (exp = gEval(await prom)));
                 };
             }
@@ -1379,7 +1394,7 @@ class RCompiler {
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.ParseSign(elm));
         try {
-            var DC = bRec && this.LCons(signats), ES = this.SScope(), bl = this.ErrH(await this.CIter(srcE, arr), srcE);
+            var DC = bRec && this.LCons(signats), ES = this.SScope(), bl = this.ErrH(await this.CIter(srcE, arr), srcE) || dumB;
             let mapS = new Map(mapI(signats, S => [S.nm, S]));
             async function AddTemp(RC, nm, prnt, elm) {
                 let S = mapS.get(nm);
@@ -1408,7 +1423,7 @@ class RCompiler {
             let constr = CDefs.map(C => ({ ...C }));
             if (bRec)
                 DC(constr);
-            await bl?.(ar);
+            await bl(ar);
             for (let c of constr)
                 c.CEnv = env;
             if (!bRec)
@@ -1462,9 +1477,7 @@ class RCompiler {
         for (let { mode, nm, pDflt } of signat.Params)
             if (mode == '@') {
                 let attVal = atts.g(mode + nm, !pDflt);
-                getArgs.push(attVal
-                    ? [nm, this.CJScript(attVal, mode + nm), this.CTarget(attVal, nm)]
-                    : [nm, U, dU]);
+                getArgs.push([nm, this.CJScript(attVal, mode + nm), attVal ? this.CTarget(attVal, nm) : dU]);
             }
             else if (mode != '...') {
                 let dH = this.CParam(atts, nm, !pDflt);
@@ -1494,14 +1507,18 @@ class RCompiler {
             if (!cdef)
                 return;
             ro = T;
-            for (let [nm, dGet, dSet] of getArgs)
-                if (!dSet)
-                    args[nm] = dGet();
-                else if (cr)
-                    args[nm] = RVAR('', dGet?.(), N, dSet());
-                else if (dGet)
-                    args[nm].V = dGet();
-            ro = F;
+            try {
+                for (let [nm, dGet, dSet] of getArgs)
+                    if (!dSet)
+                        args[nm] = dGet();
+                    else if (cr)
+                        args[nm] = RVAR('', dGet?.(), N, dSet());
+                    else if (dGet)
+                        args[nm].V = dGet();
+            }
+            finally {
+                ro = F;
+            }
             try {
                 env = cdef.CEnv;
                 for (let templ of cdef.tmplts)
@@ -1570,7 +1587,7 @@ class RCompiler {
                         addM(1, nm, depV);
                 }
                 if (m[1] != '#') {
-                    let dS = this.CTarget(V), cnm;
+                    let dS = this.CTarget(V, nm), cnm;
                     dSet = () => {
                         let S = dS();
                         return function () {
@@ -1657,41 +1674,20 @@ class RCompiler {
             : /^on/.test(attNm) ? this.CHandlr(attNm, v)
                 : this.CString(v, attNm));
     }
-    CAttExp(atts, att, bReq, check) {
-        return this.CJScript(atts.g(att, bReq, T), att, U, check);
+    CAttExp(atts, att, bReq) {
+        return this.CJScript(atts.g(att, bReq, T), att, U);
     }
     CTarget(expr, nm) {
-        try {
-            return this.CJScript(`$=>(${expr})=$`, nm);
-        }
-        catch (e) {
-            throw 'Invalid assignment target: ' + e;
-        }
+        return this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`, nm);
     }
     CHandlr(nm, text) {
         return /^#/.test(nm) ? this.CJScript(text, nm)
             : this.CJScript(`function(event){${text}\n}`, nm);
     }
-    CJScript(expr, descrip, dlms = '""', check) {
+    CJScript(expr, nm, dlms = '""') {
         if (expr == N)
-            return N;
-        try {
-            var E = '\nat ' + (descrip ? `[${descrip}]=` : '') + dlms[0] + Abbr(expr) + dlms[1], rout = gEval(`'use strict';(function expr([${this.CT.ct}]){return(${expr}\n)})`);
-            return function () {
-                try {
-                    let t = rout.call(this, env), m = check?.(t);
-                    if (m)
-                        throw m;
-                    return t;
-                }
-                catch (e) {
-                    throw e + E;
-                }
-            };
-        }
-        catch (e) {
-            throw e + E;
-        }
+            return expr;
+        return this.Closure(`return(${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(expr) + dlms[1]);
     }
     CName(nm) {
         let k = this.CT.varM.get(nm), d = this.CT.d;
@@ -1707,6 +1703,38 @@ class RCompiler {
             for (let nm of split(list))
                 this.cRvars[nm] = N;
         return this.CJScript(`[${list}\n]`, attNm);
+    }
+    Closure(body, E = '', nm = '') {
+        let { ct, varM, d } = this.CT, n = d + 1;
+        for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
+            let k = varM.get(m[0]);
+            if (k && k[0] < n)
+                n = k[0];
+        }
+        if (!n)
+            ct = `[${ct}]`;
+        else if (n > d)
+            ct = '';
+        else {
+            let p0 = d - n, p1 = p0;
+            while (n--)
+                p1 = ct.indexOf(']', p1) + 1;
+            ct = `[${ct.slice(0, p0)}${ct.slice(p1)}]`;
+        }
+        try {
+            var rout = gEval(`'use strict';(function ${nm.replace(/^\W+/, '')}(${ct}){${body}})`);
+            return function () {
+                try {
+                    return rout.call(this, env);
+                }
+                catch (e) {
+                    throw e + E;
+                }
+            };
+        }
+        catch (e) {
+            throw e + E;
+        }
     }
     AddErrH(dHndlr) {
         return () => {
@@ -1816,7 +1844,7 @@ function ChkNm(obj, nm) {
             }
     return Cnms[nm] = c;
 }
-function ErrMsg(elm, e, maxL) {
+function ErrMsg(elm, e = '', maxL) {
     return e + '\nat ' + Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxL) + '>';
 }
 function ErrAtt(e, nm) {
