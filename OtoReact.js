@@ -658,7 +658,7 @@ class RCompiler {
                     case 'DEFINE':
                         {
                             NoChildren(srcE);
-                            let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dSet = t_val && this.CTarget(t_val, t), dGet = t_val ? this.CJScript(t_val, t) : this.CParam(atts, 'value'), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), onMod = rv && this.CParam(atts, 'onmodified');
+                            let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dSet = t_val && this.CTarget(t_val, t), dGet = t_val ? this.CExpr(t_val, t) : this.CParam(atts, 'value'), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), onMod = rv && this.CParam(atts, 'onmodified');
                             bl = async function DEF(ar, bReact) {
                                 let { cr, r } = PrepRange(srcE, ar);
                                 if (cr || bUpd || bReact) {
@@ -916,7 +916,7 @@ class RCompiler {
                         NoChildren(srcE);
                         let dNm = this.CParam(atts, 'name', T), dVal = this.CParam(atts, 'value', T);
                         bl = async function ATTRIB(ar) {
-                            let nm = dNm(), { r } = PrepRange(srcE, ar), p = ar.parN;
+                            let r = PrepRange(srcE, ar).r, nm = dNm(), p = ar.parN;
                             if (r.val && nm != r.val)
                                 p.removeAttribute(r.val);
                             if (r.val = nm)
@@ -1048,7 +1048,7 @@ class RCompiler {
         });
     }
     async CScript(_srcParent, srcE, atts) {
-        let { type, text, defer, async } = srcE, src = atts.g('src'), defs = atts.g('defines'), varlist = [...split(defs)], bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), bUpd = atts.gB('updating'), { ct } = this.CT, lvars = mOto && mOto[2] && this.LVars(defs), exp, SetVars = lvars
+        let { type, text, defer, async } = srcE, src = atts.g('src'), defs = atts.g('defines'), varlist = [...split(defs)], bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), bUpd = atts.gB('updating'), { ct, varM, d } = this.CT, lvars = mOto && mOto[2] && this.LVars(defs), exp, SetVars = lvars
             ? (e) => SetLVars(lvars, e)
             : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
         atts.clear();
@@ -1363,7 +1363,7 @@ class RCompiler {
                     nm: m[2],
                     pDflt: m[1] == '...' ? () => E
                         : attr.value != ''
-                            ? (m[1] == '#' ? this.CJScript(attr.value, attr.name) : this.CString(attr.value, attr.name))
+                            ? (m[1] == '#' ? this.CExpr(attr.value, attr.name) : this.CString(attr.value, attr.name))
                             : m[3] ? /^on/.test(m[2]) ? () => _ => N : dU
                                 : N
                 };
@@ -1477,7 +1477,7 @@ class RCompiler {
         for (let { mode, nm, pDflt } of signat.Params)
             if (mode == '@') {
                 let attVal = atts.g(mode + nm, !pDflt);
-                getArgs.push([nm, this.CJScript(attVal, mode + nm), attVal ? this.CTarget(attVal, nm) : dU]);
+                getArgs.push([nm, this.CExpr(attVal, mode + nm), attVal ? this.CTarget(attVal, nm) : dU]);
             }
             else if (mode != '...') {
                 let dH = this.CParam(atts, nm, !pDflt);
@@ -1570,17 +1570,17 @@ class RCompiler {
             else if (m = /^on(.*?)\.*$/i.exec(nm))
                 addM(5, m[0], this.AddErrH(this.CHandlr(nm, V)));
             else if (m = /^#class[:.](.*)$/.exec(nm))
-                addM(3, m[1], this.CJScript(V, nm));
+                addM(3, m[1], this.CExpr(V, nm));
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                addM(4, CapProp(m[2]), m[1] ? this.CJScript(V, nm) : this.CString(V, nm));
+                addM(4, CapProp(m[2]), m[1] ? this.CExpr(V, nm) : this.CString(V, nm));
             else if (nm == '+style')
-                addM(6, nm, this.CJScript(V, nm));
+                addM(6, nm, this.CExpr(V, nm));
             else if (nm == "+class")
-                addM(7, nm, this.CJScript(V, nm));
+                addM(7, nm, this.CExpr(V, nm));
             else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
                 let nm = altProps[m[2]] || m[2], dSet;
                 if (/[@#]/.test(m[1])) {
-                    let depV = this.CJScript(V, nm);
+                    let depV = this.CExpr(V, nm);
                     if (/^on/.test(nm))
                         addM(5, nm, this.AddErrH(depV));
                     else
@@ -1615,9 +1615,7 @@ class RCompiler {
         return mods;
     }
     CString(data, nm) {
-        let rIS = this.rIS || (this.rIS = new RegExp(/(\\[${])|/.source
-            + (this.Settings.bDollarRequired ? /\$/ : /\$?/).source
-            + /\{((\{(\{.*?\}|.)*?\}|'(\\'|.)*?'|"(\\"|.)*?"|`(\\`|.)*?`|\\\}|.)*?)\}|$/.source, 'gs')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.ws, isTriv = T, lastIx = rIS.lastIndex = 0, m;
+        let f = (re) => `(?:\\{(?:\\{${re}\\}|.)*?\\}|'(?:\\\\.|.)*?'|"(?:\\\\.|.)*?"|\`(?:\\\\.|\\\$\\{${re}}|.)*?\`|/(?:\\\\.|.)*?/|.)*?`, rIS = this.rIS || (this.rIS = new RegExp(`(\\\\[\${])|\\\$${this.Settings.bDollarRequired ? '' : '?'}\\{(${f(f(f('.*?')))})\\}|\$`, 'gs')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.ws, isTriv = T, lastIx = rIS.lastIndex = 0, m;
         while (T)
             if (!(m = rIS.exec(data))[1]) {
                 var fixed = lastIx < m.index ? data.slice(lastIx, m.index) : N;
@@ -1635,9 +1633,9 @@ class RCompiler {
                 }
                 if (lastIx == data.length)
                     break;
-                if (m[2])
+                if ((m[2]?.trim()))
                     isTriv =
-                        !gens.push(this.CJScript(m[2], nm, '{}'));
+                        !gens.push(this.CExpr(m[2], nm, U, '{}'));
                 lastIx = rIS.lastIndex;
             }
         if (isTriv) {
@@ -1675,19 +1673,19 @@ class RCompiler {
                 : this.CString(v, attNm));
     }
     CAttExp(atts, att, bReq) {
-        return this.CJScript(atts.g(att, bReq, T), att, U);
+        return this.CExpr(atts.g(att, bReq, T), att, U);
     }
     CTarget(expr, nm) {
-        return this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`, nm);
+        return this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
     }
     CHandlr(nm, text) {
-        return /^#/.test(nm) ? this.CJScript(text, nm)
-            : this.CJScript(`function(event){${text}\n}`, nm);
+        return /^#/.test(nm) ? this.CExpr(text, nm)
+            : this.CExpr(`function(event){${text}\n}`, nm, text);
     }
-    CJScript(expr, nm, dlms = '""') {
+    CExpr(expr, nm, src = expr, dlms = '""') {
         if (expr == N)
             return expr;
-        return this.Closure(`return(${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(expr) + dlms[1]);
+        return this.Closure(`return(${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(src) + dlms[1]);
     }
     CName(nm) {
         let k = this.CT.varM.get(nm), d = this.CT.d;
@@ -1702,9 +1700,9 @@ class RCompiler {
         if (bReacts)
             for (let nm of split(list))
                 this.cRvars[nm] = N;
-        return this.CJScript(`[${list}\n]`, attNm);
+        return this.CExpr(`[${list}\n]`, attNm);
     }
-    Closure(body, E = '', nm = '') {
+    Closure(body, E = '') {
         let { ct, varM, d } = this.CT, n = d + 1;
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = varM.get(m[0]);
@@ -1722,10 +1720,10 @@ class RCompiler {
             ct = `[${ct.slice(0, p0)}${ct.slice(p1)}]`;
         }
         try {
-            var rout = gEval(`'use strict';(function ${nm.replace(/^\W+/, '')}(${ct}){${body}})`);
+            var f = gEval(`'use strict';(function(${ct}){${body}})`);
             return function () {
                 try {
-                    return rout.call(this, env);
+                    return f.call(this, env);
                 }
                 catch (e) {
                     throw e + E;
@@ -1787,7 +1785,7 @@ export async function RFetch(input, init) {
     return rp;
 }
 function quoteReg(fixed) {
-    return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
+    return fixed.replace(/[.()?*+^$\\]/g, s => '\\' + s);
 }
 class Atts extends Map {
     constructor(elm) {

@@ -1189,7 +1189,7 @@ class RCompiler {
                             t_val   = rv && atts.g(t),
                             // When we want a two-way rvar, we need a routine to update the source expression
                             dSet    = t_val && this.CTarget(t_val,t),
-                            dGet    = t_val ? this.CJScript(t_val,t) : this.CParam(atts, 'value'),
+                            dGet    = t_val ? this.CExpr(t_val,t) : this.CParam(atts, 'value'),
                             dUpd    = rv && this.CAttExp<RVAR>(atts, 'updates'),
                             dSto    = rv && this.CAttExp<Store>(atts, 'store'),
                             dSNm    = dSto && this.CParam<string>(atts, 'storename'),
@@ -1516,8 +1516,8 @@ class RCompiler {
                         let dNm = this.CParam<string>(atts, 'name', T),
                             dVal= this.CParam<string>(atts, 'value', T);
                         bl = async function ATTRIB(ar: Area){
-                            let nm = dNm(),
-                                {r} = PrepRange(srcE, ar),
+                            let r = PrepRange(srcE, ar).r,
+                                nm = dNm(),
                                 p = ar.parN as HTMLElement;
                             if (r.val && nm != r.val)
                                 p.removeAttribute(r.val);
@@ -1686,7 +1686,7 @@ class RCompiler {
             // True if a local script shpuld be re-executed at every update
             , bUpd = atts.gB('updating')
             // Current context string befóre NewVars
-            , {ct} = this.CT
+            , {ct,varM, d} = this.CT
             // Local variables to be defined
             , lvars = mOto && mOto[2] && this.LVars(defs)
             // Placeholder to remember the variable values when !bUpd
@@ -2167,7 +2167,7 @@ class RCompiler {
                     , pDflt:
                         m[1] == '...' ? () => E
                         : attr.value != '' 
-                        ? (m[1] == '#' ? this.CJScript(attr.value, attr.name) :  this.CString(attr.value, attr.name))
+                        ? (m[1] == '#' ? this.CExpr(attr.value, attr.name) :  this.CString(attr.value, attr.name))
                         : m[3] ? /^on/.test(m[2]) ? ()=>_=>N : dU   // Unspecified default
                         : N 
                     }
@@ -2341,7 +2341,7 @@ class RCompiler {
                 let attVal = atts.g(mode+nm, !pDflt);
                 getArgs.push(
                     [   nm
-                        , this.CJScript<unknown>(attVal, mode+nm)
+                        , this.CExpr<unknown>(attVal, mode+nm)
                         , attVal ? this.CTarget(attVal,nm) : dU
                     ]
                 )
@@ -2477,26 +2477,26 @@ class RCompiler {
                 );
             else if (m = /^#class[:.](.*)$/.exec(nm))
                 addM(MType.Class, m[1],
-                    this.CJScript<boolean>(V, nm)
+                    this.CExpr<boolean>(V, nm)
                 );
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
                 addM(MType.Style, CapProp(m[2]),
-                    m[1] ? this.CJScript<unknown>(V, nm) : this.CString(V, nm)
+                    m[1] ? this.CExpr<unknown>(V, nm) : this.CString(V, nm)
                 );
             else if (nm == '+style')
                 addM(MType.AddToStyle, nm,
-                    this.CJScript<object>(V, nm)
+                    this.CExpr<object>(V, nm)
                 );
             else if (nm == "+class")
                 addM(MType.AddToClassList, nm,
-                    this.CJScript<object>(V, nm)
+                    this.CExpr<object>(V, nm)
                 );
             else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                 let nm = altProps[m[2]] || m[2]
                     , dSet: Dependent<Handler>;
                 
                 if (/[@#]/.test(m[1])) {
-                    let depV = this.CJScript<Handler>(V, nm);
+                    let depV = this.CExpr<Handler>(V, nm);
                     if (/^on/.test(nm))
                         addM(MType.Event, nm, this.AddErrH(depV as Dependent<Handler>));
                     else
@@ -2543,11 +2543,10 @@ class RCompiler {
             // were we also must take care to skip js strings possibly containing braces and escaped quotes.
             // Backquoted js strings containing js expressions containing backquoted strings might go wrong
             // (We can't use negative lookbehinds; Safari does not support them)
-            rIS = this.rIS ||= 
+            f = (re:string) => `(?:\\{(?:\\{${re}\\}|.)*?\\}|'(?:\\\\.|.)*?'|"(?:\\\\.|.)*?"|\`(?:\\\\.|\\\$\\{${re}}|.)*?\`|/(?:\\\\.|.)*?/|.)*?`
+            , rIS = this.rIS ||= 
                 new RegExp(
-                    /(\\[${])|/.source
-                    + (this.Settings.bDollarRequired ? /\$/ : /\$?/).source
-                    + /\{((\{(\{.*?\}|.)*?\}|'(\\'|.)*?'|"(\\"|.)*?"|`(\\`|.)*?`|\\\}|.)*?)\}|$/.source
+                    `(\\\\[\${])|\\\$${this.Settings.bDollarRequired ? '' : '?'}\\{(${f(f(f('.*?')))})\\}|\$`
                     , 'gs'
                 ),
             gens: Array< string | Dependent<unknown> > = [],
@@ -2573,9 +2572,9 @@ class RCompiler {
                 }
                 if (lastIx == data.length)
                     break;
-                if (m[2])
+                if ((m[2]?.trim()))
                     isTriv =
-                        !gens.push( this.CJScript<string>(m[2], nm, '{}') );
+                        !gens.push( this.CExpr<string>(m[2], nm, U, '{}') );
                     
                 lastIx = rIS.lastIndex;
             }
@@ -2592,7 +2591,7 @@ class RCompiler {
             }
     }
 
-    // Compile a 'regular pattern' into a RegExp and a list of bound LVars
+    // Compile a simple pattern (with wildcards ?, *, [] and capturing expressions) into a RegExp and a list of bound LVars
     private CPatt(patt:string, url?: boolean): {lvars: LVar[], regex: RegExp, url: boolean}
     {
         let reg = '', lvars: LVar[] = []
@@ -2630,7 +2629,7 @@ class RCompiler {
     }
     private CAttExp<T>(atts: Atts, att: string, bReq?: booly
         ) {
-        return this.CJScript<T>(atts.g(att, bReq, T),att, U);
+        return this.CExpr<T>(atts.g(att, bReq, T),att, U);
     }
 
     private CTarget<T = unknown>(expr: string, nm?:string): Dependent<(t:T) => void>
@@ -2639,17 +2638,17 @@ class RCompiler {
         return this.Closure<(t:T) => void>(
             `return $=>(${expr})=$`
             , ` in assigment target "${expr}"`
-            , nm
             );
     }
 
     private CHandlr(nm: string, text: string): Dependent<Handler> {
-        return /^#/.test(nm) ? this.CJScript<Handler>(text, nm)
-            : this.CJScript<Handler>(`function(event){${text}\n}`, nm)
+        return /^#/.test(nm) ? this.CExpr<Handler>(text, nm)
+            : this.CExpr<Handler>(`function(event){${text}\n}`, nm, text)
     }
-    private CJScript<T>(
+    private CExpr<T>(
         expr: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
+        , src: string = expr    // Source expression
         , dlms: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dependent<T> {
 
@@ -2657,7 +2656,7 @@ class RCompiler {
 
         return this.Closure(
             `return(${expr}\n)`
-            , '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(expr) + dlms[1] // Error text
+            , '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(src) + dlms[1] // Error text
             );
     }
     private CName(nm: string): Dependent<unknown> {
@@ -2671,10 +2670,11 @@ class RCompiler {
         if (bReacts)
             for (let nm of split(list))
                 this.cRvars[nm] = N;
-        return this.CJScript<T[]>(`[${list}\n]`, attNm);
+        return this.CExpr<T[]>(`[${list}\n]`, attNm);
     }
 
-    Closure<T>(body: string, E: string = '', nm: string=''): Dependent<T> {
+    Closure<T>(body: string, E: string = ''): Dependent<T> {
+        // See if the context can be abbreviated
         let {ct,varM, d} = this.CT, n=d+1
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = varM.get(m[0]);
@@ -2692,12 +2692,12 @@ class RCompiler {
         }
 
         try {
-            var rout = gEval(
-                    `'use strict';(function ${nm.replace(/^\W+/,'')}(${ct}){${body}})`  // Expression evaluator
+            var f = gEval(
+                    `'use strict';(function(${ct}){${body}})`  // Expression evaluator
                 ) as (env:Environment) => T
             return function(this: HTMLElement) {
                     try { 
-                        return rout.call(this, env);
+                        return f.call(this, env);
                     } 
                     catch (e) {throw e+E; } // Runtime error
                 };
@@ -2764,7 +2764,7 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 }
 // Quote a string such that it can be literally included in a RegExp
 function quoteReg(fixed: string) {
-    return fixed.replace(/[.()?*+^$\\]/g, s => `\\${s}`);
+    return fixed.replace(/[.()?*+^$\\]/g, s => '\\'+s);
 }
 
 // Class to manage the set of attributes of an HTML source element.
