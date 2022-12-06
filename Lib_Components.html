@@ -340,7 +340,8 @@
                 <template>
                     <def var=nr #value="getNr(level)"></def>
                     <def var=hash #value="id||`s${pNum}.${nr}`"></def>
-                    <ELEMENT #tagname="tagname" #id="hash" onCreate="addContent(level, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></ELEMENT>
+                    <ELEMENT #tagname="tagname" #id="hash" 
+                    onCreate="debugger;addContent(level, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></ELEMENT>
                 </template>
             </component>
             <div class=pageLayout>

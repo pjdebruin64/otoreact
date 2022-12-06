@@ -1,3 +1,5 @@
+# SED script to minify the TypeScript compiler output
+
 # Insert copyright notice with date
 x
 s/.*/dir otoreact.ts/ ; e
@@ -13,8 +15,10 @@ x
 # Remove CR's
 s/\r//
 
-# Merge lines ending in these characters (without semicolon) with next line
-/[][,\{=:\?\)\}]$|else$/ {N ; s/\n */ / ; b start }
+# Merge lines ending in these characters (without semicolon) with next line, inserting a space
+/[][,{}=:?)]$|else$/ {N ; s/\n */ / ; b start }
+# Merge line ending in backslash with next line, removing the backslash
+/\\$/ {N ; s/\\\n// ; b start }
 
 # Remove semicolons at end of line
 s/;+$//
@@ -25,7 +29,7 @@ s/ ?\((\w+)\)\s*=>/ \1=>/g
 # Remove whitespace before and after special chars, except inside strings
 s/ *(^|[-\[(),:;{}<>=?!+*|&]|]|`(\\`|\$\{(`[^`]*`|[^\}])\}|[^`])*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
 
-# Remove whitespace in expressions in interpolated strings
+# Remove whitespace before and after special chars within expressions in interpolated strings
 t repeat    # Needed to clear previous test result
 : repeat
 s/^(([^`]|`[^`]*`)*`[^`]*\$\{('(\\'|[^'])*'|\"(\\"|[^\"])*\"|\{[^{}]*\}|[^{}])*)(([-+*/&|?:]) +| +([-+*/&|?:]))/\1\7\8/i
@@ -42,7 +46,7 @@ N
 # If it starts with one of these chars, then merge
 /\n\s*[\}\?:]/{ s/\n\s*// ; b start }
 
-# If it starts with ( or [, then merge and (re-)insert semicolon, to prevent unintensional function calls
+# If it starts with ( or [, then merge and (re-)insert semicolon, to prevent unintentional function calls
 /\n\s*([[(])/{ s/\n\s*/;/ ; b start }
 
 # Otherwise print up to newline, and restart with the remaining (next) line

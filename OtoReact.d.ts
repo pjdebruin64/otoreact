@@ -29,14 +29,14 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     text?: string;
     node: NodeType;
     child: Range;
-    next: Range;
+    nxt: Range;
     parR?: Range;
     parN?: Node;
     constructor(ar: Area, node?: NodeType, text?: string);
     toString(): string;
-    get First(): ChildNode;
-    get Next(): ChildNode;
-    get FirstOrNext(): ChildNode;
+    get Fst(): ChildNode;
+    get Nxt(): ChildNode;
+    get FstOrNxt(): ChildNode;
     Nodes(): Generator<ChildNode>;
     res?: any;
     val?: any;
@@ -70,7 +70,7 @@ declare class _RVAR<T = unknown> {
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;
     _Subs: Set<Subscriber<T>>;
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, cr?: boolean): this;
+    Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(t: T);

@@ -1,66 +1,26 @@
 let bRSTYLE = false;
-const 
-  mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }
-  , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
-  , markJScript = (script) => 
-    `<span style='color:purple'>${
-        script.replace(
-            /\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
-            , (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
-        )
-      }</span>`
-    , markTag = (mTag) => {
-        if (/^\/?RSTYLE($| )/i.test(mTag))
-          bRSTYLE = !bRSTYLE;
-        return `<span class=mTag>&lt;${
-              mTag.replace(
-                /(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
-                , (m, a1, a2, a3, a4, mExpr) => 
-                    ( mExpr ? `<span class=otored>${mExpr}</span>`
-                    : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
-                    : a1 ? `${a1}${markJScript(a4)}`
-                    : quoteHTML(m)
-                    )
-              )
-          }&gt;</span>`;
-      }
-    , fJS = (re) => 
-`(?:\\{(?:\\{${re}\\}|.)*?\\}\
-|'(?:\\\\.|.)*?'\
-|"(?:\\\\.|.)*?"\
-|\`(?:\\\\.|\\\$\\{${re}}|.)*?\`\
-|/(?:\\\\.|.)*?\
-/|.\
-)*?`
-    , regJS = fJS(fJS('.*?'))
-    , reg = new RegExp(
-`(<!--.*?-->)\
-|<((script|style).*?)>(.*?)<(\\/\\3\\s*)>\
-|<((?:\\/?\\w[^ \\t\\n>]*)(?:".*?"|'.*?'|.)*?)>\
-|\\\\\\{\
-|(\\$?\\{${regJS}\\})\
-|([<>&])`
-      , 'gis')
-  , ColorCode = (html) => `<span style='color:black'>${
-      html.replace(
-          reg
-          , (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => 
-              (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
-              : mScriptTag ? markTag(mScriptOpen) + markJScript(mScriptBody) + markTag(mScriptClose)
-              : mTag ? markTag(mTag)
-              : mExpr ?
-                    bRSTYLE && !/^\$/.test(mExpr)
+const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
+    if (/^\/?RSTYLE/i.test(mTag))
+        bRSTYLE = !bRSTYLE;
+    return `<span class=mTag>&lt;${mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi, (m, a1, a2, a3, a4, mExpr) => (mExpr ? `<span class=otored>${mExpr}</span>`
+        : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
+            : a1 ? `${a1}${markJScript(a4)}`
+                : quoteHTML(m)))}&gt;</span>`;
+}, reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
+    : mScriptTag ?
+        markTag(mScriptOpen)
+            + markJScript(mScriptBody)
+            + markTag(mScriptClose)
+        : mTag ? markTag(mTag)
+            : mExpr ?
+                bRSTYLE && !/^\$/.test(mExpr)
                     ? mExpr.slice(0, 1) + ColorCode(mExpr.slice(1))
                     : `<span class=otored>${m}</span>`
-              : mChar ? mapping[mChar]
-              : m
-              )
-        )
-    }</span>`;
+                : mChar ? mapping[mChar]
+                    : m))}</span>`;
 function Indent(text, n) {
     return text.split('\n').map(line => line.padStart(line.length + n)).join('\n');
 }
-
 const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive the entered name -->
 <DEFINE rvar='yourName'></DEFINE>
 
@@ -101,9 +61,17 @@ const sampleServerData2 = `<style>
     font-size: small;
   }
   div.scrollbox {
-    height:100ex;
+    height:100%;
     width:100%;
     overflow-y:scroll;
+  }
+
+  @keyframes Disappearing {
+    from {line-height: 100%}
+    to   {line-height: 0%}
+  }  
+  table.animate > tbody > tr:first-child {
+    animation: Disappearing 300ms linear 30ms forwards
   }
 </style>
 
@@ -127,21 +95,23 @@ function toHex(n){
 let handle=RVAR();
 
 function StartStop() {
-  handle.V =
-    ( handle.V
-    ? clearInterval(handle.V)
+  if (handle.V > 0) {
+    clearInterval(handle.V);
+    handle.V = -1;
+  }
+  else
     // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
-    : setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
-    );
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
 }
 </script>
 
 <div class=scrollbox>
-<!-- Here we build our table.
+<!--
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table. class=colorTable>
+<table. class=colorTable
+        #class:animate="handle.V" thisreactson=handle>
 
   <!-- Table caption -->
   <caption.>Web Colors 
@@ -158,20 +128,22 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
-    <tr. 
-      style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
-      #style.color = "C.green<148 ? 'white' : 'black'"
-    >
-      <td.>{C.name}</td.>
-      <td.>{C.red}</td.>
-      <td.>{C.green}</td.>
-      <td.>{C.blue}</td.>
-      <td.>
-        #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
-      </td.>
-    </tr.>
-  </FOR>
+  <tbody.>
+    <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+      <tr. 
+        style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+        #style.color = "C.green<148 ? 'white' : 'black'"
+      >
+        <td.>{C.name}</td.>
+        <td.>{C.red}</td.>
+        <td.>{C.green}</td.>
+        <td.>{C.blue}</td.>
+        <td.>
+          #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
+        </td.>
+      </tr.>
+    </FOR>
+  </tbody.>
 
 </table.>
 </div>`;
@@ -517,14 +489,12 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
     <button onclick="ClearAll()">Clear</button>
   </div>
 </div>`;
-
 const sampleRHTML = `<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
 <textarea @value="sourcecode.V" rows=3 cols=50></textarea>
 <br>
 <RHTML #srctext=sourcecode.V></RHTML>`;
-
 const sampleStyleTemplate = `<def rvar=Hue #value="0"></def>
 Current hue is: {Hue.V.toFixed()}
 

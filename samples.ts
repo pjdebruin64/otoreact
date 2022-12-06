@@ -104,9 +104,17 @@ const sampleServerData2=
     font-size: small;
   }
   div.scrollbox {
-    height:100ex;
+    height:100%;
     width:100%;
     overflow-y:scroll;
+  }
+
+  @keyframes Disappearing {
+    from {line-height: 100%}
+    to   {line-height: 0%}
+  }  
+  table.animate > tbody > tr:first-child {
+    animation: Disappearing 300ms linear 30ms forwards
   }
 </style>
 
@@ -130,21 +138,23 @@ function toHex(n){
 let handle=RVAR();
 
 function StartStop() {
-  handle.V =
-    ( handle.V
-    ? clearInterval(handle.V)
+  if (handle.V > 0) {
+    clearInterval(handle.V);
+    handle.V = -1;
+  }
+  else
     // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
-    : setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
-    );
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
 }
 </script>
 
 <div class=scrollbox>
-<!-- Here we build our table.
+<!--
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table. class=colorTable>
+<table. class=colorTable
+        #class:animate="handle.V" thisreactson=handle>
 
   <!-- Table caption -->
   <caption.>Web Colors 
@@ -161,20 +171,22 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
-    <tr. 
-      style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
-      #style.color = "C.green<148 ? 'white' : 'black'"
-    >
-      <td.>{C.name}</td.>
-      <td.>{C.red}</td.>
-      <td.>{C.green}</td.>
-      <td.>{C.blue}</td.>
-      <td.>
-        #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
-      </td.>
-    </tr.>
-  </FOR>
+  <tbody.>
+    <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+      <tr. 
+        style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+        #style.color = "C.green<148 ? 'white' : 'black'"
+      >
+        <td.>{C.name}</td.>
+        <td.>{C.red}</td.>
+        <td.>{C.green}</td.>
+        <td.>{C.blue}</td.>
+        <td.>
+          #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
+        </td.>
+      </tr.>
+    </FOR>
+  </tbody.>
 
 </table.>
 </div>`;
