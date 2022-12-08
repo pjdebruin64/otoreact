@@ -17,6 +17,7 @@ declare type Settings = Partial<FullSettings>;
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     iB?: boolean | number;
     auto?: string;
+    nm?: string;
 };
 declare type Area = {
     r?: Range;

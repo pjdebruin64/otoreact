@@ -11,7 +11,7 @@ const U = undefined, N = null, T = true, F = false, E = [], W = window, D = docu
     bKeepWhiteSpace: F,
     bKeepComments: F,
     storePrefix: "RVAR_"
-}, P = new DOMParser(), gEval = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), thro = err => { throw err; }, dU = () => U, dumB = async (ar) => { PrepDummy(ar); }, childWins = new Set(), RModules = new Map();
+}, P = new DOMParser(), gEval = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), thro = (err) => { throw err; }, last = (arr) => arr.length ? arr[arr.length - 1] : N, dU = () => U, dumB = async function _() { }, RB = async (ar) => { PrepRange(ar); }, childWins = new Set(), RModules = new Map();
 class Range {
     constructor(ar, node, text) {
         this.text = text;
@@ -133,14 +133,6 @@ function PrepRange(ar, srcE, text = '', nWipe, res) {
     }
     r.res = res;
     return { r, sub, cr };
-}
-function PrepDummy(ar) {
-    if (!ar.r) {
-        let p = ar.prevR;
-        new Range(ar);
-        ar.prevR = p;
-        return T;
-    }
 }
 function PrepElm(srcE, ar, tag = srcE.tagName) {
     let r = ar.r, cr = !r;
@@ -556,15 +548,13 @@ class RCompiler {
     }
     async CIter(srcP, iter) {
         let { rspc } = this, arr = Array.from(iter);
-        while (rspc && arr.length && reWS.test(arr[arr.length - 1].nodeValue))
+        while (rspc && reWS.test(last(arr)?.nodeValue))
             arr.pop();
         let bldrs = await this.CArr(srcP, arr, this.rspc);
-        return bldrs.length ?
-            aIb(async function Iter(ar) {
-                for (let b of bldrs)
-                    await b(ar);
-            }, bldrs.every(b => b.iB))
-            : N;
+        return bldrs.length ? aIb(async function Iter(ar) {
+            for (let b of bldrs)
+                await b(ar);
+        }, bldrs.every(b => b.iB)) : N;
     }
     async CArr(srcP, arr, rspc, i = 0) {
         let bldrs = [], L = arr.length, rv;
@@ -631,6 +621,8 @@ class RCompiler {
         }
         if (rspc)
             prune();
+        if (/_/.test(last(bldrs)?.nm))
+            bldrs.push(RB);
         return bldrs;
     }
     async CElm(srcPrnt, srcE, bUnhide) {
@@ -667,28 +659,28 @@ class RCompiler {
                         {
                             NoChildren(srcE);
                             let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dSet = t_val && this.CTarget(t_val, t), dGet = t_val ? this.CExpr(t_val, t) : this.CParam(atts, 'value'), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), onMod = rv && this.CParam(atts, 'onmodified');
-                            bl = async function DEF(ar, bReact) {
-                                let { cr, r } = PrepRange(ar, srcE);
-                                if (cr || bUpd || bReact) {
-                                    ro = T;
+                            bl = async function DEF(ar, bRe) {
+                                let { cr, r } = PrepRange(ar, srcE), v;
+                                if (cr || bUpd || bRe) {
                                     try {
-                                        let v = dGet?.();
-                                        if (rv)
-                                            if (cr) {
-                                                let upd = dUpd?.();
-                                                vLet(r.val =
-                                                    RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
-                                                    .Subscribe(upd?.SetDirty?.bind(upd))
-                                                    .Subscribe(onMod?.());
-                                            }
-                                            else
-                                                r.val.Set(v);
-                                        else
-                                            vLet(v);
+                                        ro = T;
+                                        v = dGet?.();
                                     }
                                     finally {
                                         ro = F;
                                     }
+                                    if (rv)
+                                        if (cr) {
+                                            let upd = dUpd?.();
+                                            vLet(r.val =
+                                                RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
+                                                .Subscribe(upd?.SetDirty?.bind(upd))
+                                                .Subscribe(onMod?.());
+                                        }
+                                        else
+                                            r.val.Set(v);
+                                    else
+                                        vLet(v);
                                 }
                             };
                             if (!onMod)
@@ -786,7 +778,7 @@ class RCompiler {
                     case 'RHTML':
                         {
                             NoChildren(srcE);
-                            let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RCompiler(N, R.FilePath);
+                            let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RCompiler(N, R.FilePath), { ws, rspc } = this;
                             this.ws = 1;
                             bl = async function RHTML(ar) {
                                 let src = dSrc(), { r, cr } = PrepElm(srcE, ar, 'rhtml-rhtml'), { node } = r;
@@ -801,7 +793,7 @@ class RCompiler {
                                     sRoot.innerHTML = '';
                                     try {
                                         tempElm.innerHTML = src;
-                                        C.CT = new Context();
+                                        ass(C, { ws, rspc, CT: new Context() });
                                         await C.Compile(tempElm, { bSubfile: T, bTiming: R.Settings.bTiming }, tempElm.childNodes);
                                         await C.Build(sAr);
                                     }
@@ -1064,8 +1056,8 @@ class RCompiler {
         if (mOto || (bCls || bMod) && this.Settings.bSubfile) {
             if (mOto?.[3]) {
                 let prom = (async () => gEval(`'use strict';(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
-                return async function LSCRIPT(ar) {
-                    if (PrepDummy(ar) || bUpd)
+                return async function LSCRIP_(ar) {
+                    if (!ar.r || bUpd)
                         SetVars((await prom)(env));
                 };
             }
@@ -1073,9 +1065,9 @@ class RCompiler {
                 let prom = src
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIPT(ar) {
-                    PrepDummy(ar)
-                        && SetVars(await prom.then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`))));
+                return async function MSCRIP_(ar) {
+                    !ar.r &&
+                        SetVars(await prom.then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`))));
                 };
             }
             else {
@@ -1084,9 +1076,9 @@ class RCompiler {
                     prom = prom.then(txt => void (exp = gEval(txt)));
                 else if (!mOto && !defer)
                     exp = gEval(await prom);
-                return async function SCRIPT(ar) {
-                    PrepDummy(ar)
-                        && SetVars(exp || (exp = gEval(await prom)));
+                return async function SCRIP_(ar) {
+                    !ar.r &&
+                        SetVars(exp || (exp = gEval(await prom)));
                 };
             }
         }

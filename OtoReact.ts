@@ -24,10 +24,12 @@ const
     ass = Object.assign,
     aIb = (b: DOMBuilder, iB: boolean|number) => ass(b, {iB}) as DOMBuilder,
     now = () => performance.now(),
-    thro = err =>{throw err},
+    thro = (err: any) => {throw err},
+    last = <T>(arr: T[]) => arr.length ? arr[arr.length - 1] : N,
 
-    dU: Dep<any> = () => U,                       // Undefined dependent value
-    dumB: DOMBuilder = async ar => {PrepDummy(ar)},   // A dummy DOMBuilder
+    dU: Dep<any> = () => U,                // Undefined dependent value
+    dumB: DOMBuilder = async function _(){},     // A dummy DOMBuilder
+    RB: DOMBuilder = async (ar: Area) => {PrepRange(ar)},
 
     // Child windows to be closed when the app is closed
     childWins = new Set<Window>(),
@@ -61,7 +63,8 @@ type hHTMLElement = HTMLElement & {
 type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) 
     & {
         iB?: boolean|number;   // Truthy when the builder won't create any DOM other than blank text
-        auto?: string; /* When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing. */
+        auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
+        nm?: string;   // Name of the DOMBuilder. When containing an underscore, it won't create a Range object.
     };
 
 
@@ -334,17 +337,6 @@ function PrepRange(
     r.res=res;
     
     return {r, sub, cr};
-}
-// Some DOMBuilders don't need a range, but built areas require one.
-// 'PrepDummy' sets a dummy range, that will be ignored if a next builder puts a range in place.
-// Returns true when creating.
-function PrepDummy(ar: Area) {
-    if (!ar.r) {
-        let p = ar.prevR;
-        new Range(ar);
-        ar.prevR = p;
-        return T;
-    }
 }
 
 /*
@@ -1048,21 +1040,19 @@ class RCompiler {
     private async CIter(srcP: ParentNode, iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         let {rspc} = this     // Indicates whether the output may be right-trimmed
             , arr = Array.from(iter);
-        while(rspc && arr.length && reWS.test(arr[arr.length-1].nodeValue)) 
+        while(rspc && reWS.test(last(arr)?.nodeValue)) 
             arr.pop();
         
         let bldrs = await this.CArr(srcP, arr, this.rspc);
 
-        return bldrs.length ? 
-            aIb(
-                async function Iter(ar: Area)
-                {   
-                    for (let b of bldrs)
-                        await b(ar);
-                }
-                , bldrs.every(b => b.iB)
-            )
-            : N;
+        return bldrs.length ? aIb(
+            async function Iter(ar: Area)
+            {   
+                for (let b of bldrs)
+                    await b(ar);
+            }
+            , bldrs.every(b => b.iB)
+        ) : N;
     }
 
     private async CArr(srcP: ParentNode, arr: Array<ChildNode>, rspc: booly, i=0) : Promise<DOMBuilder[]> {
@@ -1158,6 +1148,11 @@ class RCompiler {
         }
         if (rspc)
             prune();
+        
+        // Make sure the last builder will always insert a Range object when creating,
+        // so all builders can see the difference between create and update
+        if (/_/.test(last(bldrs)?.nm))
+            bldrs.push(RB);
 
         return bldrs;
     }
@@ -1241,12 +1236,14 @@ class RCompiler {
                             bUpd    = atts.gB('reacting') || atts.gB('updating') || t_val,
                             vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
-                        bl = async function DEF(ar, bReact?: boolean) {
-                            let {cr, r} = PrepRange(ar, srcE)
-                            if (cr || bUpd || bReact){
-                                ro=T;
-                                try {
-                                    let v = dGet?.();
+                        bl = async function DEF(ar, bRe?: boolean) {
+                                let {cr, r} = PrepRange(ar, srcE), v: unknown;
+                                if (cr || bUpd || bRe){
+                                    try {
+                                        ro=T;
+                                        v = dGet?.();
+                                    }
+                                    finally { ro = F; }
                                     if (rv)
                                         if (cr) {
                                             let upd = dUpd?.();
@@ -1259,14 +1256,13 @@ class RCompiler {
                                             )
                                             .Subscribe(upd?.SetDirty?.bind(upd))
                                             .Subscribe(onMod?.());
-                                        } else
+                                        } 
+                                        else
                                             (r.val as RVAR).Set(v);
                                     else
                                         vLet(v);
                                 }
-                                finally { ro = F; }
                             }
-                        }
 
                         if (!onMod)
                             auto = rv;
@@ -1397,9 +1393,10 @@ class RCompiler {
                         let dSrc = this.CParam<string>(atts, 'srctext', T)
                         //  , imports = this.CAttExp(atts, 'imports')
                             , mods = this.CAtts(atts)
-                            , C = new RCompiler(N, R.FilePath);
+                            , C = new RCompiler(N, R.FilePath)
+                            , {ws,rspc} = this
                         this.ws=WSpc.block;
-                        
+                       
                         bl = async function RHTML(ar) {
                             let src = dSrc()
                                 , {r, cr} = PrepElm(srcE, ar, 'rhtml-rhtml')
@@ -1422,7 +1419,7 @@ class RCompiler {
                                     // Parsing
                                     tempElm.innerHTML = src;
                                     // Compiling
-                                    C.CT = new Context();
+                                    ass(C, {ws,rspc, CT: new Context()});
                                     await C.Compile(tempElm, {bSubfile: T, bTiming: R.Settings.bTiming}, tempElm.childNodes);
                                     // Building
                                     await C.Build(sAr);
@@ -1761,8 +1758,8 @@ class RCompiler {
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
-                return async function LSCRIPT(ar: Area) {
-                    if (PrepDummy(ar) || bUpd)
+                return async function LSCRIP_(ar: Area) {
+                    if (!ar.r || bUpd)
                         SetVars((await prom)(env));
                 }
             } 
@@ -1785,15 +1782,15 @@ class RCompiler {
                         )
                         // And the ObjectURL has to be revoked
                     ).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIPT(ar: Area) {
-                    PrepDummy(ar)
-                    && SetVars(
-                        await prom.then(obj => 
-                            varlist.map(nm => 
-                                nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
+                return async function MSCRIP_(ar: Area) {
+                    !ar.r && 
+                        SetVars(
+                            await prom.then(obj => 
+                                varlist.map(nm => 
+                                    nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
+                                )
                             )
-                        )
-                    );
+                        );
                 }
             }
             else {
@@ -1806,9 +1803,9 @@ class RCompiler {
                     // Evaluate standard classic scripts without defer immediately
                     exp = gEval(await prom);
 
-                return async function SCRIPT(ar: Area) {
-                        PrepDummy(ar)
-                        && SetVars(exp ||= gEval(await prom));
+                return async function SCRIP_(ar: Area) {
+                        !ar.r &&
+                            SetVars(exp ||= gEval(await prom));
                     };
             }
         }
