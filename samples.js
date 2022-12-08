@@ -672,7 +672,7 @@ const demoScoping = `(Look at the source code please)
     Now A = { A }, F(1) = { F(1) }
 </p>
 
-<p style="border: 1px solid; padding:2px">
+<p style="border: 1px solid; padding:1ex">
     <define var=A #value=20></define>
     Here we have a new A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
 </p>
@@ -792,6 +792,7 @@ const demoAutoSubscribtion = `
 	<button onclick="a.V++">{a}</button>
 	<span>a = {a}</span>
 </p>
+
 <p>
 	<def rvar=b #value=0></def>
 	<!-- Here only the <span> reacts on b: -->

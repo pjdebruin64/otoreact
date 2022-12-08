@@ -227,13 +227,13 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "c95eeace7ecc29e4746acefe373444d7675005983ee4e923c0682151078c590a",
-        "signature": "1535d7d7fe7bd7a67efa885286e50de42c706c5107b0571f3cb74065685a1aa8",
+        "version": "d11c63abb9a0d59e0b19dfd3b9621b174a8d5ef9fb9f90753fb235599a12bc2a",
+        "signature": "0ac5a1d3e0e3c3a70f74e865d7ab1f6346abe1ad5ac038063e6b09654d2c336b",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "51af60e394756bb21ddacb2b6e066ef24f85f5a54af4a97a98119ba5d05756e0",
-        "signature": "d38983076aa730f235bf2b45593bc20f2a1c5e1bbb9a4ec541a236436b320d2f",
+        "version": "84c63b67217c1031a1004ad5b40ddafd7fe1b2a8dbf53a65a7e05affc7926306",
+        "signature": "1081b695da792c04aec61a8edd3f9b0981d4c6c46f0a0bb26aefc1b9db2a7021",
         "affectsGlobalScope": true
       }
     },

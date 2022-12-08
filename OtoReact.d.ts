@@ -15,12 +15,12 @@ declare const defaults: {
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
-    iB?: boolean | number;
+    iB?: number;
     auto?: string;
     nm?: string;
 };
-declare type Area = {
-    r?: Range;
+declare type Area<VT = unknown> = {
+    r?: Range<ChildNode, VT>;
     parN: Node;
     bfor?: ChildNode;
     srcN?: ChildNode;
@@ -28,7 +28,7 @@ declare type Area = {
     prevR?: Range;
     bR?: boolean;
 };
-declare class Range<NodeType extends ChildNode = ChildNode> {
+declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     text?: string;
     node: NodeType;
     child: Range;
@@ -42,18 +42,13 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     get FstOrNxt(): ChildNode;
     Nodes(): Generator<ChildNode>;
     res?: any;
-    val?: any;
+    val?: VT;
     errN?: ChildNode;
-    bfDest?: Handler;
-    onDest?: Handler;
-    hash?: Hash;
-    key?: Key;
-    prev?: Range;
-    fragm?: DocumentFragment;
-    updated?: number;
+    bfD?: Handler;
+    afD?: Handler;
+    updCnt?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
-    wins?: Set<Window>;
     erase(par: Node): void;
 }
 export declare function RCompile(srcN?: HTMLElement, settings?: Settings): Promise<void>;
@@ -94,10 +89,6 @@ export declare type RVAR_Light<T> = T & {
 declare function Subscriber({ parN, bR }: Area, bl: DOMBuilder, r: Range): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
-interface Key {
-}
-interface Hash {
-}
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 declare class DocLoc extends _RVAR<string> {

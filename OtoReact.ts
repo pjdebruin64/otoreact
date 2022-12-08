@@ -25,11 +25,11 @@ const
     aIb = (b: DOMBuilder, iB: boolean|number) => ass(b, {iB}) as DOMBuilder,
     now = () => performance.now(),
     thro = (err: any) => {throw err},
-    last = <T>(arr: T[]) => arr.length ? arr[arr.length - 1] : N,
+    last = <T>(a: T[]) => a.length ? a[a.length - 1] : N,
 
     dU: Dep<any> = () => U,                // Undefined dependent value
     dumB: DOMBuilder = async function _(){},     // A dummy DOMBuilder
-    RB: DOMBuilder = async (ar: Area) => {PrepRange(ar)},
+    RB: DOMBuilder = async (ar: Area) => {PrepRng(ar)},
 
     // Child windows to be closed when the app is closed
     childWins = new Set<Window>(),
@@ -62,7 +62,7 @@ type hHTMLElement = HTMLElement & {
 */
 type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) 
     & {
-        iB?: boolean|number;   // Truthy when the builder won't create any DOM other than blank text
+        iB?: number;   // Truthy when the builder won't create any DOM other than blank text
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder. When containing an underscore, it won't create a Range object.
     };
@@ -71,8 +71,8 @@ type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>)
 /* An AREA is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
 */
-type Area = {
-    r?: Range,          // Existing piece of DOM
+type Area<VT = unknown> = {
+    r?: Range<ChildNode, VT>,          // Existing piece of DOM
     // When undefined or null, the DOM has to be CREATED
     // When defined, the DOM has to be UPDATED
 
@@ -85,7 +85,7 @@ type Area = {
     prevR?: Range;        // Or the next sibling of some other range
 
     /* When r, i.e. when the DOM has to be updated: */
-    bR?: boolean,  // true == just update the root node, not its children
+    bR?: boolean,         // true == update root node only, not its children
                           // Set by 'thisreactson'.
 }
 
@@ -94,7 +94,7 @@ type Area = {
     OR just a linked list of subranges.
     It is created by a builder, and contains all metadata needed for updating or destroying the DOM.
 */
-class Range<NodeType extends ChildNode = ChildNode> {
+class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     node: NodeType;     // Optional DOM node, in case this range corresponds to a single node
     
     child: Range;       // Linked list of child ranges (null=empty)
@@ -169,24 +169,18 @@ class Range<NodeType extends ChildNode = ChildNode> {
     // The following properties may contain different types of meta-information about the created DOM, to be used by the builder.
 
     res?: any;  // Some result value to be kept by a builder
-    val?: any;  // Some other value to be kept by a builder
+    val?: VT;  // Some other value to be kept by a builder
 
     errN?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
 
-    bfDest?: Handler;   // Before destroy handler
-    onDest?: Handler;   // After destroy handler
-
-    // Only for FOR-iteraties
-    hash?: Hash; key?: Key; prev?: Range;
-    fragm?: DocumentFragment;
+    bfD?: Handler;   // Before destroy handler
+    afD?: Handler;   // After destroy handler
 
     // For reactive elements
-    updated?: number;       // last DoUpdate iteration number, so the range is not updated again in the same iteration
+    updCnt?: number;       // last DoUpdate iteration number, so the range is not updated again in the same iteration
     subs?: Subscriber;      // Subscriber object created for this element instance
     rvars?: RVAR[];         // RVARs on which the element reacts
 
-    // For DOCUMENT nodes
-    wins?: Set<Window>;     // Set of child windows
 
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
     // The range itself remains a child of its parent.
@@ -199,8 +193,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
         }
         this.child = N;
         while (c) {
-            if (c.bfDest) // Call a 'beforedestroy' handler
-                c.bfDest.call(c.node || par);
+            if (c.bfD) // Call a 'beforedestroy' handler
+                c.bfD.call(c.node || par);
 
             // Destroy 'ch'
             c.erase(c.parN || par);
@@ -209,8 +203,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
             c.rvars?.forEach(rv =>
                 rv._Subs.delete(c.subs));
 
-            if (c.onDest)  // Call 'ondestroy' handler
-                c.onDest.call(c.node || par);
+            if (c.afD)  // Call 'afterdestroy' handler
+                c.afD.call(c.node || par);
 
             c = c.nxt;
         }
@@ -241,7 +235,7 @@ class Context {
     // Mapping of visible lvar names to EnvKeys
     lvMap: Map<string, EnvKey>
     // Mapping of visible construct names to their signature and EnvKey
-    csMap:  Map<string, [Signature, EnvKey]>;
+    csMap:  Map<string, [Signat, EnvKey]>;
 
     // Construct a new context, optionally based on an existing context.
     // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the map is to be made.
@@ -276,7 +270,7 @@ class Context {
         return this.getV(this.lvMap.get(nm) || thro(`Unknown name '${nm}'`));
     }
     // Return a routines that, given an environment matching the current context returns the ConstructDef pointed to by 'k'
-    getCS(nm: string): [Signature, DepE<ConstructDef>] {
+    getCS(nm: string): [Signat, DepE<ConstructDef>] {
         let SK = this.csMap.get(nm);
         if (SK) return [SK[0], this.getV<ConstructDef>(SK[1])];
     }
@@ -302,19 +296,19 @@ type DepE<T> = ((e?:Environment) => T);
     It can assign some custom result value to the range,
     and on updating it can optionally erase the range, either when the result value has changed or always.
 */
-function PrepRange(
+function PrepRng<VT = unknown>(
     ar: Area,         // Given area
     srcE?: HTMLElement,  // Source element, just for error messages
     text: string = '',  // Optional text for error messages
     nWipe?: 1|2,    // 1=erase 'ar.r' when 'res' has changed; 2=erase always
     res?: any,      // Some result value to be remembered
 ) : {
-    r: Range,     // The newly created or updated child range
+    r: Range<ChildNode, VT>,     // The newly created or updated child range
     sub: Area,       // The new sub area
     cr: booly    // True when the sub-range has to be created
 }
 {
-    let {parN, r, bR} = ar,  // Initially 'r' is the parent range
+    let {parN, r, bR} = ar,
         sub: Area = {parN, bR }
         , cr = !r;
     if (cr) {
@@ -336,7 +330,7 @@ function PrepRange(
     }
     r.res=res;
     
-    return {r, sub, cr};
+    return {r, sub, cr} as {r: Range<ChildNode, VT>, sub: Area, cr: booly};
 }
 
 /*
@@ -447,7 +441,7 @@ function SetLVars(vars: Array<LVar>, data: Array<unknown>) {
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {mode: string, nm: string, pDf: Dep<unknown>};
 // A SIGNATURE describes an RHTML user construct: a component or a slot
-class Signature {
+class Signat {
     constructor(
         public srcE: Element        
     ){ 
@@ -456,14 +450,14 @@ class Signature {
     public nm: string;
     public Params: Array<Parameter> = [];   // Parameters
     public RP: string;            // Rest parameter (is also in Params)
-    public Slots = new Map<string, Signature>();
-    public CSlot: Signature;    // Content slot (is also in Slots)
+    public Slots = new Map<string, Signat>();
+    public CSlot: Signat;    // Content slot (is also in Slots)
 
     // In case of a non-async <import>, details of the signature will initially be missing, and the compilation of instances shall await this promise for the signature to be completed
     public prom: Promise<any>;              
 
     // Check whether an import signature is compatible with the real module signature
-    IsCompat(sig: Signature): booly {
+    IsCompat(sig: Signat): booly {
         if (!sig) return ;
         let c = <booly>T,
             mParams: Map<string, booly> = new Map(mapI(sig.Params,p => [p.nm, p.pDf]));
@@ -491,13 +485,14 @@ class Signature {
 type ConstructDef = {
     nm: string,          // Name of the construct
     tmplts: Template[],  // Template, or in case of a slot construct, possibly multiple templates
-    CEnv?: Environment,  // Environment at the point the construct was declared
+    env?: Environment,   // Environment at the point the construct was declared
     //Cnm?: string  // In case of a slot construct: the component name to which the slot belongs
 };
 /*
 */
-type Template = 
-    (args: unknown[], mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, ar: Area)
+type ArgSet = {[nm: string]: unknown};
+type Template =
+    (args: ArgSet, mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, ar: Area)
     => Promise<void>;
 
 
@@ -613,17 +608,17 @@ export type RVAR_Light<T> = T & {
 
         
 function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range): Subscriber {
-    r.updated = updCnt;
+    r.updCnt = updCnt;
     let sAr: Area = {parN, bR, r }, // No parR (parent range); this is used by DEF()
         subEnv = {env, onerr, onsuc};
 
     return ass(
         async _ => {
             let r = sAr.r;
-            if (r.updated < updCnt)
+            if (r.updCnt < updCnt)
             {
                 ({env, onerr, onsuc} = subEnv);
-                if (!bR) r.updated = updCnt;
+                if (!bR) r.updCnt = updCnt;
                 await bl({...sAr}, T);
             }
         }
@@ -694,7 +689,7 @@ export function RVAR<T>(
 ): RVAR<T> {
     return new _RVAR<T>(
         nm, value, store, storeName
-    ).Subscribe(subs, T, F);
+    ).Subscribe(subs, T);
 }
 
 function RVAR_Light<T>(
@@ -880,9 +875,9 @@ class RCompiler {
                 // 'StartScope' routine
                 (sub, r?) => {
                     if (!r)
-                        ({r,sub} = PrepRange(sub));
+                        ({r,sub} = PrepRng(sub));
                     let e = env;
-                    env = r.val ||= nf ? [e] : [e[0]]; 
+                    env = (r.val as Environment) ||= nf ? [e] : [e[0]]; 
                     return {sub, ES: () => {env = e} }; // 'EndScope' routine
                 }
             );
@@ -966,7 +961,7 @@ class RCompiler {
 
     // At compiletime, declare a number of local constructs, according to the supplied signatures.
     // Returns a single routine to set them all at once.
-    private LCons(listS: Iterable<Signature>) {
+    private LCons(listS: Iterable<Signat>) {
         let {CT} = this, {csMap, M}= CT;
 
         for (let S of listS) {
@@ -1094,7 +1089,7 @@ class RCompiler {
                                         await b(ar);
                                     if (rv._Subs.size==s) { // No new subscribers still?
                                         // Then auto-subscribe with the correct range
-                                        (subs.sAr.r = r.nxt).updated = updCnt;
+                                        (subs.sAr.r = r.nxt).updCnt = updCnt;
                                         rv.Subscribe(subs);
                                     }
                                 }
@@ -1181,7 +1176,7 @@ class RCompiler {
                 // The intermediate builder will be put here
                 bl: DOMBuilder,
                 
-                iB: boolean|number  // truthy when bl won't produce non-blank output, 2 when no side effects
+                iB: number  // truthy when bl won't produce non-blank output, 2 when no side effects
                 , auto: string
                 , m: RegExpExecArray, nm: string
 
@@ -1205,14 +1200,9 @@ class RCompiler {
                         else { // #?on(?:(error)-?|success)
                             let hndlr = this.CHandlr(att, txt) as typeof dOnerr; 
                             if (m[7])   // #?onerror-?
-                                (dOnerr = hndlr).bBldr = !/-$/.test(att);
+                                (dOnerr = hndlr).bBldr = !/-/.test(att);
                             else
                                 dOnsuc = hndlr;
-/*
-                            let {CT} = this, p = CT[m[6]];
-                            this.rActs.push(() => {CT[m[6]] = p})
-                            hndlr.key = CT[m[6]] = <EnvKey>[CT.d, --CT.M];
-*/
                         }
                     }
 
@@ -1237,16 +1227,16 @@ class RCompiler {
                             vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
                         bl = async function DEF(ar, bRe?: boolean) {
-                                let {cr, r} = PrepRange(ar, srcE), v: unknown;
+                                let {cr, r} = PrepRng(ar, srcE), v: unknown, upd: RVAR;
                                 if (cr || bUpd || bRe){
                                     try {
                                         ro=T;
                                         v = dGet?.();
                                     }
                                     finally { ro = F; }
+
                                     if (rv)
-                                        if (cr) {
-                                            let upd = dUpd?.();
+                                        if (cr)
                                             (vLet as LVar<RVAR>)(r.val =
                                                 RVAR(N, v,
                                                     dSto?.(),
@@ -1254,9 +1244,8 @@ class RCompiler {
                                                     dSNm?.() || rv
                                                 )
                                             )
-                                            .Subscribe(upd?.SetDirty?.bind(upd))
+                                            .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
                                             .Subscribe(onMod?.());
-                                        } 
                                         else
                                             (r.val as RVAR).Set(v);
                                     else
@@ -1264,9 +1253,7 @@ class RCompiler {
                                 }
                             }
 
-                        if (!onMod)
-                            auto = rv;
-                        
+                        auto = !onMod && rv;                        
                         iB = 1;
                     } break;
 
@@ -1314,7 +1301,7 @@ class RCompiler {
                             , lvars: Array<LVar & {k?: DepE<unknown>}> 
                                         = this.LVars(atts.g('defines'))
                             , bAsync = atts.gB('async')
-                            , listImps: Array<Signature & {k?: DepE<ConstructDef>}>
+                            , listImps: Array<Signat & {k?: DepE<ConstructDef>}>
                                         = Array.from(srcE.children).map(ch => this.ParseSign(ch))
                             , DC = this.LCons(listImps)
                             , prom = RModules.get(src)   // Check whether module has already been loaded
@@ -1353,7 +1340,7 @@ class RCompiler {
                         }
                         
                         bl = async function IMPORT(ar: Area) {
-                            let {sub,cr,r}=PrepRange(ar, srcE)
+                            let {sub,cr,r}=PrepRng<Environment>(ar, srcE)
                             if (cr || bIncl) {
                                 let b = await prom
                                     , svEnv = env
@@ -1383,7 +1370,7 @@ class RCompiler {
                         iB = !b && 2;
                         if (atts.gB('renew')) {
                             bl = function renew(sub: Area) {
-                                return b(PrepRange(sub, srcE, 'renew', 2).sub);
+                                return b(PrepRng(sub, srcE, 'renew', 2).sub);
                             };
                         }
                     break;
@@ -1448,18 +1435,17 @@ class RCompiler {
 
                     case 'DOCUMENT': {
                         let vDoc = this.LVar(atts.g('name', T)),
-                            RC = new RCompiler(this),
                             bEncaps = atts.gB('encapsulate'),
+                            RC = new RCompiler(this),
                             vParams = RC.LVars(atts.g('params')),
                             vWin = RC.LVar(atts.g('window')),
                             docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CChilds(srcE));
-                        bl = async function DOCUMENT(ar: Area) {
-                            let {r, cr} = PrepRange(ar, srcE, vDoc.name);
-                            if (cr) {
+                        bl = async function DOCUMEN_(ar: Area) {
+                            if (!ar.r) {
                                 let doc = ar.parN.ownerDocument,
                                     docEnv = env,
-                                    wins = r.wins = new Set();
-                                r.val = {
+                                    wins = new Set<Window>();
+                                vDoc({
                                     async render(w: Window, cr: boolean, args: unknown[]) {
                                         let svEnv = env, d = w.document;
                                         env = docEnv;
@@ -1505,9 +1491,8 @@ class RCompiler {
                                         for (let w of wins)
                                             w.close();
                                     }
-                                };
+                                });
                             }
-                            vDoc(r.val);
                         }
                         iB = 1;
                     } break;
@@ -1519,7 +1504,7 @@ class RCompiler {
                         this.ws = ws;
                         
                         bl = b && async function HEAD(ar: Area) {
-                            let {sub} = PrepRange(ar, srcE);
+                            let {sub} = PrepRng(ar, srcE);
                             sub.parN = ar.parN.ownerDocument.head;
                             sub.bfor = N;
                             await b(sub);
@@ -1559,7 +1544,7 @@ class RCompiler {
                         let dNm = this.CParam<string>(atts, 'name', T),
                             dVal= this.CParam<string>(atts, 'value', T);
                         bl = async function ATTRIB(ar: Area){
-                            let r = PrepRange(ar, srcE).r,
+                            let r = PrepRng<string>(ar, srcE).r,
                                 nm = dNm(),
                                 p = ar.parN as HTMLElement;
                             if (r.val && nm != r.val)
@@ -1577,7 +1562,7 @@ class RCompiler {
                 atts.NoneLeft();
             }
             
-            nm = (bl ||= dumB).name;
+            nm = (bl ||= RB).name;
             
             if (dOnerr || dOnsuc) {
                 let b = bl;
@@ -1610,10 +1595,10 @@ class RCompiler {
                     }
                     await b(ar);
                     if (bfD)
-                        ar.prevR.bfDest = bfD;
+                        ar.prevR.bfD = bfD;
                     for (let g of after) {
                         if (g.D && !r)
-                            ar.prevR.onDest = g.hndlr();
+                            ar.prevR.afD = g.hndlr();
                         if (r ? g.U : g.C)
                             g.hndlr().call(
                                 (r ? r.node : ar.prevR?.node) || ar.parN
@@ -1626,7 +1611,7 @@ class RCompiler {
                 let b = bl;
                 bl = function hIf(ar: Area) {
                     let c = dIf(),
-                        {sub} = PrepRange(ar, srcE, '#if', 1, !c)
+                        {sub} = PrepRng(ar, srcE, '#if', 1, !c)
                     if (c)
                         return b(sub)
                 }
@@ -1637,7 +1622,7 @@ class RCompiler {
                     bR = /^t/.test(att);    // 'thisreactson'?
                 bl = att == 'hash'
                     ? async function HASH(ar: Area) {
-                        let {sub, r,cr} = PrepRange(ar, srcE, 'hash')
+                        let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
                             , hashes = dRV();
     
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
@@ -1646,7 +1631,7 @@ class RCompiler {
                         }
                     }
                     : async function REACT(ar: Area) {                
-                        let {r, sub} = PrepRange(ar, srcE, att);
+                        let {r, sub} = PrepRng(ar, srcE, att);
         
                         await b(sub);
 
@@ -1672,7 +1657,7 @@ class RCompiler {
                     }
             }
 
-            return bl == dumB ? N : ass(
+            return bl == RB ? N : ass(
                 this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
                 : function Elm(ar: Area) {
@@ -1910,7 +1895,7 @@ class RCompiler {
         this.ws = !bEls && ws > postWs ? ws : postWs;
         this.CT = postCT
 
-        return async function CASE(ar: Area) {
+        return caseList.length && async function CASE(ar: Area) {
             let val = dVal?.()
                 , RRE: RegExpExecArray;
             try {
@@ -1935,7 +1920,7 @@ class RCompiler {
                 }
                 else {
                     // This is the regular CASE  
-                    let {sub, cr} = PrepRange(ar, srcE, '', 1, cAlt);
+                    let {sub, cr} = PrepRng(ar, srcE, '', 1, cAlt);
                     if (cAlt && (cr || !ar.bR)) {
                         if (RRE)
                             RRE.shift(),
@@ -1951,7 +1936,17 @@ class RCompiler {
         }
     }
 
+
     private async CFor(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+
+        interface ForRange extends Range {
+            prev?: ForRange;
+            nxt: ForRange;
+            key?: Key;
+            hash?: Hash; 
+            fragm?: DocumentFragment;            
+        }
+
         let letNm = atts.g('let') ?? atts.g('var')
             , ixNm = atts.g('index',U,U,T);
         this.rspc = F;
@@ -1962,27 +1957,27 @@ class RCompiler {
                 , pvNm = atts.g('previous',U,U,T)
                 , nxNm = atts.g('next',U,U,T)
                 , dUpd = this.CAttExp<RVAR>(atts, 'updates')
-                , bReact: booly = atts.gB('reacting') || atts.gB('reactive') || dUpd;
+                , bRe: booly = atts.gB('reacting') || atts.gB('reactive') || dUpd;
 
             return await this.Framed(async SScope => {
                 
                 let             
-                // Voeg de loop-variabele toe aan de context
-                vLet = this.LVar(letNm),
-                // Optioneel ook een index-variabele, en een variabele die de voorgaande waarde zal bevatten
-                vIx = this.LVar(ixNm),
-                vPv = this.LVar(pvNm),
-                vNx = this.LVar(nxNm),
+                    // Add the loop-variable to the context, and keep a routine to set its value
+                    vLet = this.LVar(letNm),
+                    // The same for 'index', 'previous' and 'next' variables
+                    vIx = this.LVar(ixNm),
+                    vPv = this.LVar(pvNm),
+                    vNx = this.LVar(nxNm),
 
-                dKey = this.CAttExp<Key>(atts, 'key'),
-                dHash = this.CAttExpList<Hash>(atts, 'hash'),
+                    dKey = this.CAttExp<Key>(atts, 'key'),
+                    dHash = this.CAttExpList<Hash>(atts, 'hash'),
 
-                // Compileer alle childNodes
-                bl = await this.CChilds(srcE);
+                    // Compile all childNodes
+                    b = await this.CChilds(srcE);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return bl && async function FOR(this: RCompiler, ar: Area) {
-                    let {r, sub} = PrepRange(ar, srcE, ''),
+                return b && async function FOR(this: RCompiler, ar: Area) {
+                    let {r, sub} = PrepRng<Map<Key, ForRange>>(ar, srcE, ''),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Nxt,
                         iter: Iterable<Item> | Promise<Iterable<Item>>
@@ -1994,7 +1989,7 @@ class RCompiler {
                                 throw `[of] Value (${iter}) is not iterable`
 
                             // Map of the current set of child ranges
-                            let keyMap: Map<Key, Range> = r.val ||= new Map(),
+                            let keyMap: Map<Key, ForRange> = r.val ||= new Map(),
 
                             // Map of the newly obtained data
                                 nwMap: Map<Key, {item:Item, hash:Hash[], ix: number}> = new Map(),
@@ -2019,7 +2014,7 @@ class RCompiler {
                             finally { ES() }
 
                             // Now we will either create or re-order and update the DOM
-                            let nxChR = r.child,    // This is a pointer into the created list of child ranges
+                            let nxChR = r.child as ForRange,    // This is a pointer into the created list of child ranges
                                 iterator = nwMap.entries(),
                                 nxIter = nxNm && nwMap.values()
 
@@ -2059,7 +2054,7 @@ class RCompiler {
                                     sub.r = N;
                                     sub.prevR = prevR;
                                     sub.bfor = nxChR?.FstOrNxt || bfor;
-                                    ({r: chR, sub: chAr} = PrepRange(sub, N, `${letNm}(${ix})`));
+                                    ({r: chR, sub: chAr} = PrepRng(sub, N, `${letNm}(${ix})`));
                                     if (key != N)
                                         keyMap.set(key, chR);
                                     chR.key = key;
@@ -2106,7 +2101,7 @@ class RCompiler {
                                         r.child = chR;
                                     sub.r = chR;
                                     // Prepare child range
-                                    chAr = PrepRange(sub).sub;
+                                    chAr = PrepRng(sub).sub;
 
                                     sub.parR = N;
                                 }
@@ -2121,7 +2116,7 @@ class RCompiler {
                                     // Environment instellen
                                     let {sub, ES} = SScope(chAr, chR);
                                     try {
-                                        if (bReact && (cr || item != chR.rvars[0]))
+                                        if (bRe && (cr || item != chR.rvars[0]))
                                         {
                                             // Turn 'item' into an RVAR_Light
                                             RVAR_Light<Item>(item, dUpd && [dUpd()]);
@@ -2137,12 +2132,12 @@ class RCompiler {
                                         vNx(nxItem);
 
                                         // Build
-                                        await bl(sub);
+                                        await b(sub);
 
-                                        if (bReact && !chR.subs)
+                                        if (bRe && !chR.subs)
                                             // Subscribe the range to the new RVAR_Light
                                             (item as RVAR_Light<Item>).Subscribe(
-                                                chR.subs = Subscriber(sub, bl, chR.child)
+                                                chR.subs = Subscriber(sub, b, chR.child)
                                             );
                                     }
                                     finally { ES() }
@@ -2181,13 +2176,13 @@ class RCompiler {
                     bl = await this.CChilds(srcE);
                 
                 return bl && async function FOREACH_Slot(this: RCompiler, ar: Area) {
-                    let {sub}   = PrepRange(ar, srcE),
-                        {tmplts, CEnv} = K(),
+                    let {sub}   = PrepRng(ar, srcE),
+                        {tmplts, env} = K(),
                         i = 0;
                     for (let slotBldr of tmplts) {
                         vIdx(i++);
                         DC([
-                            {nm, tmplts: [slotBldr], CEnv} as ConstructDef
+                            {nm, tmplts: [slotBldr], env} as ConstructDef
                         ]);
                         await bl(sub);
                     }
@@ -2195,8 +2190,8 @@ class RCompiler {
             }
     }
 
-    private ParseSign(elmSignat: Element):  Signature {
-        let sig = new Signature(elmSignat);
+    private ParseSign(elmSignat: Element):  Signat {
+        let sig = new Signat(elmSignat);
         for (let attr of elmSignat.attributes) {
             if (sig.RP) 
                 throw `Rest parameter must be last`;
@@ -2232,7 +2227,7 @@ class RCompiler {
 
         let bRec = atts.gB('recursive'),
             {head, ws} = this
-            , signats: Array<Signature> = []
+            , signats: Array<Signat> = []
             , CDefs: Array<ConstructDef> = []
             , encStyles = atts.gB('encapsulate')
                 && (this.head = srcE.ownerDocument.createDocumentFragment()).children
@@ -2250,61 +2245,54 @@ class RCompiler {
         try {
             var DC = bRec && this.LCons(signats)
                 , ES = this.SScope()
-                , b = this.ErrH(await this.CIter(srcE, arr), srcE) || dumB
-                , mapS = new Map<string, Signature>(mapI(signats, S => [S.nm, S]));
+                , b = this.ErrH(
+                        await this.CIter(srcE, arr)
+                        , srcE)
+                , mapS = new Map<string, Signat>(mapI(signats, S => [S.nm, S]));
 
-            async function AddTemp(RC: RCompiler, nm: string, prnt: ParentNode, elm: HTMLElement) {
+            for (let [nm, prnt, elm] of 
+                t[1]
+                ? <Iterable<[string, ParentNode, HTMLElement]>>
+                    mapI(elmTempl.children, elm => [elm.tagName, elm, elm])
+                : <Iterable<[string, ParentNode, HTMLElement]>>
+                    [[signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl]]
+            ) {
                 let S = mapS.get(nm);
                 if (!S) throw `<${nm}> has no signature`;
                 CDefs.push({
                     nm,
-                    tmplts: [ await RC.CTempl(S, prnt, elm, F, encStyles) ]
+                    tmplts: [ await this.CTempl(S, prnt, elm, F, encStyles) ]
                 });
                 mapS.delete(nm);
             }
-            if (t[1]) // <TEMPLATES> or <TEMPLATE> ?
-                // Each child is a template
-                for (let elm of elmTempl.children as Iterable<HTMLElement>)
-                    await AddTemp(this, elm.tagName, elm, elm);
-            else
-                // All content forms one template
-                await AddTemp(this, signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl);
 
-            // Check every signature has a template
+            // Check every signature now has a template
             for (let [nm] of mapS)
                 throw `Signature <${nm}> has no template`;
         }
         finally { 
             ES();
-            ass(this.head, {head, ws}); 
+            ass(this, {head, ws}); 
         }
 
         DC ||= this.LCons(signats);
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        return async function COMP(ar: Area) {
-            let constr: ConstructDef[] = CDefs.map(C => ({...C}));  // C must be cloned, as it will receive its own environment
-            if (bRec)
-                DC(constr);
-
-            await b(ar);
-
-            // At runtime, we just have to remember the environment that matches the context
-            // And keep the previous remembered environment, in case of recursive constructs
-            for(let c of constr)
-                c.CEnv = env;
-
-            if (!bRec)
-                DC(constr);
+        return async function COMP_(ar: Area) {
+            // C must be cloned, as it receives its own environment
+            DC(CDefs.map(C => ({...C, env})));
+            
+            await b?.(ar);
         };
     }
 
-    private async CTempl(signat: Signature, contentNode: ParentNode, srcE: HTMLElement, 
+    private async CTempl(signat: Signat, contentNode: ParentNode, srcE: HTMLElement, 
         bIsSlot?: boolean, styles?: Iterable<Node>, atts?: Atts
     ): Promise<Template>
     {
         return this.Framed(async SScope => {
             try {
+                this.ws = this.rspc = WSpc.block;
                 let
                     myAtts = atts || new Atts(srcE),
                     // Local variables to contain the attribute values.
@@ -2313,21 +2301,16 @@ class RCompiler {
                         signat.Params.map(
                             ({mode,nm}) => [nm, this.LVar((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]
                         ),
-                    DC = this.LCons(signat.Slots.values());
-
-                if (!atts)
-                    myAtts.NoneLeft();
-                this.ws = this.rspc = WSpc.block;
-                let
-                    b = await this.CChilds(contentNode),
+                    DC = this.LCons(signat.Slots.values()),
+                    b = (!atts && myAtts.NoneLeft(), await this.CChilds(contentNode)),
                     nm = signat.nm,
                     custNm = /^[A-Z].*-/.test(nm) ? nm : `rhtml-${nm}`;
 
                 // Routine to instantiate the template
                 return b && async function TEMPL(
-                    args: unknown[]                   // Arguments to the template
+                    args: ArgSet                        // Arguments to the template
                     , mSlots: Map<string, Template[]>   // Map of slot templates
-                    , CEnv: Environment                 // Environment to be used for the slot templates
+                    , env: Environment                 // Environment to be used for the slot templates
                     , ar: Area
                 ) {
                     let {sub, ES} = SScope(ar);
@@ -2342,7 +2325,7 @@ class RCompiler {
                             , nm => (
                                 {   nm
                                     , tmplts: mSlots.get(nm) || E
-                                    , CEnv //, Cnm
+                                    , env //, Cnm
                                 }
                             )
                         ));
@@ -2371,13 +2354,15 @@ class RCompiler {
 
     private async CInstance(
         srcE: HTMLElement, atts: Atts,
-        [S, ck]: [Signature, Dep<ConstructDef>]
+        [S, ck]: [Signat, Dep<ConstructDef>]
     ) {
         await S.prom;
         let 
             {RP, CSlot} = S,
             getArgs: Array<[string,Dep<unknown>,Dep<Handler>?]> = [],
-            SBldrs = new Map<string, Template[]>();
+            SBldrs = new Map<string, Template[]>(),
+
+            slotE: HTMLElement, slot: Signat, nm: string;
 
         for (let [nm] of S.Slots)
             SBldrs.set(nm, []);
@@ -2397,7 +2382,6 @@ class RCompiler {
                 if (dH) getArgs.push([nm, dH]);
             }
 
-        let slotE: HTMLElement, slot: Signature, nm: string;
         for (let node of Array.from(srcE.children))
             if ((slot = S.Slots.get(nm = (slotE = (node as HTMLElement)).tagName))
                 && slot != CSlot
@@ -2426,7 +2410,7 @@ class RCompiler {
         this.ws = WSpc.inline;
 
         return async function INST(this: RCompiler, ar: Area) {
-            let {r, sub, cr} = PrepRange(ar, srcE),
+            let {r, sub, cr} = PrepRng<ArgSet>(ar, srcE),
                 IEnv = env,
                 cdef = ck() as ConstructDef,
                 args = r.val ||= {};
@@ -2440,11 +2424,11 @@ class RCompiler {
                     else if (cr)
                         args[nm] = RVAR('', dGet?.(), N, dSet());
                     else if (dGet)
-                        args[nm].V = dGet();
+                        (args[nm] as RVAR).V = dGet();
             }
             finally { ro = F; }
             try {
-                env = cdef.CEnv;
+                env = cdef.env;
                 for (let templ of cdef.tmplts) 
                     await templ?.(args, SBldrs, IEnv, sub);
             }
@@ -3029,7 +3013,7 @@ class DocLoc extends _RVAR<string> {
         }
         RVAR(fld: string, df?: string, nm: string = fld) {
             let R = RVAR<string>(nm, N, N, v => this.query[fld] = v);
-            this.Subscribe(_ => R.V = this.query[fld] ?? df, T);
+            this.Subscribe(_ => R.V = this.query[fld] ?? df, T, T);
             return R;
         }
     }
