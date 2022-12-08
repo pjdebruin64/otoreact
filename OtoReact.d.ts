@@ -12,6 +12,8 @@ declare const defaults: {
     bKeepComments: boolean;
     storePrefix: string;
 };
+declare type FullSettings = typeof defaults;
+declare type Settings = Partial<FullSettings>;
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     iB?: boolean | number;
     auto?: string;
@@ -53,9 +55,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     wins?: Set<Window>;
     erase(par: Node): void;
 }
-declare type FullSettings = typeof defaults;
-declare type Settings = Partial<FullSettings>;
-export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
+export declare function RCompile(srcN?: HTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     sAr?: Area;
     bImm?: boolean;
