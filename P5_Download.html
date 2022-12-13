@@ -20,13 +20,13 @@
   <h2>Downloads</h2>
   <table style="border-spacing: .5ex">
     <tr>
-      <td>OtoReact is basically just a single file which you can download here:</td>
+      <td>OtoReact is basically just a single 40KB file which you can download here:</td>
       <td><a href="{src}OtoReact.js" download
         onclick="gtag('event', 'file_download', {value: this.href})"
         oncreate="this.addEventListener('contextmenu', event => gtag('event', 'file_download', {value: this.href}) )"
         >OtoReact.js</a></td>
     </tr>
-    <tr>
+    <tr #if="0">
       <td> Here is the alternative version for older browsers:</td>
       <td><a href="{src}OtoReact_ES5.js" download>OtoReact_ES5.js</a></td>
     </tr>

@@ -663,7 +663,7 @@ function RUpdate() {
 
 export async function DoUpdate() {
     hUpdate = N;
-    if (!R.bldr || env)
+    if (!R.bldr || env || !DVars.size)
     return;
 
     env = E;
@@ -867,7 +867,7 @@ class RCompiler {
     and receives a parameter 'SS' to be used in the builder routine created by 'Comp' to
     convert the environment 'env' into a new frame, and that returns a routine 'EndScope' to restore the precious environment
 */  
-    private async Framed<T>(
+    private  Framed<T>(
         Comp: (
             StartScope: (sub: Area, r?:Range) => {sub: Area, ES: () => void }
         )=>Promise<T>
@@ -883,19 +883,17 @@ class RCompiler {
             CT.L = CT.M = 0;
         }
 
-        try {
-            return await Comp(
-                // 'StartScope' routine
-                (sub, r?) => {
-                    if (!r)
-                        ({r,sub} = PrepRng(sub));
-                    let e = env;
-                    env = (r.val as Environment) ||= nf ? [e] : [e[0]]; 
-                    return {sub, ES: () => {env = e} }; // 'EndScope' routine
-                }
-            );
-        }
-        finally {
+        return Comp(
+            // 'StartScope' routine
+            (sub, r?) => {
+                if (!r)
+                    ({r,sub} = PrepRng(sub));
+                let e = env;
+                env = (r.val as Environment) ||= nf ? [e] : [e[0]]; 
+                return {sub, ES: () => {env = e} }; // 'EndScope' routine
+            }
+        ).finally(() =>        
+        {
             // Restore the context
             ass(this.CT, <Context>{ct,d,L,M});
             
@@ -903,7 +901,7 @@ class RCompiler {
             // 'rActs' contains the restore actions to restore the maps to their previous state
             while (rActs.length > A) 
                 rActs.pop()();
-        }
+        });
     }
 
     private rActs: Array<() => void> = [];  // Restore actions
@@ -1005,13 +1003,13 @@ class RCompiler {
             ? await this.CChilds(elm, childnodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
             ) || dumB;
-        this.log(`${this.num} Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
+        this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
 
     log(msg: string) {
         if (this.Settings.bTiming)
-            console.log(new Date().toISOString().substring(11)+' '+msg);
+            console.log(new Date().toISOString().substring(11)+` ${this.num}: `+msg);
     }
 
     private setPRE = new Set(['PRE']);
@@ -1039,15 +1037,12 @@ class RCompiler {
 
     private srcNodeCnt = 0;   // To check for empty Content
 
-    private async CChilds(
+    private CChilds(
         srcParent: ParentNode,
         chNodes: Iterable<ChildNode> = srcParent.childNodes,
     ): Promise<DOMBuilder> {
         let ES = this.SS(); // Start scope
-        try {
-            return await this.CIter(srcParent, chNodes);
-        }
-        finally { ES() }    // End scope
+        return this.CIter(srcParent, chNodes).finally(ES)
     }
 
     // Compile some stretch of childnodes
@@ -1300,8 +1295,7 @@ class RCompiler {
                                 return async function INCLUDE(ar) {
                                         let b = await NoTime(task)
                                             , {sub,ES} = SS(ar);
-                                        try { await b(sub); }
-                                        finally { ES() }
+                                        await b(sub).finally(ES);
                                     };
                             })
                         );
@@ -1314,7 +1308,7 @@ class RCompiler {
                                         = this.LVars(atts.g('defines'))
                             , bAsync = atts.gB('async')
                             , listImps: Array<Signat & {g?: DepE<ConstructDef>}>
-                                        = Array.from(srcE.children).map(ch => this.ParseSign(ch))
+                                        = Array.from(srcE.children, ch => this.CSignat(ch))
                             , DC = this.LCons(listImps)
                             , cTask: Promise<[DOMBuilder, Context]>
                                 = OMods.get(src)   // Check whether module has already been compiled
@@ -1323,10 +1317,12 @@ class RCompiler {
                         if (!cTask) {
                             // When the same module is imported at multiple places, it needs to be compiled only once
                             let C = new RCompiler(this, this.GetPath(src), new Context());
+                            C.log(src)
                             C.Settings.bSubfile = T;
                             OMods.set(src
                                 , cTask = C.CIter(N, await this.fetchModule(src))
-                                            .then(b => [b, C.CT])
+                                            .then(b => [b, C.CT], e => {C.log(e); throw e}
+                                            )
                             );
                         }
 
@@ -1362,10 +1358,10 @@ class RCompiler {
                         bl = async function IMPORT(ar: Area) {
                             let {sub,cr,r}=PrepRng<Environment>(ar, srcE)
                             if (cr || bIncl) {
-                                let b = await NoTime(task)
-                                    , sv = env
-                                    , MEnv = env = r.val ||= []; // = NewEnv()
                                 try {
+                                    var b = await NoTime(task)
+                                        , sv = env
+                                        , MEnv = env = r.val ||= []; // = NewEnv()
                                     await b(bIncl ? sub : {parN: D.createDocumentFragment()});
                                 }
                                 finally { env = sv; }
@@ -1702,7 +1698,7 @@ class RCompiler {
 
                 if (this.Settings.bAbortOnError)
                     throw msg;
-                console.log(msg);
+                this.log(msg);
                 if (onerr?.bBldr)
                     onerr(e);
                 else if (this.Settings.bShowErrors) {
@@ -1954,7 +1950,7 @@ class RCompiler {
     }
 
 
-    private async CFor(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+    private CFor(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
         interface ForRange extends Range {
             prev?: ForRange;
@@ -1976,7 +1972,7 @@ class RCompiler {
                 , dUpd = this.CAttExp<RVAR>(atts, 'updates')
                 , bRe: booly = atts.gB('reacting') || atts.gB('reactive') || dUpd;
 
-            return await this.Framed(async SS => {
+            return this.Framed(async SS => {
                 
                 let             
                     // Add the loop-variable to the context, and keep a routine to set its value
@@ -2180,64 +2176,70 @@ class RCompiler {
                         await pIter(iter);
                 };
             });
-            }
-            else { 
-                /* Iterate over multiple slot instances */
-                let nm = atts.g('of', T, T).toUpperCase()
-                    , [S,K] = this.CT.getCS(nm) ||
-                        // Slot doesn't exist; it's probably a missing 'let'
-                        thro(`Missing attribute [let]`);
-
-                let vIdx = this.LVar(ixNm),
-                    DC = this.LCons([S]),
-                    bl = await this.CChilds(srcE);
-                
-                return bl && async function FOREACH_Slot(this: RCompiler, ar: Area) {
-                    let {sub}   = PrepRng(ar, srcE),
-                        {tmplts, env} = K(),
-                        i = 0;
-                    for (let slotBldr of tmplts) {
-                        vIdx(i++);
-                        DC([
-                            {nm, tmplts: [slotBldr], env} as ConstructDef
-                        ]);
-                        await bl(sub);
+        }
+        else { 
+            /* Iterate over multiple slot instances */
+            let nm = atts.g('of', T, T).toUpperCase()
+                , [S,dCS] = this.CT.getCS(nm) ||
+                    // Slot doesn't exist; it's probably a missing 'let'
+                    thro(`Missing attribute [let]`);
+            
+            return this.Framed(
+                async SS => {
+                    let 
+                        vIdx = this.LVar(ixNm)
+                        , DC = this.LCons([S])
+                        , bl = await this.CChilds(srcE)
+                    
+                    return bl && async function FOREACH_Slot(this: RCompiler, ar: Area) {
+                        let
+                            {tmplts, env} = dCS(),
+                            {ES, sub} = SS(ar),
+                            i = 0;
+                        try {
+                            for (let slotBldr of tmplts) {
+                                vIdx(i++);
+                                DC([
+                                    {nm, tmplts: [slotBldr], env} as ConstructDef
+                                ]);
+                                await bl(sub);
+                            }
+                        }
+                        finally { ES(); }
                     }
                 }
-            }
+            );
+        }
     }
 
-    private ParseSign(elmSignat: Element):  Signat {
-        let sig = new Signat(elmSignat);
+    private CSignat(elmSignat: Element):  Signat {
+        let S = new Signat(elmSignat);
         for (let attr of elmSignat.attributes) {
-            if (sig.RP) 
+            if (S.RP) 
                 throw `Rest parameter must be last`;
-            let m = /^(#|@|\.\.\.|_|)(.*?)(\?)?$/.exec(attr.name);
+            let m = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
             if (m[1] != '_') {
-                let param = { 
+                S.Params.push({ 
                     mode: m[1]
-                    , nm: m[2]
+                    , nm: m[3]
                     , pDf:
-                        m[1] == '...' ? () => E
+                        m[2] ? () => E
                         : attr.value != '' 
-                        ? (m[1] == '#' ? this.CExpr(attr.value, attr.name) :  this.CText(attr.value, attr.name))
-                        : m[3] ? /^on/.test(m[2]) ? ()=>_=>N : dU   // Unspecified default
-                        : N 
-                    }
-                sig.Params.push(param);
-                if (m[1] == '...')
-                    sig.RP = m[2];
+                        ? m[1] ? this.CExpr(attr.value, attr.name) :  this.CText(attr.value, attr.name)
+                        : m[4] && (/^on/.test(m[2]) ? _ => dU : dU)   // Unspecified default
+                    });
+                S.RP = m[2] && m[3];
             }
         }
         for (let elmSlot of elmSignat.children) {
-            let s = this.ParseSign(elmSlot);
-            mapNm(sig.Slots, s);
+            let s = this.CSignat(elmSlot);
+            mapNm(S.Slots, s);
             if (/^CONTENT/.test(s.nm)) {
-                if (sig.CSlot) throw 'Multiple content slots';
-                sig.CSlot = s;
+                if (S.CSlot) throw 'Multiple content slots';
+                S.CSlot = s;
             }
         }
-        return sig;
+        return S;
     }
 
     private async CComponent(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
@@ -2257,7 +2259,7 @@ class RCompiler {
         if (!t) throw 'Missing template(s)';
 
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
-            signats.push(this.ParseSign(elm));
+            signats.push(this.CSignat(elm));
 
         try {
             var DC = bRec && this.LCons(signats)
@@ -2269,19 +2271,19 @@ class RCompiler {
 
             for (let [nm, prnt, elm] of 
                 t[1]
-                ? <Iterable<[string, ParentNode, HTMLElement]>>
-                    mapI(elmTempl.children, elm => [elm.tagName, elm, elm])
-                : <Iterable<[string, ParentNode, HTMLElement]>>
-                    [[signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl]]
-            ) {
-                let S = mapS.get(nm);
-                if (!S) throw `<${nm}> has no signature`;
+                ?   mapI(elmTempl.children, elm => 
+                        <[string, ParentNode, HTMLElement]>[elm.tagName, elm, elm]
+                    )
+                :   [ 
+                        <[string, ParentNode, HTMLElement]>[signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl]
+                    ]
+            )
                 CDefs.push({
                     nm,
-                    tmplts: [ await this.CTempl(S, prnt, elm, F, encStyles) ]
-                });
-                mapS.delete(nm);
-            }
+                    tmplts: [ await this.CTempl(
+                        mapS.get(nm) || thro(`Template <${nm}> has no signature`)
+                        , prnt, F, elm, encStyles) ]
+                }), mapS.delete(nm);
 
             // Check every signature now has a template
             for (let [nm] of mapS)
@@ -2295,83 +2297,82 @@ class RCompiler {
         DC ||= this.LCons(signats);
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        return async function COMP_(ar: Area) {
+        return function COMP_(ar: Area) {
             // C must be cloned, as it receives its own environment
             DC(CDefs.map(C => ({...C, env})));
             
-            await b?.(ar);
+            return b?.(ar);
         };
     }
 
-    private async CTempl(signat: Signat, contentNode: ParentNode, srcE: HTMLElement, 
-        bIsSlot?: boolean, styles?: Iterable<Node>, atts?: Atts
+    private CTempl(
+        S: Signat
+        , body: ParentNode
+        , bIsSlot?: boolean
+        , srcE = <HTMLElement>body
+        , styles?: Iterable<Node>
+        , atts?: Atts
     ): Promise<Template>
     {
         return this.Framed(async SS => {
-            try {
-                this.ws = this.rspc = WSpc.block;
-                let
-                    myAtts = atts || new Atts(srcE),
-                    // Local variables to contain the attribute values.
-                    // Note that the attribute name 'nm' may be different from the variable name.
-                    lvars: Array<[string, LVar]> =
-                        signat.Params.map(
-                            ({mode,nm}) => [nm, this.LVar((myAtts.g(mode + nm) ?? myAtts.g(nm, bIsSlot)) || nm)]
-                        ),
-                    DC = this.LCons(signat.Slots.values()),
-                    b = (!atts && myAtts.NoneLeft(), await this.CIter(contentNode)),
-                    nm = signat.nm,
-                    custNm = /^[A-Z].*-/.test(nm) ? nm : `rhtml-${nm}`;
+            this.ws = this.rspc = WSpc.block;
+            let
+                myAtts = atts || new Atts(srcE),
+                // Local variables to contain the attribute values.
+                // Note that the attribute name 'nm' may be different from the variable name.
+                lvars: Array<[string, LVar]> =
+                    S.Params.map(
+                        ({mode,nm}) => [nm, this.LVar((myAtts.g(nm) ?? myAtts.g(mode + nm, bIsSlot)) || nm)]
+                    ),
+                DC = this.LCons(S.Slots.values()),
+                b = (!atts && myAtts.NoneLeft(), await this.CIter(body)),
+                nm = S.nm,
+                custNm = /^[A-Z].*-/.test(nm) ? nm : `rhtml-${nm}`;
 
-                // Routine to instantiate the template
-                return b && async function TEMPL(
-                    args: ArgSet                        // Arguments to the template
-                    , mSlots: Map<string, Template[]>   // Map of slot templates
-                    , env: Environment                 // Environment to be used for the slot templates
-                    , ar: Area
-                ) {
-                    let {sub, ES} = SS(ar);
-                    try {
-                        // Set parameter values, with default when undefined
-                        lvars.forEach(([nm,lv], i) => {
-                            let arg = args[nm];
-                            lv(arg !== U ? arg : signat.Params[i]?.pDf?.());
-                        })
-                        // Define all slot-constructs
-                        DC(mapI(signat.Slots.keys()
-                            , nm => (
-                                {   nm
-                                    , tmplts: mSlots.get(nm) || E
-                                    , env //, Cnm
-                                }
-                            )
-                        ));
-
-                        if (styles) {
-                            let {r: {node}, chAr, cr} = PrepElm(srcE, sub, custNm), 
-                                shadow = node.shadowRoot || node.attachShadow({mode: 'open'});
-                            if (cr)
-                                for (let style of styles)
-                                    shadow.appendChild(style.cloneNode(T));
-                            
-                            if (signat.RP)
-                                ApplyMod(node, {mt: MType.RestArgument, nm: N, depV: N}, args[signat.RP], cr);
-                            chAr.parN = shadow;
-                            sub = chAr;
+            // Routine to instantiate the template
+            return b && async function TEMPL(
+                args: ArgSet                        // Arguments to the template
+                , mSlots: Map<string, Template[]>   // Map of slot templates
+                , env: Environment                 // Environment to be used for the slot templates
+                , ar: Area
+            ) {
+                let {sub, ES} = SS(ar);
+                // Set parameter values, with default when undefined
+                lvars.forEach(([nm,lv], i) => {
+                    let arg = args[nm];
+                    lv(arg !== U ? arg : S.Params[i]?.pDf?.());
+                })
+                // Define all slot-constructs
+                DC(mapI(S.Slots.keys()
+                    , nm => (
+                        {   nm
+                            , tmplts: mSlots.get(nm) || E
+                            , env //, Cnm
                         }
-                        await b(sub);
-                    }
-                    finally { ES() }
+                    )
+                ));
+
+                if (styles) {
+                    let {r: {node}, chAr, cr} = PrepElm(srcE, sub, custNm), 
+                        shadow = node.shadowRoot || node.attachShadow({mode: 'open'});
+                    if (cr)
+                        for (let style of styles)
+                            shadow.appendChild(style.cloneNode(T));
+                    
+                    if (S.RP)
+                        ApplyMod(node, {mt: MType.RestArgument, nm: N, depV: N}, args[S.RP], cr);
+                    chAr.parN = shadow;
+                    sub = chAr;
                 }
+                await b(sub).finally(ES);
             }
-            catch (e) { throw ErrMsg(srcE, 'template: '+e); }
-        });
+        }).catch(e => { throw ErrMsg(srcE, `<${S.nm}> template: `+e); });
     }
 
 
     private async CInstance(
         srcE: HTMLElement, atts: Atts,
-        [S, gc]: [Signat, Dep<ConstructDef>]
+        [S, dCS]: [Signat, Dep<ConstructDef>]
     ) {
         await S.task;
         let 
@@ -2408,14 +2409,14 @@ class RCompiler {
                 && slot != CSlot
                 ) {
                 SBldrs.get(nm).push(
-                    await this.CTempl(slot, slotE, slotE, T)
+                    await this.CTempl(slot, slotE, T)
                 );
                 srcE.removeChild(node);
             }
             
         if (CSlot)  // Content slot?
             SBldrs.get(CSlot.nm).push(
-                await this.CTempl(CSlot, srcE, srcE, T, N, atts)
+                await this.CTempl(CSlot, srcE, T, U, N, atts)
             );
         
         atts.NoneLeft();
@@ -2424,7 +2425,7 @@ class RCompiler {
         return async function INST(this: RCompiler, ar: Area) {
             let {r, sub, cr} = PrepRng<ArgSet>(ar, srcE),
                 IEnv = env,
-                cdef = gc() as ConstructDef,
+                cdef = dCS(),
                 args = r.val ||= {};
             
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
@@ -2441,8 +2442,8 @@ class RCompiler {
             finally { ro = F; }
             try {
                 env = cdef.env;
-                for (let templ of cdef.tmplts) 
-                    await templ?.(args, SBldrs, IEnv, sub);
+                for (let tmpl of cdef.tmplts) 
+                    await tmpl?.(args, SBldrs, IEnv, sub);
             }
             finally {env = IEnv}
         }

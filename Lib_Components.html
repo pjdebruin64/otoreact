@@ -97,7 +97,7 @@
                     <div style="float:right">
                         <component><but #value><content></content></but>
                             <template value=v >
-                                <button #if="v<0 || texts.V[v]"
+                                <button #if="v<=0 || v==4 || texts.V[v]"
                                      #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
                             </template>
                         </component>
