@@ -89,8 +89,8 @@ export declare type RVAR_Light<T> = T & {
 declare function Subscriber({ parN, bR }: Area, bl: DOMBuilder, r: Range): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
-export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
+export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class DocLoc extends _RVAR<string> {
     constructor();
     basepath: string;
@@ -103,5 +103,5 @@ declare class DocLoc extends _RVAR<string> {
     search(fld: string, val: string): string;
     RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
 }
-declare const DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
+declare let DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
 export { DL as docLocation, reroute };

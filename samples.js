@@ -61,7 +61,7 @@ const sampleServerData2 = `<style>
     font-size: small;
   }
   div.scrollbox {
-    height:100%;
+    height:45em;
     width:100%;
     overflow-y:scroll;
   }

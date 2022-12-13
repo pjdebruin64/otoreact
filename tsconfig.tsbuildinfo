@@ -227,13 +227,13 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "d11c63abb9a0d59e0b19dfd3b9621b174a8d5ef9fb9f90753fb235599a12bc2a",
-        "signature": "0ac5a1d3e0e3c3a70f74e865d7ab1f6346abe1ad5ac038063e6b09654d2c336b",
+        "version": "d0b83e994301886d5a3d76c861a4938440e18580cbd9941b8c128680d0a0f84d",
+        "signature": "c9f67767ab83761382d657937740adbe386fb93c1b358072a3aeb67ceae9abd4",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "84c63b67217c1031a1004ad5b40ddafd7fe1b2a8dbf53a65a7e05affc7926306",
-        "signature": "1081b695da792c04aec61a8edd3f9b0981d4c6c46f0a0bb26aefc1b9db2a7021",
+        "version": "8ccf4a7ec3fd9f1a076264103a2d5496157fef5f97abfe3343852775a4ba42da",
+        "signature": "58b487f08a0e85cd3eb53ec4f928fffff273ce343f27cda50f4426807d4b1f8e",
         "affectsGlobalScope": true
       }
     },
@@ -249,7 +249,6 @@
       ],
       "declaration": true,
       "composite": true,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },

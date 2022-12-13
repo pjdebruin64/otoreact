@@ -14,7 +14,7 @@
     </component>
 
     <component>
-        <RHTML #srctext></RHTML>
+        <RHTML srctext></RHTML>
         <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
         <template>
             <RHTML srctext="{prefix}{srctext}"></RHTML>
@@ -24,7 +24,7 @@
         
     <!-- Component to demonstrate RHTML -->
     <component>
-        <demo #srctext?="''" #bshow=4 #editable=true rvar? #bDollarRequired?></demo>
+        <demo srctext?="''" #bshow=4 #editable=true rvar? #bDollarRequired?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
         <style>
@@ -80,7 +80,7 @@
                     new RegExp(`^\\s*${fRegElement('style')}?${fRegElement('script')}?${fRegElement('component')}?([^]*?)\\s*$`, 'i');
         </script>
 
-        <template #srctext=source #bDollarRequired="bDollarRequired">
+        <template srctext=source #bDollarRequired="bDollarRequired">
             <define var=srcText #value="rvar || RVAR('', source.trim())"></define>
             <define rvar="texts"></define>
             <script type="otoreact/local">
@@ -335,12 +335,14 @@
                     (level <= 9 ? contents.U : lastDetails).push(entry);
                 }
             </script>
-            <component><HDR tagname #level id><content></content></HDR>
+            <component><HDR tagname #level #id><content></content></HDR>
                 <template>
                     <def var=nr #value="getNr(level)"></def>
                     <def var=hash #value="id||`s${pNum}.${nr}`"></def>
                     <ELEMENT #tagname="tagname" #id="hash" 
-                    onCreate="debugger;addContent(level, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></ELEMENT>
+                        onCreate="addContent(level, this)">
+                        <a href="#{hash}">{nr}. &nbsp;<content></content></a>
+                    </ELEMENT>
                 </template>
             </component>
             <div class=pageLayout>
