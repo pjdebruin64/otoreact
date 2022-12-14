@@ -276,8 +276,13 @@ class Context {
     // Used by the <CASE> construct, that has alternative scopes all stored in the same frame.
     max(C: Context) {
         return ass(
+            //C,
             C.L > this.L ? C : this, 
-            {N: Math.min(this.M, C.M)})
+            {
+                //L: Math.max(this.L, C.L),
+                N: Math.min(this.M, C.M)
+            }
+        );
     }
 }
 
@@ -431,7 +436,7 @@ const PrepRng = <VT = unknown>(
 
 type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
     {   sAr?: Area;
-        bImm?: boolean;
+        //bImm?: boolean;
     };
 
 type ParentNode = HTMLElement|DocumentFragment;
@@ -541,6 +546,7 @@ class _RVAR<T = unknown>{
     // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
     // .Content is de routine die een nieuwe waarde uitrekent
     _Subs: Set<Subscriber<T>> = new Set();
+    _Imm: Set<Subscriber<T>> = new Set();
 
     // Add a subscriber 's', when it is not null.
     // When 'bImm' is truthy, the subscriber will be called immediately when the RVAR is set dirty;
@@ -550,20 +556,20 @@ class _RVAR<T = unknown>{
         if (s) {
             if (cr)
                 s(this.v);
-            s.bImm = bImm;
-            this._Subs.add(s);
+            (bImm ? this._Imm : this._Subs).add(s);
         }
         return this;
     }
     Unsubscribe(s: Subscriber<T>) {
+        this._Imm.delete(s);
         this._Subs.delete(s);
     }
     // Use var.V to get or set its value
     get V() { return this.v }
     // When setting, it will be marked dirty.
-    set V(t: T) {
-        if (t !== this.v) {
-            this.v = t;
+    set V(v: T) {
+        if (v !== this.v) {
+            this.v = v;
             this.SetDirty();
         }
     }
@@ -583,20 +589,16 @@ class _RVAR<T = unknown>{
     // It will be marked dirty.
     // Set var.U to to set the value and mark the rvar as dirty, even when the value has not changed.
     get U() { 
-        if (!ro) this.SetDirty();  
+        ro || this.SetDirty();  
         return this.v }
     set U(t: T) { this.v = t; this.SetDirty(); }
 
     public SetDirty() {
-        let b:boolean;
-        for (let sub of this._Subs)
-            if (sub.bImm)
-                sub(this.v);
-            else b=T;
-        if (b) {
-            DVars.add(this);
+        for (let sub of this._Imm)
+            sub(this.v);
+        if (this._Subs.size)
+            DVars.add(this),
             RUpdate();
-        }
     }
 
     toString() {
@@ -676,16 +678,15 @@ export async function DoUpdate() {
             DVars = new Set();
             for (let rv of dv)
                 for (let subs of rv._Subs)
-                    if (!subs.bImm)
-                        try { 
-                            let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                            if (subs.sAr)
-                                await P;
-                        }
-                        catch (e) {    
-                            console.log(e = `ERROR: `+LAbbr(e));
-                            alert(e);
-                        }
+                    try { 
+                        let P = subs(rv instanceof _RVAR ? rv.v : rv);
+                        if (subs.sAr)
+                            await P;
+                    }
+                    catch (e) {    
+                        console.log(e = `ERROR: `+LAbbr(e));
+                        alert(e);
+                    }
         }
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
     }
@@ -895,7 +896,7 @@ class RCompiler {
         ).finally(() =>        
         {
             // Restore the context
-            ass(this.CT, <Context>{ct,d,L,M});
+            ass(this.CT = CT, <Context>{ct,d,L,M});
             
             // When new variables or constructs have been set in the maps,
             // 'rActs' contains the restore actions to restore the maps to their previous state
@@ -1194,7 +1195,7 @@ class RCompiler {
 
                 // Check for generic attributes
                 , dIf = this.CAttExp(atts, 'if');
-            for (let att of atts.keys())
+            for (let [att] of atts)
                 if (m = 
                      /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
                      .exec(att))
@@ -2217,19 +2218,18 @@ class RCompiler {
         for (let attr of elmSignat.attributes) {
             if (S.RP) 
                 throw `Rest parameter must be last`;
-            let m = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
-            if (m[1] != '_') {
-                S.Params.push({ 
-                    mode: m[1]
-                    , nm: m[3]
+            let [,mode,rp,nm,opt] = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
+            if (mode != '_')
+                S.Params.push(
+                    { mode, nm
                     , pDf:
-                        m[2] ? () => E
+                        rp
+                            ? () => E
                         : attr.value != '' 
-                        ? m[1] ? this.CExpr(attr.value, attr.name) :  this.CText(attr.value, attr.name)
-                        : m[4] && (/^on/.test(m[2]) ? _ => dU : dU)   // Unspecified default
+                            ? mode ? this.CExpr(attr.value, attr.name) :  this.CText(attr.value, attr.name)
+                        : opt && (/^on/.test(nm) ? _ => dU : dU)   // Unspecified default
                     });
-                S.RP = m[2] && m[3];
-            }
+            S.RP = rp && nm;
         }
         for (let elmSlot of elmSignat.children) {
             let s = this.CSignat(elmSlot);
@@ -2251,12 +2251,9 @@ class RCompiler {
             , encStyles = atts.gB('encapsulate')
                 && (this.head = srcE.ownerDocument.createDocumentFragment()).children
             , arr = Array.from(srcE.children) as Array<HTMLElement>
-                , elmSign = arr.shift()
-            , elmTempl = arr.pop()
-            , t = /^TEMPLATE(S)?$/.exec(elmTempl?.tagName);
-
-        if (!elmSign) throw 'Missing signature(s)';
-        if (!t) throw 'Missing template(s)';
+            , elmSign = arr.shift() || thro('Missing signature(s)')
+            , elmTmpl = arr.pop()
+            , t = /^TEMPLATE(S)?$/.exec(elmTmpl?.tagName) || thro('Missing template(s)');
 
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.CSignat(elm));
@@ -2269,20 +2266,20 @@ class RCompiler {
                         , srcE)
                 , mapS = new Map<string, Signat>(mapI(signats, S => [S.nm, S]));
 
-            for (let [nm, prnt, elm] of 
+            for (let [nm, elm, body] of 
                 t[1]
-                ?   mapI(elmTempl.children, elm => 
-                        <[string, ParentNode, HTMLElement]>[elm.tagName, elm, elm]
+                ?   mapI(elmTmpl.children, elm => 
+                        <[string, HTMLElement, ParentNode]>[elm.tagName, elm, elm]
                     )
                 :   [ 
-                        <[string, ParentNode, HTMLElement]>[signats[0].nm, (elmTempl as HTMLTemplateElement).content, elmTempl]
+                        <[string, HTMLElement, ParentNode]>[signats[0].nm, elmTmpl, (elmTmpl as HTMLTemplateElement).content]
                     ]
             )
                 CDefs.push({
                     nm,
                     tmplts: [ await this.CTempl(
                         mapS.get(nm) || thro(`Template <${nm}> has no signature`)
-                        , prnt, F, elm, encStyles) ]
+                        , elm, F, U, body, encStyles) ]
                 }), mapS.delete(nm);
 
             // Check every signature now has a template
@@ -2297,21 +2294,21 @@ class RCompiler {
         DC ||= this.LCons(signats);
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        return function COMP_(ar: Area) {
+        return async function COMP_(ar: Area) {
             // C must be cloned, as it receives its own environment
             DC(CDefs.map(C => ({...C, env})));
             
-            return b?.(ar);
+            await b?.(ar);
         };
     }
 
     private CTempl(
         S: Signat
-        , body: ParentNode
+        , srcE: HTMLElement
         , bIsSlot?: boolean
-        , srcE = <HTMLElement>body
-        , styles?: Iterable<Node>
         , atts?: Atts
+        , body: ParentNode = srcE
+        , styles?: Iterable<Node>
     ): Promise<Template>
     {
         return this.Framed(async SS => {
@@ -2379,7 +2376,7 @@ class RCompiler {
             {RP, CSlot} = S,
             slotE: HTMLElement, slot: Signat, nm: string, s: string,
 
-            getArgs: Array<[string,Dep<unknown>,Dep<Handler>?]>
+            gArgs: Array<[string,Dep<unknown>,Dep<Handler>?]>
                 = S.Params.map(
                     ({mode, nm, pDf}) =>
                         nm == RP    // Rest parameter?
@@ -2416,7 +2413,7 @@ class RCompiler {
             
         if (CSlot)  // Content slot?
             SBldrs.get(CSlot.nm).push(
-                await this.CTempl(CSlot, srcE, T, U, N, atts)
+                await this.CTempl(CSlot, srcE, T, atts)
             );
         
         atts.NoneLeft();
@@ -2431,13 +2428,13 @@ class RCompiler {
             if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
             ro = T;
             try {
-                for (let [nm, dGet, dSet] of getArgs)
-                    if (!dSet)
-                        args[nm] = dGet?.();
-                    else if (cr)
-                        args[nm] = RVAR('', dGet?.(), N, dSet());
+                for (let [nm, dG, dS] of gArgs) {
+                    let v=dG?.();
+                    if (dS && !cr)
+                        (args[nm] as RVAR).V = v;
                     else
-                        (args[nm] as RVAR).V = dGet?.();
+                        args[nm] = dS ? RVAR('', v, N, dS()) : v;
+                }
             }
             finally { ro = F; }
             try {
@@ -2725,9 +2722,8 @@ class RCompiler {
         let {ct,lvMap: varM, d} = this.CT, n=d+1
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = varM.get(m[0]);
-            if (k && k[0] < n) n = k[0];
+            if (k?.[0] < n) n = k[0];
         }
-        //if (!n) ct=`[${ct}]`; else 
         if (n>d)
             ct = '';
         else {
