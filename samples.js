@@ -1,12 +1,12 @@
 let bRSTYLE = false;
-const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
+const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/)/g, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
     if (/^\/?RSTYLE/i.test(mTag))
         bRSTYLE = !bRSTYLE;
-    return `<span class=mTag>&lt;${mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi, (m, a1, a2, a3, a4, mExpr) => (mExpr ? `<span class=otored>${mExpr}</span>`
+    return `<span class=mTag>&lt;${mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])([^]*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{[^]*?\}|[^])*?\})|./gi, (m, a1, a2, a3, a4, mExpr) => (mExpr ? `<span class=otored>${mExpr}</span>`
         : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
             : a1 ? `${a1}${markJScript(a4)}`
                 : quoteHTML(m)))}&gt;</span>`;
-}, reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
+}, reg = /(<!--[^]*?-->)|<((script|style)[^]*?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
     : mScriptTag ?
         markTag(mScriptOpen)
             + markJScript(mScriptBody)
@@ -42,14 +42,13 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
     <head>
         <script type=module src="OtoReact.js"></script>
     </head>
-    <body hidden type=rhtml>
+    <body rhtml>
 
         <!-- Here goes your RHTML -->
 
     </body>
 </html>
-`;
-const sampleServerData2 = `<style>
+`, sampleServerData2 = `<style>
   table.colorTable {
     margin: auto;
   }
@@ -471,6 +470,7 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
       </tr.>
     </for>
   </table.>
+  
   <!-- Show either the outcome, or the player to move -->
   <div>
     <p reacton=outcome,toMove>

@@ -6,7 +6,7 @@ const
     , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
     , markJScript = (script: string) =>
         `<span style='color:purple'>${
-            script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+            script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/)/g
                 , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
             )
         }</span>`
@@ -14,7 +14,7 @@ const
         if (/^\/?RSTYLE/i.test(mTag))
             bRSTYLE = !bRSTYLE;
         return `<span class=mTag>&lt;${
-                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
+                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])([^]*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{[^]*?\}|[^])*?\})|./gi
                 //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
                     , (m,a1,a2,a3,a4,mExpr) => 
                         ( mExpr ? `<span class=otored>${mExpr}</span>`
@@ -25,7 +25,7 @@ const
                     )
             }&gt;</span>`;
     }
-    , reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis
+    , reg = /(<!--[^]*?-->)|<((script|style)[^]*?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi
     , ColorCode = (html: string) =>
       `<span style='color:black'>${
           html.replace(
@@ -83,15 +83,14 @@ const sampleGreeting=
     <head>
         <script type=module src="OtoReact.js"></script>
     </head>
-    <body hidden type=rhtml>
+    <body rhtml>
 
         <!-- Here goes your RHTML -->
 
     </body>
 </html>
-`;
-
-const sampleServerData2=
+`
+, sampleServerData2=
 `<style>
   table.colorTable {
     margin: auto;
@@ -536,6 +535,7 @@ const sampleTicTacToe =
       </tr.>
     </for>
   </table.>
+  
   <!-- Show either the outcome, or the player to move -->
   <div>
     <p reacton=outcome,toMove>

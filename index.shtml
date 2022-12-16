@@ -50,9 +50,8 @@
         }
     </script>
     <script type=module>
-        import {RCompile, RVAR, docLocation} from './OtoReact.js';
+        import { RVAR, docLocation} from './OtoReact.js';
         let popup = RVAR('popup', {display: 'none'});
-        RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
         docLocation.Subscribe(() => {
             document.title =
@@ -70,31 +69,32 @@
         //mMobile.addListener(m => {isMobile.V = m.matches});
 
         // Auto-check for updates
-        let LastModified = null, hdrNoCache = new Headers();
-        hdrNoCache.append('Cache-Control', 'no-cache');
-        async function CheckForUpdates() {
-            let response = await fetch(location.href, LastModified == null
-                ? { method: 'HEAD' }
-                : { method: 'HEAD', headers: hdrNoCache });
+        /*
+        let LastModified, 
+            headers = new Headers({"Cache-Control": 'no-cache'});
+        (async function CheckForUpdates() {
+            let response = await fetch(location.href,
+                { method: 'HEAD', ... LastModified ? {headers} : {}}
+            );
             if (!response.ok)
                 return;
             let lm = response.headers.get('Last-Modified');
-            if (LastModified == null) {
-                LastModified = lm;
-                await CheckForUpdates();
-            }
-            else if (lm != LastModified)
-                location.reload();
-            else
-                setTimeout(CheckForUpdates, 5 * 60000);
-        }
-        //setTimeout(CheckForUpdates, 5 * 60000);
+            if (lm)
+                if (!LastModified) {
+                    LastModified = lm;
+                    await CheckForUpdates();
+                }
+                else if (lm != LastModified)
+                    location.reload();
+                else
+                    setTimeout(CheckForUpdates, 5 * 60000);
+        })();
+        */
     </script>
     
 </head>
-<div reacton="isMobile">{isMobile.V ? 'Mobile' : ''}</div>
-<body onclick="popup.V=null" style.cursor=default hidden>
-    <script>document.body.hidden=true</script>
+<body onclick="popup.V=null" style.cursor=default rhtml hidden>
+    <script>//document.body.hidden=true</script>
 
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->

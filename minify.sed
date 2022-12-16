@@ -35,8 +35,8 @@ t repeat    # Needed to clear previous test result
 s/^(([^`]|`[^`]*`)*`[^`]*\$\{('(\\'|[^'])*'|\"(\\"|[^\"])*\"|\{[^{}]*\}|[^{}])*)(([-+*/&|?:]) +| +([-+*/&|?:]))/\1\7\8/i
 t repeat
 
-# Remove comma and semicolon before ] or } or )
-s/[,;]+([]})])/\1/g
+# Remove comma and semicolon before ] or } or ), but not within ".done;)"
+s/(\.done;\))|[,;]+([]})])/\1\2/g
 
 # Skip emptylines
 /^$/{n;b start} 

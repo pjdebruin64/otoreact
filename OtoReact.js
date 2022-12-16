@@ -11,7 +11,7 @@ const U = undefined, N = null, T = true, F = false, E = [], W = window, D = docu
     bKeepWhiteSpace: F,
     bKeepComments: F,
     storePrefix: "RVAR_"
-}, P = new DOMParser(), gEval = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), thro = (err) => { throw err; }, last = (a) => a.length ? a[a.length - 1] : N;
+}, P = new DOMParser(), Ev = eval, ass = Object.assign, aIb = (b, iB) => ass(b, { iB }), now = () => performance.now(), thro = (err) => { throw err; }, last = (a) => a.length ? a[a.length - 1] : N;
 class Range {
     constructor(ar, node, text) {
         this.text = text;
@@ -115,21 +115,22 @@ class Context {
     }
 }
 export async function RCompile(srcN = D.body, settings) {
-    try {
-        let { basePattern } = R.Settings = { ...defaults, ...settings }, m = L.href.match(`^.*(${basePattern})`);
-        R.FilePath = L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
-        await R.Compile(srcN);
-        start = now();
-        nodeCnt = 0;
-        let ar = { parN: srcN.parentElement, srcN, r: N };
-        await R.Build(ar);
-        W.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
-        R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-        ScrollToHash();
-    }
-    catch (e) {
-        alert(`OtoReact error: ` + LAbbr(e));
-    }
+    if (srcN.isConnected && !srcN.hndlrs)
+        try {
+            srcN.hndlrs = [];
+            let { basePattern } = R.Settings = { ...defaults, ...settings }, m = L.href.match(`^.*(${basePattern})`);
+            R.FilePath = L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '');
+            await R.Compile(srcN);
+            start = now();
+            nodeCnt = 0;
+            await R.Build({ parN: srcN.parentElement, srcN, r: N });
+            W.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
+            R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
+            ScrollToHash();
+        }
+        catch (e) {
+            alert(`OtoReact compile error: ` + LAbbr(e));
+        }
 }
 const PrepRng = (ar, srcE, text = '', nWipe, res) => {
     let { parN, r, bR } = ar, sub = { parN, bR }, cr = !r;
@@ -170,12 +171,12 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
         },
         cr
     };
-}, PrepCharData = (ar, content, bComm) => {
+}, PrepData = (ar, data, bC) => {
     let r = ar.r;
     if (!r)
-        new Range(ar, ar.parN.insertBefore(bComm ? D.createComment(content) : D.createTextNode(content), ar.bfor));
+        new Range(ar, ar.parN.insertBefore(bC ? D.createComment(data) : D.createTextNode(data), ar.bfor));
     else {
-        r.node.data = content;
+        r.node.data = data;
         ar.r = r.nxt;
     }
     nodeCnt++;
@@ -428,7 +429,7 @@ function ApplyMods(elm, mods, cr) {
     }
 }
 class RCompiler {
-    constructor(RC, FilePath, CT = RC?.CT) {
+    constructor(RC, FilePath, settings, CT = RC?.CT) {
         this.num = RCompiler.iNum++;
         this.cRvars = {};
         this.rActs = [];
@@ -436,7 +437,7 @@ class RCompiler {
         this.ws = 1;
         this.rspc = T;
         this.srcNodeCnt = 0;
-        this.Settings = RC ? { ...RC.Settings } : { ...defaults };
+        this.Settings = { ...RC ? RC.Settings : defaults, ...settings };
         this.FilePath = FilePath || RC?.FilePath;
         this.doc = RC?.doc || D;
         this.head = RC?.head || this.doc.head;
@@ -504,8 +505,7 @@ class RCompiler {
                 env[--i] = C;
         };
     }
-    async Compile(elm, settings = {}, childnodes) {
-        ass(this.Settings, settings);
+    async Compile(elm, childnodes) {
         for (let tag of this.Settings.preformatted)
             this.setPRE.add(tag.toUpperCase());
         let t0 = now();
@@ -586,7 +586,7 @@ class RCompiler {
                     this.srcNodeCnt++;
                     let str = srcN.nodeValue, getText = this.CText(str), { fx } = getText;
                     if (fx !== '') {
-                        bl = aIb(async (ar) => PrepCharData(ar, getText()), fx == ' ' && 2);
+                        bl = aIb(async (ar) => PrepData(ar, getText()), fx == ' ' && 2);
                         if (this.ws < 4)
                             this.ws = / $/.test(str) ? 2 : 3;
                     }
@@ -594,7 +594,7 @@ class RCompiler {
                 case Node.COMMENT_NODE:
                     if (this.Settings.bKeepComments) {
                         let getText = this.CText(srcN.nodeValue, 'Comment');
-                        bl = aIb(async (ar) => PrepCharData(ar, getText(), T), 1);
+                        bl = aIb(async (ar) => PrepData(ar, getText(), T), 1);
                     }
             }
             if (bl ? bl.iB : this.rspc)
@@ -689,7 +689,8 @@ class RCompiler {
                         bl = await (srcE.children.length || srcE.textContent.trim()
                             ? this.CChilds(srcE)
                             : this.Framed(async (SS) => {
-                                let C = new RCompiler(this, this.GetPath(src)), task = C.Compile(N, { bSubfile: T }, await this.fetchModule(src));
+                                let C = new RCompiler(this, this.GetPath(src), { bSubfile: T }), task = C.Compile(N, await this.fetchModule(src))
+                                    .catch(e => { alert(e); throw e; });
                                 return async function INCLUDE(ar) {
                                     let b = await NoTime(task), { sub, ES } = SS(ar);
                                     await b(sub).finally(ES);
@@ -698,13 +699,12 @@ class RCompiler {
                         break;
                     case 'IMPORT':
                         {
-                            let src = atts.g('src', T), bIncl = atts.gB('include'), lvars = this.LVars(atts.g('defines')), bAsync = atts.gB('async'), listImps = Array.from(srcE.children, ch => this.CSignat(ch)), DC = this.LCons(listImps), cTask = OMods.get(src);
+                            let src = atts.g('src', T), bIncl = atts.gB('include'), lvars = this.LVars(atts.g('defines')), bAsync = atts.gB('async'), listImps = Array.from(mapI(srcE.children, ch => this.CSignat(ch))), DC = this.LCons(listImps), cTask = OMods.get(src);
                             if (!cTask) {
-                                let C = new RCompiler(this, this.GetPath(src), new Context());
+                                let C = new RCompiler(this, this.GetPath(src), { bSubfile: T }, new Context());
                                 C.log(src);
-                                C.Settings.bSubfile = T;
                                 OMods.set(src, cTask = C.CIter(N, await this.fetchModule(src))
-                                    .then(b => [b, C.CT], e => { C.log(e); throw e; }));
+                                    .then(b => [b, C.CT], e => { alert(e); throw e; }));
                             }
                             let task = cTask.then(([b, CT]) => {
                                 for (let sig of listImps) {
@@ -752,7 +752,7 @@ class RCompiler {
                     case 'RHTML':
                         {
                             NoChilds(srcE);
-                            let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RCompiler(N, R.FilePath), { ws, rspc } = this;
+                            let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RCompiler(N, this.FilePath, { bSubfile: T, bTiming: this.Settings.bTiming }), { ws, rspc } = this;
                             this.ws = 1;
                             bl = async function RHTML(ar) {
                                 let src = dSrc(), { r, cr } = PrepElm(srcE, ar, 'rhtml-rhtml'), { node } = r;
@@ -768,7 +768,7 @@ class RCompiler {
                                     try {
                                         tempElm.innerHTML = src;
                                         ass(C, { ws, rspc, CT: new Context() });
-                                        await C.Compile(tempElm, { bSubfile: T, bTiming: R.Settings.bTiming }, tempElm.childNodes);
+                                        await C.Compile(tempElm, tempElm.childNodes);
                                         await C.Build(sAr);
                                     }
                                     catch (e) {
@@ -1027,7 +1027,7 @@ class RCompiler {
         atts.clear();
         if (mOto || (bCls || bMod) && this.Settings.bSubfile) {
             if (mOto?.[3]) {
-                let prom = (async () => gEval(`'use strict';(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
+                let prom = (async () => Ev(`'use strict';(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
                 return async function LSCRIP_(ar) {
                     if (!ar.r || bUpd)
                         SetVars((await prom)(env));
@@ -1045,12 +1045,12 @@ class RCompiler {
             else {
                 let prom = (async () => `${mOto ? "'use strict';" : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
                 if (src && async)
-                    prom = prom.then(txt => void (exp = gEval(txt)));
+                    prom = prom.then(txt => void (exp = Ev(txt)));
                 else if (!mOto && !defer)
-                    exp = gEval(await prom);
+                    exp = Ev(await prom);
                 return async function SCRIP_(ar) {
                     !ar.r &&
-                        SetVars(exp || (exp = gEval(await prom)));
+                        SetVars(exp || (exp = Ev(await prom)));
                 };
             }
         }
@@ -1541,12 +1541,12 @@ class RCompiler {
         return mods;
     }
     CText(text, nm) {
-        let f = (re) => `(?:\\{(?:\\{${re}\\}|.)*?\\}\
-|'(?:\\\\.|.)*?'\
-|"(?:\\\\.|.)*?"\
-|\`(?:\\\\.|\\\$\\{${re}}|.)*?\`\
-|/(?:\\\\.|.)*?\
-|.)*?`, rIS = this.rIS || (this.rIS = new RegExp(`(\\\\[\${])|\\\$${this.Settings.bDollarRequired ? '' : '?'}\\{(${f(f(f('.*?')))})\\}|\$`, 'gs')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.ws, isTriv = T, lastIx = rIS.lastIndex = 0, m;
+        let f = (re) => `(?:\\{(?:\\{${re}\\}|[^])*?\\}\
+|'(?:\\\\.|[^])*?'\
+|"(?:\\\\.|[^])*?"\
+|\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
+|/(?:\\\\.|[^])*?\
+|[^])*?`, rIS = this.rIS || (this.rIS = new RegExp(`(\\\\[\${])|\\\$${this.Settings.bDollarRequired ? '' : '?'}\\{(${f(f(f('[^]*?')))})\\}|\$`, 'g')), gens = [], ws = nm || this.Settings.bKeepWhiteSpace ? 4 : this.ws, isTriv = T, lastIx = rIS.lastIndex = 0, m;
         while (T)
             if (!(m = rIS.exec(text))[1]) {
                 var fx = lastIx < m.index ? text.slice(lastIx, m.index) : N;
@@ -1582,7 +1582,7 @@ class RCompiler {
             };
     }
     CPatt(patt, url) {
-        let reg = '', lvars = [], regIS = /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\.)|\[\^?(?:\\.|[^\\\]])*\]|$/gs;
+        let reg = '', lvars = [], regIS = /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\[^])|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
         while (regIS.lastIndex < patt.length) {
             let ix = regIS.lastIndex, m = regIS.exec(patt), lits = patt.slice(ix, m.index);
             reg +=
@@ -1642,7 +1642,7 @@ class RCompiler {
             ct = `[${ct.slice(0, p0)}${ct.slice(p1)}]`;
         }
         try {
-            var f = gEval(`'use strict';(function(${ct}){${body}})`);
+            var f = Ev(`'use strict';(function(${ct}){${body}})`);
             return function () {
                 try {
                     return f.call(this, env);
@@ -1727,7 +1727,7 @@ class Atts extends Map {
     }
     NoneLeft() {
         super.delete('hidden');
-        if (super.size)
+        if (this.size)
             throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
     }
 }
@@ -1756,7 +1756,7 @@ const altProps = {
     s.slice(0, m - 3) + "..."
     : s, LAbbr = (s, m = 1000) => s.length > m ?
     "... " + s.slice(s.length - m + 4)
-    : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrMsg = (elm, e = '', maxL) => e + `\nat ${Abbr(/<.*?(?=>)/s.exec(elm.outerHTML)[0], maxL)}>`, ErrAtt = (e, nm) => thro(nm ? e + `\nat [${nm}]` : e), createErrNode = (msg) => {
+    : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrMsg = (elm, e = '', maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, ErrAtt = (e, nm) => thro(nm ? e + `\nat [${nm}]` : e), createErrNode = (msg) => {
     let e = D.createElement('div');
     ass(e.style, { color: 'crimson', fontFamily: 'sans-serif', fontSize: '10pt' });
     e.innerText = msg;
@@ -1779,9 +1779,10 @@ function* concI(R, S) {
     for (let x of S)
         yield x;
 }
-function* mapI(I, f) {
+function* mapI(I, f, c) {
     for (let x of I)
-        yield f(x);
+        if (!c || c(x))
+            yield f(x);
 }
 function* split(s) {
     if (s)
@@ -1845,5 +1846,7 @@ let R = new RCompiler(), DL = new DocLoc(), reroute = arg => {
 };
 export { DL as docLocation, reroute };
 ass(G, { RVAR, range, reroute, RFetch });
-if (/^rhtml$/i.test(D.body.getAttribute('type')))
-    setTimeout(RCompile, 0);
+setTimeout(async () => {
+    for (let src of D.querySelectorAll('*[rhtml],*[type=RHTML]'))
+        await RCompile(src, Ev(`({${src.getAttribute('rhtml') || ''}})`));
+}, 0);

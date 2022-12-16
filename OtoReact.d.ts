@@ -14,6 +14,12 @@ declare const defaults: {
 };
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
+declare type hHTMLElement = HTMLElement & {
+    hndlrs?: Array<{
+        evType: string;
+        listener: Handler;
+    }>;
+};
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     iB?: number;
     auto?: string;
@@ -51,7 +57,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     rvars?: RVAR[];
     erase(par: Node): void;
 }
-export declare function RCompile(srcN?: HTMLElement, settings?: Settings): Promise<void>;
+export declare function RCompile(srcN?: hHTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     sAr?: Area;
 };
