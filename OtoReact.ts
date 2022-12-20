@@ -346,8 +346,8 @@ const PrepRng = <VT = unknown>(
         r = sub.parR = new Range(ar, N, text);
     }
     else {
-        sub.r = r.child;
-        ar.r = r.nxt;
+        sub.r = r.child || {} as any;
+        ar.r = r.nxt || {} as any;
 
         if (cr = nWipe && (nWipe>1 || res != r.res)) {
             (sub.parR = r).erase(parN); 
@@ -424,10 +424,6 @@ const PrepRng = <VT = unknown>(
     //, NewEnv  = () => [N] as Environment
 ,   dU: DepE<any> 
             = _ => U,                // Undefined dependent value
-    dumB: DOMBuilder 
-            = async function _(){},   // A dummy DOMBuilder. The underscore tells 'CIter' that no range is created.
-    RB: DOMBuilder 
-            = async (ar: Area) => {PrepRng(ar)},
     // Child windows to be closed when the app is closed
     childWins 
             = new Set<Window>(),
@@ -619,17 +615,16 @@ export type RVAR_Light<T> = T & {
 
         
 function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range): Subscriber {
-    r.updCnt = updCnt;
-    let sAr: Area = {parN, bR, r }, // No parR (parent range); this is used by DEF()
-        subEnv = {env, onerr, onsuc};
+    let sAr: Area = {parN, bR, r: r||{} as any }, // No parR (parent range); this is used by DEF()
+        subEnv = {env, onerr, onsuc},
+        lastUpd = updCnt;
 
     return ass(
-        async _ => {
-            let r = sAr.r;
-            if (r.updCnt < updCnt)
+        async () => {
+            if (lastUpd < updCnt)
             {
                 ({env, onerr, onsuc} = subEnv);
-                if (!bR) r.updCnt = updCnt;
+                if (!bR) lastUpd = updCnt;
                 await bl({...sAr}, T);
             }
         }
@@ -1003,7 +998,7 @@ class RCompiler {
             ( childnodes
             ? await this.CChilds(elm, childnodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
-            ) || dumB;
+            ) || (async ()=>{});
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
@@ -1086,29 +1081,30 @@ class RCompiler {
 
                             var s = this.cRvars[rv],    // Save previous value
                                 // Compile remaining nodes, but first set this.cRvars[rv] to something truthy
-                                bs = await this.CArr(srcP, arr, rspc, this.cRvars[rv] =  i);
+                                bs = await this.CArr(srcP, arr, rspc, this.cRvars[rv] =  i),
+                                gv = this.CT.getLV(rv) as DepE<RVAR>;
 
                             // Were there no compile-time reacts for this rvar?
                             bl = bs.length && this.cRvars[rv]
-                                ? aIb(async function Auto(ar: Area) {
-                                    if (ar.r)
-                                        for (let b of bs)
-                                            await b(ar);
-                                    else {
-                                        let r = ar.prevR
-                                            , rv = r.val as RVAR, s = rv._Subs.size
-                                            , subs = Subscriber(ar, Auto, r);
-                                        for (let b of bs)
-                                            await b(ar);
-                                        if (rv._Subs.size==s) { // No new subscribers still?
-                                            // Then auto-subscribe with the correct range
-                                            (subs.sAr.r = r.nxt).updCnt = updCnt;
-                                            rv.Subscribe(subs);
+                                ? aIb(
+                                    async function Auto(ar: Area) {
+                                        if (ar.r)
+                                            for (let b of bs)
+                                                await b(ar);
+                                        else {
+                                            let {prevR, parR} = ar
+                                                , rvar = gv(), s = rvar._Subs.size;
+                                            for (let b of bs)
+                                                await b(ar);
+                                            if (rvar._Subs.size==s) // No new subscribers still?
+                                                // Then auto-subscribe with the correct range
+                                                rvar.Subscribe(
+                                                    Subscriber(ar, Auto, prevR ? prevR.nxt : parR.child)
+                                                );
                                         }
                                     }
-                                    }
                                     , bs.every(b => b.iB)
-                                    )
+                                )
                                 : (bldrs.push(...bs), N);
                             i = L;
                         }
@@ -1153,11 +1149,6 @@ class RCompiler {
         if (rspc)
             prune();
         
-        // Make sure the last builder will always insert a Range object when creating,
-        // so that all builders can see the difference between create and update
-        if (/_/.test(last(bldrs)?.nm))
-            bldrs.push(RB);
-
         return bldrs;
     }
 
@@ -1227,17 +1218,20 @@ class RCompiler {
                         let rv      = atts.g('rvar'), // An RVAR
                             t = '@value', 
                             t_val   = rv && atts.g(t),
+                            dGet    = t_val ? this.CExpr(t_val,t) : this.CParam(atts, 'value'),
                             // When we want a two-way rvar, we need a routine to update the source expression
                             dSet    = t_val && this.CTarget(t_val,t),
-                            dGet    = t_val ? this.CExpr(t_val,t) : this.CParam(atts, 'value'),
                             dUpd    = rv && this.CAttExp<RVAR>(atts, 'updates'),
                             dSto    = rv && this.CAttExp<Store>(atts, 'store'),
                             dSNm    = dSto && this.CParam<string>(atts, 'storename'),
                             bUpd    = atts.gB('reacting') || atts.gB('updating') || t_val,
                             vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
+                            vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
                         bl = async function DEF(ar, bRe?: boolean) {
-                                let {cr, r} = PrepRng(ar, srcE), v: unknown, upd: RVAR;
+                                let cr = !ar.r
+                                    //{cr} = PrepRng(ar)
+                                , v: unknown, upd: RVAR;
                                 if (cr || bUpd || bRe){
                                     try {
                                         ro=T;
@@ -1247,7 +1241,7 @@ class RCompiler {
 
                                     if (rv)
                                         if (cr)
-                                            (vLet as LVar<RVAR>)(r.val =
+                                            (vLet as LVar<RVAR>)(
                                                 RVAR(N, v,
                                                     dSto?.(),
                                                     dSet?.(), 
@@ -1257,7 +1251,7 @@ class RCompiler {
                                             .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
                                             .Subscribe(onMod?.());
                                         else
-                                            (r.val as RVAR).Set(v);
+                                            vGet().Set(v);
                                     else
                                         vLet(v);
                                 }
@@ -1454,7 +1448,7 @@ class RCompiler {
                             vParams = RC.LVars(atts.g('params')),
                             vWin = RC.LVar(atts.g('window')),
                             docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CChilds(srcE));
-                        bl = async function DOCUMEN_(ar: Area) {
+                        bl = async function DOCUMENT(ar: Area) {
                             if (!ar.r) {
                                 let doc = ar.parN.ownerDocument,
                                     docEnv = env,
@@ -1576,7 +1570,7 @@ class RCompiler {
                 atts.NoneLeft();
             }
             
-            nm = (bl ||= RB).name;
+            nm = bl?.name;
             
             if (dOnerr || dOnsuc) {
                 let b = bl;
@@ -1597,7 +1591,7 @@ class RCompiler {
                 for (let g of concI(befor, after))
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function ON(ar: Area) {
+                bl = async function Pseudo(ar: Area, x:any) {
                     let r = ar.r, bfD: Handler;
                     for (let g of befor) {
                         if (g.D && !r)
@@ -1607,7 +1601,7 @@ class RCompiler {
                                 r?.node || ar.parN
                             );
                     }
-                    await b(ar);
+                    await b(ar, x);
                     if (bfD)
                         ar.prevR.bfD = bfD;
                     for (let g of after) {
@@ -1653,9 +1647,7 @@ class RCompiler {
                             subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.child)
                             , pVars: RVAR[] = r.rvars
                             , i = 0;
-                        if(!subs) return;   // Might happen in case of errors during Create
 
-                        r.val = sub.prevR?.val;
                         for (let rvar of r.rvars = dRV()) {
                             if (pVars) {
                                 // Check whether the current rvar(s) are the same as the previous one(s)
@@ -1671,7 +1663,7 @@ class RCompiler {
                     }
             }
 
-            return bl == RB ? N : ass(
+            return bl && ass(
                 this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
                 : function Elm(ar: Area) {
@@ -1757,7 +1749,7 @@ class RCompiler {
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
-                return async function LSCRIP_(ar: Area) {
+                return async function LSCRIPT(ar: Area) {
                     if (!ar.r || bUpd)
                         SetVars((await prom)(env));
                 }
@@ -1781,7 +1773,7 @@ class RCompiler {
                         )
                         // And the ObjectURL has to be revoked
                     ).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIP_(ar: Area) {
+                return async function MSCRIPT(ar: Area) {
                     !ar.r && 
                         SetVars(
                             await prom.then(obj => 
@@ -1802,7 +1794,7 @@ class RCompiler {
                     // Evaluate standard classic scripts without defer immediately
                     exp = Ev(await prom);
 
-                return async function SCRIP_(ar: Area) {
+                return async function SCRIPT(ar: Area) {
                         !ar.r &&
                             SetVars(exp ||= Ev(await prom));
                     };
@@ -2294,7 +2286,7 @@ class RCompiler {
         DC ||= this.LCons(signats);
 
         // Deze builder zorgt dat de environment van de huidige component-DEFINITIE bewaard blijft
-        return async function COMP_(ar: Area) {
+        return async function COMP(ar: Area) {
             // C must be cloned, as it receives its own environment
             DC(CDefs.map(C => ({...C, env})));
             
@@ -2425,24 +2417,25 @@ class RCompiler {
                 cdef = dCS(),
                 args = r.val ||= {};
             
-            if (!cdef) return;  //Just in case of an async imported component where the client signature has less slots than the real signature
-            ro = T;
-            try {
-                for (let [nm, dG, dS] of gArgs) {
-                    let v=dG?.();
-                    if (dS && !cr)
-                        (args[nm] as RVAR).V = v;
-                    else
-                        args[nm] = dS ? RVAR('', v, N, dS()) : v;
+            if (cdef) {  //Just in case of an async imported component where the client signature has less slots than the real signature
+                ro = T;
+                try {
+                    for (let [nm, dG, dS] of gArgs) {
+                        let v=dG?.();
+                        if (dS && !cr)
+                            (args[nm] as RVAR).V = v;
+                        else
+                            args[nm] = dS ? RVAR('', v, N, dS()) : v;
+                    }
                 }
+                finally { ro = F; }
+                try {
+                    env = cdef.env;
+                    for (let tmpl of cdef.tmplts) 
+                        await tmpl?.(args, SBldrs, IEnv, sub);
+                }
+                finally {env = IEnv}
             }
-            finally { ro = F; }
-            try {
-                env = cdef.env;
-                for (let tmpl of cdef.tmplts) 
-                    await tmpl?.(args, SBldrs, IEnv, sub);
-            }
-            finally {env = IEnv}
         }
     }
 
