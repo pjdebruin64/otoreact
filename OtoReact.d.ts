@@ -31,7 +31,7 @@ declare type Area<VT = unknown> = {
     bfor?: ChildNode;
     srcN?: ChildNode;
     parR?: Range;
-    prevR?: Range;
+    prvR?: Range;
     bR?: boolean;
 };
 declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {

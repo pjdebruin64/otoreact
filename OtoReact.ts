@@ -73,7 +73,7 @@ type Area<VT = unknown> = {
     /* When !r, i.e. when the DOM has to be created: */
     srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
     parR?: Range;         // The new range shall either be the first child of some range,
-    prevR?: Range;        // Or the next sibling of some other range
+    prvR?: Range;        // Or the next sibling of some other range
 
     /* When r, i.e. when the DOM has to be updated: */
     bR?: boolean,         // true == update root node only, not its children
@@ -101,7 +101,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     ) {
         this.node = node;
         if (ar) {
-            let {parR: p, prevR: q} = ar;
+            let {parR: p, prvR: q} = ar;
             if (p && !p.node)
                 // Set the parent range, only when that range isn't a DOM node
                 this.parR = p;
@@ -113,7 +113,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
                 p.child = this;
         
             // Update the area, so the new range becomes its previous range
-            ar.prevR = this;
+            ar.prvR = this;
         }
     }
 
@@ -187,12 +187,12 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
             if (c.bfD) // Call a 'beforedestroy' handler
                 c.bfD.call(c.node || par);
 
-            // Destroy 'ch'
-            c.erase(c.parN || par);
-
             // Remove range ch from any RVAR it is subscribed to
             c.rvars?.forEach(rv =>
                 rv._Subs.delete(c.subs));
+
+            // Destroy 'c'
+            c.erase(c.parN || par);
 
             if (c.afD)  // Call 'afterdestroy' handler
                 c.afD.call(c.node || par);
@@ -346,8 +346,8 @@ const PrepRng = <VT = unknown>(
         r = sub.parR = new Range(ar, N, text);
     }
     else {
-        sub.r = r.child || {} as any;
-        ar.r = r.nxt || {} as any;
+        sub.r = r.child || T as any;
+        ar.r = r.nxt || T as any;
 
         if (cr = nWipe && (nWipe>1 || res != r.res)) {
             (sub.parR = r).erase(parN); 
@@ -385,7 +385,7 @@ const PrepRng = <VT = unknown>(
                 )
             ) as Range<HTMLElement> & T;
     else
-        ar.r = r.nxt;
+        ar.r = r.nxt || T as any;
 
     nodeCnt++
     return { 
@@ -416,7 +416,7 @@ const PrepRng = <VT = unknown>(
         );
     else {
         r.node.data = data;
-        ar.r = r.nxt;
+        ar.r = r.nxt || T as any;
     }
     nodeCnt++;
 }
@@ -424,6 +424,8 @@ const PrepRng = <VT = unknown>(
     //, NewEnv  = () => [N] as Environment
 ,   dU: DepE<any> 
             = _ => U,                // Undefined dependent value
+    dB: DOMBuilder 
+            = async ()=>{},         // A dummy DOMBuilder
     // Child windows to be closed when the app is closed
     childWins 
             = new Set<Window>(),
@@ -998,7 +1000,7 @@ class RCompiler {
             ( childnodes
             ? await this.CChilds(elm, childnodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
-            ) || (async ()=>{});
+            ) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
@@ -1092,14 +1094,14 @@ class RCompiler {
                                             for (let b of bs)
                                                 await b(ar);
                                         else {
-                                            let {prevR, parR} = ar
+                                            let {prvR, parR} = ar
                                                 , rvar = gv(), s = rvar._Subs.size;
                                             for (let b of bs)
                                                 await b(ar);
                                             if (rvar._Subs.size==s) // No new subscribers still?
                                                 // Then auto-subscribe with the correct range
                                                 rvar.Subscribe(
-                                                    Subscriber(ar, Auto, prevR ? prevR.nxt : parR.child)
+                                                    Subscriber(ar, Auto, prvR ? prvR.nxt : parR.child)
                                                 );
                                         }
                                     }
@@ -1165,9 +1167,9 @@ class RCompiler {
                 reacts: Array<{att: string, dRV: Dep<RVAR[]>}> = [],
 
                 // Generic pseudo-events to be handled BEFORE building
-                befor: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
+                bf: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
                 // Generic pseudo-events to be handled AFTER building
-                after: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
+                af: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
                 
                 // onerror handler to be installed
                 dOnerr: Dep<Handler> & {bBldr?: boolean, key?: EnvKey},
@@ -1197,7 +1199,7 @@ class RCompiler {
                     else {
                         let txt = atts.g(att);
                         if (nm = m[5])  // #?(before|after|on)(create|update|destroy)+
-                            (m[4] ? befor : after).push({att, txt, C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm) });
+                            (m[4] ? bf : af).push({att, txt, C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm) });
                         else { // #?on(?:(error)-?|success)
                             let hndlr = this.CHandlr(att, txt) as typeof dOnerr; 
                             if (m[7])   // #?onerror-?
@@ -1229,10 +1231,10 @@ class RCompiler {
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
                         bl = async function DEF(ar, bRe?: boolean) {
-                                let cr = !ar.r
+                                let r = ar.r
                                     //{cr} = PrepRng(ar)
                                 , v: unknown, upd: RVAR;
-                                if (cr || bUpd || bRe){
+                                if (!r || bUpd || bRe){
                                     try {
                                         ro=T;
                                         v = dGet?.();
@@ -1240,7 +1242,9 @@ class RCompiler {
                                     finally { ro = F; }
 
                                     if (rv)
-                                        if (cr)
+                                        if (r)
+                                            vGet().Set(v);
+                                        else
                                             (vLet as LVar<RVAR>)(
                                                 RVAR(N, v,
                                                     dSto?.(),
@@ -1250,8 +1254,6 @@ class RCompiler {
                                             )
                                             .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
                                             .Subscribe(onMod?.());
-                                        else
-                                            vGet().Set(v);
                                     else
                                         vLet(v);
                                 }
@@ -1516,8 +1518,8 @@ class RCompiler {
                             sub.parN = ar.parN.ownerDocument.head;
                             sub.bfor = N;
                             await b(sub);
-                            if (sub.prevR)
-                                sub.prevR.parN = sub.parN;
+                            if (sub.prvR)
+                                sub.prvR.parN = sub.parN;
                         }
                         iB = 1;
                     break;
@@ -1570,30 +1572,16 @@ class RCompiler {
                 atts.NoneLeft();
             }
             
-            nm = bl?.name;
-            
-            if (dOnerr || dOnsuc) {
-                let b = bl;
-                bl = async function SetOnError(ar: Area) {
-                    let oo = {onerr, onsuc};
-                    try {
-                        if (dOnerr) 
-                            ((onerr = dOnerr()) as typeof onerr).bBldr = dOnerr.bBldr;
-                        if (dOnsuc)
-                            onsuc = dOnsuc();
-                        await b(ar);
-                    }
-                    finally { ({onerr,onsuc} = oo); }
-                }
-            }
-            if (befor.length + after.length) {
+            nm = (bl ||= dB).name;
+
+            if (bf.length + af.length) {
                 if(iB>1) iB = 1
-                for (let g of concI(befor, after))
+                for (let g of concI(bf, af))
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
                 bl = async function Pseudo(ar: Area, x:any) {
-                    let r = ar.r, bfD: Handler;
-                    for (let g of befor) {
+                    let {r,prvR} = ar, bfD: Handler;
+                    for (let g of bf) {
                         if (g.D && !r)
                             bfD = g.hndlr();
                         if (r ? g.U : g.C)
@@ -1602,14 +1590,19 @@ class RCompiler {
                             );
                     }
                     await b(ar, x);
+                    // When b has not created its own range, then we create one
+                    let prev = 
+                        (r ? ar.r != r && r
+                            : ar.prvR!=prvR && ar.prvR
+                            ) || PrepRng(ar).r;
                     if (bfD)
-                        ar.prevR.bfD = bfD;
-                    for (let g of after) {
+                        prev.bfD = bfD;
+                    for (let g of af) {
                         if (g.D && !r)
-                            ar.prevR.afD = g.hndlr();
+                            prev.afD = g.hndlr();
                         if (r ? g.U : g.C)
                             g.hndlr().call(
-                                (r ? r.node : ar.prevR?.node) || ar.parN
+                                prev.node || ar.parN
                             );
                     }
                 }
@@ -1662,8 +1655,23 @@ class RCompiler {
                         }
                     }
             }
+            
+            if (dOnerr || dOnsuc) {
+                let b = bl;
+                bl = async function SetOnError(ar: Area,x) {
+                    let oo = {onerr, onsuc};
+                    try {
+                        if (dOnerr) 
+                            ((onerr = dOnerr()) as typeof onerr).bBldr = dOnerr.bBldr;
+                        if (dOnsuc)
+                            onsuc = dOnsuc();
+                        await b(ar,x);
+                    }
+                    finally { ({onerr,onsuc} = oo); }
+                }
+            }
 
-            return bl && ass(
+            return bl != dB && ass(
                 this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
                 : function Elm(ar: Area) {
@@ -2025,7 +2033,7 @@ class RCompiler {
                                 nxIter = nxNm && nwMap.values()
 
                                 , prItem: Item, nxItem: Item
-                                , prevR: Range,
+                                , prvR: Range,
                                 chAr: Area;
                             sub.parR = r;
 
@@ -2058,7 +2066,7 @@ class RCompiler {
                                 if (cr) {
                                     // Item has to be newly created
                                     sub.r = N;
-                                    sub.prevR = prevR;
+                                    sub.prvR = prvR;
                                     sub.bfor = nxChR?.FstOrNxt || bfor;
                                     ({r: chR, sub: chAr} = PrepRng(sub, N, `${letNm}(${ix})`));
                                     if (key != N)
@@ -2101,8 +2109,8 @@ class RCompiler {
                                     // Update pointers
                                     chR.nxt = nxChR;
                                     chR.text = `${letNm}(${ix})`;
-                                    if (prevR) 
-                                        prevR.nxt = chR;
+                                    if (prvR) 
+                                        prvR.nxt = chR;
                                     else
                                         r.child = chR;
                                     sub.r = chR;
@@ -2111,8 +2119,8 @@ class RCompiler {
 
                                     sub.parR = N;
                                 }
-                                chR.prev = prevR;
-                                prevR = chR;
+                                chR.prev = prvR;
+                                prvR = chR;
                                 // Does this range need building or updating?
                                 if (cr || !hash
                                     ||  hash.some((h,i) => h != chR.hash[i])
@@ -2151,7 +2159,7 @@ class RCompiler {
 
                                 prItem = item;
                             }
-                            if (prevR) prevR.nxt = N; else r.child = N;
+                            if (prvR) prvR.nxt = N; else r.child = N;
                         };
 
                     if (iter instanceof Promise) {

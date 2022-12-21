@@ -17,14 +17,14 @@ class Range {
         this.text = text;
         this.node = node;
         if (ar) {
-            let { parR: p, prevR: q } = ar;
+            let { parR: p, prvR: q } = ar;
             if (p && !p.node)
                 this.parR = p;
             if (q)
                 q.nxt = this;
             else if (p)
                 p.child = this;
-            ar.prevR = this;
+            ar.prvR = this;
         }
     }
     toString() { return this.text || this.node?.nodeName; }
@@ -71,8 +71,8 @@ class Range {
         while (c) {
             if (c.bfD)
                 c.bfD.call(c.node || par);
-            c.erase(c.parN || par);
             c.rvars?.forEach(rv => rv._Subs.delete(c.subs));
+            c.erase(c.parN || par);
             if (c.afD)
                 c.afD.call(c.node || par);
             c = c.nxt;
@@ -142,8 +142,8 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
         r = sub.parR = new Range(ar, N, text);
     }
     else {
-        sub.r = r.child || {};
-        ar.r = r.nxt || {};
+        sub.r = r.child || T;
+        ar.r = r.nxt || T;
         if (cr = nWipe && (nWipe > 1 || res != r.res)) {
             (sub.parR = r).erase(parN);
             sub.r = N;
@@ -159,7 +159,7 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
             ? (srcE.innerHTML = "", srcE)
             : ar.parN.insertBefore(D.createElement(tag), ar.bfor));
     else
-        ar.r = r.nxt;
+        ar.r = r.nxt || T;
     nodeCnt++;
     return {
         r,
@@ -177,10 +177,10 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
         new Range(ar, ar.parN.insertBefore(bC ? D.createComment(data) : D.createTextNode(data), ar.bfor));
     else {
         r.node.data = data;
-        ar.r = r.nxt;
+        ar.r = r.nxt || T;
     }
     nodeCnt++;
-}, dU = _ => U, childWins = new Set(), OMods = new Map();
+}, dU = _ => U, dB = async () => { }, childWins = new Set(), OMods = new Map();
 ;
 function SetLVars(vars, data) {
     vars.forEach((v, i) => v(data[i]));
@@ -510,7 +510,7 @@ class RCompiler {
         this.bldr =
             (childnodes
                 ? await this.CChilds(elm, childnodes)
-                : await this.CElm(elm.parentElement, elm, T)) || (async () => { });
+                : await this.CElm(elm.parentElement, elm, T)) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
@@ -564,11 +564,11 @@ class RCompiler {
                                         for (let b of bs)
                                             await b(ar);
                                     else {
-                                        let { prevR, parR } = ar, rvar = gv(), s = rvar._Subs.size;
+                                        let { prvR, parR } = ar, rvar = gv(), s = rvar._Subs.size;
                                         for (let b of bs)
                                             await b(ar);
                                         if (rvar._Subs.size == s)
-                                            rvar.Subscribe(Subscriber(ar, Auto, prevR ? prevR.nxt : parR.child));
+                                            rvar.Subscribe(Subscriber(ar, Auto, prvR ? prvR.nxt : parR.child));
                                     }
                                 }, bs.every(b => b.iB))
                                 : (bldrs.push(...bs), N);
@@ -610,7 +610,7 @@ class RCompiler {
     }
     async CElm(srcPrnt, srcE, bUnhide) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], befor = [], after = [], dOnerr, dOnsuc, bl, iB, auto, m, nm, constr = this.CT.getCS(tag), dIf = this.CAttExp(atts, 'if');
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], bf = [], af = [], dOnerr, dOnsuc, bl, iB, auto, m, nm, constr = this.CT.getCS(tag), dIf = this.CAttExp(atts, 'if');
             for (let [att] of atts)
                 if (m =
                     /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
@@ -622,7 +622,7 @@ class RCompiler {
                     else {
                         let txt = atts.g(att);
                         if (nm = m[5])
-                            (m[4] ? befor : after).push({ att, txt, C: /c/i.test(nm), U: /u/i.test(nm), D: /y/i.test(nm) });
+                            (m[4] ? bf : af).push({ att, txt, C: /c/i.test(nm), U: /u/i.test(nm), D: /y/i.test(nm) });
                         else {
                             let hndlr = this.CHandlr(att, txt);
                             if (m[7])
@@ -643,8 +643,8 @@ class RCompiler {
                             NoChilds(srcE);
                             let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dGet = t_val ? this.CExpr(t_val, t) : this.CParam(atts, 'value'), dSet = t_val && this.CTarget(t_val, t), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
                             bl = async function DEF(ar, bRe) {
-                                let cr = !ar.r, v, upd;
-                                if (cr || bUpd || bRe) {
+                                let r = ar.r, v, upd;
+                                if (!r || bUpd || bRe) {
                                     try {
                                         ro = T;
                                         v = dGet?.();
@@ -653,12 +653,12 @@ class RCompiler {
                                         ro = F;
                                     }
                                     if (rv)
-                                        if (cr)
+                                        if (r)
+                                            vGet().Set(v);
+                                        else
                                             vLet(RVAR(N, v, dSto?.(), dSet?.(), dSNm?.() || rv))
                                                 .Subscribe((upd = dUpd?.()) && (() => upd.SetDirty()))
                                                 .Subscribe(onMod?.());
-                                        else
-                                            vGet().Set(v);
                                     else
                                         vLet(v);
                                 }
@@ -853,8 +853,8 @@ class RCompiler {
                             sub.parN = ar.parN.ownerDocument.head;
                             sub.bfor = N;
                             await b(sub);
-                            if (sub.prevR)
-                                sub.prevR.parN = sub.parN;
+                            if (sub.prvR)
+                                sub.prvR.parN = sub.parN;
                         };
                         iB = 1;
                         break;
@@ -895,45 +895,31 @@ class RCompiler {
                 }
                 atts.NoneLeft();
             }
-            nm = bl?.name;
-            if (dOnerr || dOnsuc) {
-                let b = bl;
-                bl = async function SetOnError(ar) {
-                    let oo = { onerr, onsuc };
-                    try {
-                        if (dOnerr)
-                            (onerr = dOnerr()).bBldr = dOnerr.bBldr;
-                        if (dOnsuc)
-                            onsuc = dOnsuc();
-                        await b(ar);
-                    }
-                    finally {
-                        ({ onerr, onsuc } = oo);
-                    }
-                };
-            }
-            if (befor.length + after.length) {
+            nm = (bl || (bl = dB)).name;
+            if (bf.length + af.length) {
                 if (iB > 1)
                     iB = 1;
-                for (let g of concI(befor, after))
+                for (let g of concI(bf, af))
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
                 bl = async function Pseudo(ar, x) {
-                    let r = ar.r, bfD;
-                    for (let g of befor) {
+                    let { r, prvR } = ar, bfD;
+                    for (let g of bf) {
                         if (g.D && !r)
                             bfD = g.hndlr();
                         if (r ? g.U : g.C)
                             g.hndlr().call(r?.node || ar.parN);
                     }
                     await b(ar, x);
+                    let prev = (r ? ar.r != r && r
+                        : ar.prvR != prvR && ar.prvR) || PrepRng(ar).r;
                     if (bfD)
-                        ar.prevR.bfD = bfD;
-                    for (let g of after) {
+                        prev.bfD = bfD;
+                    for (let g of af) {
                         if (g.D && !r)
-                            ar.prevR.afD = g.hndlr();
+                            prev.afD = g.hndlr();
                         if (r ? g.U : g.C)
-                            g.hndlr().call((r ? r.node : ar.prevR?.node) || ar.parN);
+                            g.hndlr().call(prev.node || ar.parN);
                     }
                 };
             }
@@ -975,7 +961,23 @@ class RCompiler {
                         }
                     };
             }
-            return bl && ass(this.rActs.length == CTL
+            if (dOnerr || dOnsuc) {
+                let b = bl;
+                bl = async function SetOnError(ar, x) {
+                    let oo = { onerr, onsuc };
+                    try {
+                        if (dOnerr)
+                            (onerr = dOnerr()).bBldr = dOnerr.bBldr;
+                        if (dOnsuc)
+                            onsuc = dOnsuc();
+                        await b(ar, x);
+                    }
+                    finally {
+                        ({ onerr, onsuc } = oo);
+                    }
+                };
+            }
+            return bl != dB && ass(this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
                 : function Elm(ar) {
                     return bl(ar).catch(e => { throw ErrMsg(srcE, e, 39); });
@@ -1177,7 +1179,7 @@ class RCompiler {
                         finally {
                             ES();
                         }
-                        let nxChR = r.child, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prevR, chAr;
+                        let nxChR = r.child, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prvR, chAr;
                         sub.parR = r;
                         nxIter?.next();
                         while (T) {
@@ -1198,7 +1200,7 @@ class RCompiler {
                                 nxItem = nxIter.next().value?.item;
                             if (cr) {
                                 sub.r = N;
-                                sub.prevR = prevR;
+                                sub.prvR = prvR;
                                 sub.bfor = nxChR?.FstOrNxt || bfor;
                                 ({ r: chR, sub: chAr } = PrepRng(sub, N, `${letNm}(${ix})`));
                                 if (key != N)
@@ -1231,16 +1233,16 @@ class RCompiler {
                                     }
                                 chR.nxt = nxChR;
                                 chR.text = `${letNm}(${ix})`;
-                                if (prevR)
-                                    prevR.nxt = chR;
+                                if (prvR)
+                                    prvR.nxt = chR;
                                 else
                                     r.child = chR;
                                 sub.r = chR;
                                 chAr = PrepRng(sub).sub;
                                 sub.parR = N;
                             }
-                            chR.prev = prevR;
-                            prevR = chR;
+                            chR.prev = prvR;
+                            prvR = chR;
                             if (cr || !hash
                                 || hash.some((h, i) => h != chR.hash[i])) {
                                 chR.hash = hash;
@@ -1266,8 +1268,8 @@ class RCompiler {
                             }
                             prItem = item;
                         }
-                        if (prevR)
-                            prevR.nxt = N;
+                        if (prvR)
+                            prvR.nxt = N;
                         else
                             r.child = N;
                     };
