@@ -23,13 +23,13 @@ class Range {
             if (q)
                 q.nxt = this;
             else if (p)
-                p.child = this;
+                p.chi = this;
             ar.prvR = this;
         }
     }
     toString() { return this.text || this.node?.nodeName; }
     get Fst() {
-        let { node: f, child: c } = this;
+        let { node: f, chi: c } = this;
         if (f)
             return f;
         while (c) {
@@ -55,19 +55,19 @@ class Range {
             let c;
             if (r.node)
                 yield r.node;
-            else if (c = r.child)
+            else if (c = r.chi)
                 do {
                     yield* Nodes(c);
                 } while (c = c.nxt);
         })(this);
     }
     erase(par) {
-        let { node, child: c } = this;
+        let { node, chi: c } = this;
         if (node && par) {
             par.removeChild(node);
             par = N;
         }
-        this.child = N;
+        this.chi = N;
         while (c) {
             if (c.bfD)
                 c.bfD.call(c.node || par);
@@ -124,7 +124,7 @@ export async function RCompile(srcN = D.body, settings) {
             start = now();
             nodeCnt = 0;
             await R.Build({ parN: srcN.parentElement, srcN, r: N });
-            W.addEventListener('pagehide', () => childWins.forEach(w => w.close()));
+            W.addEventListener('pagehide', () => chiWins.forEach(w => w.close()));
             R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
             ScrollToHash();
         }
@@ -137,12 +137,10 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
     if (cr) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
-        if (srcE)
-            text = srcE.tagName + (text && ' ') + text;
-        r = sub.parR = new Range(ar, N, text);
+        r = sub.parR = new Range(ar, N, srcE ? srcE.tagName + (text && ' ' + text) : text);
     }
     else {
-        sub.r = r.child || T;
+        sub.r = r.chi || T;
         ar.r = r.nxt || T;
         if (cr = nWipe && (nWipe > 1 || res != r.res)) {
             (sub.parR = r).erase(parN);
@@ -165,7 +163,7 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
         r,
         chAr: {
             parN: r.node,
-            r: r.child,
+            r: r.chi,
             bfor: N,
             parR: r
         },
@@ -180,8 +178,7 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
         ar.r = r.nxt || T;
     }
     nodeCnt++;
-}, dU = _ => U, dB = async () => { }, childWins = new Set(), OMods = new Map();
-;
+}, dU = _ => U, dB = async () => { }, chiWins = new Set(), OMods = new Map();
 function SetLVars(vars, data) {
     vars.forEach((v, i) => v(data[i]));
 }
@@ -503,13 +500,13 @@ class RCompiler {
                 env[--i] = C;
         };
     }
-    async Compile(elm, childnodes) {
+    async Compile(elm, chiNodes) {
         for (let tag of this.Settings.preformatted)
             this.setPRE.add(tag.toUpperCase());
         let t0 = now();
         this.bldr =
-            (childnodes
-                ? await this.CChilds(elm, childnodes)
+            (chiNodes
+                ? await this.CChilds(elm, chiNodes)
                 : await this.CElm(elm.parentElement, elm, T)) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
@@ -531,9 +528,9 @@ class RCompiler {
         }
         await DoUpdate();
     }
-    CChilds(srcParent, chNodes = srcParent.childNodes) {
+    CChilds(srcParent, chiNodes = srcParent.childNodes) {
         let ES = this.SS();
-        return this.CIter(srcParent, chNodes).finally(ES);
+        return this.CIter(srcParent, chiNodes).finally(ES);
     }
     async CIter(srcP, iter = srcP.childNodes) {
         let { rspc } = this, arr = Array.from(iter);
@@ -568,7 +565,7 @@ class RCompiler {
                                         for (let b of bs)
                                             await b(ar);
                                         if (rvar._Subs.size == s)
-                                            rvar.Subscribe(Subscriber(ar, Auto, prvR ? prvR.nxt : parR.child));
+                                            rvar.Subscribe(Subscriber(ar, Auto, prvR ? prvR.nxt : parR.chi));
                                     }
                                 }, bs.every(b => b.iB))
                                 : (bldrs.push(...bs), N);
@@ -754,9 +751,9 @@ class RCompiler {
                                     r.res = src;
                                     let sv = env, sRoot = C.head = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
-                                        parR: r.child || (r.child = new Range(N, N, 'Shadow'))
+                                        parR: r.chi || (r.chi = new Range(N, N, 'Shadow'))
                                     };
-                                    r.child.erase(sRoot);
+                                    r.chi.erase(sRoot);
                                     sRoot.innerHTML = '';
                                     try {
                                         tempElm.innerHTML = src;
@@ -812,12 +809,12 @@ class RCompiler {
                                             }
                                         },
                                         open(target, features, ...args) {
-                                            let w = W.open('', target || '', features), cr = !childWins.has(w);
+                                            let w = W.open('', target || '', features), cr = !chiWins.has(w);
                                             if (cr) {
                                                 w.addEventListener('keydown', function (event) { if (event.key == 'Escape')
                                                     this.close(); });
-                                                w.addEventListener('close', () => childWins.delete(w), wins.delete(w));
-                                                childWins.add(w);
+                                                w.addEventListener('close', () => chiWins.delete(w), wins.delete(w));
+                                                chiWins.add(w);
                                                 wins.add(w);
                                             }
                                             else
@@ -944,7 +941,7 @@ class RCompiler {
                     : async function REACT(ar) {
                         let { r, sub } = PrepRng(ar, srcE, att);
                         await b(sub);
-                        let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.child)), pVars = r.rvars, i = 0;
+                        let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.chi)), pVars = r.rvars, i = 0;
                         for (let rvar of r.rvars = dRV()) {
                             if (pVars) {
                                 let p = pVars[i++];
@@ -1179,7 +1176,7 @@ class RCompiler {
                         finally {
                             ES();
                         }
-                        let nxChR = r.child, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prvR, chAr;
+                        let nxChR = r.chi, iterator = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prvR, chAr;
                         sub.parR = r;
                         nxIter?.next();
                         while (T) {
@@ -1236,7 +1233,7 @@ class RCompiler {
                                 if (prvR)
                                     prvR.nxt = chR;
                                 else
-                                    r.child = chR;
+                                    r.chi = chR;
                                 sub.r = chR;
                                 chAr = PrepRng(sub).sub;
                                 sub.parR = N;
@@ -1260,7 +1257,7 @@ class RCompiler {
                                     vNx(nxItem);
                                     await b(sub);
                                     if (bRe && !chR.subs)
-                                        item.Subscribe(chR.subs = Subscriber(sub, b, chR.child));
+                                        item.Subscribe(chR.subs = Subscriber(sub, b, chR.chi));
                                 }
                                 finally {
                                     ES();
@@ -1271,7 +1268,7 @@ class RCompiler {
                         if (prvR)
                             prvR.nxt = N;
                         else
-                            r.child = N;
+                            r.chi = N;
                     };
                     if (iter instanceof Promise) {
                         let subEnv = { env, onerr, onsuc };

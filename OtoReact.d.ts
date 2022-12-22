@@ -26,7 +26,7 @@ declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     nm?: string;
 };
 declare type Area<VT = unknown> = {
-    r?: Range<ChildNode, VT>;
+    r?: Range<ChildNode, VT> | true;
     parN: Node;
     bfor?: ChildNode;
     srcN?: ChildNode;
@@ -37,7 +37,7 @@ declare type Area<VT = unknown> = {
 declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     text?: string;
     node: NodeType;
-    child: Range;
+    chi: Range;
     nxt: Range;
     parR?: Range;
     parN?: Node;

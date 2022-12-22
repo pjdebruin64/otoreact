@@ -47,7 +47,7 @@ type hHTMLElement = HTMLElement & {
     hndlrs?: Array<{evType: string, listener: Handler}>
 };
 
-/* A DOMBUILDER is the semantics of a piece of RHTML.
+/* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM, and update an earlier created range of DOM.
     The created DOM is yielded in 'ar.r'.
 */
@@ -59,26 +59,29 @@ type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>)
     };
 
 
-/* An AREA is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
+/* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
 */
 type Area<VT = unknown> = {
-    r?: Range<ChildNode, VT>,          // Existing piece of DOM
-    // When undefined or null, the DOM has to be CREATED
-    // When defined, the DOM has to be UPDATED
+    r?: Range<ChildNode, VT> | true,          // Existing piece of DOM
+    // When falsy (undefined or null), the DOM has to be CREATED
+    // When truthy (defined or true), the DOM has to be UPDATED
 
     parN: Node;            // DOM parent node
     bfor?: ChildNode;     // DOM node before which new nodes are to be inserted
 
     /* When !r, i.e. when the DOM has to be created: */
     srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
-    parR?: Range;         // The new range shall either be the first child of some range,
-    prvR?: Range;        // Or the next sibling of some other range
+    parR?: Range;         // The new range shall either be the first child this parent range,
+    prvR?: Range;        // Or the next sibling of this previous range
 
     /* When r, i.e. when the DOM has to be updated: */
     bR?: boolean,         // true == update root node only, not its children
                           // Set by 'thisreactson'.
 }
+/* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
+
+type AreaR<VT = unknown> = Area<VT> & {r?: Range<ChildNode, VT>};
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
     It can either be a single DOM node, with child nodes described by a linked list of child-ranges,
@@ -88,15 +91,15 @@ type Area<VT = unknown> = {
 class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     node: NodeType;     // Optional DOM node, in case this range corresponds to a single node
     
-    child: Range;       // Linked list of child ranges (null=empty)
-    nxt: Range;        // Next range in linked list
+    chi: Range;         // Linked list of child ranges (null=empty)
+    nxt: Range;         // Next range in linked list
 
-    parR?: Range;    // Parent range, only when both belong to the SAME DOM node
-    parN?: Node;     // Parent node, only when this range has a DIFFERENT parent node than its parent range
+    parR?: Range;       // Parent range, only when both belong to the SAME DOM node
+    parN?: Node;        // Parent node, only when this range has a DIFFERENT parent node than its parent range
 
     constructor(
-        ar: Area,             // Area where the new range is to be inserted
-        node?: NodeType,         // Optional DOM node
+        ar: Area,               // The constructor puts the new Range into this Area
+        node?: NodeType,        // Optional DOM node
         public text?: string,   // Description, used only for comments
     ) {
         this.node = node;
@@ -110,7 +113,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
             if (q) 
                 q.nxt = this;
             else if (p)
-                p.child = this;
+                p.chi = this;
         
             // Update the area, so the new range becomes its previous range
             ar.prvR = this;
@@ -121,7 +124,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 
     // Get first childnode IN the range
     public get Fst(): ChildNode {
-        let {node: f, child: c} = this;
+        let {node: f, chi: c} = this;
         if (f) return f;
         while (c) {
             if (f = c.Fst as NodeType) return f;
@@ -150,7 +153,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
             let c: Range;
             if (r.node)
                 yield r.node;
-            else if (c = r.child)
+            else if (c = r.chi)
                 do {
                     yield* Nodes(c);
                 } while (c = c.nxt)
@@ -176,13 +179,13 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
     // The range itself remains a child of its parent.
     erase(par: Node) {
-        let {node, child: c} = this;
+        let {node, chi: c} = this;
         if (node && par) {
             // Remove the current node, only when 'par' is specified
             par.removeChild(node);
             par = N; // No need to remove child nodes of this node
         }
-        this.child = N;
+        this.chi = N;
         while (c) {
             if (c.bfD) // Call a 'beforedestroy' handler
                 c.bfD.call(c.node || par);
@@ -301,7 +304,7 @@ export async function RCompile(srcN: hHTMLElement = D.body, settings?: Settings)
             start = now();
             nodeCnt = 0;
             await R.Build({parN: srcN.parentElement, srcN, r: N});
-            W.addEventListener('pagehide', ()=>childWins.forEach(w=>w.close()));
+            W.addEventListener('pagehide', () => chiWins.forEach(w=>w.close()));
             R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
             ScrollToHash();
         }
@@ -335,19 +338,20 @@ const PrepRng = <VT = unknown>(
     cr: booly    // True when the sub-range has to be created
 } =>
 {
-    let {parN, r, bR} = ar,
+    let {parN, r, bR} = ar as AreaR,
         sub: Area = {parN, bR }
         , cr = !r;
     if (cr) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
-        if (srcE) text = srcE.tagName + (text && ' ') + text;
         
-        r = sub.parR = new Range(ar, N, text);
+        r = sub.parR = new Range(ar, N
+            , srcE ? srcE.tagName + (text && ' ' + text) : text
+            );
     }
     else {
-        sub.r = r.child || T as any;
-        ar.r = r.nxt || T as any;
+        sub.r = r.chi || T;
+        ar.r = r.nxt || T;
 
         if (cr = nWipe && (nWipe>1 || res != r.res)) {
             (sub.parR = r).erase(parN); 
@@ -385,14 +389,14 @@ const PrepRng = <VT = unknown>(
                 )
             ) as Range<HTMLElement> & T;
     else
-        ar.r = r.nxt || T as any;
+        ar.r = r.nxt || T;
 
     nodeCnt++
     return { 
         r, 
         chAr: {
             parN: r.node, 
-            r: r.child, 
+            r: r.chi, 
             bfor: N,
             parR: r
         },
@@ -416,7 +420,7 @@ const PrepRng = <VT = unknown>(
         );
     else {
         r.node.data = data;
-        ar.r = r.nxt || T as any;
+        ar.r = r.nxt || T;
     }
     nodeCnt++;
 }
@@ -427,15 +431,15 @@ const PrepRng = <VT = unknown>(
     dB: DOMBuilder 
             = async ()=>{},         // A dummy DOMBuilder
     // Child windows to be closed when the app is closed
-    childWins 
+    chiWins 
             = new Set<Window>(),
     // Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
     OMods
-            = new Map<string, Promise<[DOMBuilder, Context]>>();;
+            = new Map<string, Promise<[DOMBuilder, Context]>>();
 
-type Subscriber<T = unknown> = ((t?: T) => (unknown|Promise<unknown>)) &
+type Subscriber<T = unknown> = 
+    ((t?: T) => (unknown|Promise<unknown>)) &
     {   sAr?: Area;
-        //bImm?: boolean;
     };
 
 type ParentNode = HTMLElement|DocumentFragment;
@@ -445,6 +449,7 @@ type Handler = (ev:Event) => any;
 // Inside a builder routine, a local variable is represented by a routine to set its value,
 // having additional properties 'nm' with the variable name and 'i' with its index position in the environment 'env'
 type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
+
 // Setting multiple LVars at once
 function SetLVars(vars: Array<LVar>, data: Array<unknown>) {
     vars.forEach((v,i) => v(data[i]));
@@ -991,14 +996,14 @@ class RCompiler {
     // Compile a source tree into an ElmBuilder
     public async Compile(
         elm: ParentNode, 
-        childnodes?: Iterable<ChildNode>,  // Compile the element itself, or just its childnodes
+        chiNodes?: Iterable<ChildNode>,  // Compile the element itself, or just its childnodes
     ) {
         for (let tag of this.Settings.preformatted)
             this.setPRE.add(tag.toUpperCase());
         let t0 = now();
         this.bldr =
-            ( childnodes
-            ? await this.CChilds(elm, childnodes)
+            ( chiNodes
+            ? await this.CChilds(elm, chiNodes)
             : await this.CElm(elm.parentElement, elm as HTMLElement, T)
             ) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
@@ -1037,10 +1042,10 @@ class RCompiler {
 
     private CChilds(
         srcParent: ParentNode,
-        chNodes: Iterable<ChildNode> = srcParent.childNodes,
+        chiNodes: Iterable<ChildNode> = srcParent.childNodes,
     ): Promise<DOMBuilder> {
         let ES = this.SS(); // Start scope
-        return this.CIter(srcParent, chNodes).finally(ES)
+        return this.CIter(srcParent, chiNodes).finally(ES)
     }
 
     // Compile some stretch of childnodes
@@ -1101,7 +1106,7 @@ class RCompiler {
                                             if (rvar._Subs.size==s) // No new subscribers still?
                                                 // Then auto-subscribe with the correct range
                                                 rvar.Subscribe(
-                                                    Subscriber(ar, Auto, prvR ? prvR.nxt : parR.child)
+                                                    Subscriber(ar, Auto, prvR ? prvR.nxt : parR.chi)
                                                 );
                                         }
                                     }
@@ -1408,10 +1413,10 @@ class RCompiler {
                                     tempElm = D.createElement('rhtml'),
                                     sAr = {
                                         parN: sRoot,
-                                        parR: r.child ||= new Range(N, N, 'Shadow')
+                                        parR: r.chi ||= new Range(N, N, 'Shadow')
                                     };
 
-                                r.child.erase(sRoot); sRoot.innerHTML='';
+                                r.chi.erase(sRoot); sRoot.innerHTML='';
                                 try {
                                     // Parsing
                                     tempElm.innerHTML = src;
@@ -1476,13 +1481,13 @@ class RCompiler {
                                     },
                                     open(target?: string, features?: string, ...args: unknown[]) {
                                         let w = W.open('', target || '', features)
-                                            , cr = !childWins.has(w);
+                                            , cr = !chiWins.has(w);
                                         if (cr) {
                                             w.addEventListener('keydown', 
                                                 function(this: Window,event:KeyboardEvent) {if(event.key=='Escape') this.close();}
                                             );
-                                            w.addEventListener('close', () => childWins.delete(w), wins.delete(w))
-                                            childWins.add(w); wins.add(w);
+                                            w.addEventListener('close', () => chiWins.delete(w), wins.delete(w))
+                                            chiWins.add(w); wins.add(w);
                                         }
                                         else
                                             w.document.body.innerHTML=''
@@ -1579,7 +1584,7 @@ class RCompiler {
                 for (let g of concI(bf, af))
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function Pseudo(ar: Area, x:any) {
+                bl = async function Pseudo(ar: AreaR, x:any) {
                     let {r,prvR} = ar, bfD: Handler;
                     for (let g of bf) {
                         if (g.D && !r)
@@ -1637,7 +1642,7 @@ class RCompiler {
                         await b(sub);
 
                         let 
-                            subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.child)
+                            subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.chi)
                             , pVars: RVAR[] = r.rvars
                             , i = 0;
 
@@ -1684,7 +1689,7 @@ class RCompiler {
 
     private ErrH(bl: DOMBuilder, srcN: ChildNode): DOMBuilder{
 
-        return bl && (async (ar: Area) => {
+        return bl && (async (ar: AreaR) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
@@ -2028,7 +2033,7 @@ class RCompiler {
                             finally { ES() }
 
                             // Now we will either create or re-order and update the DOM
-                            let nxChR = r.child as ForRange,    // This is a pointer into the created list of child ranges
+                            let nxChR = r.chi as ForRange,    // This is a pointer into the created list of child ranges
                                 iterator = nwMap.entries(),
                                 nxIter = nxNm && nwMap.values()
 
@@ -2112,7 +2117,7 @@ class RCompiler {
                                     if (prvR) 
                                         prvR.nxt = chR;
                                     else
-                                        r.child = chR;
+                                        r.chi = chR;
                                     sub.r = chR;
                                     // Prepare child range
                                     chAr = PrepRng(sub).sub;
@@ -2151,7 +2156,7 @@ class RCompiler {
                                         if (bRe && !chR.subs)
                                             // Subscribe the range to the new RVAR_Light
                                             (item as RVAR_Light<Item>).Subscribe(
-                                                chR.subs = Subscriber(sub, b, chR.child)
+                                                chR.subs = Subscriber(sub, b, chR.chi)
                                             );
                                     }
                                     finally { ES() }
@@ -2159,7 +2164,7 @@ class RCompiler {
 
                                 prItem = item;
                             }
-                            if (prvR) prvR.nxt = N; else r.child = N;
+                            if (prvR) prvR.nxt = N; else r.chi = N;
                         };
 
                     if (iter instanceof Promise) {
