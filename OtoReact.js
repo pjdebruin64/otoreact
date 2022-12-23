@@ -607,22 +607,27 @@ class RCompiler {
     }
     async CElm(srcPrnt, srcE, bUnhide) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], bf = [], af = [], dOnerr, dOnsuc, bl, iB, auto, m, nm, constr = this.CT.getCS(tag), dIf = this.CAttExp(atts, 'if');
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], bf = [], af = [], dOnerr, dOnsuc, bl, b, iB, auto, m, nm, constr = this.CT.getCS(tag);
             for (let [att] of atts)
                 if (m =
-                    /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
+                    /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
                         .exec(att))
                     if (m[1])
-                        m[2] && tag != 'REACT'
-                            || m[3] && tag == 'FOR'
-                            || reacts.push({ att, dRV: this.CAttExpList(atts, att, T) });
+                        m[4] && tag != 'REACT'
+                            || m[5] && tag == 'FOR'
+                            || reacts.push({ att, m, dV: m[6] ? this.CAttExp(atts, 'if') : this.CAttExpList(atts, att, T) });
                     else {
                         let txt = atts.g(att);
-                        if (nm = m[5])
-                            (m[4] ? bf : af).push({ att, txt, C: /c/i.test(nm), U: /u/i.test(nm), D: /y/i.test(nm) });
+                        if (nm = m[8])
+                            (m[7] ? bf : af).push({
+                                att,
+                                txt,
+                                C: /c/i.test(nm), U: /u/i.test(nm), D: /y/i.test(nm),
+                                hndlr: m[7] && this.CHandlr(att, txt)
+                            });
                         else {
                             let hndlr = this.CHandlr(att, txt);
-                            if (m[7])
+                            if (m[9])
                                 (dOnerr = hndlr).bBldr = !/-/.test(att);
                             else
                                 dOnsuc = hndlr;
@@ -732,12 +737,8 @@ class RCompiler {
                         }
                         break;
                     case 'REACT':
-                        var b = bl = await this.CChilds(srcE);
-                        iB = !b && 2;
-                        if (atts.gB('renew'))
-                            bl = function renew(sub) {
-                                return b(PrepRng(sub, srcE, 'renew', 2).sub);
-                            };
+                        bl = await this.CChilds(srcE);
+                        iB = !bl && 2;
                         break;
                     case 'RHTML':
                         {
@@ -783,67 +784,65 @@ class RCompiler {
                         iB = 1;
                         break;
                     case 'DOCUMENT':
-                        {
-                            let vDoc = this.LVar(atts.g('name', T)), bEncaps = atts.gB('encapsulate'), RC = new RCompiler(this), vParams = RC.LVars(atts.g('params')), vWin = RC.LVar(atts.g('window')), docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CChilds(srcE));
-                            bl = async function DOCUMENT(ar) {
-                                if (!ar.r) {
-                                    let doc = ar.parN.ownerDocument, docEnv = env, wins = new Set();
-                                    vDoc({
-                                        async render(w, cr, args) {
-                                            let sv = env, d = w.document;
-                                            env = docEnv;
-                                            SetLVars(vParams, args);
-                                            vWin(w);
-                                            try {
-                                                if (cr) {
-                                                    if (!bEncaps)
-                                                        copySSheets(doc, d);
-                                                    for (let S of RC.head.childNodes)
-                                                        d.head.append(S.cloneNode(T));
-                                                }
-                                                let ar = { parN: d.body, r: w.r };
-                                                await docBldr(ar);
-                                            }
-                                            finally {
-                                                env = sv;
-                                            }
-                                        },
-                                        open(target, features, ...args) {
-                                            let w = W.open('', target || '', features), cr = !chiWins.has(w);
+                        let vDoc = this.LVar(atts.g('name', T)), bEncaps = atts.gB('encapsulate'), RC = new RCompiler(this), vParams = RC.LVars(atts.g('params')), vWin = RC.LVar(atts.g('window')), docBldr = ((RC.head = D.createElement('DocumentFragment')), await RC.CChilds(srcE));
+                        bl = async function DOCUMENT(ar) {
+                            if (!ar.r) {
+                                let doc = ar.parN.ownerDocument, docEnv = env, wins = new Set();
+                                vDoc({
+                                    async render(w, cr, args) {
+                                        let sv = env, d = w.document;
+                                        env = docEnv;
+                                        SetLVars(vParams, args);
+                                        vWin(w);
+                                        try {
                                             if (cr) {
-                                                w.addEventListener('keydown', function (event) { if (event.key == 'Escape')
-                                                    this.close(); });
-                                                w.addEventListener('close', () => chiWins.delete(w), wins.delete(w));
-                                                chiWins.add(w);
-                                                wins.add(w);
+                                                if (!bEncaps)
+                                                    copySSheets(doc, d);
+                                                for (let S of RC.head.childNodes)
+                                                    d.head.append(S.cloneNode(T));
                                             }
-                                            else
-                                                w.document.body.innerHTML = '';
-                                            this.render(w, cr, args);
-                                            return w;
-                                        },
-                                        async print(...args) {
-                                            let iframe = doc.createElement('iframe');
-                                            iframe.hidden = T;
-                                            doc.body.appendChild(iframe);
-                                            await this.render(iframe.contentWindow, T, args);
-                                            iframe.contentWindow.print();
-                                            iframe.remove();
-                                        },
-                                        closeAll: () => {
-                                            for (let w of wins)
-                                                w.close();
+                                            let ar = { parN: d.body, r: w.r };
+                                            await docBldr(ar);
                                         }
-                                    });
-                                }
-                            };
-                            iB = 1;
-                        }
+                                        finally {
+                                            env = sv;
+                                        }
+                                    },
+                                    open(target, features, ...args) {
+                                        let w = W.open('', target || '', features), cr = !chiWins.has(w);
+                                        if (cr) {
+                                            w.addEventListener('keydown', function (event) { if (event.key == 'Escape')
+                                                this.close(); });
+                                            w.addEventListener('close', () => chiWins.delete(w), wins.delete(w));
+                                            chiWins.add(w);
+                                            wins.add(w);
+                                        }
+                                        else
+                                            w.document.body.innerHTML = '';
+                                        this.render(w, cr, args);
+                                        return w;
+                                    },
+                                    async print(...args) {
+                                        let iframe = doc.createElement('iframe');
+                                        iframe.hidden = T;
+                                        doc.body.appendChild(iframe);
+                                        await this.render(iframe.contentWindow, T, args);
+                                        iframe.contentWindow.print();
+                                        iframe.remove();
+                                    },
+                                    closeAll: () => {
+                                        for (let w of wins)
+                                            w.close();
+                                    }
+                                });
+                            }
+                        };
+                        iB = 1;
                         break;
                     case 'RHEAD':
                         let { ws } = this;
-                        this.ws = this.rspc = 1;
                         b = await this.CChilds(srcE);
+                        this.ws = this.rspc = 1;
                         this.ws = ws;
                         bl = b && async function HEAD(ar) {
                             let { sub } = PrepRng(ar, srcE);
@@ -896,7 +895,7 @@ class RCompiler {
             if (bf.length + af.length) {
                 if (iB > 1)
                     iB = 1;
-                for (let g of concI(bf, af))
+                for (let g of af)
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
                 bl = async function Pseudo(ar, x) {
@@ -920,43 +919,46 @@ class RCompiler {
                     }
                 };
             }
-            if (dIf) {
-                let b = bl;
-                bl = function hIf(ar) {
-                    let c = dIf(), { sub } = PrepRng(ar, srcE, '#if', 1, !c);
-                    if (c)
-                        return b(sub);
-                };
-            }
-            for (let { att, dRV } of reacts.reverse()) {
-                let b = bl, bR = /^t/.test(att);
-                bl = att == 'hash'
+            for (let { att, m, dV } of reacts.reverse()) {
+                let b = bl, bR = m[3];
+                bl = m[5]
                     ? async function HASH(ar) {
-                        let { sub, r, cr } = PrepRng(ar, srcE, 'hash'), hashes = dRV();
+                        let { sub, r, cr } = PrepRng(ar, srcE, 'hash'), hashes = dV();
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                             r.val = hashes;
                             await b(sub);
                         }
                     }
-                    : async function REACT(ar) {
-                        let { r, sub } = PrepRng(ar, srcE, att);
-                        await b(sub);
-                        let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.chi)), pVars = r.rvars, i = 0;
-                        for (let rvar of r.rvars = dRV()) {
-                            if (pVars) {
-                                let p = pVars[i++];
-                                if (rvar == p)
-                                    continue;
-                                p._Subs.delete(subs);
-                            }
-                            try {
-                                rvar.Subscribe(subs);
-                            }
-                            catch {
-                                ErrAtt('This is not an RVAR', att);
-                            }
+                    : m[6]
+                        ? function hIf(ar) {
+                            let c = dV(), { sub } = PrepRng(ar, srcE, att, 1, !c);
+                            if (c)
+                                return b(sub);
                         }
-                    };
+                        : m[2]
+                            ? async function REACT(ar) {
+                                let { r, sub } = PrepRng(ar, srcE, att);
+                                await b(sub);
+                                let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.chi)), pVars = r.rvars, i = 0;
+                                for (let rvar of r.rvars = dV()) {
+                                    if (pVars) {
+                                        let p = pVars[i++];
+                                        if (rvar == p)
+                                            continue;
+                                        p._Subs.delete(subs);
+                                    }
+                                    try {
+                                        rvar.Subscribe(subs);
+                                    }
+                                    catch {
+                                        ErrAtt('This is not an RVAR', att);
+                                    }
+                                }
+                            }
+                            :
+                                function renew(sub) {
+                                    return b(PrepRng(sub, srcE, 'renew', 2).sub);
+                                };
             }
             if (dOnerr || dOnsuc) {
                 let b = bl;

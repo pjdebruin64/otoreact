@@ -1168,9 +1168,9 @@ class RCompiler {
                 // List of source attributes, to check for unrecognized attributes
                 atts =  new Atts(srcE),
                 CTL = this.rActs.length,
-                // (this)react(s)on handlers
-                reacts: Array<{att: string, dRV: Dep<RVAR[]>}> = [],
 
+                // (this)react(s)on / hash / if / renew handlers
+                reacts: Array<{att: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = [],
                 // Generic pseudo-events to be handled BEFORE building
                 bf: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
                 // Generic pseudo-events to be handled AFTER building
@@ -1183,6 +1183,7 @@ class RCompiler {
                 
                 // The intermediate builder will be put here
                 bl: DOMBuilder,
+                b: DOMBuilder,
                 
                 iB: number  // truthy when bl won't produce non-blank output, 2 when no side effects
                 , auto: string
@@ -1192,22 +1193,30 @@ class RCompiler {
                 , constr = this.CT.getCS(tag)
 
                 // Check for generic attributes
-                , dIf = this.CAttExp(atts, 'if');
             for (let [att] of atts)
                 if (m = 
-                     /^#?(?:((?:this)?reacts?on|(on)|(hash))|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
+                     /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
                      .exec(att))
                     if (m[1])       // (?:this)?reacts?on|on
-                        m[2] && tag!='REACT'    // 'on' is only for <REACT>
-                        || m[3] && tag=='FOR'   // <FOR> has its own 'hash'
-                        || reacts.push({att, dRV: this.CAttExpList<RVAR>(atts, att, T)});
+                        m[4] && tag!='REACT'    // 'on' is only for <REACT>
+                        || m[5] && tag=='FOR'   // <FOR> has its own 'hash'
+                        || reacts.push({att, m, dV: m[6] ? this.CAttExp(atts, 'if') : this.CAttExpList<RVAR>(atts, att, T)});
                     else {
                         let txt = atts.g(att);
-                        if (nm = m[5])  // #?(before|after|on)(create|update|destroy)+
-                            (m[4] ? bf : af).push({att, txt, C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm) });
+                        if (nm = m[8])  // #?(before|after|on)(create|update|destroy)+
+                            (m[7] ? bf : af).push(
+                                {
+                                    att, 
+                                    txt, 
+                                    C:/c/i.test(nm), U:/u/i.test(nm), D:/y/i.test(nm),
+                                        // 'before' events are compiled now, before the element is compiled
+                                        // 'after' events are compiled after the element has been compiled, because they may
+                                        // refer to local variables introduced by the element.
+                                    hndlr: m[7] && this.CHandlr(att,txt)
+                                });
                         else { // #?on(?:(error)-?|success)
                             let hndlr = this.CHandlr(att, txt) as typeof dOnerr; 
-                            if (m[7])   // #?onerror-?
+                            if (m[9])   // #?onerror-?
                                 (dOnerr = hndlr).bBldr = !/-/.test(att);
                             else
                                 dOnsuc = hndlr;
@@ -1381,13 +1390,8 @@ class RCompiler {
                     } break;
 
                     case 'REACT':
-                        var b = bl = await this.CChilds(srcE);
-
-                        iB = !b && 2;
-                        if (atts.gB('renew'))
-                            bl = function renew(sub: Area) {
-                                return b(PrepRng(sub, srcE, 'renew', 2).sub);
-                            };
+                        bl = await this.CChilds(srcE);
+                        iB = !bl && 2;
                     break;
 
                     case 'RHTML': {
@@ -1448,7 +1452,7 @@ class RCompiler {
                         iB = 1;
                         break;
 
-                    case 'DOCUMENT': {
+                    case 'DOCUMENT':
                         let vDoc = this.LVar(atts.g('name', T)),
                             bEncaps = atts.gB('encapsulate'),
                             RC = new RCompiler(this),
@@ -1510,12 +1514,12 @@ class RCompiler {
                             }
                         }
                         iB = 1;
-                    } break;
+                    break;
 
                     case 'RHEAD':
                         let {ws} = this;
-                        this.ws = this.rspc = WSpc.block;
                         b = await this.CChilds(srcE);
+                        this.ws = this.rspc = WSpc.block;
                         this.ws = ws;
                         
                         bl = b && async function HEAD(ar: Area) {
@@ -1581,7 +1585,7 @@ class RCompiler {
 
             if (bf.length + af.length) {
                 if(iB>1) iB = 1
-                for (let g of concI(bf, af))
+                for (let g of af)
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
                 bl = async function Pseudo(ar: AreaR, x:any) {
@@ -1613,52 +1617,54 @@ class RCompiler {
                 }
             }
 
-            if (dIf) {
-                let b = bl;
-                bl = function hIf(ar: Area) {
-                    let c = dIf(),
-                        {sub} = PrepRng(ar, srcE, '#if', 1, !c)
-                    if (c)
-                        return b(sub)
-                }
-            }
-
-            for (let {att, dRV} of reacts.reverse()) {
+            for (let {att, m, dV} of reacts.reverse()) {
                 let b = bl,
-                    bR = /^t/.test(att);    // 'thisreactson'?
-                bl = att == 'hash'
+                    bR = m[3];    // 'thisreactson'?
+                bl = m[5]   // hash
                     ? async function HASH(ar: Area) {
                         let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
-                            , hashes = dRV();
+                            , hashes = <unknown[]>dV();
     
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                             r.val = hashes;
                             await b(sub);
                         }
                     }
-                    : async function REACT(ar: Area) {                
-                        let {r, sub} = PrepRng(ar, srcE, att);
-        
-                        await b(sub);
-
-                        let 
-                            subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.chi)
-                            , pVars: RVAR[] = r.rvars
-                            , i = 0;
-
-                        for (let rvar of r.rvars = dRV()) {
-                            if (pVars) {
-                                // Check whether the current rvar(s) are the same as the previous one(s)
-                                let p = pVars[i++];
-                                if (rvar==p)
-                                    continue;           // Yes, continue
-                                p._Subs.delete(subs);   // No, unsubscribe from the previous one
-                            }
-
-                            try { rvar.Subscribe(subs); }
-                            catch { ErrAtt('This is not an RVAR', att) }
+                    : m[6]  // if
+                    ?   function hIf(ar: Area) {
+                            let c = <booly>dV(),
+                                {sub} = PrepRng(ar, srcE, att, 1, !c)
+                            if (c)
+                                return b(sub)
                         }
-                    }
+                    : m[2]
+                    ?  async function REACT(ar: Area) {                
+                            let {r, sub} = PrepRng(ar, srcE, att);
+            
+                            await b(sub);
+
+                            let 
+                                subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.chi)
+                                , pVars: RVAR[] = r.rvars
+                                , i = 0;
+
+                            for (let rvar of r.rvars = <RVAR[]>dV()) {
+                                if (pVars) {
+                                    // Check whether the current rvar(s) are the same as the previous one(s)
+                                    let p = pVars[i++];
+                                    if (rvar==p)
+                                        continue;           // Yes, continue
+                                    p._Subs.delete(subs);   // No, unsubscribe from the previous one
+                                }
+
+                                try { rvar.Subscribe(subs); }
+                                catch { ErrAtt('This is not an RVAR', att) }
+                            }
+                        }
+                    :       // Renew
+                        function renew(sub: Area) {
+                            return b(PrepRng(sub, srcE, 'renew', 2).sub);
+                        }
             }
             
             if (dOnerr || dOnsuc) {
