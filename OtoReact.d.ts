@@ -21,7 +21,6 @@ declare type hHTMLElement = HTMLElement & {
     }>;
 };
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
-    iB?: number;
     auto?: string;
     nm?: string;
 };
@@ -37,8 +36,8 @@ declare type Area<VT = unknown> = {
 declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     text?: string;
     node: NodeType;
-    chi: Range;
-    nxt: Range;
+    ch: Range;
+    nx: Range;
     parR?: Range;
     parN?: Node;
     constructor(ar: Area, node?: NodeType, text?: string);
