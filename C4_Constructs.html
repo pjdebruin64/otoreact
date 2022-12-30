@@ -377,20 +377,17 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=REACT><{}REACT on? renew?></h2>
+<h2 id=REACT><{}REACT on?></h2>
 
 <p>
 <pre class=sourcecode>
 <elm>REACT</elm>
     <i>Content</i>
 <elm>/REACT</elm></pre>
-    allows you to group a range of source nodes, limit the scope of local variables, and add <a href="#GlobalAtts">global attributes</a>, without adding other functionality.       
+    allows you to group a range of source nodes, limit the scope of local variables, add <a href="#GlobalAtts">global attributes</a>, and set <a href="#PseudoEvents">pseudo events</a>, without adding other functionality.       
 </p>
 <p>
-    <elm class=sourcecode>REACT on=<i>RVARlist</i></elm> is a shorthand for <elm>REACT reacton=<i>RVARlist</i></elm>.
-</p>
-<p>
-    With attribute <code class=sourcecode>renew</code>, the given content will not be updated, but will be removed and rebuilt on every update request.
+    <elm class=sourcecode>REACT on=<i>RVAR-list</i></elm> is a shorthand for <elm>REACT reacton=<i>RVAR-list</i></elm>.
 </p>
 
 <h2>Introduction to Components</h2>

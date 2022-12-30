@@ -91,7 +91,7 @@ For each DOM event, say <code>onclick</code>, there is a corresponding DOM prope
 </ul>
 
 
-<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash</h2>
+<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash, renew</h2>
 RHTML recognizes the following global attributes on every element and construct.
 <dl>
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
@@ -129,19 +129,21 @@ RHTML recognizes the following global attributes on every element and construct.
             Note 2: <code>reacton</code>, <code>thisreactson</code>, and <code>#if</code> have priority over <code>hash</code>.
         </p>
     </dd>
+    <dt><code class=sourcecode>renew</code></dt>
+    <dd>
+        When attribute <code>renew</code> is specified, then on every update request, the node and its content will be removed and rebuilt.
+    </dd>
 </dl>
 
 When you want to apply these attributes to a <i>range</i> of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
 <p>
-    * When multiple global attributes are applied to the same node, then:
+    When multiple global attributes are applied to the same node, then these are handled in order of appearance: global attributes appearing on the right are treated as "inner to" global attributes appearing on the left.
+    <br>For example:
     <ul>
-        <li>The <code>#if</code> attribute is treated 'inner' to, or subjected to, the <code>hash</code> and react attributes</li>
-        <li>The <code>hash</code> and react attributes are handled in order of appearance:
-            <ul>
-                <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed</li>
-                <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty, but <i>hash</i> has not changed</li>
-            </ul>
-        </li>
+        <li>In <elm>elm reacton="<i>rvar</i>" #if="<i>condition</i>"</elm>, <i>condition</i> will be reevaluated every time <i>rvar</i> is set dirty</li>
+        <li>In <elm>elm #if="<i>condition</i>" reacton="<i>rvar</i>"</elm>, <i>condition</i> is not necessarily reevaluated when <i>rvar</i> is set dirty</li>
+        <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed</li>
+        <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty, but <i>hash</i> has not changed</li>
     </ul>
 </p>
 

@@ -91,26 +91,26 @@ class Context {
         }
     }
     getV(k) {
-        if (!k)
-            return U;
-        let d = this.d;
-        return (e = env) => {
-            let [F, i] = k;
-            for (; F < d; F++)
-                e = e[0];
-            return e[i];
-        };
+        if (k) {
+            let d = this.d;
+            return (e = env) => {
+                let [F, i] = k;
+                for (; F < d; F++)
+                    e = e[0];
+                return e[i];
+            };
+        }
     }
     getLV(nm) {
         return this.getV(this.lvMap.get(nm) || thro(`Unknown name '${nm}'`));
     }
     getCS(nm) {
         let SK = this.csMap.get(nm);
-        return SK && [SK[0], this.getV(SK[1])];
+        return SK && { S: SK.S, dC: this.getV(SK.k) };
     }
     max(C) {
         return ass(C.L > this.L ? C : this, {
-            N: Math.min(this.M, C.M)
+            M: Math.min(this.M, C.M)
         });
     }
 }
@@ -262,9 +262,10 @@ class _RVAR {
     SetDirty() {
         for (let sub of this._Imm)
             sub(this.v);
-        if (this._Subs.size)
-            DVars.add(this),
-                RUpdate();
+        if (this._Subs.size) {
+            DVars.add(this);
+            RUpd();
+        }
     }
     toString() {
         return this.v?.toString() ?? '';
@@ -284,17 +285,14 @@ function Subscriber({ parN, bR }, bl, r) {
 let env, onerr, onsuc, DVars = new Set(), hUpdate, ro = F, updCnt = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => { start += now() - t; });
-};
-function RUpdate() {
+}, RUpd = () => {
     if (!env && !hUpdate)
-        hUpdate = setTimeout(DoUpdate, 5);
-}
+        hUpdate = setTimeout(DoUpdate, 0);
+};
 export async function DoUpdate() {
     hUpdate = N;
-    if (!R.bldr || env || !DVars.size)
-        return;
-    env = E;
-    try {
+    if (!env && DVars.size) {
+        env = E;
         nodeCnt = 0;
         start = now();
         while (DVars.size) {
@@ -314,8 +312,6 @@ export async function DoUpdate() {
                     }
         }
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-    }
-    finally {
         env = U;
     }
 }
@@ -330,7 +326,7 @@ function RVAR_Light(t, updTo) {
                 if (!ro) {
                     DVars.add(t);
                     t._UpdTo?.forEach(rvar => rvar.SetDirty());
-                    RUpdate();
+                    RUpd();
                 }
                 return t;
             }
@@ -439,17 +435,16 @@ class RCompiler {
         this.CT = new Context(CT, T);
     }
     Framed(Comp) {
-        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M > 0;
+        let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M;
         if (nf) {
             CT.ct = `[${ct}]`;
             CT.d++;
             CT.L = CT.M = 0;
         }
         return Comp((sub, r) => {
-            if (!r)
-                ({ r, sub } = PrepRng(sub));
+            r || ({ r, sub } = PrepRng(sub));
             let e = env;
-            env = r.val || (r.val = nf ? [e] : [e[0]]);
+            env = r.val || (r.val = [nf ? e : e[0]]);
             return { sub, ES: () => { env = e; } };
         }).finally(() => {
             ass(this.CT = CT, { ct, d, L, M });
@@ -491,7 +486,7 @@ class RCompiler {
         let { CT } = this, { csMap, M } = CT;
         for (let S of listS) {
             let p = csMap.get(S.nm);
-            csMap.set(S.nm, [S, [CT.d, --CT.M]]);
+            csMap.set(S.nm, { S, k: [CT.d, --CT.M] });
             this.rActs.push(() => mapSet(csMap, S.nm, p));
         }
         return (CDefs) => {
@@ -500,14 +495,14 @@ class RCompiler {
                 env[--i] = C;
         };
     }
-    async Compile(elm, chiNodes) {
+    async Compile(elm, nodes) {
         for (let tag of this.Settings.preformatted)
             this.setPRE.add(tag.toUpperCase());
         let t0 = now();
         this.bldr =
-            (chiNodes
-                ? await this.CChilds(elm, chiNodes)
-                : await this.CElm(elm.parentElement, elm, T)) || dB;
+            (nodes
+                ? await this.CChilds(elm, nodes)
+                : await this.CElm(elm, T)) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr;
     }
@@ -528,33 +523,33 @@ class RCompiler {
         }
         await DoUpdate();
     }
-    CChilds(srcParent, chiNodes = srcParent.childNodes) {
+    CChilds(srcParent, nodes = srcParent.childNodes) {
         let ES = this.SS();
-        return this.CIter(srcParent, chiNodes).finally(ES);
+        return this.CIter(nodes).finally(ES);
     }
-    async CIter(srcP, iter = srcP.childNodes) {
+    async CIter(iter) {
         let { rspc } = this, arr = Array.from(iter);
         while (rspc && reWS.test(last(arr)?.nodeValue))
             arr.pop();
-        let bldrs = await this.CArr(srcP, arr, this.rspc);
+        let bldrs = await this.CArr(arr, this.rspc);
         return bldrs.length ? aIb(async function Iter(ar) {
             for (let b of bldrs)
                 await b(ar);
         }, bldrs.every(b => b.iB)) : N;
     }
-    async CArr(srcP, arr, rspc, i = 0) {
+    async CArr(arr, rspc, i = 0) {
         let bldrs = [], L = arr.length, rv;
         while (i < L) {
             let srcN = arr[i++], bl;
             this.rspc = i == L && rspc;
             switch (srcN.nodeType) {
-                case Node.ELEMENT_NODE:
+                case 1:
                     this.srcNodeCnt++;
-                    bl = await this.CElm(srcP, srcN);
+                    bl = await this.CElm(srcN);
                     if (rv = bl?.auto)
                         try {
                             bldrs.push(bl);
-                            var s = this.cRvars[rv], bs = await this.CArr(srcP, arr, rspc, this.cRvars[rv] = i), gv = this.CT.getLV(rv);
+                            var s = this.cRvars[rv], bs = await this.CArr(arr, rspc, this.cRvars[rv] = i), gv = this.CT.getLV(rv);
                             bl = bs.length && this.cRvars[rv]
                                 ? aIb(async function Auto(ar) {
                                     if (ar.r)
@@ -575,7 +570,7 @@ class RCompiler {
                             this.cRvars[rv] = s;
                         }
                     break;
-                case Node.TEXT_NODE:
+                case 3:
                     this.srcNodeCnt++;
                     let str = srcN.nodeValue, getText = this.CText(str), { fx } = getText;
                     if (fx !== '') {
@@ -584,7 +579,7 @@ class RCompiler {
                             this.ws = / $/.test(str) ? 2 : 3;
                     }
                     break;
-                case Node.COMMENT_NODE:
+                case 8:
                     if (this.Settings.bKeepComments) {
                         let getText = this.CText(srcN.nodeValue, 'Comment');
                         bl = aIb(async (ar) => PrepData(ar, getText(), T), 1);
@@ -605,30 +600,34 @@ class RCompiler {
             prune();
         return bldrs;
     }
-    async CElm(srcPrnt, srcE, bUnhide) {
+    async CElm(srcE, bUnhide) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, reacts = [], bf = [], af = [], dOnerr, dOnsuc, bl, b, iB, auto, m, nm, constr = this.CT.getCS(tag);
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], dOnerr, dOnsuc, bl, iB, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
-                    /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success)-?)$/
+                    /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success))$/
                         .exec(att))
                     if (m[1])
                         m[4] && tag != 'REACT'
                             || m[5] && tag == 'FOR'
-                            || reacts.push({ att, m, dV: m[6] ? this.CAttExp(atts, 'if') : this.CAttExpList(atts, att, T) });
+                            ||
+                                glAtts.push({ att, m, dV: m[6] ? this.CAttExp(atts, att) : this.CAttExpList(atts, att, T) });
                     else {
                         let txt = atts.g(att);
                         if (nm = m[8])
-                            (m[7] ? bf : af).push({
+                            (m[7] ? bf : af)
+                                .push({
                                 att,
                                 txt,
-                                C: /c/i.test(nm), U: /u/i.test(nm), D: /y/i.test(nm),
+                                C: /c/.test(nm),
+                                U: /u/.test(nm),
+                                D: /y/i.test(nm),
                                 hndlr: m[7] && this.CHandlr(att, txt)
                             });
                         else {
                             let hndlr = this.CHandlr(att, txt);
-                            if (m[9])
-                                (dOnerr = hndlr).bBldr = !/-/.test(att);
+                            if (m[10])
+                                dOnerr = hndlr;
                             else
                                 dOnsuc = hndlr;
                         }
@@ -694,41 +693,41 @@ class RCompiler {
                         break;
                     case 'IMPORT':
                         {
-                            let src = atts.g('src', T), bIncl = atts.gB('include'), lvars = this.LVars(atts.g('defines')), bAsync = atts.gB('async'), listImps = Array.from(mapI(srcE.children, ch => this.CSignat(ch))), DC = this.LCons(listImps), cTask = OMods.get(src);
+                            let src = atts.g('src', T), bIncl = atts.gB('include'), bAsync = atts.gB('async'), lvars = this.LVars(atts.g('defines')), imps = Array.from(mapI(srcE.children, ch => this.CSignat(ch))), DC = this.LCons(imps), cTask = OMods.get(src);
                             if (!cTask) {
                                 let C = new RCompiler(this, this.GetPath(src), { bSubfile: T }, new Context());
                                 C.log(src);
-                                OMods.set(src, cTask = C.CIter(N, await this.fetchModule(src))
+                                OMods.set(src, cTask = C.CIter(await this.fetchModule(src))
                                     .then(b => [b, C.CT], e => { alert(e); throw e; }));
                             }
                             let task = cTask.then(([b, CT]) => {
-                                for (let sig of listImps) {
-                                    let [S, g] = CT.getCS(sig.nm)
+                                for (let sig of imps) {
+                                    let { S, dC } = CT.getCS(sig.nm)
                                         || thro(`<${sig.nm}> is missing in '${src}'`);
                                     bAsync
                                         ? !sig.IsCompat(S) && thro(`Import signature ${sig.srcE.outerHTML} is incompatible with module signature ${S.srcE.outerHTML}`)
                                         : ass(sig, S);
-                                    sig.g = g;
+                                    sig.g = dC;
                                 }
                                 for (let lv of lvars)
                                     lv.g = CT.getLV(lv.nm);
                                 return b;
                             });
                             if (!bAsync) {
-                                for (let sig of listImps)
+                                for (let sig of imps)
                                     sig.task = task;
                             }
                             bl = async function IMPORT(ar) {
                                 let { sub, cr, r } = PrepRng(ar, srcE);
                                 if (cr || bIncl) {
                                     try {
-                                        var b = await NoTime(task), sv = env, MEnv = env = r.val || (r.val = []);
+                                        var b = await NoTime(task), s = env, MEnv = env = r.val || (r.val = []);
                                         await b(bIncl ? sub : { parN: D.createDocumentFragment() });
                                     }
                                     finally {
-                                        env = sv;
+                                        env = s;
                                     }
-                                    DC(mapI(listImps, S => S.g(MEnv)));
+                                    DC(mapI(imps, S => S.g(MEnv)));
                                     for (let lv of lvars)
                                         lv(lv.g(MEnv));
                                 }
@@ -750,7 +749,7 @@ class RCompiler {
                                 ApplyMods(node, mods, cr);
                                 if (src != r.res) {
                                     r.res = src;
-                                    let sv = env, sRoot = C.head = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
+                                    let s = env, sRoot = C.head = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
                                         parR: r.chi || (r.chi = new Range(N, N, 'Shadow'))
                                     };
@@ -758,22 +757,21 @@ class RCompiler {
                                     sRoot.innerHTML = '';
                                     try {
                                         tempElm.innerHTML = src;
-                                        ass(C, { ws, rspc, CT: new Context() });
-                                        await C.Compile(tempElm, tempElm.childNodes);
+                                        await ass(C, { ws, rspc, CT: new Context() }).Compile(tempElm, tempElm.childNodes);
                                         await C.Build(sAr);
                                     }
                                     catch (e) {
                                         sRoot.appendChild(createErrNode(`Compile error: ` + e));
                                     }
                                     finally {
-                                        env = sv;
+                                        env = s;
                                     }
                                 }
                             };
                         }
                         break;
                     case 'SCRIPT':
-                        bl = await this.CScript(srcPrnt, srcE, atts);
+                        bl = await this.CScript(srcE, atts);
                         iB = 1;
                         break;
                     case 'STYLE':
@@ -790,7 +788,7 @@ class RCompiler {
                                 let doc = ar.parN.ownerDocument, docEnv = env, wins = new Set();
                                 vDoc({
                                     async render(w, cr, args) {
-                                        let sv = env, d = w.document;
+                                        let s = env, d = w.document;
                                         env = docEnv;
                                         SetLVars(vParams, args);
                                         vWin(w);
@@ -805,7 +803,7 @@ class RCompiler {
                                             await docBldr(ar);
                                         }
                                         finally {
-                                            env = sv;
+                                            env = s;
                                         }
                                     },
                                     open(target, features, ...args) {
@@ -901,7 +899,7 @@ class RCompiler {
                 bl = async function Pseudo(ar, x) {
                     let { r, prvR } = ar, bfD;
                     for (let g of bf) {
-                        if (g.D && !r)
+                        if (g.D)
                             bfD = g.hndlr();
                         if (r ? g.U : g.C)
                             g.hndlr().call(r?.node || ar.parN);
@@ -909,17 +907,16 @@ class RCompiler {
                     await b(ar, x);
                     let prev = (r ? ar.r != r && r
                         : ar.prvR != prvR && ar.prvR) || PrepRng(ar).r;
-                    if (bfD)
-                        prev.bfD = bfD;
+                    prev.bfD = bfD;
                     for (let g of af) {
-                        if (g.D && !r)
+                        if (g.D)
                             prev.afD = g.hndlr();
                         if (r ? g.U : g.C)
                             g.hndlr().call(prev.node || ar.parN);
                     }
                 };
             }
-            for (let { att, m, dV } of reacts.reverse()) {
+            for (let { att, m, dV } of glAtts.reverse()) {
                 let b = bl, bR = m[3];
                 bl = m[5]
                     ? async function HASH(ar) {
@@ -966,7 +963,7 @@ class RCompiler {
                     let oo = { onerr, onsuc };
                     try {
                         if (dOnerr)
-                            (onerr = dOnerr()).bBldr = dOnerr.bBldr;
+                            onerr = dOnerr();
                         if (dOnsuc)
                             onsuc = dOnsuc();
                         await b(ar, x);
@@ -1001,7 +998,7 @@ class RCompiler {
                 if (this.Settings.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (onerr?.bBldr)
+                if (onerr)
                     onerr(e);
                 else if (this.Settings.bShowErrors) {
                     let errN = ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
@@ -1011,7 +1008,7 @@ class RCompiler {
             }
         });
     }
-    async CScript(_srcParent, srcE, atts) {
+    async CScript(srcE, atts) {
         let { type, text, defer, async } = srcE, src = atts.g('src'), defs = atts.g('defines'), varlist = [...split(defs)], bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), bUpd = atts.gB('updating'), { ct } = this.CT, lvars = mOto && mOto[2] && this.LVars(defs), exp, SetVars = lvars
             ? (e) => SetLVars(lvars, e)
             : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
@@ -1070,8 +1067,8 @@ class RCompiler {
                 atts.NoneLeft();
         let caseList = [], { ws, rspc, CT } = this, postCT = CT, postWs = 0, bEls;
         for (let { node, atts, body } of caseNodes) {
-            ass(this, { ws, rspc, CT: new Context(CT) });
-            let ES = this.SS();
+            let ES = ass(this, { ws, rspc, CT: new Context(CT) })
+                .SS();
             try {
                 let cond, not, patt, p;
                 switch (node.tagName) {
@@ -1095,7 +1092,7 @@ class RCompiler {
                         if (patt && !dVal)
                             throw `Match requested but no 'value' specified.`;
                     case 'ELSE':
-                        let b = await this.CChilds(node, body || node.childNodes);
+                        let b = await this.CChilds(node, body);
                         if (b) {
                             caseList.push({
                                 cond, not, patt,
@@ -1159,7 +1156,7 @@ class RCompiler {
         if (letNm != N) {
             let dOf = this.CAttExp(atts, 'of', T), pvNm = atts.g('previous', U, U, T), nxNm = atts.g('next', U, U, T), dUpd = this.CAttExp(atts, 'updates'), bRe = atts.gB('reacting') || atts.gB('reactive') || dUpd;
             return this.Framed(async (SS) => {
-                let vLet = this.LVar(letNm), vIx = this.LVar(ixNm), vPv = this.LVar(pvNm), vNx = this.LVar(nxNm), dKey = this.CAttExp(atts, 'key'), dHash = this.CAttExpList(atts, 'hash'), b = await this.CIter(srcE);
+                let vLet = this.LVar(letNm), vIx = this.LVar(ixNm), vPv = this.LVar(pvNm), vNx = this.LVar(nxNm), dKey = this.CAttExp(atts, 'key'), dHash = this.CAttExpList(atts, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar) {
                     let { r, sub } = PrepRng(ar, srcE, ''), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, iter = dOf() || E, pIter = async (iter) => {
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
@@ -1274,17 +1271,12 @@ class RCompiler {
                     };
                     if (iter instanceof Promise) {
                         let subEnv = { env, onerr, onsuc };
-                        r.rvars = [RVAR(N, iter, N, r.subs =
-                                async (iter) => {
-                                    let save = { env, onerr, onsuc };
-                                    ({ env, onerr, onsuc } = subEnv);
-                                    try {
-                                        await pIter(iter);
-                                    }
-                                    finally {
-                                        ({ env, onerr, onsuc } = save);
-                                    }
-                                })];
+                        r.rvars = [
+                            RVAR(N, iter)
+                                .Subscribe(r.subs =
+                                ass(iter => (({ env, onerr, onsuc } = subEnv),
+                                    pIter(iter)), { sAr: T }))
+                        ];
                     }
                     else
                         await pIter(iter);
@@ -1292,19 +1284,19 @@ class RCompiler {
             });
         }
         else {
-            let nm = atts.g('of', T, T).toUpperCase(), [S, dCS] = this.CT.getCS(nm) ||
+            let nm = atts.g('of', T, T).toUpperCase(), { S, dC } = this.CT.getCS(nm) ||
                 thro(`Missing attribute [let]`);
             return this.Framed(async (SS) => {
-                let vIdx = this.LVar(ixNm), DC = this.LCons([S]), bl = await this.CChilds(srcE);
-                return bl && async function FOREACH_Slot(ar) {
-                    let { tmplts, env } = dCS(), { ES, sub } = SS(ar), i = 0;
+                let vIx = this.LVar(ixNm), DC = this.LCons([S]), b = await this.CChilds(srcE);
+                return b && async function FOREACH_Slot(ar) {
+                    let { tmplts, env } = dC(), { ES, sub } = SS(ar), i = 0;
                     try {
                         for (let slotBldr of tmplts) {
-                            vIdx(i++);
+                            vIx(i++);
                             DC([
                                 { nm, tmplts: [slotBldr], env }
                             ]);
-                            await bl(sub);
+                            await b(sub);
                         }
                     }
                     finally {
@@ -1314,9 +1306,9 @@ class RCompiler {
             });
         }
     }
-    CSignat(elmSignat) {
-        let S = new Signat(elmSignat);
-        for (let attr of elmSignat.attributes) {
+    CSignat(eSignat) {
+        let S = new Signat(eSignat), s;
+        for (let attr of eSignat.attributes) {
             if (S.RP)
                 throw `Rest parameter must be last`;
             let [, mode, rp, nm, opt] = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
@@ -1330,9 +1322,8 @@ class RCompiler {
                 });
             S.RP = rp && nm;
         }
-        for (let elmSlot of elmSignat.children) {
-            let s = this.CSignat(elmSlot);
-            mapNm(S.Slots, s);
+        for (let eSlot of eSignat.children) {
+            mapNm(S.Slots, s = this.CSignat(eSlot));
             if (/^CONTENT/.test(s.nm)) {
                 if (S.CSlot)
                     throw 'Multiple content slots';
@@ -1342,21 +1333,23 @@ class RCompiler {
         return S;
     }
     async CComponent(srcE, atts) {
-        let bRec = atts.gB('recursive'), { head, ws } = this, signats = [], CDefs = [], encStyles = atts.gB('encapsulate')
-            && (this.head = srcE.ownerDocument.createDocumentFragment()).children, arr = Array.from(srcE.children), elmSign = arr.shift() || thro('Missing signature(s)'), elmTmpl = arr.pop(), t = /^TEMPLATE(S)?$/.exec(elmTmpl?.tagName) || thro('Missing template(s)');
+        let bRec = atts.gB('recursive'), { head, ws } = this, signats = [], CDefs = [], encaps = atts.gB('encapsulate')
+            && (this.head = srcE.ownerDocument.createDocumentFragment()).children, arr = Array.from(srcE.children), elmSign = arr.shift() || thro('Missing signature(s)'), eTmpl = arr.pop(), t = /^TEMPLATE(S)?$/.exec(eTmpl?.tagName) || thro('Missing template(s)');
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(this.CSignat(elm));
         try {
-            var DC = bRec && this.LCons(signats), ES = this.SS(), b = this.ErrH(await this.CIter(srcE, arr), srcE), mapS = new Map(mapI(signats, S => [S.nm, S]));
+            var DC = bRec && this.LCons(signats), ES = this.SS(), b = this.ErrH(await this.CIter(arr), srcE), mapS = new Map(mapI(signats, S => [S.nm, S]));
             for (let [nm, elm, body] of t[1]
-                ? mapI(elmTmpl.children, elm => [elm.tagName, elm, elm])
+                ? mapI(eTmpl.children, elm => [elm.tagName, elm, elm])
                 : [
-                    [signats[0].nm, elmTmpl, elmTmpl.content]
-                ])
+                    [signats[0].nm, eTmpl, eTmpl.content]
+                ]) {
                 CDefs.push({
                     nm,
-                    tmplts: [await this.CTempl(mapS.get(nm) || thro(`Template <${nm}> has no signature`), elm, F, U, body, encStyles)]
-                }), mapS.delete(nm);
+                    tmplts: [await this.CTempl(mapS.get(nm) || thro(`Template <${nm}> has no signature`), elm, F, U, body, encaps)]
+                });
+                mapS.delete(nm);
+            }
             for (let [nm] of mapS)
                 throw `Signature <${nm}> has no template`;
         }
@@ -1373,7 +1366,8 @@ class RCompiler {
     CTempl(S, srcE, bIsSlot, atts, body = srcE, styles) {
         return this.Framed(async (SS) => {
             this.ws = this.rspc = 1;
-            let myAtts = atts || new Atts(srcE), lvars = S.Params.map(({ mode, nm }) => [nm, this.LVar((myAtts.g(nm) ?? myAtts.g(mode + nm, bIsSlot)) || nm)]), DC = this.LCons(S.Slots.values()), b = (!atts && myAtts.NoneLeft(), await this.CIter(body)), nm = S.nm, custNm = /^[A-Z].*-/.test(nm) ? nm : `rhtml-${nm}`;
+            let myAtts = atts || new Atts(srcE), lvars = S.Params.map(({ mode, nm }) => [nm, this.LVar((myAtts.g(nm) ?? myAtts.g(mode + nm, bIsSlot)) || nm)]), DC = (!atts && myAtts.NoneLeft(),
+                this.LCons(S.Slots.values())), b = await this.CIter(body.childNodes), tag = /^[A-Z].*-/.test(S.nm) ? S.nm : `rhtml-${S.nm}`;
             return b && async function TEMPL(args, mSlots, env, ar) {
                 let { sub, ES } = SS(ar);
                 lvars.forEach(([nm, lv], i) => {
@@ -1385,7 +1379,7 @@ class RCompiler {
                     env
                 })));
                 if (styles) {
-                    let { r: { node }, chAr, cr } = PrepElm(srcE, sub, custNm), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
+                    let { r: { node }, chAr, cr } = PrepElm(srcE, sub, tag), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
                     if (cr)
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
@@ -1398,7 +1392,7 @@ class RCompiler {
             };
         }).catch(e => { throw ErrMsg(srcE, `<${S.nm}> template: ` + e); });
     }
-    async CInstance(srcE, atts, [S, dCS]) {
+    async CInstance(srcE, atts, { S, dC }) {
         await S.task;
         let { RP, CSlot } = S, slotE, slot, nm, s, gArgs = S.Params.map(({ mode, nm, pDf }) => nm == RP
             ? ((mods) => [nm, () => mods.map(M => ({ M, v: M.depV() }))
@@ -1420,7 +1414,7 @@ class RCompiler {
         atts.NoneLeft();
         this.ws = 3;
         return async function INST(ar) {
-            let { r, sub, cr } = PrepRng(ar, srcE), IEnv = env, cdef = dCS(), args = r.val || (r.val = {});
+            let { r, sub, cr } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.val || (r.val = {});
             if (cdef) {
                 ro = T;
                 try {
@@ -1438,10 +1432,10 @@ class RCompiler {
                 try {
                     env = cdef.env;
                     for (let tmpl of cdef.tmplts)
-                        await tmpl?.(args, SBldrs, IEnv, sub);
+                        await tmpl?.(args, SBldrs, sEnv, sub);
                 }
                 finally {
-                    env = IEnv;
+                    env = sEnv;
                 }
             }
         };
@@ -1604,9 +1598,8 @@ class RCompiler {
             : this.CExpr(`function(event){${text}\n}`, nm, text);
     }
     CExpr(expr, nm, src = expr, dlms = '""') {
-        if (expr == N)
-            return expr;
-        return this.Closure(`return(${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(src) + dlms[1]);
+        return (expr == N ? expr
+            : this.Closure(`return(${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : '') + dlms[0] + Abbr(src) + dlms[1]));
     }
     CAttExpList(atts, attNm, bReacts) {
         let list = atts.g(attNm, F, T);
@@ -1654,10 +1647,9 @@ class RCompiler {
                 ? function hError(ev) {
                     try {
                         let a = hndlr.call(this, ev);
-                        if (a instanceof Promise)
-                            return a.then(oS && (v => (oS(ev), v)), oE);
-                        oS?.(ev);
-                        return a;
+                        return (a instanceof Promise
+                            ? a.then(v => (oS?.(ev), v), oE)
+                            : oS?.(ev), a);
                     }
                     catch (e) {
                         if (!oE)
@@ -1754,8 +1746,9 @@ const altProps = {
     return e;
 }, NoChilds = (srcE) => {
     for (let node of srcE.childNodes)
-        if (node.nodeType == Node.ELEMENT_NODE
-            || node.nodeType == Node.TEXT_NODE && !reWS.test(node.nodeValue))
+        if (node.nodeType == 1
+            || node.nodeType == 3
+                && !reWS.test(node.nodeValue))
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }, copySSheets = (S, D) => {
     for (let SSheet of S.styleSheets) {

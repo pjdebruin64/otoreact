@@ -70,7 +70,7 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
     to   {line-height: 0%}
   }  
   table.animate > tbody > tr:first-child {
-    animation: Disappearing 300ms linear 30ms forwards
+    animation: Disappearing 280ms linear 30ms forwards
   }
 </style>
 
@@ -546,8 +546,8 @@ const sampleFormatting = `<style>
 <define var=today #value="new Date()"></define>
 <dl>
     <dt>Internationalization API</dt>
-    <script>
-        globalThis.dateFmt = 
+    <script type=otoreact defines=dateFmt>
+        const dateFmt = 
             new Intl.DateTimeFormat('en', 
                 {day:'numeric', month: 'short'});
     </script>
@@ -716,15 +716,17 @@ const demoRadiogroup = `<import src="OtoLib.html">
     <p #style.backgroundcolor="C">Yes, {C.toLowerCase()} is a great color.</p>
   </when>
 </case>`;
-const demoCheckbox = `<import src="OtoLib.html"><checkbox></checkbox></import>
+const demoCheckbox = `<import src="OtoLib.html">
+  <checkbox></checkbox>
+</import>
 
 <def rvar="check" #value="null"></def>
 
-<checkbox @value="check.V">Click me</checkbox>
-<br>
+<checkbox @value="check.V">Click me</checkbox>,
+or
 <button onclick="check.V = null">Set to indeterminate</button>
 
- <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
+<p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
 const demoTables = `<style>
   * {
     text-align: center;
