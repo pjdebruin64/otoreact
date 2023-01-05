@@ -44,7 +44,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <demo #srctext=demoScoping></demo>
 
 <h3 id="def-rvar"><{}DEFINE rvar #value></h3>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i></elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i> auto?=true</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
@@ -64,13 +64,19 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     When <code class="sourcecode">onmodified</code> is specified, the given handler will be subscribed to the new RVAR, i.e., the handler will be executed whenever the RVAR has been modified or otherwise been set dirty.
 </p>
+<p>
+    When <code class="sourcecode">auto=false</code> is set, then auto-subscription (see below) is disabled.
+    The default is determined by RHTML <a href="#Options">option</a> <code>bAuto</code>, which defaults to <code>true</code>.
+</p>
 
 
-<h4>RVAR auto-subscription*</h4>
-When an RVAR is declared using <elm>DEFINE rvar</elm>, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR) was found while building the range of HTML following the <elm>DEFINE</elm>, then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
+<h4 id="auto">RVAR auto-subscription*</h4>
+When an RVAR is declared using <elm>DEFINE rvar</elm>, and auto-subscription isn't disabled, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR)
+was found while either compiling or building the range of HTML following the <elm>DEFINE</elm>,
+then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
 <p>
     Here you have two RVAR's <code>a</code> and <code>b</code>, each followed by a button and a span element.
-    <br><code>a</code> has no explicit subscriber, so both these elements are auto-subscribed to <code>a</code> and are updated when you click the button.
+    <br><code>a</code> has no explicit subscriber, so both elements are auto-subscribed to <code>a</code> and are updated when you click the button.
     <br>The second span is subscribed to <code>b</code>, so there is no auto-subscription and the second button won't be updated when you click it.
 </p>
 <demo #srctext="demoAutoSubscribtion"></demo>

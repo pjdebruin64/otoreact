@@ -5,6 +5,7 @@ declare const defaults: {
     bSubfile: boolean;
     basePattern: string;
     preformatted: string[];
+    bAuto: boolean;
     bNoGlobals: boolean;
     bDollarRequired: boolean;
     bSetPointer: boolean;
@@ -65,7 +66,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-declare class _RVAR<T = unknown> {
+export declare class _RVAR<T = unknown> {
     name?: string;
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;

@@ -1,11 +1,17 @@
+/* The OtoReact framework
+* Copyright 2022 Peter J. de Bruin (peter@peterdebruin.net)
+* See https://otoreact.dev/
+*/
 const
     // Some abbreviations
+    // Please forgive me for trying to minimize the library file size
     U = undefined, N = null, T = true, F = false, 
     E = [],     // Empty array, must remain empty
     W = window, D = document, L = location,
     G = self,
         // Polyfill for globalThis
         //W.globalThis || ((W as any).globalThis = W.self)
+    US = "'use strict';",
 
     // Global settings 
     defaults = {
@@ -16,6 +22,7 @@ const
         bSubfile:    F,
         basePattern:    '/',
         preformatted:   E as string[],
+        bAuto:          T,
         bNoGlobals:     F,
         bDollarRequired: F,
         bSetPointer:    T,
@@ -23,6 +30,7 @@ const
         bKeepComments:  F,
         storePrefix:    "RVAR_"
     },
+    
     // Some utilities
     P = new DOMParser(),
     Ev = eval,                  // Note: 'eval(txt)' can access variables from this file, while 'Ev(txt)' cannot.
@@ -525,7 +533,7 @@ interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-class _RVAR<T = unknown>{
+export class _RVAR<T = unknown>{
     public name?: string;
     constructor(
         name?: string, 
@@ -547,9 +555,7 @@ class _RVAR<T = unknown>{
             );
         }
         init instanceof Promise ? 
-            init.then( v => this.V = v,
-                onerr
-            )
+            init.then( v => this.V = v,  on.e)
             : (this.v = init)
     }
     // The value of the variable
@@ -589,7 +595,7 @@ class _RVAR<T = unknown>{
     {
         return t =>
             t instanceof Promise ?
-                ( (this.V = U), t.then(v => this.V = v, onerr))
+                ( (this.V = U), t.then(v => this.V = v, on.e))
                 : (this.V = t);
     }
     get Clear() {
@@ -632,14 +638,14 @@ export type RVAR_Light<T> = T & {
         
 function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range): Subscriber {
     let sAr: Area = {parN, bR, r: r||{} as any }, // No parR (parent range); this is used by DEF()
-        subEnv = {env, onerr, onsuc},
+        subEnv = {env, on},
         lastUpd = updCnt;
 
     return ass(
         async () => {
             if (lastUpd < updCnt)
             {
-                ({env, onerr, onsuc} = subEnv);
+                ({env, on} = subEnv);
                 if (!bR) lastUpd = updCnt;
                 await bl({...sAr}, T);
             }
@@ -650,8 +656,7 @@ function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range): Subscriber {
 let    
 /* Runtime data */
     env: Environment,       // Current runtime environment
-    onerr: Handler,         // Current error handler
-    onsuc: Handler,        // Current onsuccess routine
+    on = {e: <Handler>N, s: <Handler>N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light
     DVars = new Set<{_Subs: Set<Subscriber>;}>(),
@@ -751,8 +756,9 @@ const enum MType {
 type Modifier = {
     mt: MType,
     nm: string,
-    c?: booly   // Truthy when nm has been checked for proper casing
     depV: Dep<unknown>,
+    c?: booly,      // Truthy when nm has been checked for proper casing
+    isS?: booly,    // Truthy when the property type is string
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
 
@@ -765,7 +771,10 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
         if (mt == MType.Prop && nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number')
             nm = 'value';
         // For properties and events, find the correct capitalization of 'nm'.
-        M.c = mt!=MType.Prop && mt!=MType.Event || (nm=M.nm=ChkNm(elm, nm));
+        M.c = nm = M.nm =
+            ( mt == MType.Style && ChkNm(elm.style, nm)
+            || (mt == MType.Prop || mt == MType.Event) && ChkNm(elm, nm)
+            || nm);
     }
     switch (mt) {
         case MType.Attr:
@@ -775,7 +784,12 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
         case MType.Prop:
-            if (val==N && typeof elm[nm]=='string') val = '';
+            // Avoid unnecessary property assignments; they may have side effects
+            if (M.isS ??= typeof elm[nm]=='string')
+                if (val==N)
+                    val = ''
+                else if (typeof val != 'string')
+                    val = val.toString();
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
@@ -948,7 +962,10 @@ class RCompiler {
         else {
             // Check valid JavaScript identifier
             if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm)) throw `Invalid identifier '${nm}'`;
-            if (reReserv.test(nm)) throw `Reserved keyword '${nm}'`;
+
+            // Check for reserved keywords
+            try { Ev(US+`let ${nm}=0`); }
+            catch { throw `Reserved keyword '${nm}'`; }
 
             let {CT} = this
                 , L = ++CT.L        // Reserve a place in the environment
@@ -1083,9 +1100,9 @@ class RCompiler {
                     bl = await this.CElm(srcN as HTMLElement);
 
                     if (rv = bl?.auto)
+                        // Handle auto-subscription
                         try {
                             // Check for compile-time subscribers
-
                             bldrs.push(bl);
 
                             var s = this.cRvars[rv],    // Save previous value
@@ -1161,12 +1178,7 @@ class RCompiler {
                 // Generic pseudo-events to be handled BEFORE and AFTER building
                 bf: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
                 af: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
-                
-                // onerror handler to be installed
-                dOnerr: Dep<Handler>,
-                // onsuccess handler to be installed
-                dOnsuc: Dep<Handler>,
-                
+                                
                 // The intermediate builder will be put here
                 bl: DOMBuilder,
                 
@@ -1183,37 +1195,40 @@ class RCompiler {
                 // Check for generic attributes
             for (let [att] of atts)
                 if (m = 
-                     /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success))$/
+                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy)+)$/
                      .exec(att))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
-                        || m[5] && tag=='FOR'   // <FOR> has its own 'hash'
+                        || m[7] && tag=='FOR'   // <FOR> has its own 'hash'
                         ||                      // other cases are put in the list:
-                            glAtts.push({att, m, dV: m[6] ? this.CAttExp(atts, att) : this.CAttExpList<RVAR>(atts, att, T)});
-                    else {
-                        let txt = atts.g(att);
-                        if (nm = m[8])  // #?(before|after|on)(create|update|destroy)+
-                            // We have a pseudo-event
-                            (m[7] ? bf : af)    // Is it before or after
-                            .push(
+                            glAtts.push(
                                 {
                                     att, 
-                                    txt, 
-                                    C:/c/.test(nm),    // contains 'create'
-                                    U:/u/.test(nm),    // contains 'update'
-                                    D:/y/.test(nm),    // contains 'destroy'
-                                        // 'before' events are compiled now, before the element is compiled
-                                        // 'after' events are compiled after the element has been compiled, so they may
-                                        // refer to local variables introduced by the element.
-                                    hndlr: m[7] && this.CHandlr(att,txt)
+                                    m, 
+                                    dV: 
+                                        m[5]  // on((error)|success)
+                                            ? this.CHandlr(att, atts.g(att))
+                                        : m[8] // if
+                                            ? this.CAttExp(atts, att)
+                                        :   // reacton, hash
+                                          this.CAttExpList<RVAR>(atts, att, T)
                                 });
-                        else { // #?on(?:(error)-?|success)
-                            let hndlr = this.CHandlr(att, txt) as typeof dOnerr; 
-                            if (m[10])   // #?onerror
-                                dOnerr = hndlr;
-                            else
-                                dOnsuc = hndlr;
-                        }
+                    else { // #?(before|after|on)(create|update|destroy)+
+                        let txt = atts.g(att);
+                        // We have a pseudo-event
+                        (m[9] ? bf : af)    // Is it before or after
+                        .push(
+                            {
+                                att, 
+                                txt, 
+                                C:/c/.test(att),    // contains 'create'
+                                U:/u/.test(att),    // contains 'update'
+                                D:/y/.test(att),    // contains 'destroy'
+                                    // 'before' events are compiled now, before the element is compiled
+                                    // 'after' events are compiled after the element has been compiled, so they may
+                                    // refer to local variables introduced by the element.
+                                hndlr: m[9] && this.CHandlr(att,txt)
+                            });
                     }
 
             if (bUnhide) atts.set('#hidden', 'false'); 
@@ -1226,21 +1241,23 @@ class RCompiler {
                         NoChilds(srcE);
                         let rv      = atts.g('rvar'), // An RVAR
                             t = '@value', 
-                            t_val   = rv && atts.g(t),
-                            dGet    = t_val ? this.CExpr(t_val,t) : this.CParam(atts, 'value'),
+                            twv     = rv && atts.g(t),
+                            dGet    = twv ? this.CExpr(twv,t) : this.CParam(atts, 'value'),
+                            bUpd    = atts.gB('reacting') || atts.gB('updating') || twv,
+
                             // When we want a two-way rvar, we need a routine to update the source expression
-                            dSet    = t_val && this.CTarget(t_val),
-                            dUpd    = rv && this.CAttExp<RVAR>(atts, 'updates'),
-                            dSto    = rv && this.CAttExp<Store>(atts, 'store'),
+                            dSet    = twv && this.CTarget(twv),
+                            dUpd    = rv   && this.CAttExp<RVAR>(atts, 'updates'),
+                            dSto    = rv   && this.CAttExp<Store>(atts, 'store'),
                             dSNm    = dSto && this.CParam<string>(atts, 'storename'),
-                            bUpd    = atts.gB('reacting') || atts.gB('updating') || t_val,
                             vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
+
+                        auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv; 
                         bl = async function DEF(ar, bRe?: boolean) {
                                 let r = ar.r
-                                    //{cr} = PrepRng(ar)
-                                , v: unknown, upd: RVAR;
+                                    , v: unknown, upd: RVAR;
                                 if (!r || bUpd || bRe){
                                     try {
                                         ro=T;
@@ -1265,8 +1282,7 @@ class RCompiler {
                                         vLet(v);
                                 }
                             }
-
-                        auto = !onMod && rv;                        
+                       
                     } break;
 
                     case 'IF':
@@ -1602,25 +1618,10 @@ class RCompiler {
             // Compile global attributes
             for (let {att, m, dV} of glAtts.reverse()) {
                 let b = bl,
-                    bR = m[3];    // 'thisreactson'?
-                bl = m[5]   // hash
-                    ? async function HASH(ar: Area) {
-                        let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
-                            , hashes = <unknown[]>dV();
-    
-                        if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
-                            r.val = hashes;
-                            await b(sub);
-                        }
-                    }
-                    : m[6]  // if
-                    ?   function hIf(ar: Area) {
-                            let c = <booly>dV(),
-                                {sub} = PrepRng(ar, srcE, att, 1, !c)
-                            if (c)
-                                return b(sub)
-                        }
-                    : m[2]
+                    bR = m[3],    // 'thisreactson'?
+                    es = m[6] ? 'e' : 's';
+                bl = 
+                    m[2]
                     ?  async function REACT(ar: Area) {                
                             let {r, sub} = PrepRng(ar, srcE, att);
             
@@ -1644,7 +1645,34 @@ class RCompiler {
                                 catch { ErrAtt('This is not an RVAR', att) }
                             }
                         }
-                    :       // Renew
+                    : m[5]  // onerror|onsuccess
+                    ? async function SetOnES(ar: Area,x) {
+                            let s = on; 
+                            on = {...on}
+                            try {
+                                on[es] = dV();
+                                await b(ar,x);
+                            }
+                            finally { on = s; }
+                        }
+                    :   m[7]   // hash
+                    ? async function HASH(ar: Area) {
+                        let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
+                            , hashes = <unknown[]>dV();
+    
+                        if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
+                            r.val = hashes;
+                            await b(sub);
+                        }
+                    }
+                    : m[8]  // if
+                    ?   function hIf(ar: Area) {
+                            let c = <booly>dV(),
+                                {sub} = PrepRng(ar, srcE, att, 1, !c)
+                            if (c)
+                                return b(sub)
+                        }
+                    :   // Renew
                         function renew(sub: Area) {
                             return b(
                                 PrepRng(sub, srcE, 'renew', 2
@@ -1652,21 +1680,6 @@ class RCompiler {
                                 ).sub
                             );
                         }
-            }
-            
-            if (dOnerr || dOnsuc) {
-                let b = bl;
-                bl = async function SetOnError(ar: Area,x) {
-                    let oo = {onerr, onsuc};
-                    try {
-                        if (dOnerr) 
-                            onerr = dOnerr();
-                        if (dOnsuc)
-                            onsuc = dOnsuc();
-                        await b(ar,x);
-                    }
-                    finally { ({onerr,onsuc} = oo); }
-                }
             }
 
             return bl != dB && ass(
@@ -1698,8 +1711,8 @@ class RCompiler {
                 if (this.Settings.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (onerr)
-                    onerr(e);
+                if (on.e)
+                    on.e(e);
                 else if (this.Settings.bShowErrors) {
                     let errN =
                         ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
@@ -1748,8 +1761,8 @@ class RCompiler {
                 let prom = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    Ev(
-                        `'use strict';(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
+                    Ev(US+
+                        `(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
                     ) as DepE<unknown[]>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
@@ -1792,7 +1805,7 @@ class RCompiler {
             }
             else {
                 // Classic or otoreact/static or otoreact/global script
-                let prom = (async() => `${mOto ? "'use strict';":""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let prom = (async() => `${mOto ? US : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
                 if (src && async)
                     // Evaluate asynchronously as soon as the script is fetched
                     prom = prom.then(txt => void (exp = Ev(txt)));
@@ -2161,12 +2174,12 @@ class RCompiler {
                         };
 
                     if (iter instanceof Promise) {
-                        let subEnv = {env, onerr,  onsuc};
+                        let subEnv = {env, on};
                         r.rvars = [
                             RVAR(N, iter)
                             .Subscribe(r.subs = 
                                 ass(iter => (
-                                    ({env, onerr, onsuc} = subEnv),
+                                    ({env, on} = subEnv),
                                     pIter(iter as Iterable<Item>)
                                 ), {sAr: T})
                             )
@@ -2528,7 +2541,7 @@ class RCompiler {
                     this.CExpr<boolean>(V, nm)
                 );
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                addM(MType.Style, CapProp(m[2]),
+                addM(MType.Style, m[2],
                     m[1] ? this.CExpr<unknown>(V, nm) : this.CText(V, nm)
                 );
             else if (nm == '+style')
@@ -2741,8 +2754,8 @@ class RCompiler {
         }
 
         try {
-            var f = Ev(
-                    `'use strict';(function(${ct}){${body}})`  // Expression evaluator
+            var f = Ev(US+
+                    `(function(${ct}){${body}})`  // Expression evaluator
             ) as (env:Environment) => T;
             return function(this: HTMLElement) {
                     try { 
@@ -2759,20 +2772,19 @@ class RCompiler {
     private AddErrH(dHndlr: Dep<Handler>): Dep<Handler> {
         return () => {
             let hndlr = dHndlr()
-                , oE = onerr, oS = onsuc;
-            return (hndlr && (oE||oS)
+                , {e,s} = on;
+            return (hndlr && (e||s)
                 ? function hError(this: HTMLElement, ev: Event) {
                     try {
                         let a = hndlr.call(this,ev);
                         // When the handler returns a promise, the result is awaited for
                         return (a instanceof Promise
-                            ? a.then(v => (oS?.(ev),v), oE)
-                            : oS?.(ev), a
+                            ? a.then(v => (s?.(ev),v), e)
+                            : s?.(ev), a
                         );
                     }
-                    catch (e) {
-                        if (!oE) throw e;
-                        oE(e);
+                    catch (er) {
+                        (e || thro)(er);
                     }
                 }
                 : hndlr
@@ -2845,13 +2857,12 @@ class Atts extends Map<string,string> {
 
     // Get a compile-time boolean attribute value
     // If the attribute is specified without value, it is treated as "true".
-    public gB(nm: string): boolean { 
+    public gB(nm: string, df: boolean = F): boolean { 
         let v = this.g(nm),
-            m = /^((false)|true)?$/i.exec(v);
-        if (v!=N) {
-            if (!m) throw `@${nm}: invalid value`;
-            return !m[2];
-        }
+            m = /^((false|no)|true|yes)?$/i.exec(v);
+        return v == N ? df
+            : m ? !m[2]
+            : thro(`@${nm}: invalid value`);
     }
 
     // Check that there are no unrecognized attributes left!
@@ -2868,14 +2879,6 @@ const
         "class": "className", 
         for: "htmlFor"
     }
-    // Reserved words
-    , reReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/
-
-// Capitalization of (just) style property names.
-// The first character that FOLLOWS on one of these words will be capitalized.
-// In this way, we don't have to list all words that occur as property name final words.
-// Better not use lookbehind assertions (https://caniuse.com/js-regexp-lookbehind):
-    , reCap = /(accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z)|./g
 
     // Elements that trigger block mode; whitespace before/after is irrelevant
     , reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL|SELECT|TITLE)$/
@@ -2884,16 +2887,6 @@ const
 
     // Capitalized propnames cache
     , Cnms: {[nm: string]: string} = {}
-
-// Properly capitalize a Style property
-, CapProp = (nm: string): string => {
-    let b: boolean;
-    return nm.replace(reCap, (w, w1) => {
-        let r = b ? w.slice(0,1).toUpperCase() + w.slice(1) : w;
-        b = w1;
-        return r;
-    });
-}
 
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.

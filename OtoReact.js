@@ -1,10 +1,11 @@
-const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = self, defaults = {
+const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = self, US = "'use strict';", defaults = {
     bTiming: F,
     bAbortOnError: F,
     bShowErrors: T,
     bSubfile: F,
     basePattern: '/',
     preformatted: E,
+    bAuto: T,
     bNoGlobals: F,
     bDollarRequired: F,
     bSetPointer: T,
@@ -205,7 +206,7 @@ class Signat {
         return c;
     }
 }
-class _RVAR {
+export class _RVAR {
     constructor(name, init, store, storeNm) {
         this._Subs = new Set();
         this._Imm = new Set();
@@ -222,7 +223,7 @@ class _RVAR {
             this.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
         }
         init instanceof Promise ?
-            init.then(v => this.V = v, onerr)
+            init.then(v => this.V = v, on.e)
             : (this.v = init);
     }
     Subscribe(s, bImm, cr) {
@@ -246,7 +247,7 @@ class _RVAR {
     }
     get Set() {
         return t => t instanceof Promise ?
-            ((this.V = U), t.then(v => this.V = v, onerr))
+            ((this.V = U), t.then(v => this.V = v, on.e))
             : (this.V = t);
     }
     get Clear() {
@@ -270,17 +271,17 @@ class _RVAR {
     }
 }
 function Subscriber({ parN, bR }, bl, r) {
-    let sAr = { parN, bR, r: r || {} }, subEnv = { env, onerr, onsuc }, lastUpd = updCnt;
+    let sAr = { parN, bR, r: r || {} }, subEnv = { env, on }, lastUpd = updCnt;
     return ass(async () => {
         if (lastUpd < updCnt) {
-            ({ env, onerr, onsuc } = subEnv);
+            ({ env, on } = subEnv);
             if (!bR)
                 lastUpd = updCnt;
             await bl({ ...sAr }, T);
         }
     }, { sAr });
 }
-let env, onerr, onsuc, DVars = new Set(), hUpdate, ro = F, updCnt = 0, nodeCnt = 0, start, NoTime = (prom) => {
+let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, updCnt = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => { start += now() - t; });
 }, RUpd = () => {
@@ -338,7 +339,10 @@ function ApplyMod(elm, M, val, cr) {
     if (!M.c) {
         if (mt == 1 && nm == 'valueasnumber' && elm.type == 'number')
             nm = 'value';
-        M.c = mt != 1 && mt != 5 || (nm = M.nm = ChkNm(elm, nm));
+        M.c = nm = M.nm =
+            (mt == 4 && ChkNm(elm.style, nm)
+                || (mt == 1 || mt == 5) && ChkNm(elm, nm)
+                || nm);
     }
     switch (mt) {
         case 0:
@@ -348,8 +352,11 @@ function ApplyMod(elm, M, val, cr) {
             elm.setAttribute('src', new URL(val, nm).href);
             break;
         case 1:
-            if (val == N && typeof elm[nm] == 'string')
-                val = '';
+            if (M.isS ?? (M.isS = typeof elm[nm] == 'string'))
+                if (val == N)
+                    val = '';
+                else if (typeof val != 'string')
+                    val = val.toString();
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
@@ -465,8 +472,12 @@ class RCompiler {
         else {
             if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
                 throw `Invalid identifier '${nm}'`;
-            if (reReserv.test(nm))
+            try {
+                Ev(US + `let ${nm}=0`);
+            }
+            catch {
                 throw `Reserved keyword '${nm}'`;
+            }
             let { CT } = this, L = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
             vM.set(nm, [CT.d, L]);
             this.rActs.push(() => mapSet(vM, nm, p));
@@ -592,35 +603,36 @@ class RCompiler {
     }
     async CElm(srcE, bUnhide) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], dOnerr, dOnsuc, bl, auto, constr = this.CT.getCS(tag), b, m, nm;
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
-                    /^#?(?:(((this)?reacts?on|(on))|(hash)|(if)|renew)|(?:(before)|on|after)((?:create|update|destroy)+)|on((error)|success))$/
+                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy)+)$/
                         .exec(att))
                     if (m[1])
                         m[4] && tag != 'REACT'
-                            || m[5] && tag == 'FOR'
+                            || m[7] && tag == 'FOR'
                             ||
-                                glAtts.push({ att, m, dV: m[6] ? this.CAttExp(atts, att) : this.CAttExpList(atts, att, T) });
+                                glAtts.push({
+                                    att,
+                                    m,
+                                    dV: m[5]
+                                        ? this.CHandlr(att, atts.g(att))
+                                        : m[8]
+                                            ? this.CAttExp(atts, att)
+                                            :
+                                                this.CAttExpList(atts, att, T)
+                                });
                     else {
                         let txt = atts.g(att);
-                        if (nm = m[8])
-                            (m[7] ? bf : af)
-                                .push({
-                                att,
-                                txt,
-                                C: /c/.test(nm),
-                                U: /u/.test(nm),
-                                D: /y/.test(nm),
-                                hndlr: m[7] && this.CHandlr(att, txt)
-                            });
-                        else {
-                            let hndlr = this.CHandlr(att, txt);
-                            if (m[10])
-                                dOnerr = hndlr;
-                            else
-                                dOnsuc = hndlr;
-                        }
+                        (m[9] ? bf : af)
+                            .push({
+                            att,
+                            txt,
+                            C: /c/.test(att),
+                            U: /u/.test(att),
+                            D: /y/.test(att),
+                            hndlr: m[9] && this.CHandlr(att, txt)
+                        });
                     }
             if (bUnhide)
                 atts.set('#hidden', 'false');
@@ -632,7 +644,8 @@ class RCompiler {
                     case 'DEFINE':
                         {
                             NoChilds(srcE);
-                            let rv = atts.g('rvar'), t = '@value', t_val = rv && atts.g(t), dGet = t_val ? this.CExpr(t_val, t) : this.CParam(atts, 'value'), dSet = t_val && this.CTarget(t_val), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), bUpd = atts.gB('reacting') || atts.gB('updating') || t_val, vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
+                            let rv = atts.g('rvar'), t = '@value', twv = rv && atts.g(t), dGet = twv ? this.CExpr(twv, t) : this.CParam(atts, 'value'), bUpd = atts.gB('reacting') || atts.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
+                            auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv;
                             bl = async function DEF(ar, bRe) {
                                 let r = ar.r, v, upd;
                                 if (!r || bUpd || bRe) {
@@ -654,7 +667,6 @@ class RCompiler {
                                         vLet(v);
                                 }
                             };
-                            auto = !onMod && rv;
                         }
                         break;
                     case 'IF':
@@ -896,61 +908,58 @@ class RCompiler {
                 };
             }
             for (let { att, m, dV } of glAtts.reverse()) {
-                let b = bl, bR = m[3];
-                bl = m[5]
-                    ? async function HASH(ar) {
-                        let { sub, r, cr } = PrepRng(ar, srcE, 'hash'), hashes = dV();
-                        if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
-                            r.val = hashes;
+                let b = bl, bR = m[3], es = m[6] ? 'e' : 's';
+                bl =
+                    m[2]
+                        ? async function REACT(ar) {
+                            let { r, sub } = PrepRng(ar, srcE, att);
                             await b(sub);
-                        }
-                    }
-                    : m[6]
-                        ? function hIf(ar) {
-                            let c = dV(), { sub } = PrepRng(ar, srcE, att, 1, !c);
-                            if (c)
-                                return b(sub);
-                        }
-                        : m[2]
-                            ? async function REACT(ar) {
-                                let { r, sub } = PrepRng(ar, srcE, att);
-                                await b(sub);
-                                let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.ch)), pVars = r.rvars, i = 0;
-                                for (let rvar of r.rvars = dV()) {
-                                    if (pVars) {
-                                        let p = pVars[i++];
-                                        if (rvar == p)
-                                            continue;
-                                        p._Subs.delete(subs);
-                                    }
-                                    try {
-                                        rvar.Subscribe(subs);
-                                    }
-                                    catch {
-                                        ErrAtt('This is not an RVAR', att);
-                                    }
+                            let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.ch)), pVars = r.rvars, i = 0;
+                            for (let rvar of r.rvars = dV()) {
+                                if (pVars) {
+                                    let p = pVars[i++];
+                                    if (rvar == p)
+                                        continue;
+                                    p._Subs.delete(subs);
+                                }
+                                try {
+                                    rvar.Subscribe(subs);
+                                }
+                                catch {
+                                    ErrAtt('This is not an RVAR', att);
                                 }
                             }
-                            :
-                                function renew(sub) {
-                                    return b(PrepRng(sub, srcE, 'renew', 2).sub);
-                                };
-            }
-            if (dOnerr || dOnsuc) {
-                let b = bl;
-                bl = async function SetOnError(ar, x) {
-                    let oo = { onerr, onsuc };
-                    try {
-                        if (dOnerr)
-                            onerr = dOnerr();
-                        if (dOnsuc)
-                            onsuc = dOnsuc();
-                        await b(ar, x);
-                    }
-                    finally {
-                        ({ onerr, onsuc } = oo);
-                    }
-                };
+                        }
+                        : m[5]
+                            ? async function SetOnES(ar, x) {
+                                let s = on;
+                                on = { ...on };
+                                try {
+                                    on[es] = dV();
+                                    await b(ar, x);
+                                }
+                                finally {
+                                    on = s;
+                                }
+                            }
+                            : m[7]
+                                ? async function HASH(ar) {
+                                    let { sub, r, cr } = PrepRng(ar, srcE, 'hash'), hashes = dV();
+                                    if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
+                                        r.val = hashes;
+                                        await b(sub);
+                                    }
+                                }
+                                : m[8]
+                                    ? function hIf(ar) {
+                                        let c = dV(), { sub } = PrepRng(ar, srcE, att, 1, !c);
+                                        if (c)
+                                            return b(sub);
+                                    }
+                                    :
+                                        function renew(sub) {
+                                            return b(PrepRng(sub, srcE, 'renew', 2).sub);
+                                        };
             }
             return bl != dB && ass(this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
@@ -977,8 +986,8 @@ class RCompiler {
                 if (this.Settings.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (onerr)
-                    onerr(e);
+                if (on.e)
+                    on.e(e);
                 else if (this.Settings.bShowErrors) {
                     let errN = ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
                     if (r)
@@ -994,7 +1003,8 @@ class RCompiler {
         atts.clear();
         if (mOto || (bCls || bMod) && this.Settings.bSubfile) {
             if (mOto?.[3]) {
-                let prom = (async () => Ev(`'use strict';(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
+                let prom = (async () => Ev(US +
+                    `(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
                 return async function LSCRIPT(ar) {
                     if (!ar.r || bUpd)
                         SetVars((await prom)(env));
@@ -1010,7 +1020,7 @@ class RCompiler {
                 };
             }
             else {
-                let prom = (async () => `${mOto ? "'use strict';" : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let prom = (async () => `${mOto ? US : ""}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
                 if (src && async)
                     prom = prom.then(txt => void (exp = Ev(txt)));
                 else if (!mOto && !defer)
@@ -1249,11 +1259,11 @@ class RCompiler {
                             r.ch = N;
                     };
                     if (iter instanceof Promise) {
-                        let subEnv = { env, onerr, onsuc };
+                        let subEnv = { env, on };
                         r.rvars = [
                             RVAR(N, iter)
                                 .Subscribe(r.subs =
-                                ass(iter => (({ env, onerr, onsuc } = subEnv),
+                                ass(iter => (({ env, on } = subEnv),
                                     pIter(iter)), { sAr: T }))
                         ];
                     }
@@ -1462,7 +1472,7 @@ class RCompiler {
             else if (m = /^#class[:.](.*)$/.exec(nm))
                 addM(3, m[1], this.CExpr(V, nm));
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                addM(4, CapProp(m[2]), m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
+                addM(4, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
             else if (nm == '+style')
                 addM(6, nm, this.CExpr(V, nm));
             else if (nm == "+class")
@@ -1605,7 +1615,8 @@ class RCompiler {
             ct = `[${ct.slice(0, p0)}${ct.slice(p1)}]`;
         }
         try {
-            var f = Ev(`'use strict';(function(${ct}){${body}})`);
+            var f = Ev(US +
+                `(function(${ct}){${body}})`);
             return function () {
                 try {
                     return f.call(this, env);
@@ -1621,19 +1632,17 @@ class RCompiler {
     }
     AddErrH(dHndlr) {
         return () => {
-            let hndlr = dHndlr(), oE = onerr, oS = onsuc;
-            return (hndlr && (oE || oS)
+            let hndlr = dHndlr(), { e, s } = on;
+            return (hndlr && (e || s)
                 ? function hError(ev) {
                     try {
                         let a = hndlr.call(this, ev);
                         return (a instanceof Promise
-                            ? a.then(v => (oS?.(ev), v), oE)
-                            : oS?.(ev), a);
+                            ? a.then(v => (s?.(ev), v), e)
+                            : s?.(ev), a);
                     }
-                    catch (e) {
-                        if (!oE)
-                            throw e;
-                        oE(e);
+                    catch (er) {
+                        (e || thro)(er);
                     }
                 }
                 : hndlr);
@@ -1679,13 +1688,11 @@ class Atts extends Map {
             throw `Missing attribute [` + nm + `]`;
         return bI && v == '' ? nm : v;
     }
-    gB(nm) {
-        let v = this.g(nm), m = /^((false)|true)?$/i.exec(v);
-        if (v != N) {
-            if (!m)
-                throw `@${nm}: invalid value`;
-            return !m[2];
-        }
+    gB(nm, df = F) {
+        let v = this.g(nm), m = /^((false|no)|true|yes)?$/i.exec(v);
+        return v == N ? df
+            : m ? !m[2]
+                : thro(`@${nm}: invalid value`);
     }
     NoneLeft() {
         super.delete('hidden');
@@ -1696,14 +1703,7 @@ class Atts extends Map {
 const altProps = {
     "class": "className",
     for: "htmlFor"
-}, reReserv = /^(break|case|catch|class|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|new|return|super|switch|this|throw|try|typeof|var|void|while|with|enum|implements|interface|let|package|private|protected|public|static|yield|null|true|false)$/, reCap = /(accent|additive|align|angle|animation|ascent|aspect|auto|back(drop|face|ground)|backface|behavior|blend|block|border|bottom|box|break|caption|caret|character|clip|color|column(s$)?|combine|conic|content|counter|css|decoration|display|emphasis|empty|end|feature|fill|filter|flex|font|forced|frequency|gap|grid|hanging|hue|hyphenate|image|initial|inline|inset|iteration|justify|language|left|letter|line(ar)?|list|margin|mask|masonry|math|max|min|nav|object|optical|outline|overflow|padding|page|paint|perspective|place|play|pointer|rotate|position|print|radial|read|repeating|right|row(s$)?|ruby|rule|scale|scroll(bar)?|shape|size|snap|skew|skip|speak|start|style|tab(le)?|template|text|timing|top|touch|transform|transition|translate|underline|unicode|user|variant|variation|vertical|viewport|white|will|word|writing|^z)|./g, reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL|SELECT|TITLE)$/, reInline = /^(BUTTON|INPUT|IMG)$/, reWS = /^[ \t\n\r]*$/, Cnms = {}, CapProp = (nm) => {
-    let b;
-    return nm.replace(reCap, (w, w1) => {
-        let r = b ? w.slice(0, 1).toUpperCase() + w.slice(1) : w;
-        b = w1;
-        return r;
-    });
-}, ChkNm = (obj, nm) => {
+}, reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL|SELECT|TITLE)$/, reInline = /^(BUTTON|INPUT|IMG)$/, reWS = /^[ \t\n\r]*$/, Cnms = {}, ChkNm = (obj, nm) => {
     let c = Cnms[nm], r;
     if (!c) {
         c = nm;
