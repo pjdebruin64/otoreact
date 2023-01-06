@@ -122,7 +122,12 @@ export async function RCompile(srcN = D.body, settings) {
             await R.Compile(srcN);
             start = now();
             nodeCnt = 0;
-            await R.Build({ parN: srcN.parentElement, srcN, r: N });
+            srcN.innerHTML = "";
+            await R.Build({
+                parN: srcN.parentElement,
+                srcN,
+                bfor: srcN
+            });
             W.addEventListener('pagehide', () => chiWins.forEach(w => w.close()));
             R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
             ScrollToHash();
@@ -149,12 +154,11 @@ const PrepRng = (ar, srcE, text = '', nWipe, res) => {
     }
     r.res = res;
     return { r, sub, cr };
-}, PrepElm = (srcE, ar, tag = srcE.tagName) => {
+}, PrepElm = (ar, tag, elm) => {
     let r = ar.r, cr = !r;
     if (cr)
-        r = new Range(ar, ar.srcN == srcE
-            ? (srcE.innerHTML = "", srcE)
-            : ar.parN.insertBefore(D.createElement(tag), ar.bfor));
+        r = new Range(ar, elm
+            || ar.parN.insertBefore(D.createElement(tag), ar.bfor));
     else
         ar.r = r.nx || T;
     nodeCnt++;
@@ -744,7 +748,7 @@ class RCompiler {
                             let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RCompiler(N, this.FilePath, { bSubfile: T, bTiming: this.Settings.bTiming }), { ws, rspc } = this;
                             this.ws = 1;
                             bl = async function RHTML(ar) {
-                                let src = dSrc(), { r, cr } = PrepElm(srcE, ar, 'rhtml-rhtml'), { node } = r;
+                                let src = dSrc(), { r, cr } = PrepElm(ar, 'rhtml-rhtml'), { node } = r;
                                 ApplyMods(node, mods, cr);
                                 if (src != r.res) {
                                     r.res = src;
@@ -855,7 +859,7 @@ class RCompiler {
                             this.ws = 4;
                             b = await this.CChilds(srcE);
                             bl = b && function RSTYLE(ar) {
-                                return b(PrepElm(srcE, ar, 'STYLE').chAr);
+                                return b(PrepElm(ar, 'STYLE').chAr);
                             };
                         }
                         finally {
@@ -1106,12 +1110,12 @@ class RCompiler {
         this.ws = !bEls && ws > postWs ? ws : postWs;
         this.CT = postCT;
         return caseList.length && async function CASE(ar) {
-            let val = dVal?.(), RRE;
+            let val = dVal?.(), RRE, cAlt;
             try {
                 for (var alt of caseList)
                     if (!((!alt.cond || alt.cond())
                         && (!alt.patt || val != N && (RRE = alt.patt.regex.exec(val)))) != !alt.not) {
-                        var cAlt = alt;
+                        cAlt = alt;
                         break;
                     }
             }
@@ -1121,7 +1125,7 @@ class RCompiler {
             finally {
                 if (bHiding) {
                     for (let alt of caseList) {
-                        let { r, chAr, cr } = PrepElm(alt.node, ar);
+                        let { r, chAr, cr } = PrepElm(ar, 'WHEN');
                         if (!(r.node.hidden = alt != cAlt) && !ar.bR
                             || cr)
                             await alt.b(chAr);
@@ -1368,7 +1372,7 @@ class RCompiler {
                     env
                 })));
                 if (styles) {
-                    let { r: { node }, chAr, cr } = PrepElm(srcE, sub, tag), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
+                    let { r: { node }, chAr, cr } = PrepElm(sub, tag), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
                     if (cr)
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
@@ -1447,7 +1451,7 @@ class RCompiler {
         if (postWs)
             this.ws = postWs;
         return async function ELM(ar) {
-            let { r: { node }, chAr, cr } = PrepElm(srcE, ar, nm || dTag());
+            let { r: { node }, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
             if (cr || !ar.bR)
                 await childBldr?.(chAr);
             node.removeAttribute('class');

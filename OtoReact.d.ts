@@ -29,7 +29,7 @@ declare type Area<VT = unknown> = {
     r?: Range<ChildNode, VT> | true;
     parN: Node;
     bfor?: ChildNode;
-    srcN?: ChildNode;
+    srcN?: HTMLElement;
     parR?: Range;
     prvR?: Range;
     bR?: boolean;

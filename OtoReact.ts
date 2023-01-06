@@ -83,7 +83,7 @@ type Area<VT = unknown> = {
     bfor?: ChildNode;     // DOM node before which new nodes are to be inserted
 
     /* When !r, i.e. when the DOM has to be created: */
-    srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
+    srcN?: HTMLElement;     // Optional source node to be replaced by the new DOM 
     parR?: Range;         // The new range shall either be the first child this parent range,
     prvR?: Range;        // Or the next sibling of this previous range
 
@@ -319,7 +319,12 @@ export async function RCompile(srcN: hHTMLElement = D.body, settings?: Settings)
             // Initial build
             start = now();
             nodeCnt = 0;
-            await R.Build({parN: srcN.parentElement, srcN, r: N});
+            srcN.innerHTML = "";
+            await R.Build({
+                parN: srcN.parentElement,
+                srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
+                bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
+            });
             W.addEventListener('pagehide', () => chiWins.forEach(w=>w.close()));
             R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
             ScrollToHash();
@@ -386,9 +391,9 @@ const PrepRng = <VT = unknown>(
     Also returns a subarea to build or update the elements childnodes.
 */
 , PrepElm = <T={}>(
-    srcE: HTMLElement, 
     ar: Area, 
-    tag = srcE.tagName
+    tag: string,
+    elm?: HTMLElement
 ): {
     r: Range<hHTMLElement> & T    // Sub-range
     , chAr: Area                    // Sub-area
@@ -398,11 +403,8 @@ const PrepRng = <VT = unknown>(
         cr = !r;
     if (cr)
         r = new Range(ar,
-            ar.srcN == srcE
-                ? (srcE.innerHTML = "", srcE)
-                : ar.parN.insertBefore<HTMLElement>(
-                    D.createElement(tag), ar.bfor
-                )
+                elm 
+                || ar.parN.insertBefore<HTMLElement>(D.createElement(tag), ar.bfor)
             ) as Range<HTMLElement> & T;
     else
         ar.r = r.nx || T;
@@ -1409,7 +1411,7 @@ class RCompiler {
                        
                         bl = async function RHTML(ar) {
                             let src = dSrc()
-                                , {r, cr} = PrepElm(srcE, ar, 'rhtml-rhtml')
+                                , {r, cr} = PrepElm(ar, 'rhtml-rhtml')
                                 , {node} = r;
                             ApplyMods(node, mods, cr);
 
@@ -1542,7 +1544,7 @@ class RCompiler {
                             b = await this.CChilds(srcE);
                         
                             bl = b && function RSTYLE(ar: Area) {
-                                return b(PrepElm(srcE, ar, 'STYLE').chAr);
+                                return b(PrepElm(ar, 'STYLE').chAr);
                             };
                         }
                         finally {
@@ -1922,21 +1924,23 @@ class RCompiler {
 
         return caseList.length && async function CASE(ar: Area) {
             let val = dVal?.()
-                , RRE: RegExpExecArray;
+                , RRE: RegExpExecArray
+                , cAlt: typeof caseList[0];
             try {
+                // First determine which alternative is to be shown
                 for (var alt of caseList)
                     if ( !(
                         (!alt.cond || alt.cond()) 
                         && (!alt.patt || val != N && (RRE = alt.patt.regex.exec(val)))
                         ) != !alt.not)
-                    { var cAlt = alt; break }
+                    { cAlt = alt; break }
             }
             catch (e) { throw alt.node.tagName=='IF' ? e : ErrMsg(alt.node, e); }
             finally {
                 if (bHiding) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
                     for (let alt of caseList) {
-                        let {r, chAr, cr} = PrepElm(alt.node, ar);
+                        let {r, chAr, cr} = PrepElm(ar, 'WHEN');
                         if ( !(r.node.hidden = alt != cAlt) && !ar.bR
                             || cr
                         )
@@ -2373,7 +2377,7 @@ class RCompiler {
                 ));
 
                 if (styles) {
-                    let {r: {node}, chAr, cr} = PrepElm(srcE, sub, tag), 
+                    let {r: {node}, chAr, cr} = PrepElm(sub, tag), 
                         shadow = node.shadowRoot || node.attachShadow({mode: 'open'});
                     if (cr)
                         for (let style of styles)
@@ -2505,7 +2509,12 @@ class RCompiler {
 
         // Now the runtime action
         return async function ELM(ar: Area) {
-                let {r: {node}, chAr, cr} = PrepElm(srcE, ar, nm || dTag());
+                let {r: {node}, chAr, cr} = 
+                    PrepElm(
+                        ar,
+                        nm || dTag(), 
+                        ar.srcN
+                    );
                 
                 if (cr || !ar.bR)
                     // Build children

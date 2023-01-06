@@ -60,17 +60,17 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
     font-size: small;
   }
   div.scrollbox {
-    height:40em;
+    height:45em;
     width:100%;
     overflow-y:scroll;
   }
 
   @keyframes Disappearing {
-    from {line-height: 80%}
+    from {line-height: 100%}
     to   {line-height: 0%}
   }  
   table.animate > tbody > tr:first-child {
-    animation: Disappearing 280ms linear 35ms forwards
+    animation: Disappearing 280ms linear 30ms forwards
   }
 </style>
 
@@ -99,8 +99,8 @@ function StartStop() {
     handle.V = -1;
   }
   else
-    // Modify the data array every 350ms; the DOM table will automatically be updated accordingly.
-    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 350)
+    // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
 }
 </script>
 
@@ -114,8 +114,8 @@ function StartStop() {
 
   <!-- Table caption -->
   <caption.>Web Colors 
-    <button onclick="StartStop();" reacton="handle" style="float:right; width:5em">
-        {handle.V>0 ? 'Stop' : 'Rotate'}
+    <button onclick="StartStop();" reacton=handle style="float:right; width:5em">
+        {handle.V ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
 
@@ -473,7 +473,7 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
   
   <!-- Show either the outcome, or the player to move -->
   <div>
-    <p reacton="outcome,toMove">
+    <p reacton=outcome,toMove>
       <case>
         <when cond="outcome.V===true">
           <b>It's a draw.</b>
@@ -599,13 +599,13 @@ const sampleRadioGroup = `<component>
   </radiogroup>
 
   <!-- Radiogroup template -->
-  <template name @value=groupValue>
+  <template @value=groupValue>
     <content>
-      <radiobutton #value=butValue onclick ...rest>
+      <radiobutton #value onclick ...rest>
         <label style.cursor=pointer>
-          <input type=radio #name=name #value=butValue
-            #checked="butValue == groupValue.V"
-            onclick="groupValue.V = this.value; onclick()" ...rest>
+          <input type=radio #name=name #value=value
+            #checked="value == groupValue.V"
+            onclick="groupValue.V = value; onclick()" ...rest>
           <content></content>
         </label>
       </radiobutton>
@@ -620,9 +620,9 @@ const sampleRadioGroup = `<component>
 </p>
 <!-- Radiogroup instance -->
 <radiogroup name=framework @value=answer.V>
-  <radiobutton value=Angular>Angular</radiobutton>
+  <radiobutton value=jQuery >jQuery</radiobutton>
   <radiobutton value=React  >React</radiobutton>
-  <radiobutton value=Vue    >Vue</radiobutton>
+  <radiobutton value=Angular>Angular</radiobutton>
   <radiobutton value=OtoReact>OtoReact</radiobutton>
 </radiogroup>
 
