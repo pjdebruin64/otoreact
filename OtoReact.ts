@@ -1125,11 +1125,11 @@ class RCompiler {
                                                     Subscriber(ar, Auto, r)
                                                 );
                                         }
-                                        else if (r.val != upd)
+                                        else if (r.upd != upd)
                                             for (let b of bs)
                                                 await b(sub);
                                         
-                                        r.val = upd;                                        
+                                        r.upd = upd;                                      
                                     }
                                 : (bldrs.push(...bs), N);
                             i = L;
@@ -1632,9 +1632,9 @@ class RCompiler {
                     ?  async function REACT(ar: Area, R: booly) {                
                             let {r, sub} = PrepRng(ar, srcE, att);
 
-                            if (r.val != upd)   // Avoid duplicate updates in the same update loop iteration
+                            if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
                                 await b(sub, R);
-                            r.val = upd;
+                            r.upd = upd;
                             
                             if (!R) {
                                 let 
@@ -2010,7 +2010,6 @@ class RCompiler {
 
                     // Compile all childNodes
                     b = await this.CIter(srcE.childNodes);
-                    //if (bRe) b = NoDup(b);
 
                 // Dit wordt de runtime routine voor het updaten:
                 return b && async function FOR(this: RCompiler, ar: Area) {
@@ -2145,10 +2144,11 @@ class RCompiler {
                                 chR.prev = prvR;
                                 prvR = chR;
                                 // Does this range need building or updating?
-                                if (cr || !hash
-                                    ||  hash.some((h,i) => h != chR.hash[i])
+                                if (cr ||
+                                    !hash ||  hash.some((h,i) => h != chR.hash[i]
+                                )
                                 ) {
-                                    chR.hash = hash
+                                    chR.hash = hash;
 
                                     // Environment instellen
                                     let {sub, ES} = SS(chAr, chR);

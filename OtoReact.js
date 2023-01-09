@@ -573,10 +573,10 @@ class RCompiler {
                                         if (rvar._Subs.size == s)
                                             rvar.Subscribe(Subscriber(ar, Auto, r));
                                     }
-                                    else if (r.val != upd)
+                                    else if (r.upd != upd)
                                         for (let b of bs)
                                             await b(sub);
-                                    r.val = upd;
+                                    r.upd = upd;
                                 }
                                 : (bldrs.push(...bs), N);
                             i = L;
@@ -917,9 +917,9 @@ class RCompiler {
                     m[2]
                         ? async function REACT(ar, R) {
                             let { r, sub } = PrepRng(ar, srcE, att);
-                            if (r.val != upd)
+                            if (r.upd != upd)
                                 await b(sub, R);
-                            r.val = upd;
+                            r.upd = upd;
                             if (!R) {
                                 let subs = r.subs || (r.subs = Subscriber(ass(ar, { bR }), REACT, r)), pVars = r.rvars, i = 0;
                                 for (let rvar of r.rvars = dV()) {
@@ -1233,8 +1233,8 @@ class RCompiler {
                             }
                             chR.prev = prvR;
                             prvR = chR;
-                            if (cr || !hash
-                                || hash.some((h, i) => h != chR.hash[i])) {
+                            if (cr ||
+                                !hash || hash.some((h, i) => h != chR.hash[i])) {
                                 chR.hash = hash;
                                 let { sub, ES } = SS(chAr, chR);
                                 try {
