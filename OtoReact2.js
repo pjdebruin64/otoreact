@@ -274,12 +274,12 @@ export class _RVAR {
         return this.v?.toString() ?? '';
     }
 }
-function Subscriber({ parN, bR, parR }, b, r) {
-    let sAr = { parN, parR, bR, r: r || T }, subEnv = { env, on };
+function Subscriber({ parN, bR }, bl, r) {
+    let sAr = { parN, bR, r: r || T }, subEnv = { env, on };
     return ass(() => (({ env, on } = subEnv),
-        b({ ...sAr }, T)), { sAr });
+        bl({ ...sAr }, T)), { sAr });
 }
-let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
+let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, updCnt = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => { start += now() - t; });
 }, RUpd = () => {
@@ -291,15 +291,11 @@ export async function DoUpdate() {
     if (!env && DVars.size) {
         env = E;
         nodeCnt = 0;
-        let u0 = upd;
         start = now();
         while (DVars.size) {
+            updCnt++;
             let dv = DVars;
             DVars = new Set();
-            if (upd++ - u0 > 25) {
-                alert('Infinite react-loop');
-                break;
-            }
             for (let rv of dv)
                 for (let subs of rv._Subs)
                     try {
@@ -565,18 +561,16 @@ class RCompiler {
                             var s = this.cRvars[rv], bs = await this.CArr(arr, rspc, this.cRvars[rv] = i), gv = this.CT.getLV(rv);
                             bl = bs.length && this.cRvars[rv]
                                 ? async function Auto(ar) {
-                                    let { r, sub, cr } = PrepRng(ar);
-                                    if (cr) {
-                                        let rvar = gv(), s = rvar._Subs.size;
+                                    if (ar.r)
                                         for (let b of bs)
-                                            await b(sub);
+                                            await b(ar);
+                                    else {
+                                        let { prvR, parR } = ar, rvar = gv(), s = rvar._Subs.size;
+                                        for (let b of bs)
+                                            await b(ar);
                                         if (rvar._Subs.size == s)
-                                            rvar.Subscribe(Subscriber(ar, Auto, r));
+                                            rvar.Subscribe(Subscriber(ar, Auto, prvR ? prvR.nx : parR.ch));
                                     }
-                                    else if (r.val != upd)
-                                        for (let b of bs)
-                                            await b(sub);
-                                    r.val = upd;
                                 }
                                 : (bldrs.push(...bs), N);
                             i = L;
@@ -650,9 +644,9 @@ class RCompiler {
                             NoChilds(srcE);
                             let rv = atts.g('rvar'), t = '@value', twv = rv && atts.g(t), dGet = twv ? this.CExpr(twv, t) : this.CParam(atts, 'value'), bUpd = atts.gB('reacting') || atts.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
                             auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv;
-                            bl = async function DEF(ar, R) {
+                            bl = async function DEF(ar, bRe) {
                                 let r = ar.r, v, upd;
-                                if (!r || bUpd || R) {
+                                if (!r || bUpd || bRe) {
                                     try {
                                         ro = T;
                                         v = dGet?.();
@@ -911,30 +905,26 @@ class RCompiler {
                     }
                 };
             }
-            for (let { att, m, dV } of glAtts.reverse()) {
+            for (let { att, m, dV } of glAtts) {
                 let b = bl, bR = m[3], es = m[6] ? 'e' : 's';
                 bl =
                     m[2]
-                        ? async function REACT(ar, R) {
+                        ? async function REACT(ar) {
                             let { r, sub } = PrepRng(ar, srcE, att);
-                            if (r.val != upd)
-                                await b(sub, R);
-                            r.val = upd;
-                            if (!R) {
-                                let subs = r.subs || (r.subs = Subscriber(ass(ar, { bR }), REACT, r)), pVars = r.rvars, i = 0;
-                                for (let rvar of r.rvars = dV()) {
-                                    if (pVars) {
-                                        let p = pVars[i++];
-                                        if (rvar == p)
-                                            continue;
-                                        p._Subs.delete(subs);
-                                    }
-                                    try {
-                                        rvar.Subscribe(subs);
-                                    }
-                                    catch {
-                                        ErrAtt('This is not an RVAR', att);
-                                    }
+                            await b(sub);
+                            let subs = r.subs || (r.subs = Subscriber(ass(sub, { bR }), b, r.ch)), pVars = r.rvars, i = 0;
+                            for (let rvar of r.rvars = dV()) {
+                                if (pVars) {
+                                    let p = pVars[i++];
+                                    if (rvar == p)
+                                        continue;
+                                    p._Subs.delete(subs);
+                                }
+                                try {
+                                    rvar.Subscribe(subs);
+                                }
+                                catch {
+                                    ErrAtt('This is not an RVAR', att);
                                 }
                             }
                         }

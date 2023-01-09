@@ -13,7 +13,6 @@ declare const defaults: {
     bKeepComments: boolean;
     storePrefix: string;
 };
-declare type booly = boolean | string | number | object;
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 declare type hHTMLElement = HTMLElement & {
@@ -22,7 +21,7 @@ declare type hHTMLElement = HTMLElement & {
         listener: Handler;
     }>;
 };
-declare type DOMBuilder = ((ar: Area, R?: booly) => Promise<void>) & {
+declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     auto?: string;
     nm?: string;
 };
@@ -53,7 +52,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     errN?: ChildNode;
     bfD?: Handler;
     afD?: Handler;
-    upd?: number;
+    updCnt?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
     erase(par: Node): void;
@@ -93,7 +92,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bR, parR }: Area, b: DOMBuilder, r: Range): Subscriber;
+declare function Subscriber({ parN, bR }: Area, bl: DOMBuilder, r: Range): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;

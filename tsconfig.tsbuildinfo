@@ -227,13 +227,18 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "1b3e2497395f667c13264d69a035d2d8eb05a734a9c5234fb4bae4c0c4433da8",
+        "version": "112ae83ea519941fed57e36fb36a25e380433ed1e2691846ed9032f17cfa96a8",
+        "signature": "f59b5196a168c7b0b465143274ba6143092631a29b6b01bedfffb5fc8ca8e03c",
+        "affectsGlobalScope": false
+      },
+      "./otoreact2.ts": {
+        "version": "4afd6415163fc50f5bdcd10367e6db5e6702d4d043c317f401e4e723613a072c",
         "signature": "5599a546ef929ddeabea4932f04c810ef654933ce083c221a4490272e5aea1e5",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "61978540c972f2f55d7586c6f626655d23e1488aeff6dcf4eeb1e0b461094084",
-        "signature": "4b906de5514e5765a18b268e69db8509e598f4e89a85c7cf1cd773ec6f9ddac0",
+        "version": "c9cec7fc5885dfcc172af545748942caa2cfd3177e1b4f12cbb0ef5089631edb",
+        "signature": "91d5f29d9fa08937eb8c97ede4434a21730d2eb6b33fc9595ff11cc12bb7c845",
         "affectsGlobalScope": true
       }
     },
@@ -250,6 +255,7 @@
       "composite": true,
       "target": 7,
       "downlevelIteration": false,
+      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -302,6 +308,7 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./otoreact - kopie.ts",
       "./otoreact.ts",
+      "./otoreact2.ts",
       "./samples.ts"
     ]
   },

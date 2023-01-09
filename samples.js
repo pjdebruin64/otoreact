@@ -115,7 +115,7 @@ function StartStop() {
   <!-- Table caption -->
   <caption.>Web Colors 
     <button onclick="StartStop();" reacton=handle style="float:right; width:5em">
-        {handle.V ? 'Stop' : 'Rotate'}
+        {handle.V > 0 ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
 

@@ -61,14 +61,13 @@ type hHTMLElement = HTMLElement & {
 };
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
-    It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
+    It can both build (construct, create) a new range of DOM, and update an earlier created range of DOM.
     The created DOM is yielded in 'ar.r'.
-    'R' is truthy when the DOMBuilder is called because of a 'reacton' attribute on the current source node itself.
 */
-type DOMBuilder = ((ar: Area, R?: booly) => Promise<void>) 
+type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
-        nm?: string;   // Name of the DOMBuilder
+        nm?: string;   // Name of the DOMBuilder. When containing an underscore, it won't create a Range object.
     };
 
 
@@ -187,7 +186,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     afD?: Handler;   // After destroy handler
 
     // For reactive elements
-    upd?: number;       // last DoUpdate iteration number, so the range is not updated again in the same iteration
+    updCnt?: number;       // last DoUpdate iteration number, so the range is not updated again in the same iteration
     subs?: Subscriber;      // Subscriber object created for this element instance
     rvars?: RVAR[];         // RVARs on which the element reacts
 
@@ -454,8 +453,7 @@ const PrepRng = <VT = unknown>(
             = new Set<Window>(),
     // Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
     OMods
-            = new Map<string, Promise<[DOMBuilder, Context]>>()
-            ;
+            = new Map<string, Promise<[DOMBuilder, Context]>>();
 
 type Subscriber<T = unknown> = 
     ((t?: T) => (unknown|Promise<unknown>)) &
@@ -640,14 +638,14 @@ export type RVAR_Light<T> = T & {
 };
 
         
-function Subscriber({parN, bR, parR}: Area, b: DOMBuilder, r: Range): Subscriber {
-    let sAr: Area = {parN, parR, bR, r: r||T }, // No parR (parent range); this is used by DEF()
+function Subscriber({parN, bR}: Area, bl: DOMBuilder, r: Range): Subscriber {
+    let sAr: Area = {parN, bR, r: r||T }, // No parR (parent range); this is used by DEF()
         subEnv = {env, on};
 
     return ass(
         () => (
                 ({env, on} = subEnv),
-                b({...sAr}, T)
+                bl({...sAr}, T)
         )
         , {sAr});
 }
@@ -663,7 +661,7 @@ let
     hUpdate: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
 
-    upd = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
+    updCnt = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
     nodeCnt = 0,      // Count of the number of nodes
     start: number,
     NoTime = <T>(prom: Promise<T>) => {
@@ -681,13 +679,11 @@ export async function DoUpdate() {
     if (!env && DVars.size) {
         env = E;
         nodeCnt = 0;
-        let u0 = upd;
         start = now();
         while (DVars.size) {
+            updCnt++;
             let dv = DVars;
             DVars = new Set();
-            if (upd++ - u0 > 25)
-            { alert('Infinite react-loop'); break; }
             for (let rv of dv)
                 for (let subs of rv._Subs)
                     try { 
@@ -1114,22 +1110,20 @@ class RCompiler {
                             // Were there no compile-time reacts for this rvar?
                             bl = bs.length && this.cRvars[rv]
                                 ? async function Auto(ar: Area) {
-                                        let {r, sub, cr} = PrepRng(ar);
-                                        if (cr) {
-                                            let rvar = gv(), s = rvar._Subs.size;
+                                        if (ar.r)
                                             for (let b of bs)
-                                                await b(sub);
+                                                await b(ar);
+                                        else {
+                                            let {prvR, parR} = ar
+                                                , rvar = gv(), s = rvar._Subs.size;
+                                            for (let b of bs)
+                                                await b(ar);
                                             if (rvar._Subs.size==s) // No new subscribers still?
                                                 // Then auto-subscribe with the correct range
                                                 rvar.Subscribe(
-                                                    Subscriber(ar, Auto, r)
+                                                    Subscriber(ar, Auto, prvR ? prvR.nx : parR.ch)
                                                 );
                                         }
-                                        else if (r.val != upd)
-                                            for (let b of bs)
-                                                await b(sub);
-                                        
-                                        r.val = upd;                                        
                                     }
                                 : (bldrs.push(...bs), N);
                             i = L;
@@ -1258,14 +1252,10 @@ class RCompiler {
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
 
                         auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv; 
-                        bl = async function DEF(ar, R?: boolean) {
+                        bl = async function DEF(ar, bRe?: boolean) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
-                                // Evaluate the value only when:
-                                // !r   : We are building the DOM
-                                // bUpd : 'updating' was specified
-                                // R:   : The routine is called because of a 'reacton' subscribtion
-                                if (!r || bUpd || R){
+                                if (!r || bUpd || bRe){
                                     try {
                                         ro=T;
                                         v = dGet?.();
@@ -1623,37 +1613,33 @@ class RCompiler {
             }
 
             // Compile global attributes
-            for (let {att, m, dV} of glAtts.reverse()) {
+            for (let {att, m, dV} of glAtts) {
                 let b = bl,
                     bR = m[3],    // 'thisreactson'?
                     es = m[6] ? 'e' : 's';
                 bl = 
                     m[2]
-                    ?  async function REACT(ar: Area, R: booly) {                
+                    ?  async function REACT(ar: Area) {                
                             let {r, sub} = PrepRng(ar, srcE, att);
+            
+                            await b(sub);
 
-                            if (r.val != upd)   // Avoid duplicate updates in the same update loop iteration
-                                await b(sub, R);
-                            r.val = upd;
-                            
-                            if (!R) {
-                                let 
-                                    subs: Subscriber = r.subs ||= Subscriber(ass(ar,{bR}), REACT, r)
-                                    , pVars: RVAR[] = r.rvars
-                                    , i = 0;
+                            let 
+                                subs: Subscriber = r.subs ||= Subscriber(ass(sub,{bR}), b, r.ch)
+                                , pVars: RVAR[] = r.rvars
+                                , i = 0;
 
-                                for (let rvar of r.rvars = <RVAR[]>dV()) {
-                                    if (pVars) {
-                                        // Check whether the current rvar(s) are the same as the previous one(s)
-                                        let p = pVars[i++];
-                                        if (rvar==p)
-                                            continue;           // Yes, continue
-                                        p._Subs.delete(subs);   // No, unsubscribe from the previous one
-                                    }
-
-                                    try { rvar.Subscribe(subs); }
-                                    catch { ErrAtt('This is not an RVAR', att) }
+                            for (let rvar of r.rvars = <RVAR[]>dV()) {
+                                if (pVars) {
+                                    // Check whether the current rvar(s) are the same as the previous one(s)
+                                    let p = pVars[i++];
+                                    if (rvar==p)
+                                        continue;           // Yes, continue
+                                    p._Subs.delete(subs);   // No, unsubscribe from the previous one
                                 }
+
+                                try { rvar.Subscribe(subs); }
+                                catch { ErrAtt('This is not an RVAR', att) }
                             }
                         }
                     : m[5]  // onerror|onsuccess
@@ -2010,7 +1996,6 @@ class RCompiler {
 
                     // Compile all childNodes
                     b = await this.CIter(srcE.childNodes);
-                    //if (bRe) b = NoDup(b);
 
                 // Dit wordt de runtime routine voor het updaten:
                 return b && async function FOR(this: RCompiler, ar: Area) {
