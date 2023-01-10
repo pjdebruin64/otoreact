@@ -227,8 +227,8 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "f1b2fa66cbc217854361db11867ec54fc623dc9d8bfab4f5dd6d2a437bb2174e",
-        "signature": "f59b5196a168c7b0b465143274ba6143092631a29b6b01bedfffb5fc8ca8e03c",
+        "version": "db00e54e0c00498711459ddee4c56c815d4d79263ac15268eea2874a3e180678",
+        "signature": "7fcccab96d3328e29a9eb2fd3861700a943620374db9454a3e29861907103395",
         "affectsGlobalScope": false
       },
       "./otoreact2.ts": {
@@ -237,8 +237,8 @@
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "c9cec7fc5885dfcc172af545748942caa2cfd3177e1b4f12cbb0ef5089631edb",
-        "signature": "91d5f29d9fa08937eb8c97ede4434a21730d2eb6b33fc9595ff11cc12bb7c845",
+        "version": "8b5b549e7c33ec4f2773b0e23b46285dbcf8a596a5d917f29080cd02251575d1",
+        "signature": "ceb1485ae0657fdc94b5399bd5578c97590c564e42dd6785fc5fc8a6d9492a3c",
         "affectsGlobalScope": true
       }
     },

@@ -12,8 +12,8 @@ declare const defaults: {
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
     storePrefix: string;
+    version: number;
 };
-declare type booly = boolean | string | number | object;
 declare type FullSettings = typeof defaults;
 declare type Settings = Partial<FullSettings>;
 declare type hHTMLElement = HTMLElement & {
@@ -22,7 +22,7 @@ declare type hHTMLElement = HTMLElement & {
         listener: Handler;
     }>;
 };
-declare type DOMBuilder = ((ar: Area, R?: booly) => Promise<void>) & {
+declare type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) & {
     auto?: string;
     nm?: string;
 };
@@ -60,7 +60,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 }
 export declare function RCompile(srcN?: hHTMLElement, settings?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
-    sAr?: Area;
+    ar?: Area;
 };
 declare type Handler = (ev: Event) => any;
 interface Store {
@@ -93,7 +93,7 @@ export declare type RVAR_Light<T> = T & {
     Save?: () => void;
     readonly U?: T;
 };
-declare function Subscriber({ parN, bR, parR }: Area, b: DOMBuilder, r: Range): Subscriber;
+declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;

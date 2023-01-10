@@ -170,6 +170,10 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
+  <!-- RVAR 'ColorTable' is defined in the script; we need a 'reacton' attribute to tell OtoReact that this piece
+    of code should react on changes in 'ColorTable.V'.
+    'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if record 'C' remains the same.
+  -->
   <tbody.>
     <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
       <tr. 

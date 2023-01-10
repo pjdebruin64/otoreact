@@ -11,7 +11,8 @@ const U = undefined, N = null, T = true, F = false, E = [], W = window, D = docu
     bSetPointer: T,
     bKeepWhiteSpace: F,
     bKeepComments: F,
-    storePrefix: "RVAR_"
+    storePrefix: "RVAR_",
+    version: 0
 }, P = new DOMParser(), Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; };
 class Range {
     constructor(ar, node, text) {
@@ -274,10 +275,10 @@ export class _RVAR {
         return this.v?.toString() ?? '';
     }
 }
-function Subscriber({ parN, bR, parR }, b, r) {
-    let sAr = { parN, parR, bR, r: r || T }, subEnv = { env, on };
-    return ass(() => (({ env, on } = subEnv),
-        b({ ...sAr }, T)), { sAr });
+function Subscriber({ parN, parR }, b, r, re = 1) {
+    let ar = { parN, parR, r: r || T }, eon = { env, on };
+    return ass(() => (({ env, on } = eon),
+        b({ ...ar }, re)), { ar });
 }
 let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
@@ -304,7 +305,7 @@ export async function DoUpdate() {
                 for (let subs of rv._Subs)
                     try {
                         let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                        if (subs.sAr)
+                        if (subs.ar)
                             await P;
                     }
                     catch (e) {
@@ -650,9 +651,9 @@ class RCompiler {
                             NoChilds(srcE);
                             let rv = atts.g('rvar'), t = '@value', twv = rv && atts.g(t), dGet = twv ? this.CExpr(twv, t) : this.CParam(atts, 'value'), bUpd = atts.gB('reacting') || atts.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
                             auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv;
-                            bl = async function DEF(ar, R) {
+                            bl = async function DEF(ar, re) {
                                 let r = ar.r, v, upd;
-                                if (!r || bUpd || R) {
+                                if (!r || bUpd || re) {
                                     try {
                                         ro = T;
                                         v = dGet?.();
@@ -911,17 +912,17 @@ class RCompiler {
                     }
                 };
             }
-            for (let { att, m, dV } of glAtts.reverse()) {
-                let b = bl, bR = m[3], es = m[6] ? 'e' : 's';
+            for (let { att, m, dV } of this.Settings.version ? glAtts : glAtts.reverse()) {
+                let b = bl, rre = m[3] ? 2 : 1, es = m[6] ? 'e' : 's';
                 bl =
                     m[2]
-                        ? async function REACT(ar, R) {
+                        ? async function REACT(ar, re) {
                             let { r, sub } = PrepRng(ar, srcE, att);
                             if (r.upd != upd)
-                                await b(sub, R);
+                                await b(sub, re);
                             r.upd = upd;
-                            if (!R) {
-                                let subs = r.subs || (r.subs = Subscriber(ass(ar, { bR }), REACT, r)), pVars = r.rvars, i = 0;
+                            if (!re) {
+                                let subs = r.subs || (r.subs = Subscriber(ar, REACT, r, rre)), pVars = r.rvars, i = 0;
                                 for (let rvar of r.rvars = dV()) {
                                     if (pVars) {
                                         let p = pVars[i++];
@@ -1451,9 +1452,9 @@ class RCompiler {
         let mods = this.CAtts(atts), childBldr = await this.CChilds(srcE);
         if (postWs)
             this.ws = postWs;
-        return async function ELM(ar) {
+        return async function ELM(ar, re) {
             let { r: { node }, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
-            if (cr || !ar.bR)
+            if (re != 2)
                 await childBldr?.(chAr);
             node.removeAttribute('class');
             if (node.hndlrs) {
@@ -1800,9 +1801,9 @@ class DocLoc extends _RVAR {
         return U.href;
     }
     RVAR(fld, df, nm = fld) {
-        let R = RVAR(nm, N, N, v => this.query[fld] = v);
-        this.Subscribe(_ => R.V = this.query[fld] ?? df, T, T);
-        return R;
+        let rv = RVAR(nm, N, N, v => this.query[fld] = v);
+        this.Subscribe(_ => rv.V = this.query[fld] ?? df, T, T);
+        return rv;
     }
 }
 let R = new RCompiler(), DL = new DocLoc(), reroute = arg => {

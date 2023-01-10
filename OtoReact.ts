@@ -28,7 +28,8 @@ const
         bSetPointer:    T,
         bKeepWhiteSpace: F,
         bKeepComments:  F,
-        storePrefix:    "RVAR_"
+        storePrefix:    "RVAR_",
+        version:        0
     },
     
     // Some utilities
@@ -63,9 +64,10 @@ type hHTMLElement = HTMLElement & {
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
     The created DOM is yielded in 'ar.r'.
-    'R' is truthy when the DOMBuilder is called because of a 'reacton' attribute on the current source node itself.
+    're' is 1 when the DOMBuilder is called on behalf of a 'reacton' attribute on the current source node,
+    2 when on behalf of a 'thisreactson' attribute.
 */
-type DOMBuilder = ((ar: Area, R?: booly) => Promise<void>) 
+type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -459,8 +461,7 @@ const PrepRng = <VT = unknown>(
 
 type Subscriber<T = unknown> = 
     ((t?: T) => (unknown|Promise<unknown>)) &
-    {   sAr?: Area;
-    };
+    {   ar?: Area; };
 
 type ParentNode = HTMLElement|DocumentFragment;
 
@@ -640,16 +641,16 @@ export type RVAR_Light<T> = T & {
 };
 
         
-function Subscriber({parN, bR, parR}: Area, b: DOMBuilder, r: Range): Subscriber {
-    let sAr: Area = {parN, parR, bR, r: r||T }, // No parR (parent range); this is used by DEF()
-        subEnv = {env, on};
+function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, re:number=1): Subscriber {
+    let ar: Area = {parN, parR, r: r||T },
+        eon = {env, on};
 
     return ass(
         () => (
-                ({env, on} = subEnv),
-                b({...sAr}, T)
+                ({env, on} = eon),
+                b({...ar}, re)
         )
-        , {sAr});
+        , {ar});
 }
 
 let    
@@ -692,7 +693,7 @@ export async function DoUpdate() {
                 for (let subs of rv._Subs)
                     try { 
                         let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                        if (subs.sAr)
+                        if (subs.ar)
                             await P;
                     }
                     catch (e) {    
@@ -1258,14 +1259,14 @@ class RCompiler {
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
 
                         auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv; 
-                        bl = async function DEF(ar, R?: boolean) {
+                        bl = async function DEF(ar, re?: number) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
                                 // Evaluate the value only when:
                                 // !r   : We are building the DOM
                                 // bUpd : 'updating' was specified
-                                // R:   : The routine is called because of a 'reacton' subscribtion
-                                if (!r || bUpd || R){
+                                // re:  : The routine is called because of a 'reacton' subscribtion
+                                if (!r || bUpd || re){
                                     try {
                                         ro=T;
                                         v = dGet?.();
@@ -1623,22 +1624,22 @@ class RCompiler {
             }
 
             // Compile global attributes
-            for (let {att, m, dV} of glAtts.reverse()) {
+            for (let {att, m, dV} of this.Settings.version ? glAtts : glAtts.reverse()) {
                 let b = bl,
-                    bR = m[3],    // 'thisreactson'?
+                    rre = m[3] ? 2 : 1,    // 'thisreactson'?
                     es = m[6] ? 'e' : 's';
                 bl = 
                     m[2]
-                    ?  async function REACT(ar: Area, R: booly) {                
+                    ?  async function REACT(ar: Area, re: number) {                
                             let {r, sub} = PrepRng(ar, srcE, att);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
-                                await b(sub, R);
+                                await b(sub, re);
                             r.upd = upd;
                             
-                            if (!R) {
+                            if (!re) {
                                 let 
-                                    subs: Subscriber = r.subs ||= Subscriber(ass(ar,{bR}), REACT, r)
+                                    subs: Subscriber = r.subs ||= Subscriber(ar, REACT, r, rre)
                                     , pVars: RVAR[] = r.rvars
                                     , i = 0;
 
@@ -2516,7 +2517,9 @@ class RCompiler {
             this.ws = postWs;
 
         // Now the runtime action
-        return async function ELM(ar: Area) {
+        // 're' is 2 when the routine is called because of a 'thisreactson' attribute.
+        // In that case the childnodes should not be updated.
+        return async function ELM(ar: Area, re: number) {
                 let {r: {node}, chAr, cr} = 
                     PrepElm(
                         ar,
@@ -2524,8 +2527,8 @@ class RCompiler {
                         ar.srcN
                     );
                 
-                if (cr || !ar.bR)
-                    // Build children
+                if (re!=2)
+                    // Build / update childnodes
                     await childBldr?.(chAr);
 
                 node.removeAttribute('class');
@@ -3036,9 +3039,9 @@ class DocLoc extends _RVAR<string> {
             return U.href;
         }
         RVAR(fld: string, df?: string, nm: string = fld) {
-            let R = RVAR<string>(nm, N, N, v => this.query[fld] = v);
-            this.Subscribe(_ => R.V = this.query[fld] ?? df, T, T);
-            return R;
+            let rv = RVAR<string>(nm, N, N, v => this.query[fld] = v);
+            this.Subscribe(_ => rv.V = this.query[fld] ?? df, T, T);
+            return rv;
         }
     }
 let
