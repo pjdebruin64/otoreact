@@ -66,12 +66,12 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 </p>
 <p>
     When <code class="sourcecode">auto=false</code> is set, then auto-subscription (see below) is disabled.
-    The default is determined by RHTML <a href="#Options">option</a> <code>bAuto</code>, which defaults to <code>true</code>.
+    The default is determined by RHTML <a href="#Options">option</a> <code>bAutoSubscribe</code>, which defaults to <code>true</code>.
 </p>
 
 
 <h4 id="auto">RVAR auto-subscription*</h4>
-When an RVAR is declared using <elm>DEFINE rvar</elm>, and auto-subscription isn't disabled, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR)
+When an RVAR is declared using <elm>DEFINE rvar</elm>, and auto-subscription is enabled, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR)
 was found while either compiling or building the range of HTML following the <elm>DEFINE</elm>,
 then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
 <p>

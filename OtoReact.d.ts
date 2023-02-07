@@ -4,13 +4,14 @@ declare const defaults: {
     bShowErrors: boolean;
     bSubfile: boolean;
     basePattern: string;
-    preformatted: string[];
-    bAuto: boolean;
+    bAutoSubscribe: boolean;
+    bAutoPointer: boolean;
+    bAutoReroute: boolean;
     bNoGlobals: boolean;
     bDollarRequired: boolean;
-    bSetPointer: boolean;
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
+    preformatted: string[];
     storePrefix: string;
     version: number;
 };
@@ -58,7 +59,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     rvars?: RVAR[];
     erase(par: Node): void;
 }
-export declare function RCompile(srcN?: hHTMLElement, settings?: Settings): Promise<void>;
+export declare function RCompile(srcN?: hHTMLElement, setts?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     ar?: Area;
 };
@@ -71,14 +72,14 @@ export declare class _RVAR<T = unknown> {
     name?: string;
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;
-    _Subs: Set<Subscriber<T>>;
     _Imm: Set<Subscriber<T>>;
+    _Subs: Set<Subscriber<T>>;
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
     set V(v: T);
     get Set(): (t: T | Promise<T>) => T | Promise<T>;
-    get Clear(): (_: any) => any;
+    get Clear(): () => any;
     get U(): T;
     set U(t: T);
     SetDirty(): void;

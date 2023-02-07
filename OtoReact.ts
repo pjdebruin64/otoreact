@@ -21,13 +21,14 @@ const
         bShowErrors:    T,      // Show runtime errors as text in the DOM output
         bSubfile:    F,
         basePattern:    '/',
-        preformatted:   E as string[],
-        bAuto:          T,
+        bAutoSubscribe: T,
+        bAutoPointer:    T,
+        bAutoReroute:   F,
         bNoGlobals:     F,
         bDollarRequired: F,
-        bSetPointer:    T,
         bKeepWhiteSpace: F,
         bKeepComments:  F,
+        preformatted:   E as string[],
         storePrefix:    "RVAR_",
         version:        0
     },
@@ -308,12 +309,12 @@ class Context {
     }
 }
 
-export async function RCompile(srcN: hHTMLElement = D.body, settings?: Settings): Promise<void> {
+export async function RCompile(srcN: hHTMLElement = D.body, setts?: Settings): Promise<void> {
     if (srcN.isConnected && !srcN.hndlrs)   // No duplicate compilation
         try {
             srcN.hndlrs = [];
-            let {basePattern} = R.Settings = {...defaults, ...settings},
-                m = L.href.match(`^.*(${basePattern})`);
+            let s = R.setts = {...defaults, ...setts},
+                m = L.href.match(`^.*(${s.basePattern})`);
             R.FilePath = L.origin + (
                 DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
             )
@@ -533,7 +534,6 @@ type Template =
     (args: ArgSet, mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, ar: Area)
     => Promise<void>;
 
-
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -550,7 +550,7 @@ export class _RVAR<T = unknown>{
         if (name) G[name] = this;
 
         if (store) {
-            let sNm = storeNm || R.Settings.storePrefix + name
+            let sNm = storeNm || R.setts.storePrefix + name
                 , s = store.getItem(sNm);
             if (s)
                 try { init = JSON.parse(s); }
@@ -565,11 +565,10 @@ export class _RVAR<T = unknown>{
     }
     // The value of the variable
     v: T;
-    // The subscribers
-    // .Elm is het element in de DOM-tree dat vervangen moet worden door een uitgerekende waarde
-    // .Content is de routine die een nieuwe waarde uitrekent
-    _Subs: Set<Subscriber<T>> = new Set();
+    // Immediate subscribers
     _Imm: Set<Subscriber<T>> = new Set();
+    // Deferred subscribers
+    _Subs: Set<Subscriber<T>> = new Set();
 
     // Add a subscriber 's', when it is not null.
     // When 'bImm' is truthy, the subscriber will be called immediately when the RVAR is set dirty;
@@ -604,7 +603,7 @@ export class _RVAR<T = unknown>{
                 : (this.V = t);
     }
     get Clear() {
-        return _ => 
+        return () => 
             DVars.has(this) || (this.V=U);
     }
 
@@ -746,21 +745,19 @@ function RVAR_Light<T>(
     return (t as RVAR_Light<T>);
 }
 
-interface Item {}  // Three unknown but distinguished types, used by the <FOR> construct
-interface Key {}
-interface Hash {}
-
+// Element modifiers
+type Modifier = {
+    mt: MType,          // Modifier type
+    nm: string,         // Modifier name
+    depV: Dep<unknown>, // Routine to compute the value
+    c?: string,         // properly cased name
+    isS?: booly,        // Truthy when the property type is string
+}
+// Modifier Types
 const enum MType {
     Attr, Prop, Src, Class, Style, Event, 
     AddToStyle, AddToClassList, RestArgument,
     oncreate, onupdate
-}
-type Modifier = {
-    mt: MType,
-    nm: string,
-    depV: Dep<unknown>,
-    c?: booly,      // Truthy when nm has been checked for proper casing
-    isS?: booly,    // Truthy when the property type is string
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
 
@@ -768,16 +765,26 @@ type RestParameter = Array<{M: Modifier, v: unknown}>;
     'cr' is true when the element is newly created. */
 function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
     let {mt, nm} = M;
+    nm = M.c ||=
+        mt == MType.Style && ChkNm(elm.style, nm)
+        || (mt == MType.Prop || mt == MType.Event) 
+                && ChkNm(elm, 
+                    nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number'
+                    ? 'value' : nm)
+        || nm;
+    /*
+    let {mt, nm} = M;
     if (!M.c) {
         // Replace setting 'valueasnumber' in '<input type=number @valueasnumber=...' by setting 'value'
         if (mt == MType.Prop && nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number')
             nm = 'value';
         // For properties and events, find the correct capitalization of 'nm'.
-        M.c = nm = M.nm =
+        nm = M.nm = M.c =
             ( mt == MType.Style && ChkNm(elm.style, nm)
             || (mt == MType.Prop || mt == MType.Event) && ChkNm(elm, nm)
             || nm);
     }
+    */
     switch (mt) {
         case MType.Attr:
             elm.setAttribute(nm, val as string); 
@@ -790,7 +797,7 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             if (M.isS ??= typeof elm[nm]=='string')
                 if (val==N)
                     val = ''
-                else if (typeof val != 'string')
+                else
                     val = val.toString();
             if (val !== elm[nm])
                 elm[nm] = val;
@@ -804,7 +811,7 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
                 }
                 else {
                     elm[nm] = val; 
-                    if (nm == 'onclick' && R.Settings.bSetPointer)
+                    if (nm == 'onclick' && R.setts.bAutoPointer)
                         elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : N;
                 }
             break;
@@ -859,10 +866,10 @@ function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
     finally { ro = F; }
 }
 
-class RCompiler {
+class RComp {
 
     static iNum=0;
-    public num = RCompiler.iNum++;  // Rcompiler instance number, just for identification dureing debugging
+    public num = RComp.iNum++;  // Rcompiler instance number, just for identification dureing debugging
 
     private CT: Context         // Compile-time context
 
@@ -874,12 +881,12 @@ class RCompiler {
     public FilePath: string;
  
     constructor(
-        RC?: RCompiler,
+        RC?: RComp,
         FilePath?: string,
         settings?: Settings,
         CT = RC?.CT,
     ) { 
-        this.Settings   = {... RC ? RC.Settings : defaults, ...settings};
+        this.setts   = {... RC ? RC.setts : defaults, ...settings};
         this.FilePath  = FilePath || RC?.FilePath;
         this.doc = RC?.doc || D
         this.head  = RC?.head || this.doc.head;
@@ -1020,7 +1027,7 @@ class RCompiler {
         elm: ParentNode, 
         nodes?: Iterable<ChildNode>,  // Compile the element itself, or just its childnodes
     ) {
-        for (let tag of this.Settings.preformatted)
+        for (let tag of this.setts.preformatted)
             this.setPRE.add(tag.toUpperCase());
         let t0 = now();
         this.bldr =
@@ -1029,11 +1036,10 @@ class RCompiler {
             : await this.CElm(elm as HTMLElement, T)
             ) || dB;
         this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return this.bldr;
     }
 
     log(msg: string) {
-        if (this.Settings.bTiming)
+        if (this.setts.bTiming)
             console.log(new Date().toISOString().substring(11)+` ${this.num}: `+msg);
     }
 
@@ -1053,7 +1059,7 @@ class RCompiler {
         await DoUpdate();
     }
 
-    public Settings: FullSettings;
+    public setts: FullSettings;
     public bldr: DOMBuilder;
 
     private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
@@ -1152,7 +1158,7 @@ class RCompiler {
                     break;
 
                 case 8:         //Node.COMMENT_NODE:
-                    if (this.Settings.bKeepComments) {
+                    if (this.setts.bKeepComments) {
                         let getText = this.CText(srcN.nodeValue, 'Comment');
                         bl = async (ar:Area)=> PrepData(ar, getText(), T);
                     }
@@ -1204,8 +1210,8 @@ class RCompiler {
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
                         || m[7] && tag=='FOR'   // <FOR> has its own 'hash'
-                        ||                      // other cases are put in the list:
-                            glAtts.push(
+                        // other cases are put in the list:
+                        ||  glAtts.push(
                                 {
                                     att, 
                                     m, 
@@ -1225,9 +1231,9 @@ class RCompiler {
                             {
                                 att, 
                                 txt, 
-                                C:/c/.test(att),    // contains 'create'
-                                U:/u/.test(att),    // contains 'update'
-                                D:/y/.test(att),    // contains 'destroy'
+                                C:/c/.test(att),    // 'att' contains 'create'
+                                U:/u/.test(att),    // 'att' contains 'update'
+                                D:/y/.test(att),    // 'att' contains 'destroy'
                                     // 'before' events are compiled now, before the element is compiled
                                     // 'after' events are compiled after the element has been compiled, so they may
                                     // refer to local variables introduced by the element.
@@ -1258,7 +1264,7 @@ class RCompiler {
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
 
-                        auto = rv && atts.gB('auto', this.Settings.bAuto) && !onMod && rv; 
+                        auto = rv && atts.gB('auto', this.setts.bAutoSubscribe) && !onMod && rv; 
                         bl = async function DEF(ar, re?: number) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
@@ -1313,16 +1319,16 @@ class RCompiler {
                             ? this.CChilds(srcE)
                             :  this.Framed(async SS => {
                                 // Placeholder that will contain a Template when the file has been received
-                                let  C: RCompiler = new RCompiler(this, this.GetPath(src), {bSubfile: T})
+                                let  C: RComp = new RComp(this, this.GetPath(src), {bSubfile: T})
                                     , task = 
                                         // Parse the contents of the file
                                         // Compile the parsed contents of the file in the original context
                                         C.Compile(N, await this.fetchModule(src))
                                         .catch(e => {alert(e); throw e});
                                 return async function INCLUDE(ar) {
-                                        let b = await NoTime(task)
-                                            , {sub,ES} = SS(ar);
-                                        await b(sub).finally(ES);
+                                        await NoTime(task);
+                                        let {sub,ES} = SS(ar);
+                                        await C.bldr(sub).finally(ES);
                                     };
                             })
                         );
@@ -1343,7 +1349,7 @@ class RCompiler {
                             
                         if (!cTask) {
                             // When the same module is imported at multiple places, it needs to be compiled only once
-                            let C = new RCompiler(this, this.GetPath(src), {bSubfile: T}, new Context());
+                            let C = new RComp(this, this.GetPath(src), {bSubfile: T}, new Context());
                             C.log(src);
                             OMods.set(src
                                 , cTask = C.CIter(await this.fetchModule(src))
@@ -1411,7 +1417,7 @@ class RCompiler {
                         let dSrc = this.CParam<string>(atts, 'srctext', T)
                         //  , imports = this.CAttExp(atts, 'imports')
                             , mods = this.CAtts(atts)
-                            , C = new RCompiler(N, this.FilePath, {bSubfile: T, bTiming: this.Settings.bTiming})
+                            , C = new RComp(N, this.FilePath, {bSubfile: T, bTiming: this.setts.bTiming})
                             , {ws,rspc} = this
                         this.ws=WSpc.block;
                        
@@ -1465,7 +1471,7 @@ class RCompiler {
                     case 'DOCUMENT':
                         let vDoc = this.LVar(atts.g('name', T)),
                             bEncaps = atts.gB('encapsulate'),
-                            RC = new RCompiler(this),
+                            RC = new RComp(this),
                             vParams = RC.LVars(atts.g('params')),
                             vWin = RC.LVar(atts.g('window')),
                             docBldr = ((RC.head = D.createDocumentFragment()), await RC.CChilds(srcE));
@@ -1527,8 +1533,8 @@ class RCompiler {
 
                     case 'RHEAD':
                         let {ws} = this;
-                        b = await this.CChilds(srcE);
                         this.ws = this.rspc = WSpc.block;
+                        b = await this.CChilds(srcE);
                         this.ws = ws;
                         
                         bl = b && async function HEAD(ar: Area) {
@@ -1543,9 +1549,9 @@ class RCompiler {
 
                     case 'RSTYLE':
                         let s: [boolean, RegExp, WSpc]
-                            = [this.Settings.bDollarRequired, this.rIS, this.ws];
+                            = [this.setts.bDollarRequired, this.rIS, this.ws];
                         try {
-                            this.Settings.bDollarRequired = T; this.rIS = N;
+                            this.setts.bDollarRequired = T; this.rIS = N;
                             this.ws = WSpc.preserve;
                             b = await this.CChilds(srcE);
                         
@@ -1554,7 +1560,7 @@ class RCompiler {
                             };
                         }
                         finally {
-                            [this.Settings.bDollarRequired, this.rIS, this.ws] = s;
+                            [this.setts.bDollarRequired, this.rIS, this.ws] = s;
                         }
                         break;
 
@@ -1587,6 +1593,12 @@ class RCompiler {
                 }
                 atts.NoneLeft();
             }
+
+            // We are going to add pseudo-event and global attribute handling.
+            // We keep the current builder function name, so we can attach it to the final builder.
+            // And when the current builder 'bl' is empty, we replace it by the dummy builder, so the handler routines get
+            // a non-empty builder.
+            // When no handling is added, we'll make 'bl' empty again.
             
             nm = (bl ||= dB).name;
 
@@ -1595,7 +1607,7 @@ class RCompiler {
                 for (let g of af)
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function Pseudo(ar: AreaR, x:any) {
+                bl = async function Pseudo(ar: AreaR, re) {
                     let {r,prvR} = ar, bfD: Handler;
                     for (let g of bf) {
                         if (g.D)
@@ -1605,7 +1617,7 @@ class RCompiler {
                                 r?.node || ar.parN
                             );
                     }
-                    await b(ar, x);
+                    await b(ar, re);
                     // When b has not created its own range, then we create one
                     let prev = 
                         (r ? ar.r != r && r
@@ -1624,7 +1636,7 @@ class RCompiler {
             }
 
             // Compile global attributes
-            for (let {att, m, dV} of this.Settings.version ? glAtts : glAtts.reverse()) {
+            for (let {att, m, dV} of this.setts.version ? glAtts : glAtts.reverse()) {
                 let b = bl,
                     rre = m[3] ? 2 : 1,    // 'thisreactson'?
                     es = m[6] ? 'e' : 's';
@@ -1658,23 +1670,23 @@ class RCompiler {
                             }
                         }
                     : m[5]  // onerror|onsuccess
-                    ? async function SetOnES(ar: Area,x) {
+                    ? async function SetOnES(ar: Area, re) {
                             let s = on; 
                             on = {...on}
                             try {
                                 on[es] = dV();
-                                await b(ar,x);
+                                await b(ar, re);
                             }
                             finally { on = s; }
                         }
                     :   m[7]   // hash
-                    ? async function HASH(ar: Area) {
+                    ? async function HASH(ar: Area, re) {
                         let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
                             , hashes = <unknown[]>dV();
     
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                             r.val = hashes;
-                            await b(sub);
+                            await b(sub, re);
                         }
                     }
                     : m[8]  // if
@@ -1705,27 +1717,27 @@ class RCompiler {
         catch (e) { throw ErrMsg(srcE, e); }
     }
 
-    private ErrH(bl: DOMBuilder, srcN: ChildNode): DOMBuilder{
+    private ErrH(b: DOMBuilder, srcN: ChildNode): DOMBuilder{
 
-        return bl && (async (ar: AreaR) => {
+        return b && (async (ar: AreaR) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
                 r.errN = U;
             }
             try {
-                await bl(ar);
+                await b(ar);
             } 
             catch (e) { 
                 let msg = 
                     srcN instanceof HTMLElement ? ErrMsg(srcN, e, 39) : e;
 
-                if (this.Settings.bAbortOnError)
+                if (this.setts.bAbortOnError)
                     throw msg;
                 this.log(msg);
                 if (on.e)
                     on.e(e);
-                else if (this.Settings.bShowErrors) {
+                else if (this.setts.bShowErrors) {
                     let errN =
                         ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
                     if (r)
@@ -1767,7 +1779,7 @@ class RCompiler {
         /* Script have to be handled by Otoreact in the following cases:
             * When it is a 'type=otoreact' script
             * Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
-        if (mOto || (bCls || bMod) && this.Settings.bSubfile) {
+        if (mOto || (bCls || bMod) && this.setts.bSubfile) {
             if (mOto?.[3]) {
                 // otoreact/local script
                 let prom = (async () => 
@@ -1976,6 +1988,11 @@ class RCompiler {
 
     private CFor(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
+        // Three unknown but distinguished types, used by the <FOR> construct
+        interface Item {}
+        interface Key {}
+        interface Hash {}        
+
         interface ForRange extends Range {
             prev?: ForRange;
             nx: ForRange;
@@ -2013,7 +2030,7 @@ class RCompiler {
                     b = await this.CIter(srcE.childNodes);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return b && async function FOR(this: RCompiler, ar: Area) {
+                return b && async function FOR(this: RComp, ar: Area) {
                     let {r, sub} = PrepRng<Map<Key, ForRange>>(ar, srcE, ''),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Nxt,
@@ -2455,7 +2472,7 @@ class RCompiler {
         atts.NoneLeft();
         this.ws = WSpc.inline;
 
-        return async function INST(this: RCompiler, ar: Area) {
+        return async function INST(this: RComp, ar: Area) {
             let {r, sub, cr} = PrepRng<ArgSet>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
@@ -2516,6 +2533,10 @@ class RCompiler {
         if (postWs)
             this.ws = postWs;
 
+        if (nm=='A' && this.setts.bAutoReroute && !mods.some(M => M.nm=='onclick'))
+            mods.push({mt: MType.Prop, nm: 'onclick',
+                depV: function(this: HTMLAnchorElement) {return this.onclick || (this.href.indexOf(L.origin + DL.basepath) == 0 ? reroute: N)}})
+
         // Now the runtime action
         // 're' is 2 when the routine is called because of a 'thisreactson' attribute.
         // In that case the childnodes should not be updated.
@@ -2531,7 +2552,8 @@ class RCompiler {
                     // Build / update childnodes
                     await childBldr?.(chAr);
 
-                node.removeAttribute('class');
+                //node.removeAttribute('class');
+                node.className = "";
                 if (node.hndlrs) {
                     for (let {evType, listener} of node.hndlrs)
                         node.removeEventListener(evType, listener);
@@ -2624,7 +2646,7 @@ class RCompiler {
         let 
             // Regular expression to recognize string interpolations, with or without dollar,
             // with support for two levels of nested braces,
-            // were we also must take care to skip js strings possibly containing braces and escaped quotes.
+            // where we also must take care to skip js strings possibly containing braces and escaped quotes.
             // Backquoted js strings containing js expressions containing backquoted strings might go wrong
             // (We can't use negative lookbehinds; Safari does not support them)
             f = (re:string) => 
@@ -2636,11 +2658,11 @@ class RCompiler {
 |[^])*?`
             , rIS = this.rIS ||= 
                 new RegExp(
-                    `(\\\\[\${])|\\\$${this.Settings.bDollarRequired ? '' : '?'}\\{(${f(f(f('[^]*?')))})\\}|\$`
+                    `(\\\\[\${])|\\\$${this.setts.bDollarRequired ? '' : '?'}\\{(${f(f(f('[^]*?')))})\\}|\$`
                     , 'g'
                 ),
             gens: Array< string | Dep<unknown> > = [],
-            ws: WSpc = nm || this.Settings.bKeepWhiteSpace ? WSpc.preserve : this.ws
+            ws: WSpc = nm || this.setts.bKeepWhiteSpace ? WSpc.preserve : this.ws
             , isTriv = T
             , lastIx = rIS.lastIndex = 0
             , m: RegExpExecArray;
@@ -2649,7 +2671,7 @@ class RCompiler {
             if (!(m = rIS.exec(text))[1]) {
                 var fx = lastIx < m.index ? text.slice(lastIx, m.index) : N;
                 if (fx) {
-                    fx = fx.replace(/\\([${}\\])/g, '$1'); // Replace '\{' etc by '{'
+                    fx = fx.replace(/\\([${}])/g, '$1'); // Replace '\{' etc by '{'
                     if (ws < WSpc.preserve) {
                         fx = fx.replace(/[ \t\n\r]+/g, ' ');  // Reduce all whitespace to a single space
                         // We can't use \s for whitespace, because that includes nonbreakable space &nbsp;
@@ -3045,7 +3067,7 @@ class DocLoc extends _RVAR<string> {
         }
     }
 let
-    R = new RCompiler(),
+    R = new RComp(),
     DL = new DocLoc(),
     reroute: (arg: MouseEvent | string) => void = 
         arg => {

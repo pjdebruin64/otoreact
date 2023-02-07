@@ -93,7 +93,7 @@
     </script>
     
 </head>
-<body onclick="popup.V=null" style.cursor=default rhtml="bTiming:true" hidden>
+<body onclick="popup.V=null" style.cursor=default rhtml="bTiming:true,version:1,bAutoReroute:true" hidden>
     <script>//document.body.hidden=true</script>
 
     <import src="Lib_Components.html">

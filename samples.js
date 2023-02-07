@@ -66,11 +66,11 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
   }
 
   @keyframes Disappearing {
-    from {line-height: 100%}
+    from {line-height: 80%}
     to   {line-height: 0%}
   }  
   table.animate > tbody > tr:first-child {
-    animation: Disappearing 280ms linear 30ms forwards
+    animation: Disappearing 280ms linear 70ms forwards
   }
 </style>
 
@@ -100,7 +100,7 @@ function StartStop() {
   }
   else
     // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
-    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 350)
 }
 </script>
 
@@ -129,7 +129,7 @@ function StartStop() {
   <!-- Detail records -->
   <!-- RVAR 'ColorTable' is defined in the script; we need a 'reacton' attribute to tell OtoReact that this piece
     of code should react on changes in 'ColorTable.V'.
-    'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if record 'C' remains the same.
+    'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if 'C' remains the same object.
   -->
   <tbody.>
     <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
@@ -152,13 +152,14 @@ function StartStop() {
 </div>`;
 const sampleBraces = `1 + 1 = {1 + 1}  \\{ Check }
 <p>
-Null and undefined are not shown:
-  "{null} {undefined}".
+Null and undefined are not shown:    "{null} {undefined}".
 <br>
-Compare this JavaScript template literal:
-  "{ \`\${null} \${undefined}\` }".
+Compare this JavaScript template literal:    "{ \`\${null} \${undefined}\` }".
 <p>
-Tag <{}br> looks better in source code than &lt;br&gt;`;
+Tag <{}br> looks better in source code than &lt;br&gt;
+<p>
+To show a literal backslash right in front of an embedded expression, write \{"\\"}:
+{"\\"}{ 1 + 1 }`;
 const sampleGreeting2 = `<!-- Create a "Reactive variable" with a local name and
    persisted in localStorage -->
 <define rvar='yourName' store=sessionStorage></define>
