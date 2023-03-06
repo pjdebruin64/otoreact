@@ -6,7 +6,7 @@ s/.*/dir otoreact.ts/ ; e
 s/^.*(..)-(..)-(....).*/\/* OtoReact version \3-\2-\1/ ; p
 i\
 * Copyright 2022 Peter J. de Bruin (peter@peterdebruin.net)\
-* See https://otoreact.dev/download for license information\
+* See https://otoreact.dev/download for license info\
 */
 x
 

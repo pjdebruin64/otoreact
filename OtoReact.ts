@@ -1083,15 +1083,15 @@ class RComp {
         while(rspc && arr.length && reWS.test(arr[arr.length - 1]?.nodeValue)) 
             arr.pop();
         
-        let bldrs = await this.CArr(arr, this.rspc);
+        let bldrs = await this.CArr(arr, this.rspc), l=bldrs.length;
 
-        return bldrs.length ? 
-            async function Iter(ar: Area)
-            {   
-                for (let b of bldrs)
-                    await b(ar);
-            }
-        : N;
+        return !l ? N
+            : l-1 ? async function Iter(ar: Area)
+                {   
+                    for (let b of bldrs)
+                        await b(ar);
+                }
+            : bldrs[0];
     }
 
     private async CArr(arr: Array<ChildNode>, rspc: booly, i=0) : Promise<DOMBuilder[]> {
@@ -1887,7 +1887,7 @@ class RComp {
             {ws, rspc, CT}= this,
             postCT = CT,
             postWs: WSpc = 0, // Highest whitespace mode to be reached after any alternative
-            bEls: booly;
+            bE: booly;
         
         for (let {node, atts, body} of caseNodes) {
             let ES = 
@@ -1897,29 +1897,27 @@ class RComp {
                 let cond: Dep<unknown>, 
                     not: boolean = F,
                     patt:  {lvars: LVar[], regex: RegExp, url?: boolean},
-                    p: string,
-                    b: DOMBuilder;
+                    p: string;
                 switch (node.tagName) {
                     case 'IF':
                     case 'THEN':
                     case 'WHEN':
                         cond = this.CAttExp<unknown>(atts, 'cond');
                         not = atts.gB('not');
-                        patt =
+                        patt = dVal && (
                             (p = atts.g('match')) != N
-                                ? this.CPatt(p)
+                            ? this.CPatt(p)
                             : (p = atts.g('urlmatch')) != N
                                 ? this.CPatt(p, T)
                             : (p = atts.g('regmatch')) != N
                                 ?  {regex: new RegExp(p, 'i'), 
                                 lvars: this.LVars(atts.g('captures'))
                                 }
-                            : N;
+                            : N
+                        );
 
-                        if (bHiding && patt?.lvars.length)
-                            throw `Pattern capturing cannot be combined with hiding`;
-                        if (patt && !dVal)
-                            throw `Match requested but no 'value' specified.`;
+                        if (patt?.lvars.length && (bHiding || not))
+                            throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
 
                         // Fall through!
 
@@ -1933,13 +1931,13 @@ class RComp {
                         postWs = Math.max(postWs, this.ws);
                         postCT = postCT.max(this.CT);
 
-                        if (cond === U) bEls=T;
+                        bE ||= cond === U;  // Is there an ELSE
                 }
             } 
             catch (e) { throw node.tagName=='IF' ? e : ErrMsg(node, e); }
             finally { ES(); }
         }
-        this.ws = !bEls && ws > postWs ? ws : postWs;
+        this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
 
         return caseList.length && async function CASE(ar: Area) {
@@ -3010,8 +3008,7 @@ function* mapI<A, B>(I: Iterable<A>, f: (a:A)=>B, c?: (a:A)=>booly): Iterable<B>
 function* split(s: string) {
     if (s)
         for (let v of s.split(','))
-            if (v = v.trim())
-                yield v;
+            yield v.trim();
 }
 // Iterate through a range of numbers
 export function* range(from: number, count?: number, step: number = 1) {
