@@ -16,7 +16,7 @@ x
 s/\r//
 
 # Merge lines ending in these characters (without semicolon) with next line, inserting a space
-/[][,{}=:?)]$|else$/ {N ; s/\n */ / ; b start }
+/[][,{}=:?()&|]$|else$/ {N ; s/\n */ / ; b start }
 # Merge line ending in backslash with next line, removing the backslash
 /\\$/ {N ; s/\\\n// ; b start }
 

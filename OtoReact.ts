@@ -19,8 +19,8 @@ const
         bAbortOnError:  F,      // Abort processing on runtime errors,
                                 // When false, only the element producing the error will be skipped
         bShowErrors:    T,      // Show runtime errors as text in the DOM output
-        bSubfile:    F,
-        basePattern:    '/',
+        bSubfile:       F,
+        basePattern:    '/',    // (also in RCompile)
         bAutoSubscribe: T,
         bAutoPointer:    T,
         bAutoReroute:   F,
@@ -313,24 +313,25 @@ export async function RCompile(srcN: hHTMLElement = D.body, setts?: Settings): P
     if (srcN.isConnected && !srcN.hndlrs)   // No duplicate compilation
         try {
             srcN.hndlrs = [];
-            let s = R.setts = {...defaults, ...setts},
-                m = L.href.match(`^.*(${s.basePattern})`);
-            R.FilePath = L.origin + (
-                DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''
-            )
-            await R.Compile(srcN);
+            let
+                m = L.href.match(`^.*(${setts.basePattern || '/'})`)
+                , C = new RComp(
+                    N
+                    , L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '')
+                    , setts
+                );
+            await C.Compile(srcN);
 
             // Initial build
             start = now();
             nodeCnt = 0;
             srcN.innerHTML = "";
-            await R.Build({
+            await C.Build({
                 parN: srcN.parentElement,
                 srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
                 bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
             });
-            W.addEventListener('pagehide', () => chiWins.forEach(w=>w.close()));
-            R.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
+            C.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
             ScrollToHash();
         }
         catch (e) {    
@@ -2551,7 +2552,7 @@ class RComp {
                     await childBldr?.(chAr);
 
                 //node.removeAttribute('class');
-                node.className = "";
+                if (node.className) node.className = "";
                 if (node.hndlrs) {
                     for (let {evType, listener} of node.hndlrs)
                         node.removeEventListener(evType, listener);
@@ -3083,8 +3084,11 @@ ass(
     G, {RVAR, range, reroute, RFetch}
 );
 
-// Initiate compilation
-setTimeout(async () => {
+// Close registered child windows on page hide (= window close)
+W.addEventListener('pagehide', () => chiWins.forEach(w=>w.close()));
+
+// Initiate compilation of marked elements
+setTimeout(() => {
     for (let src of <NodeListOf<HTMLElement>>D.querySelectorAll('*[rhtml],*[type=RHTML]'))
-        await RCompile(src, Ev(`({${src.getAttribute('rhtml')||''}})`));
+        RCompile(src, Ev(`({${src.getAttribute('rhtml')||''}})`));
 }, 0);
