@@ -1,4 +1,4 @@
-const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = self, US = "'use strict';", defaults = {
+const U = undefined, N = null, T = true, F = false, E = [], W = window, D = document, L = location, G = self, US = "'use strict';", dflts = {
     bTiming: F,
     bAbortOnError: F,
     bShowErrors: T,
@@ -119,18 +119,18 @@ export async function RCompile(srcN = D.body, setts) {
     if (srcN.isConnected && !srcN.hndlrs)
         try {
             srcN.hndlrs = [];
-            let m = L.href.match(`^.*(${setts.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''), setts);
+            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : ''), setts);
             await C.Compile(srcN);
-            start = now();
-            nodeCnt = 0;
-            srcN.innerHTML = "";
-            await C.Build({
-                parN: srcN.parentElement,
-                srcN,
-                bfor: srcN
-            });
-            C.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-            ScrollToHash();
+            Jobs.add({ Exec: async () => {
+                    srcN.innerHTML = "";
+                    await C.Build({
+                        parN: srcN.parentElement,
+                        srcN,
+                        bfor: srcN
+                    });
+                    ScrollToHash();
+                } });
+            DoUpdate();
         }
         catch (e) {
             alert(`OtoReact compile error: ` + Abbr(e, 1000));
@@ -218,7 +218,8 @@ export class _RVAR {
         if (name)
             G[name] = this;
         if (store) {
-            let sNm = storeNm || R.setts.storePrefix + name, s = store.getItem(sNm);
+            let sNm = storeNm ||
+                'RVAR_' + name, s = store.getItem(sNm);
             if (s)
                 try {
                     init = JSON.parse(s);
@@ -255,7 +256,7 @@ export class _RVAR {
             : (this.V = t);
     }
     get Clear() {
-        return () => DVars.has(this) || (this.V = U);
+        return () => Jobs.has(this) || (this.V = U);
     }
     get U() {
         ro || this.SetDirty();
@@ -266,9 +267,21 @@ export class _RVAR {
         for (let sub of this._Imm)
             sub(this.v);
         if (this._Subs.size) {
-            DVars.add(this);
+            Jobs.add(this);
             RUpd();
         }
+    }
+    async Exec() {
+        for (let subs of this._Subs)
+            try {
+                let P = subs(this.V);
+                if (subs.ar)
+                    await P;
+            }
+            catch (e) {
+                console.log(e = `ERROR: ` + Abbr(e, 1000));
+                alert(e);
+            }
     }
     toString() {
         return this.v?.toString() ?? '';
@@ -279,7 +292,7 @@ function Subscriber({ parN, parR }, b, r, re = 1) {
     return ass(() => (({ env, on } = eon),
         b({ ...ar }, re)), { ar });
 }
-let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
+let env, on = { e: N, s: N }, Jobs = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => { start += now() - t; });
 }, RUpd = () => {
@@ -288,29 +301,20 @@ let env, on = { e: N, s: N }, DVars = new Set(), hUpdate, ro = F, upd = 0, nodeC
 };
 export async function DoUpdate() {
     hUpdate = N;
-    if (!env && DVars.size) {
+    if (!env && Jobs.size) {
         env = E;
         nodeCnt = 0;
         let u0 = upd;
         start = now();
-        while (DVars.size) {
-            let dv = DVars;
-            DVars = new Set();
+        while (Jobs.size) {
+            let J = Jobs;
+            Jobs = new Set();
             if (upd++ - u0 > 25) {
                 alert('Infinite react-loop');
                 break;
             }
-            for (let rv of dv)
-                for (let subs of rv._Subs)
-                    try {
-                        let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                        if (subs.ar)
-                            await P;
-                    }
-                    catch (e) {
-                        console.log(e = `ERROR: ` + Abbr(e, 1000));
-                        alert(e);
-                    }
+            for (let j of J)
+                await j.Exec();
         }
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
         env = U;
@@ -319,20 +323,27 @@ export async function DoUpdate() {
 export function RVAR(nm, value, store, subs, storeName) {
     return new _RVAR(nm, value, store, storeName).Subscribe(subs, T);
 }
+const RV_props = {
+    V: { get: function () { return this; } },
+    U: { get: function () {
+            if (!ro) {
+                Jobs.add(this);
+                this._UpdTo?.forEach(rv => rv.SetDirty());
+                RUpd();
+            }
+            return this;
+        }
+    },
+    Exec: { value: _RVAR.prototype.Exec },
+    Subscribe: { value: function (sub) {
+            this._Subs.add(sub);
+        } },
+};
 function RVAR_Light(t, updTo) {
     if (!t._Subs) {
         t._Subs = new Set();
         t._UpdTo = updTo;
-        Object.defineProperty(t, 'U', { get: () => {
-                if (!ro) {
-                    DVars.add(t);
-                    t._UpdTo?.forEach(rvar => rvar.SetDirty());
-                    RUpd();
-                }
-                return t;
-            }
-        });
-        t.Subscribe = sub => t._Subs.add(sub);
+        Object.defineProperties(t, RV_props);
     }
     return t;
 }
@@ -432,7 +443,7 @@ class RComp {
         this.ws = 1;
         this.rspc = T;
         this.srcNodeCnt = 0;
-        this.setts = { ...RC ? RC.setts : defaults, ...settings };
+        this.setts = { ...RC ? RC.setts : dflts, ...settings };
         this.FilePath = FilePath || RC?.FilePath;
         this.doc = RC?.doc || D;
         this.head = RC?.head || this.doc.head;
@@ -518,7 +529,6 @@ class RComp {
             console.log(new Date().toISOString().substring(11) + ` ${this.num}: ` + msg);
     }
     async Build(ar) {
-        let saveR = R;
         R = this;
         env = [];
         try {
@@ -526,7 +536,6 @@ class RComp {
         }
         finally {
             env = U;
-            R = saveR;
         }
         await DoUpdate();
     }
@@ -1799,7 +1808,7 @@ class DocLoc extends _RVAR {
         return rv;
     }
 }
-let R = new RComp(), DL = new DocLoc(), reroute = arg => {
+let R, DL = new DocLoc(), reroute = arg => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;

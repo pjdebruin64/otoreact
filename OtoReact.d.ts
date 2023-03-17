@@ -1,4 +1,4 @@
-declare const defaults: {
+declare const dflts: {
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -15,7 +15,7 @@ declare const defaults: {
     storePrefix: string;
     version: number;
 };
-declare type FullSettings = typeof defaults;
+declare type FullSettings = typeof dflts;
 declare type Settings = Partial<FullSettings>;
 declare type hHTMLElement = HTMLElement & {
     hndlrs?: Array<{
@@ -83,15 +83,17 @@ export declare class _RVAR<T = unknown> {
     get U(): T;
     set U(t: T);
     SetDirty(): void;
+    Exec(): Promise<void>;
     toString(): string;
 }
 export declare type RVAR<T = unknown> = _RVAR<T>;
 export declare type RVAR_Light<T> = T & {
+    Subscribe: (sub: Subscriber) => void;
+    Exec: () => Promise<void>;
+    Save: () => void;
     _Subs: Set<Subscriber>;
     _UpdTo?: Array<RVAR>;
-    Subscribe?: (sub: Subscriber) => void;
     store?: any;
-    Save?: () => void;
     readonly U?: T;
 };
 declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;

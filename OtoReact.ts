@@ -14,7 +14,7 @@ const
     US = "'use strict';",
 
     // Global settings 
-    defaults = {
+    dflts = {
         bTiming:        F,
         bAbortOnError:  F,      // Abort processing on runtime errors,
                                 // When false, only the element producing the error will be skipped
@@ -35,7 +35,7 @@ const
     
     // Some utilities
     P = new DOMParser(),
-    Ev = eval,                  // Note: 'eval(txt)' can access variables from this file, while 'Ev(txt)' cannot.
+    Ev = eval,                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
     ass = Object.assign as
                 <T extends Object>(obj: T, props: Object) => T,
     now = () => performance.now(),
@@ -45,7 +45,7 @@ const
 // Type used for truthy / falsy values
 type booly = boolean|string|number|object;
 
-type FullSettings = typeof defaults;
+type FullSettings = typeof dflts;
 type Settings = Partial<FullSettings>;
 
 // Current whitespace mode of the compiler:
@@ -312,9 +312,9 @@ class Context {
 export async function RCompile(srcN: hHTMLElement = D.body, setts?: Settings): Promise<void> {
     if (srcN.isConnected && !srcN.hndlrs)   // No duplicate compilation
         try {
-            srcN.hndlrs = [];
+            srcN.hndlrs = [];   // No duplicate compilation
             let
-                m = L.href.match(`^.*(${setts.basePattern || '/'})`)
+                m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
                 , C = new RComp(
                     N
                     , L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, '') : '')
@@ -323,16 +323,16 @@ export async function RCompile(srcN: hHTMLElement = D.body, setts?: Settings): P
             await C.Compile(srcN);
 
             // Initial build
-            start = now();
-            nodeCnt = 0;
-            srcN.innerHTML = "";
-            await C.Build({
-                parN: srcN.parentElement,
-                srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
-                bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
-            });
-            C.log(`Built ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-            ScrollToHash();
+            Jobs.add({Exec: async() => {
+                srcN.innerHTML = "";
+                await C.Build({
+                    parN: srcN.parentElement,
+                    srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
+                    bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
+                });
+                ScrollToHash();
+            }});
+            DoUpdate();
         }
         catch (e) {    
             alert(`OtoReact compile error: ` + Abbr(e, 1000));
@@ -551,7 +551,8 @@ export class _RVAR<T = unknown>{
         if (name) G[name] = this;
 
         if (store) {
-            let sNm = storeNm || R.setts.storePrefix + name
+            let sNm = storeNm || // R.setts.storePrefix 
+                    'RVAR_' + name
                 , s = store.getItem(sNm);
             if (s)
                 try { init = JSON.parse(s); }
@@ -605,7 +606,7 @@ export class _RVAR<T = unknown>{
     }
     get Clear() {
         return () => 
-            DVars.has(this) || (this.V=U);
+            Jobs.has(this) || (this.V=U);
     }
 
     // Use var.U to get its value for the purpose of updating some part of it.
@@ -620,9 +621,22 @@ export class _RVAR<T = unknown>{
         for (let sub of this._Imm)
             sub(this.v);
         if (this._Subs.size) {
-            DVars.add(this);
+            Jobs.add(this);
             RUpd();
         }
+    }
+
+    public async Exec() {
+        for (let subs of this._Subs)
+            try { 
+                let P = subs(this.V);
+                if (subs.ar)
+                    await P;
+            }
+            catch (e) {    
+                console.log(e = `ERROR: ` + Abbr(e,1000));
+                alert(e);
+            }
     }
 
     toString() {
@@ -632,11 +646,12 @@ export class _RVAR<T = unknown>{
 export type RVAR<T = unknown> = _RVAR<T>;
 
 export type RVAR_Light<T> = T & {
+    Subscribe: (sub:Subscriber) => void;
+    Exec: () => Promise<void>;
+    Save: () => void;
     _Subs: Set<Subscriber>;
     _UpdTo?: Array<RVAR>;
-    Subscribe?: (sub:Subscriber) => void;
     store?: any;
-    Save?: () => void;
     readonly U?: T;
 };
 
@@ -659,7 +674,7 @@ let
     on = {e: <Handler>N, s: <Handler>N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light
-    DVars = new Set<{_Subs: Set<Subscriber>;}>(),
+    Jobs = new Set<{Exec: () => Promise<void> }>(),
 
     hUpdate: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
@@ -679,27 +694,18 @@ let
 
 export async function DoUpdate() {
     hUpdate = N;
-    if (!env && DVars.size) {
+    if (!env && Jobs.size) {
         env = E;
         nodeCnt = 0;
         let u0 = upd;
         start = now();
-        while (DVars.size) {
-            let dv = DVars;
-            DVars = new Set();
+        while (Jobs.size) {
+            let J = Jobs;
+            Jobs = new Set();
             if (upd++ - u0 > 25)
             { alert('Infinite react-loop'); break; }
-            for (let rv of dv)
-                for (let subs of rv._Subs)
-                    try { 
-                        let P = subs(rv instanceof _RVAR ? rv.v : rv);
-                        if (subs.ar)
-                            await P;
-                    }
-                    catch (e) {    
-                        console.log(e = `ERROR: ` + Abbr(e,1000));
-                        alert(e);
-                    }
+            for (let j of J)
+                await j.Exec();
         }
         R.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
         env=U;
@@ -719,29 +725,33 @@ export function RVAR<T>(
     ).Subscribe(subs, T);
 }
 
+const RV_props = 
+{
+    V:  {get: function(this: RVAR_Light<unknown>) {return this}},
+    U:  {get:
+            function(this: RVAR_Light<unknown>) {
+                if (!ro) {
+                    Jobs.add(this);                                
+                    this._UpdTo?.forEach(rv => rv.SetDirty());                                
+                    RUpd();
+                }
+                return this;
+            }
+        },
+    Exec: {value: _RVAR.prototype.Exec},
+    Subscribe: {value: function(this: RVAR_Light<unknown>, sub: Subscriber) {
+        this._Subs.add(sub)
+    }},
+}
+
 function RVAR_Light<T>(
     t: T, 
     updTo?: Array<RVAR>,
 ): RVAR_Light<T> {
     if (!(t as RVAR_Light<T>)._Subs) {
-        (t as RVAR_Light<T>)._Subs = new Set();
+        (t as RVAR_Light<T>)._Subs = new Set();        
         (t as RVAR_Light<T>)._UpdTo = updTo;
-        Object.defineProperty(t, 'U',
-            {get:
-                () => {
-                    if (!ro) {
-                        DVars.add(t as RVAR_Light<T>);
-                        
-                        (t as RVAR_Light<T>)._UpdTo?.forEach(
-                            rvar => rvar.SetDirty());
-                        
-                        RUpd();
-                    }
-                    return t;
-                }
-            }
-        );
-        (t as RVAR_Light<T>).Subscribe = sub => (t as RVAR_Light<T>)._Subs.add(sub);
+        Object.defineProperties(t, RV_props);
     }
     return (t as RVAR_Light<T>);
 }
@@ -887,7 +897,7 @@ class RComp {
         settings?: Settings,
         CT = RC?.CT,
     ) { 
-        this.setts   = {... RC ? RC.setts : defaults, ...settings};
+        this.setts   = {... RC ? RC.setts : dflts, ...settings};
         this.FilePath  = FilePath || RC?.FilePath;
         this.doc = RC?.doc || D
         this.head  = RC?.head || this.doc.head;
@@ -1047,7 +1057,6 @@ class RComp {
     private setPRE = new Set(['PRE']);
 
     public async Build(ar: Area) {
-        let saveR = R;
         R = this;
         env = [];   // = NewEnv()
         try {
@@ -1055,7 +1064,6 @@ class RComp {
         }
         finally {
             env = U;
-            R = saveR;       
         }
         await DoUpdate();
     }
@@ -3065,7 +3073,7 @@ class DocLoc extends _RVAR<string> {
         }
     }
 let
-    R = new RComp(),
+    R: RComp,
     DL = new DocLoc(),
     reroute: (arg: MouseEvent | string) => void = 
         arg => {
