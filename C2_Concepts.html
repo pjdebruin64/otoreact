@@ -1,37 +1,47 @@
+
+<component>
+	<IDEMO src></IDEMO>
+	<template>
+		<code>{src}</code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=src></rhtml></span>
+	</template>
+</component>
+
 <h1>RHTML Concepts</h1>
 This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of all features.
 <br>Sections marked with a '*' are advanced and should be skipped on first reading.
 
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
-All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>, which results in the text "1 + 1 = {1 + 1}".
+All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces: <idemo src="1 + 1 = \{1 + 1}"></idemo>
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
 
 <p>
     The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
 </p>
-<p>
-    To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
-</p>
-
 <p>Within JavaScript, you can of course use the <a href="{MDN}Web/JavaScript/Reference/Template_literals"></a>JavaScript syntax for template literals</a>, using backquotes and dollar signs:</p>
 <pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
 <p>
-    If you prefer, you may add a dollar sign in RHTML as well, like <code>1 + 1 = $\{1 + 1}</code>.
+    If you prefer, you may add a dollar sign in RHTML as well: <idemo src="1 + 1 = $\{1 + 1}"></idemo>
 </p>
 <h4>Notes*</h4>
 <ul>
     <li>
-        If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without backslashes.
+        To include a literal (normal) pair of braces, at least the first of them must be escaped with a backslash: <idemo src="\\{ 1 + 1 }"></idemo>
     </li>
     <li>
-        Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
+        To include a literal backslash or dollar sign right in front of an embedded expression, insert a dollar sign in between: <idemo src="\$\{1+1}"></idemo>, <idemo src="$$\{1+1}"></idemo>
     </li>
     <li>
-        You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
+        If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write literal braces without backslashes.
+    </li>
+    <li>
+        Expression values <code>null</code> and <code>undefined</code> are not shown: <idemo src='"\{null} \{undefined}"'></idemo>.
+        <p>This is unlike JavaScript template literals, where <code>null</code> and <code>undefined</code> are spelled out: <idemo src="\{ `$\{null} $\{undefined}` }"></idemo>
+    </li>
+    <li>
+        You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag: <idemo src="<\{}br>"></idemo>
     </li>
 </ul>
-<demo #srctext="sampleBraces"></demo>
 
 <h2 id="ConstructsOverview">RHTML constructs overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>

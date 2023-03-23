@@ -203,8 +203,8 @@ Compare this JavaScript template literal:    "{ \`\${null} \${undefined}\` }".
 <p>
 Tag <{}br> looks better in source code than &lt;br&gt;
 <p>
-To show a literal backslash right in front of an embedded expression, write \{"\\"}:
-{"\\"}{ 1 + 1 }`;
+To show a literal backslash right in front of an embedded expression, write \\$:
+\\${ 1 + 1 }`;
 
 const sampleGreeting2 =
 `<!-- Create a "Reactive variable" with a local name and

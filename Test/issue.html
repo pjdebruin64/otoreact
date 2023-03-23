@@ -150,5 +150,23 @@
       </template>
     </component>
     <boxed arg=1>Contents:<boxed arg=2>Ok</boxed></boxed>
+
+  <hr>
+    <component>
+      <C a>
+        <content b></content>
+      </C>
+      <def var="cnt" #value="{V:0}"></def>
+
+      <template a>
+        <p>
+          a = {a}, <content #b="cnt.V++"></content>
+        </p>
+      </template>
+    </component>
+
+    <C a="1" b>b1 = {b}</C>
+    <C a="2" b>b2 = {b}</C>
+
     </body>
 </html>

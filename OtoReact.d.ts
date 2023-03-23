@@ -1,4 +1,4 @@
-declare const dflts: {
+declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -14,9 +14,8 @@ declare const dflts: {
     preformatted: string[];
     storePrefix: string;
     version: number;
-};
-declare type FullSettings = typeof dflts;
-declare type Settings = Partial<FullSettings>;
+    headers: HeadersInit;
+}>;
 declare type hHTMLElement = HTMLElement & {
     hndlrs?: Array<{
         evType: string;
@@ -29,7 +28,7 @@ declare type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) & {
 };
 declare type Area<VT = unknown> = {
     r?: Range<ChildNode, VT> | true;
-    parN: Node;
+    parN: ParentNode;
     bfor?: ChildNode;
     srcN?: HTMLElement;
     parR?: Range;
@@ -63,6 +62,7 @@ export declare function RCompile(srcN?: hHTMLElement, setts?: Settings): Promise
 declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
     ar?: Area;
 };
+declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Handler = (ev: Event) => any;
 interface Store {
     getItem(key: string): string | null;
@@ -95,6 +95,7 @@ export declare type RVAR_Light<T> = T & {
     _UpdTo?: Array<RVAR>;
     store?: any;
     readonly U?: T;
+    readonly V?: T;
 };
 declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;
 export declare function DoUpdate(): Promise<void>;

@@ -26,13 +26,13 @@ s/;+$//
 # Replace (...) => by ... =>
 s/ ?\((\w+)\)\s*=>/ \1=>/g
 
-# Remove whitespace before and after special chars, except inside strings
-s/ *(^|[-\[(),:;{}<>=?!+*|&]|]|`(\\`|\$\{(`[^`]*`|[^\}])\}|[^`])*`|'(\\'|[^'])*'|\"(\\"|[^\"])*\"|\/(\\.|[^/])*\/) */\1/g
+# Remove whitespace before and after special chars, except inside all sorts of strings and regexps
+s/ *(^|[-\[(),:;{}<>=?!+*|&]|]|`(\\.|\$\{(`[^`]*`|[^\}])\}|[^\`])*`|'(\\.|[^\'])*'|\"(\\.|[^\"])*\"|\/(\\.|[^\/])*\/) */\1/g
 
 # Remove whitespace before and after special chars within expressions in interpolated strings
 t repeat    # Needed to clear previous test result
 : repeat
-s/^(([^`]|`[^`]*`)*`[^`]*\$\{('(\\'|[^'])*'|\"(\\"|[^\"])*\"|\{[^{}]*\}|[^{}])*)(([-+*/&|?:]) +| +([-+*/&|?:]))/\1\7\8/i
+s/^(([^`]|`[^`]*`)*`[^`]*\$\{('(\\.|[^\'])*'|\"(\\.|[^\"])*\"|\{[^{}]*\}|[^{}])*)(([-+*/&|?:]) +| +([-+*/&|?:]))/\1\7\8/i
 t repeat
 
 # Remove comma and semicolon before ] or } or ), but not within ".done;)"

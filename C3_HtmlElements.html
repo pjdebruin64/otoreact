@@ -74,7 +74,7 @@ Notes:
         <br>(So you don't have to write <code>event.target</code> or <code>event.currentTarget</code>.)
     </li>
     <li>
-        When the handler initiates an asynchronous operation, it may <code>return</code> the resulting Promise. If such a Promise fails, the error will be caught by an <a href=#onerror>RHTML onerror handler</a>.
+        When the handler initiates an asynchronous operation, it may <code>return</code> the resulting Promise. If such a Promise fails, the error will be handled by an <a href=#onerror>RHTML onerror handler</a>.
     </li>
 </ul>
 
@@ -94,7 +94,7 @@ For each DOM event, say <code>onclick</code>, there is a corresponding DOM prope
 <h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash, renew</h2>
 RHTML recognizes the following global attributes on every element and construct.
 <dl>
-    <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code>reactson="<i>RVAR-list</i>"</code></dt>
+    <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code class=sourcecode>reactson="<i>RVAR-list</i>"</code></dt>
     <dd>
         This tells OtoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
         <p>
@@ -147,7 +147,7 @@ When you want to apply these attributes to a <i>range</i> of nodes at once, you 
     </ul>
 </p>
 
-<h2 id="PseudoEvents">RHTML pseudo-events: oncreate, onupdate, ondestroy*</h2>
+<h2 id="PseudoEvents">RHTML pseudo-events: oncreate, onupdate, ondestroy*, oncompile*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
 <dl>
     <dt><code class=sourcecode>oncreate</code>, <code class=sourcecode>aftercreate</code></dt>
@@ -180,6 +180,15 @@ The name <code>event</code> is not available in handlers for these pseudo-events
 <p>
     As with <a href=#EventProperties>DOM events</a>, one can write <code>#on&hellip;="&hellip;"</code> to specify a function to be called, instead of a block of statements to be executed.
 </p>
+
+<dl>
+    <dt><code class=sourcecode>oncompile</code></dt>
+    <dd>
+        Executed at compile-time before its HTMLElement is compiled. It cannot refer to run-time variables, of course.
+        <br><code>this</code> is available and is bound to the source HTMLElement the attribute is attached to.
+        <p>You could use it to write log data, or insert a compile-time breakpoint.</p>
+    </dd>
+</dl>
 
 <h3 id=onerror>RHTML onerror, onsuccess*</h3>
 Normally, errors occuring in HTML event handlers are logged to the console and not handled otherwise, unless you explicitly add e.g. a try-catch construction to each and every error-prone event handler.
@@ -214,8 +223,9 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
             <li>Executed when any (synchronous) DOM event handler terminates without throwing an uncaught error.</li>
             <li>If the handler returns a <code>Promise</code>, then <code>onsuccess</code> is executed only after the promise succeeds ("is fulfilled").</li>
         </ol>
-        If you use <code>onerror</code> to assign errormessages to an RVAR to be shown in your document,
-        then you can use <code>onsuccess</code> to reset that message.
+        If you use <code>onerror</code> to assign error messages to an RVAR to be shown in your document, then you can use <code>onsuccess</code> to clear that message.
+        <br>E.g.:
+        <pre><{}body rhtml hidden #onerror="errorMsg.Set" #onsuccess="errorMsg.Clear"></pre>
     </dd>
 </dl>
 
@@ -282,32 +292,46 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
 <demo #srctext=sampleInlineStyles></demo>
 
 
+<h2>'this' is the current element</h2>
+In all RHTML JavaScript code, such as embedded expressions, property values, and event handlers, JavaScript keyword <a href="{MDN}Web/JavaScript/Reference/Operators/this"><code>this</code></a> is bound to the current <a href="{MDN}API/HTMLElement">HTMLElement</a> object:
+<demo srctext=
+'<blockquote>
+    This is a \{this.tagName} element.
+</blockquote>'></demo>
+
+
 <h2 id=TwoWayBinding>Output and two-way bindings: @*!+</h2>
 DOM properties are not static but can change. RHTML allows four variants of output binding for properties to expressions that are valid 'assignment targets' (or 'left-hand side' expressions): <code>*</code>, <code>+</code>, <code>!</code> and <code>!!</code>.
 <p><i>Valid assignment targets</i>, also called <i>Left Hand Side expressions</i>, are expressions that can be assigned to, like: global variables, array elements, and object properties, including RVAR values.
     <br>For a formal definition, see the <a href="https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-assignment-operators-static-semantics-early-errors">ECMAScript® Language Specification</a>.
+    <br>'<i>target</i>' below stands for any valid assignment target.
 </p>
 <dl>
-    <dt><code class=sourcecode>*<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>*<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property immediately after the element and its children have been <i>created</i>.
         <br>This is the same as setting a handler:
-        <pre>oncreate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
+        <pre>oncreate="<i>target</i> = this.<i>propertyName</i>"</pre>
+
+        <p><i>propertyName</i> may be empty; in that case the HTMLElement object itself is assigned to the target.
+        So <code class=sourcecode>*="<i>target</i>"</code> is the same as:
+        <pre>oncreate="<i>target</i> = this"</pre>
+        See <a href="#BindHTMLElement">Binding an HTMLElement to a name</a>.
     </dd>
-    <dt><code class=sourcecode>+<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>+<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property immediately after the element and its children have been <i>updated</i>.
         <br>This is the same as setting a handler:
-        <pre>onupdate="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
+        <pre>onupdate="<i>target</i> = this.<i>propertyName</i>"</pre>
     </dd>
-    <dt><code class=sourcecode>!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>!<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
         <br>This is the same as setting a handler:
-        <pre>oninput="<i>assignmentTarget</i> = this.<i>propertyName</i>"</pre>
+        <pre>oninput="<i>target</i> = this.<i>propertyName</i>"</pre>
         <p>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
     </dd>
-    <dt><code class=sourcecode>!!<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>!!<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
         The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/change_event">change event</a>.
         <p>
@@ -317,20 +341,20 @@ DOM properties are not static but can change. RHTML allows four variants of outp
     </dd>
 </dl>
 These may be combined with each other and with <code>#<i>propertyName</i></code> to get two-way bindings, for example:
-<pre>#!<i>propertyName</i>="<i>assignmentTarget</i>"</pre>
-is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+<pre>#!<i>propertyName</i>="<i>target</i>"</pre>
+is the same as <code>#<i>propertyName</i>="<i>target</i>" !<i>propertyName</i>="<i>target</i>"</code>.
 <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every input event.
 
-<p>Last but not least, there are two abbreviations:</p>
+<p>Last but not least, there are two <b>abbreviations for two-way bindings</b>:</p>
 <dl>
-    <dt><code class=sourcecode>@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>@<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        This is the same as <code>#!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+        This is the same as <code>#!<i>propertyName</i>="<i>target</i>"</code>.
         <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>input</i> event.
     </dd>
-    <dt><code class=sourcecode>@@<i>propertyName</i>="<i>assignmentTarget</i>"</code></dt>
+    <dt><code class=sourcecode>@@<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        This is the same as <code>#!!<i>propertyName</i>="<i>assignmentTarget</i>"</code>.
+        This is the same as <code>#!!<i>propertyName</i>="<i>target</i>"</code>.
         <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>change</i> event.
     </dd>
 </dl>
@@ -344,3 +368,37 @@ is the same as <code>#<i>propertyName</i>="<i>assignmentTarget</i>" !<i>property
 <p *outerHTML="a.V">Hi</p>
 <hr>
 \{a.V}'></demo>
+
+<h2 id="BindHTMLElement">Binding an HTMLElement to a name</h2>
+If  in JavaScript you want to refer to an HTMLElement object created by RHTML code, that is not the current HTMLElement <code>this</code>, then you have the following options.
+<dl>
+    <dt>Bind to a local variable</dt>
+    <dd>
+        To refer to the element anywhere <i>within the content</i> of the element, you can simply bind <code>this</code> to a local RHTML variable:
+        <demo srctext=
+'<div>
+    <define var=topElm #value="this"></define>
+    <p>This is a \{this.tagName} element within a \{topElm.tagName} element.</p>
+</div>'></demo>
+    </dd>
+    <dt>Assign to a global variable</dt>
+    <dd>
+        When there will be only a <i>single instance</i> of the RHTML element, then one can use <code class="sourcecode">*="<i>target</i>"</code> to assign the HTMLElement object to a global variable:
+        <demo srctext=
+'<blockquote *="globalThis.myElm">
+    This is a \{this.tagName} element.
+</blockquote>
+The text content of the element above is "\{myElm.textContent}"'></demo>
+    </dd>
+    <dt>Assign to an object property</dt>
+    <dd>
+        In all cases one can assign the HTMLElement object to a property of some object defined in RHTML or JavaScript:
+        <demo srctext=
+'<define var=obj #value="\{}"></define>
+<blockquote *="obj.myElm">
+    This is a \{this.tagName} element.
+</blockquote>
+The text content of the element above is "\{obj.myElm.textContent}"'></demo>
+        Unlike the previous construction, one can use this inside a loop or a component definition.
+    </dd>
+</dl>
