@@ -381,11 +381,14 @@ function ApplyMod(elm, M, val, cr) {
             elm.style[nm] = val || val === 0 ? val : N;
             break;
         case 6:
+            ass(elm, val);
+            break;
+        case 7:
             if (val)
                 for (let [nm, v] of Object.entries(val))
                     elm.style[nm] = v || v === 0 ? v : N;
             break;
-        case 7:
+        case 8:
             (function ACL(v) {
                 if (v)
                     switch (typeof v) {
@@ -404,14 +407,14 @@ function ApplyMod(elm, M, val, cr) {
                     }
             })(val);
             break;
-        case 8:
+        case 9:
             for (let { M, v } of val || E)
                 ApplyMod(elm, M, v, cr);
             break;
-        case 9:
+        case 10:
             cr && val.call(elm);
             break;
-        case 10:
+        case 11:
             !cr && val.call(elm);
     }
 }
@@ -1380,7 +1383,7 @@ class RComp {
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
                     if (S.RP)
-                        ApplyMod(node, { mt: 8, nm: N, depV: N }, args[S.RP], cr);
+                        ApplyMod(node, { mt: 9, nm: N, depV: N }, args[S.RP], cr);
                     chAr.parN = shadow;
                     sub = chAr;
                 }
@@ -1488,10 +1491,8 @@ class RComp {
                 addM(3, m[1], this.CExpr(V, nm));
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
                 addM(4, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
-            else if (nm == '+style')
-                addM(6, nm, this.CExpr(V, nm));
-            else if (nm == "+class")
-                addM(7, nm, this.CExpr(V, nm));
+            else if (m = /^\+((style)|class|)$/.exec(nm))
+                addM(m[2] ? 7 : m[1] ? 8 : 6, nm, this.CExpr(V, nm));
             else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
                 let p = m[1], nm = altProps[m[2]] || m[2], dSet;
                 if (/[@#]/.test(p)) {
@@ -1513,9 +1514,9 @@ class RComp {
                             };
                     };
                     if (/\*/.test(p))
-                        addM(9, nm, dSet);
-                    if (/\+/.test(p))
                         addM(10, nm, dSet);
+                    if (/\+/.test(p))
+                        addM(11, nm, dSet);
                     if (/[@!]/.test(p))
                         addM(5, /!!|@@/.test(p) ? 'onchange' : 'oninput', dSet);
                 }
@@ -1523,7 +1524,7 @@ class RComp {
             else if (m = /^\.\.\.(.*)/.exec(nm)) {
                 if (V)
                     throw 'A rest parameter cannot have a value';
-                addM(8, nm, this.CT.getLV(m[1]));
+                addM(9, nm, this.CT.getLV(m[1]));
             }
             else if (nm == 'src')
                 addM(2, this.FilePath, this.CText(V, nm));

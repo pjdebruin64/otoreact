@@ -782,7 +782,8 @@ type Modifier = {
 // Modifier Types
 const enum MType {
     Attr, Prop, Src, Class, Style, Event, 
-    AddToStyle, AddToClassList, RestArgument,
+    AddToProps, AddToStyle, AddToClassList, 
+    RestArgument,
     oncreate, onupdate
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
@@ -819,12 +820,13 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
         case MType.Prop:
-            // Avoid unnecessary property assignments; they may have side effects
+            // For string properties, make sure val is a string
             if (M.isS ??= typeof elm[nm]=='string')
-                if (val==N)
+                if (val==N) // replace null and undefined by the empty string
                     val = Q
                 else
                     val = val.toString();
+            // Avoid unnecessary property assignments; they may have side effects
             if (val !== elm[nm])
                 elm[nm] = val;
             break;
@@ -846,6 +848,9 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             break;
         case MType.Style:
             elm.style[nm] = val || val === 0 ? val : N;
+            break;
+        case MType.AddToProps:
+            ass(elm, val);
             break;
         case MType.AddToStyle:
             if (val) 
@@ -2628,12 +2633,10 @@ class RComp {
                 addM(MType.Style, m[2],
                     m[1] ? this.CExpr<unknown>(V, nm) : this.CText(V, nm)
                 );
-            else if (nm == '+style')
-                addM(MType.AddToStyle, nm,
-                    this.CExpr<object>(V, nm)
-                );
-            else if (nm == "+class")
-                addM(MType.AddToClassList, nm,
+            else if (m = /^\+((style)|class|)$/.exec(nm))
+                addM( 
+                    m[2] ? MType.AddToStyle : m[1] ? MType.AddToClassList : MType.AddToProps,
+                    nm,
                     this.CExpr<object>(V, nm)
                 );
             else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!

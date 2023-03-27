@@ -7,8 +7,8 @@
 		<caption.></caption.>
 		<content>
 			<coldef hdstyle? ...rest>
-				<th.></th.>
-				<td. #item #index></td.>
+				<cth></cth>
+				<ctd #item #index></ctd>
 			</coldef>
 		</content>
 	</coltab>
@@ -21,9 +21,9 @@
 			<tr.>
 				<content>
 					<coldef hdstyle=S>
-						<th.. #style=S>
-							<th.></th.>
-						</th..>
+						<th. #style=S>
+							<cth></cth>
+						</th.>
 					</coldef>
 				</content>
 			</tr.>
@@ -32,9 +32,9 @@
 				<tr.>
 					<content>
 						<coldef ...rest>
-							<td..  ...rest>
-								<td. #item=it #index=i></td.>
-							</td..>
+							<td.  ...rest>
+								<ctd #item=it #index=i></ctd>
+							</td.>
 						</coldef>
 					</content>
 				</tr.>
@@ -68,19 +68,19 @@
 
 <coltab #data=tableData class=Age beforecreate=debugger >
 	<coldef style="color: red">
-		<th.>Name</th.>
-		<td. item=r>{r.name}</td.>
+		<cth>Name</cth>
+		<ctd item=r>{r.name}</ctd>
 	</coldef>
 
 	<coldef>
-		<th.>Birth year</th.>
-		<td. item=r>{r.year}</td.>
+		<cth>Birth year</cth>
+		<ctd item=r>{r.year}</ctd>
 	</coldef>
 
 	<if cond="showAge.V">
 		<coldef hdstyle="font-style: italic">
-			<th.>Age</th.>
-			<td. item=r>{thisYear -  r.year}</td.>
+			<cth>Age</cth>
+			<ctd item=r>{thisYear -  r.year}</ctd>
 		</coldef></coltab>
 	</if>
 </coltab>
@@ -94,13 +94,13 @@
 	<caption.>Multiplication table</caption.>
 
 	<coldef style="font-weight: bold">
-		<td. item=y>{y}</td.>
+		<ctd item=y>{y}</ctd>
 	</coldef>
 
 	<for let=x of="range(1,10)" key=x>
 		<coldef>
-			<th.>{x}</th.>
-			<td. item=y>{x * y}</td.>
+			<cth>{x}</cth>
+			<ctd item=y>{x * y}</ctd>
 		</coldef>
 	</for>
 
