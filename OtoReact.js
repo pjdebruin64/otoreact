@@ -183,21 +183,19 @@ class Signat {
         this.nm = srcE.tagName;
     }
     IsCompat(sig) {
-        if (!sig)
-            return;
-        let c = T, mParams = new Map(mapI(sig.Params, p => [p.nm, p.pDf]));
-        for (let { nm, pDf } of this.Params)
-            if (mParams.has(nm)) {
-                c && (c = !pDf || mParams.get(nm));
-                mParams.delete(nm);
-            }
-            else
-                c = F;
-        for (let pDf of mParams.values())
-            c && (c = pDf);
-        for (let [nm, slotSig] of this.Slots)
-            c && (c = sig.Slots.get(nm)?.IsCompat(slotSig));
-        return c;
+        if (sig) {
+            let c = T, mP = new Map(mapI(sig.Params, p => [p.nm, p])), p;
+            for (let { nm, rq } of this.Params)
+                if (c && (c = p = mP.get(nm))) {
+                    c && (c = rq || !p.rq);
+                    mP.delete(nm);
+                }
+            for (let p of mP.values())
+                c && (c = !p.rq);
+            for (let [nm, slotSig] of this.Slots)
+                c && (c = sig.Slots.get(nm)?.IsCompat(slotSig));
+            return c;
+        }
     }
 }
 export class _RVAR {
@@ -1307,17 +1305,18 @@ class RComp {
     CSignat(eSignat) {
         let S = new Signat(eSignat), s;
         for (let attr of eSignat.attributes) {
-            let [a, mode, rp, dum, nm, opt] = /^(#|@|(\.\.\.)|(_)|)(.*?)(\?)?$/.exec(attr.name), v = attr.value;
+            let [a, mode, rp, dum, nm, on, q] = /^(#|@|(\.\.\.)|(_)|)((on)?.*?)(\?)?$/.exec(attr.name), v = attr.value;
             if (!dum) {
                 if (S.RP)
                     throw `Rest parameter must be last`;
                 if (!nm && !rp)
                     throw 'Empty parameter name';
                 let pDf = v ? mode ? this.CExpr(v, a) : this.CText(v, a)
-                    : opt || rp ? (/^on/.test(nm) ? _ => dU : dU)
-                        : N;
+                    : on && (() => dU);
                 S.Params.push({
-                    mode, nm,
+                    mode,
+                    nm,
+                    rq: !(q || pDf || rp),
                     pDf: mode == '@' ? () => RVAR(Q, pDf?.()) : pDf
                 });
                 S.RP = rp && nm;
@@ -1410,16 +1409,16 @@ class RComp {
     async CInstance(srcE, atts, { S, dC }) {
         await S.task;
         let { RP, CSlot, Slots } = S, gArgs = [], SBldrs = new Map(mapI(Slots, ([nm]) => [nm, []]));
-        for (let { mode, nm, pDf } of S.Params)
+        for (let { mode, nm, rq } of S.Params)
             if (nm != RP) {
                 let dG, dS;
                 if (mode == '@') {
-                    let ex = atts.g(mode + nm, !pDf);
+                    let ex = atts.g(mode + nm, rq);
                     dG = this.CExpr(ex, mode + nm);
                     dS = this.CTarget(ex);
                 }
                 else
-                    dG = this.CParam(atts, nm, !pDf);
+                    dG = this.CParam(atts, nm, rq);
                 if (dG)
                     gArgs.push({ nm, dG, dS });
             }

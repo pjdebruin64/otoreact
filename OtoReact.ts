@@ -488,7 +488,7 @@ function SetLVars(vars: Array<LVar>, data: Array<unknown>) {
 }
 
 // A PARAMETER describes a construct parameter: a name with a default expression
-type Parameter = {mode: string, nm: string, pDf: Dep<unknown>};
+type Parameter = {mode: string, nm: string, rq: booly, pDf: Dep<unknown>};
 // A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signat {
     constructor(
@@ -507,26 +507,27 @@ class Signat {
 
     // Check whether an import signature is compatible with the real module signature
     IsCompat(sig: Signat): booly {
-        if (!sig) return ;
-        let c = <booly>T,
-            mParams: Map<string, booly> = new Map(mapI(sig.Params,p => [p.nm, p.pDf]));
-        // All parameters in the import must be present in the module
-        for (let {nm, pDf} of this.Params)
-            if (mParams.has(nm)) {
-                // When optional in the import, then also optional in the module
-                c &&= (!pDf || mParams.get(nm));
-                mParams.delete(nm);
-            }
-            else c = F
-        // Any remaining module parameters must be optional
-        for (let pDf of mParams.values())
-            c &&= pDf;
+        if (sig) {
+            let c = <booly>T
+                , mP = new Map(mapI(sig.Params,p => [p.nm, p]))
+                , p: Parameter;
+            // All parameters in the import must be present in the module
+            for (let {nm, rq} of this.Params)
+                if (c &&= p = mP.get(nm)) {
+                    // When optional in the import, then also optional in the module
+                    c &&= (rq || !p.rq);
+                    mP.delete(nm);
+                }
+            // Any remaining module parameters must be optional
+            for (let p of mP.values())
+                c &&= !p.rq;
 
-        // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
-        for (let [nm, slotSig] of this.Slots)
-            c &&= sig.Slots.get(nm)?.IsCompat(slotSig);
-        
-        return c;
+            // All slots in the import must be present in the module, and these module slots must be compatible with the import slots
+            for (let [nm, slotSig] of this.Slots)
+                c &&= sig.Slots.get(nm)?.IsCompat(slotSig);
+            
+            return c;
+        }
     }
 }
 
@@ -2294,7 +2295,7 @@ class RComp {
         let S = new Signat(eSignat), s: Signat//, ES = this.SS();
         //try {
         for (let attr of eSignat.attributes) {
-            let [a,mode,rp,dum,nm,opt] = /^(#|@|(\.\.\.)|(_)|)(.*?)(\?)?$/.exec(attr.name)
+            let [a,mode,rp,dum,nm,on,q] = /^(#|@|(\.\.\.)|(_)|)((on)?.*?)(\?)?$/.exec(attr.name)
                 , v = attr.value;
             if (!dum) {
                 if (S.RP) 
@@ -2303,11 +2304,12 @@ class RComp {
                     throw 'Empty parameter name';
                 let pDf =
                     v   ? mode ? this.CExpr(v, a) : this.CText(v, a)
-                        : opt||rp ? (/^on/.test(nm) ? _ => dU : dU)   // Unspecified default
-                                    : N
+                        : on && (() => dU)
                 S.Params.push(
                     { 
-                        mode, nm, 
+                        mode, 
+                        nm,
+                        rq: !(q || pDf || rp),
                         pDf: mode=='@' ? () => RVAR(Q, pDf?.()) : pDf
                     }
                 );
@@ -2436,7 +2438,8 @@ class RComp {
                 , env: Environment                 // Environment to be used for the slot templates
                 , ar: Area
             ) {
-                // Handle defaults, in the constructdef environment
+                // Handle defaults, in the constructdef environment,
+                // using the default 
                 if (!ar.r)
                     for (let {nm, pDf} of S.Params)
                         if (pDf && args[nm] === U)
@@ -2497,16 +2500,16 @@ class RComp {
                 mapI(Slots, ([nm]) => [nm, []])
             );
 
-        for (let {mode, nm, pDf} of S.Params)
+        for (let {mode, nm, rq} of S.Params)
             if (nm!=RP) {
                 let dG: Dep<unknown>, dS: Dep<Handler>
                 if (mode=='@') {
-                    let ex = atts.g(mode+nm, !pDf);
+                    let ex = atts.g(mode+nm, rq);
                     dG = this.CExpr<unknown>(ex, mode+nm);
                     dS = this.CTarget(ex);
                 }
                 else
-                    dG = this.CParam(atts, nm, !pDf);
+                    dG = this.CParam(atts, nm, rq);
                 if (dG)
                     gArgs.push( {nm,dG,dS} );
             }
