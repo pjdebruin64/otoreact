@@ -532,10 +532,9 @@ class Signat {
 
 // A CONSTRUCTDEF is a concrete instance of a signature
 type ConstructDef = {
-    nm: string,          // Name of the construct
-    tmplts: Template[],  // Template, or in case of a slot construct, possibly multiple templates
-    env?: Environment,   // Environment at the point the construct was declared
-    //Cnm?: string  // In case of a slot construct: the component name to which the slot belongs
+    nm: string,         // Name of the construct
+    tmplts: Template[], // Template, or in case of a slot construct, possibly multiple templates
+    env?: Environment,  // Environment at the point the template was defined
 };
 /*
 */
@@ -994,19 +993,18 @@ class RComp {
 
     // At compiletime, declare a single LVar.
     // Returns a routine to set the value of the LVar.
-    private LVar<T>(nm: string): LVar<T> {
-        //let lv: LVar<T>;
-        if (!(nm = nm?.trim()))
-            // An empty variable name results in a dummy LVar
-           var lv = dU as any as LVar<T>;
-        else {
-            // Check valid JavaScript identifier
-            if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm)) throw `Invalid identifier '${nm}'`;
+    private LVar<T>(nm: string, f?: booly): LVar<T> {
+        if ((nm = (nm??Q).trim()) || f)
+        //if (nm = nm?.trim())
+        {
+            if (nm) {
+                // Check valid JavaScript identifier
+                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm)) throw `Invalid identifier '${nm}'`;
 
-            // Check for reserved keywords
-            try { Ev(US+`let ${nm}=0`); }
-            catch { throw `Reserved keyword '${nm}'`; }
-
+                // Check for reserved keywords
+                try { Ev(US+`let ${nm}=0`); }
+                catch { throw `Reserved keyword '${nm}'`; }
+            }
             let {CT} = this
                 , L = ++CT.L        // Reserve a place in the environment
                 , vM = CT.lvMap
@@ -1023,8 +1021,11 @@ class RComp {
                     + ',' + nm;
 
             // The routine to set the value
-            lv = (v => (env[L] = v) ) as LVar<T>
+            var lv = (v => (env[L] = v) ) as LVar<T>
         }
+        else
+            // An empty variable name results in a dummy LVar
+            lv = dU as any as LVar<T>;
         lv.nm = nm; // Attach the name of the Lvar to the routine
         return lv;        
     }
@@ -2290,32 +2291,44 @@ class RComp {
     }
 
     private CSignat(eSignat: Element):  Signat {
-        let S = new Signat(eSignat), s: Signat;
+        let S = new Signat(eSignat), s: Signat//, ES = this.SS();
+        //try {
         for (let attr of eSignat.attributes) {
-            if (S.RP) 
-                throw `Rest parameter must be last`;
-            let [,mode,rp,nm,opt] = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
-            if (mode != '_')
+            let [a,mode,rp,dum,nm,opt] = /^(#|@|(\.\.\.)|(_)|)(.*?)(\?)?$/.exec(attr.name)
+                , v = attr.value;
+            if (!dum) {
+                if (S.RP) 
+                    throw `Rest parameter must be last`;
+                if (!nm && !rp)
+                    throw 'Empty parameter name';
+                let pDf =
+                    v   ? mode ? this.CExpr(v, a) : this.CText(v, a)
+                        : opt||rp ? (/^on/.test(nm) ? _ => dU : dU)   // Unspecified default
+                                    : N
                 S.Params.push(
-                    { mode, nm
-                    , pDf:
-                        rp
-                            ? () => E
-                        : attr.value != Q 
-                            ? mode ? this.CExpr(attr.value, attr.name) :  this.CText(attr.value, attr.name)
-                        : opt && (/^on/.test(nm) ? _ => dU : dU)   // Unspecified default
-                    });
-            S.RP = rp && nm;
-        }
-        for (let eSlot of eSignat.children) {
-            // Compile and register slot signature
-            mapNm(S.Slots, s = this.CSignat(eSlot));
-            // Check whether it's a content slot
-            if (/^CONTENT/.test(s.nm)) {
-                if (S.CSlot) throw 'Multiple content slots';
-                S.CSlot = s;
+                    { 
+                        mode, nm, 
+                        pDf: mode=='@' ? () => RVAR(Q, pDf?.()) : pDf
+                    }
+                );
+                S.RP = rp && nm;
             }
         }
+        //} finally { ES(); }
+
+        let {ct} = this.CT; this.CT.ct = Q;
+        try{
+            for (let eSlot of eSignat.children) {
+                // Compile and register slot signature
+                mapNm(S.Slots, s = this.CSignat(eSlot));
+                // Check whether it's a content slot
+                if (/^CONTENT/.test(s.nm)) {
+                    if (S.CSlot) throw 'Multiple content slots';
+                    S.CSlot = s;
+                }
+            }
+        }
+        finally {this.CT.ct = ct}
         return S;
     }
 
@@ -2386,8 +2399,8 @@ class RComp {
 
     // Compile a construct template
     // Used: 1. when compiling a <COMPONENT> definition
-    //       2. When compiling slot definitions inside a construct instance
-    //       3. When compiling the contents of a construct instance
+    //       2. When compiling named slot definitions inside a construct instance
+    //       3. When compiling the remaining content of a construct instance, to fill the content slot
     private CTempl(
         S: Signat                   // The construct signature
         , srcE: HTMLElement         // Source element, for error messages
@@ -2407,7 +2420,7 @@ class RComp {
                     S.Params.map(
                         ({mode,nm}) => {
                             let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
-                            return [nm, this.LVar(lnm || (lnm === Q || !bIsSlot ? nm : N))];
+                            return [nm, this.LVar(lnm || (lnm === Q || !bIsSlot ? nm : N) )];
                         }
                     ),
                 DC = ( !atts && myAtts.NoneLeft(),
@@ -2423,12 +2436,20 @@ class RComp {
                 , env: Environment                 // Environment to be used for the slot templates
                 , ar: Area
             ) {
+                // Handle defaults, in the constructdef environment
+                if (!ar.r)
+                    for (let {nm, pDf} of S.Params)
+                        if (pDf && args[nm] === U)
+                            args[nm] =  pDf();
+                
+                ro = F;
+                
+                // Start scope
                 let {sub, ES} = SS(ar);
-                // Set parameter values, with default when undefined
-                lvars.forEach(([nm,lv], i) => {
-                    let arg = args[nm];
-                    lv(arg !== U ? arg : S.Params[i]?.pDf?.());
-                })
+                // Set parameter values
+                for (let [nm,lv] of lvars)
+                    lv(args[nm]);
+
                 // Define all slot-constructs
                 DC(mapI(S.Slots.keys()
                     , nm => (
@@ -2464,38 +2485,37 @@ class RComp {
     ) {
         await S.task;
         let 
-            {RP, CSlot} = S,
-            slotE: HTMLElement, slot: Signat, nm: string, s: string,
+            {RP, CSlot, Slots} = S,
 
-            // Each parameter will be compiled into a triple containing:
-            gArgs: Array<[
-                string,             // The parameter name
-                Dep<unknown>,       // A getter routine
-                Dep<Handler>?]      // A setter routine, in case of a two-way parameter
-                > = S.Params.map(
-                    ({mode, nm, pDf}) => 
-                        [nm, 
-                            ... <[Dep<unknown>, Dep<Handler>?]>(
-                                nm == RP    // Rest parameter?
-                                ?   E   // Postpone till we have compiled the optional content slot
-                                : mode == '@'   // Two-way parameter?
-                                ?   (s = atts.g(mode+nm),
-                                        [   this.CExpr<unknown>(s, mode+nm)
-                                        , this.CTarget(s)
-                                        ]
-                                    )
-                                :   [this.CParam(atts, nm, !pDf)]
-                            )
-                        ]
-                ),
+            // Each specified parameter will be compiled into a triple containing:
+            gArgs: Array<{
+                nm: string,             // The parameter name
+                dG: Dep<unknown>,       // A getter routine
+                dS?: Dep<Handler>,      // A setter routine, in case of a two-way parameter
+            }> = [],
             SBldrs = new Map<string, Template[]>(
-                mapI(S.Slots, ([nm]) => [nm, []])
+                mapI(Slots, ([nm]) => [nm, []])
             );
 
+        for (let {mode, nm, pDf} of S.Params)
+            if (nm!=RP) {
+                let dG: Dep<unknown>, dS: Dep<Handler>
+                if (mode=='@') {
+                    let ex = atts.g(mode+nm, !pDf);
+                    dG = this.CExpr<unknown>(ex, mode+nm);
+                    dS = this.CTarget(ex);
+                }
+                else
+                    dG = this.CParam(atts, nm, !pDf);
+                if (dG)
+                    gArgs.push( {nm,dG,dS} );
+            }
+
+        let slotE: HTMLElement, slot: Signat, nm: string;
         for (let node of Array.from(srcE.children))
-            if ((slot = S.Slots.get(nm = (slotE = (node as HTMLElement)).tagName))
+            if ((slot = Slots.get(nm = (slotE = (node as HTMLElement)).tagName))
                 && slot != CSlot
-                ) {
+            ) {
                 SBldrs.get(nm).push(
                     await this.CTempl(slot, slotE, T)
                 );
@@ -2511,8 +2531,9 @@ class RComp {
         if (RP) {
             // Compile all remaining attributes into a getter for the rest parameter
             let mods = this.CAtts(atts);
-            gArgs[gArgs.length - 1][1] = 
+            gArgs.push({nm: RP, dG:
                 () => mods.map((M: Modifier) => ({M, v: M.depV()})) as RestParameter
+            });
         }
         
         atts.NoneLeft();
@@ -2527,21 +2548,20 @@ class RComp {
             if (cdef) {  //Just in case of an async imported component where the client signature has less slots than the real signature
                 ro = T;
                 try {
-                    for (let [nm, dG, dS] of gArgs) {
-                        let v=dG?.();
-                        if (dS && !cr)
-                            (args[nm] as RVAR).V = v;
+                    for (let {nm, dG, dS} of gArgs)
+                        if (!dS)
+                            args[nm] = dG();
+                        else if (cr)
+                            args[nm] = RVAR(Q, dG(), N, dS());
                         else
-                            args[nm] = dS ? RVAR(Q, v, N, dS()) : v;
-                    }
-                }
-                finally { ro = F; }
-                try {
+                            (args[nm] as RVAR).V = dG();
+                    
                     env = cdef.env;
+
                     for (let tmpl of cdef.tmplts) 
                         await tmpl?.(args, SBldrs, sEnv, sub);
                 }
-                finally {env = sEnv}
+                finally {env = sEnv; ro = F;}
             }
         }
     }
@@ -2792,7 +2812,7 @@ class RComp {
     private CTarget<T = unknown>(expr: string): Dep<(t:T) => void>
     // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
     {
-        return this.Closure<(t:T) => void>(
+        return expr == N ? dU : this.Closure<(t:T) => void>(
             `return $=>(${expr})=$`
             , ` in assigment target "${expr}"`
             );

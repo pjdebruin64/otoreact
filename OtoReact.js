@@ -470,25 +470,27 @@ class RComp {
                 rActs.pop()();
         };
     }
-    LVar(nm) {
-        if (!(nm = nm?.trim()))
-            var lv = dU;
-        else {
-            if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
-                throw `Invalid identifier '${nm}'`;
-            try {
-                Ev(US + `let ${nm}=0`);
-            }
-            catch {
-                throw `Reserved keyword '${nm}'`;
+    LVar(nm, f) {
+        if ((nm = (nm ?? Q).trim()) || f) {
+            if (nm) {
+                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
+                    throw `Invalid identifier '${nm}'`;
+                try {
+                    Ev(US + `let ${nm}=0`);
+                }
+                catch {
+                    throw `Reserved keyword '${nm}'`;
+                }
             }
             let { CT } = this, L = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
             vM.set(nm, [CT.d, L]);
             this.rActs.push(() => mapSet(vM, nm, p));
             CT.ct = CT.ct.replace(new RegExp(`\\b${nm}\\b`), Q)
                 + ',' + nm;
-            lv = (v => (env[L] = v));
+            var lv = (v => (env[L] = v));
         }
+        else
+            lv = dU;
         lv.nm = nm;
         return lv;
     }
@@ -1305,26 +1307,36 @@ class RComp {
     CSignat(eSignat) {
         let S = new Signat(eSignat), s;
         for (let attr of eSignat.attributes) {
-            if (S.RP)
-                throw `Rest parameter must be last`;
-            let [, mode, rp, nm, opt] = /^(#|@|(\.\.\.)|_|)(.*?)(\?)?$/.exec(attr.name);
-            if (mode != '_')
-                S.Params.push({ mode, nm,
-                    pDf: rp
-                        ? () => E
-                        : attr.value != Q
-                            ? mode ? this.CExpr(attr.value, attr.name) : this.CText(attr.value, attr.name)
-                            : opt && (/^on/.test(nm) ? _ => dU : dU)
+            let [a, mode, rp, dum, nm, opt] = /^(#|@|(\.\.\.)|(_)|)(.*?)(\?)?$/.exec(attr.name), v = attr.value;
+            if (!dum) {
+                if (S.RP)
+                    throw `Rest parameter must be last`;
+                if (!nm && !rp)
+                    throw 'Empty parameter name';
+                let pDf = v ? mode ? this.CExpr(v, a) : this.CText(v, a)
+                    : opt || rp ? (/^on/.test(nm) ? _ => dU : dU)
+                        : N;
+                S.Params.push({
+                    mode, nm,
+                    pDf: mode == '@' ? () => RVAR(Q, pDf?.()) : pDf
                 });
-            S.RP = rp && nm;
-        }
-        for (let eSlot of eSignat.children) {
-            mapNm(S.Slots, s = this.CSignat(eSlot));
-            if (/^CONTENT/.test(s.nm)) {
-                if (S.CSlot)
-                    throw 'Multiple content slots';
-                S.CSlot = s;
+                S.RP = rp && nm;
             }
+        }
+        let { ct } = this.CT;
+        this.CT.ct = Q;
+        try {
+            for (let eSlot of eSignat.children) {
+                mapNm(S.Slots, s = this.CSignat(eSlot));
+                if (/^CONTENT/.test(s.nm)) {
+                    if (S.CSlot)
+                        throw 'Multiple content slots';
+                    S.CSlot = s;
+                }
+            }
+        }
+        finally {
+            this.CT.ct = ct;
         }
         return S;
     }
@@ -1368,11 +1380,14 @@ class RComp {
             }), DC = (!atts && myAtts.NoneLeft(),
                 this.LCons(S.Slots.values())), b = await this.CIter(body.childNodes), tag = /^[A-Z].*-/.test(S.nm) ? S.nm : `rhtml-${S.nm}`;
             return b && async function TEMPL(args, mSlots, env, ar) {
+                if (!ar.r)
+                    for (let { nm, pDf } of S.Params)
+                        if (pDf && args[nm] === U)
+                            args[nm] = pDf();
+                ro = F;
                 let { sub, ES } = SS(ar);
-                lvars.forEach(([nm, lv], i) => {
-                    let arg = args[nm];
-                    lv(arg !== U ? arg : S.Params[i]?.pDf?.());
-                });
+                for (let [nm, lv] of lvars)
+                    lv(args[nm]);
                 DC(mapI(S.Slots.keys(), nm => ({ nm,
                     tmplts: mSlots.get(nm) || E,
                     env
@@ -1394,15 +1409,23 @@ class RComp {
     }
     async CInstance(srcE, atts, { S, dC }) {
         await S.task;
-        let { RP, CSlot } = S, slotE, slot, nm, s, gArgs = S.Params.map(({ mode, nm, pDf }) => [nm, ...(nm == RP
-                ? E
-                : mode == '@'
-                    ? (s = atts.g(mode + nm),
-                        [this.CExpr(s, mode + nm), this.CTarget(s)])
-                    : [this.CParam(atts, nm, !pDf)])
-        ]), SBldrs = new Map(mapI(S.Slots, ([nm]) => [nm, []]));
+        let { RP, CSlot, Slots } = S, gArgs = [], SBldrs = new Map(mapI(Slots, ([nm]) => [nm, []]));
+        for (let { mode, nm, pDf } of S.Params)
+            if (nm != RP) {
+                let dG, dS;
+                if (mode == '@') {
+                    let ex = atts.g(mode + nm, !pDf);
+                    dG = this.CExpr(ex, mode + nm);
+                    dS = this.CTarget(ex);
+                }
+                else
+                    dG = this.CParam(atts, nm, !pDf);
+                if (dG)
+                    gArgs.push({ nm, dG, dS });
+            }
+        let slotE, slot, nm;
         for (let node of Array.from(srcE.children))
-            if ((slot = S.Slots.get(nm = (slotE = node).tagName))
+            if ((slot = Slots.get(nm = (slotE = node).tagName))
                 && slot != CSlot) {
                 SBldrs.get(nm).push(await this.CTempl(slot, slotE, T));
                 srcE.removeChild(node);
@@ -1411,8 +1434,8 @@ class RComp {
             SBldrs.get(CSlot.nm).push(await this.CTempl(CSlot, srcE, T, atts));
         if (RP) {
             let mods = this.CAtts(atts);
-            gArgs[gArgs.length - 1][1] =
-                () => mods.map((M) => ({ M, v: M.depV() }));
+            gArgs.push({ nm: RP, dG: () => mods.map((M) => ({ M, v: M.depV() }))
+            });
         }
         atts.NoneLeft();
         this.ws = 3;
@@ -1421,24 +1444,20 @@ class RComp {
             if (cdef) {
                 ro = T;
                 try {
-                    for (let [nm, dG, dS] of gArgs) {
-                        let v = dG?.();
-                        if (dS && !cr)
-                            args[nm].V = v;
+                    for (let { nm, dG, dS } of gArgs)
+                        if (!dS)
+                            args[nm] = dG();
+                        else if (cr)
+                            args[nm] = RVAR(Q, dG(), N, dS());
                         else
-                            args[nm] = dS ? RVAR(Q, v, N, dS()) : v;
-                    }
-                }
-                finally {
-                    ro = F;
-                }
-                try {
+                            args[nm].V = dG();
                     env = cdef.env;
                     for (let tmpl of cdef.tmplts)
                         await tmpl?.(args, SBldrs, sEnv, sub);
                 }
                 finally {
                     env = sEnv;
+                    ro = F;
                 }
             }
         };
@@ -1592,7 +1611,7 @@ class RComp {
         return this.CExpr(atts.g(att, bReq, T), att, U);
     }
     CTarget(expr) {
-        return this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
+        return expr == N ? dU : this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
     }
     CHandlr(nm, text) {
         return /^#/.test(nm) ? this.CExpr(text, nm)

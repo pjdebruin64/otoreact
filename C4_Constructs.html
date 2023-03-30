@@ -588,12 +588,22 @@ Notes:
             <ul>
                 <li>
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> define <b>optional parameters</b>.
-                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default.
-                    <p>
-                        An empty string <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
-                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>, like: <code>#<i>name</i>=" '' "</code>.
-                    </p>
-                    <p>The default default value is <code>undefined</code>.</p>
+                    <ul>
+                        <li>
+                            When an instance doesn't have this attribute, or when the initial parameter value is <code>undefined</code>, then the specified default string or expression is used instead.
+                        </li>
+                        <li>
+                            An empty string <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
+                            <br>To specify the empty string as default value, one must use an empty string <i>expression</i>, like: <code>#<i>name</i>=" '' "</code>.
+                        </li>
+                        <li>
+                            Component parameter defaults can refer to global and local variables.
+                        </li>
+                        <li>
+                            Parameter defaults are evaluated each time the component is instantiated and the parameter value is <code>undefined</code>.
+                        </li>
+                        <li>The default default value is <code>undefined</code>.</li>
+                    </ul>
                 </li>
                 <li>
                     Attributes <code><i>name</i></code> where <i>name</i> starts with "on" represent <b>event handlers</b>.
@@ -621,6 +631,7 @@ Notes:
             </p>
             <p>
                 As slots have signatures, they can have parameters and slots themselves.
+                <br>Slot parameter defaults may not yet refer to local variables (because slot templates are evaluated in a different environment than the slot signature).
             </p>
         </li>
         <li>
