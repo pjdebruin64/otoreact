@@ -2,7 +2,7 @@
 <component>
 	<IDEMO src></IDEMO>
 	<template>
-		<code>{src}</code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=src></rhtml></span>
+		<code style="white-space: pre;">{src}</code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=src></rhtml></span>
 	</template>
 </component>
 
@@ -26,7 +26,10 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 <h4>Notes*</h4>
 <ul>
     <li>
-        To include a literal (normal) pair of braces, at least the first of them must be escaped with a backslash: <idemo src="\\{ 1 + 1 }"></idemo>
+        Literal (normal) braces can be shown by preceeding them with a backslash: <idemo src="\\{ 1 + 1 }"></idemo>
+        <p>
+            In all other cases, backslashes stand for themselves: <idemo src="\ \n \\ \\\{"></idemo>
+        </p>
     </li>
     <li>
         To include a literal backslash or dollar sign right in front of an embedded expression, insert a dollar sign in between: <idemo src="\$\{1+1}"></idemo>, <idemo src="$$\{1+1}"></idemo>
@@ -36,10 +39,10 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     </li>
     <li>
         Expression values <code>null</code> and <code>undefined</code> are not shown: <idemo src='"\{null} \{undefined}"'></idemo>.
-        <p>This is unlike JavaScript template literals, where <code>null</code> and <code>undefined</code> are spelled out: <idemo src="\{ `$\{null} $\{undefined}` }"></idemo>
+        <p>This is unlike JavaScript template literals, where <code>null</code> and <code>undefined</code> are spelled out: <idemo src="\{  `$\{null} $\{undefined}`  }"></idemo>
     </li>
     <li>
-        You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag: <idemo src="<\{}br>"></idemo>
+        You may omit the expression, like <code>\{ \}</code>, which comes in handy if you want the parser to not recognize an HTML tag: <idemo src="<\{}br>"></idemo>
     </li>
 </ul>
 
@@ -94,20 +97,21 @@ The OtoReact module makes the following functions available for import. They are
 <br>The question marks indicate optional arguments.
 <ul>
     <li>
-        <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
-    </li>
-    <li>
         <code>RVAR(name?, initialValue?, store?)</code> creates a <a href="#RVAR">reactive variable</a>.
-    </li>
-    <li>
-        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
     </li>
     <li id=rangeFunction>
         <code>range(start?, count, step?)</code> yields an iterable range of <i>count</i> numerical values: <i>start</i>, <i>start</i>+<i>step</i>, &hellip;, <i>start</i>+(<i>count</i>-1) * <i>step</i>.
         <br>You can use this with <a href=#FOR><elm>FOR</elm></a>.
     </li>
+    <li>
+        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
+    </li>
     <li id=RFetch>
         * <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
+    </li>
+    <li>
+        * <code>RCompile(HTMLElement, options?)</code> is available as an alternative way to initiate RHTML compilation.
+        <br>It compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
     </li>
 </ul>
 <p>
@@ -136,20 +140,20 @@ Ordinary JavaScript in a browser environment distinguishes between local variabl
 Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#SCRIPT>section on <elm>SCRIPT</elm></a>.
 
 <h4>RHTML local variables</h4>
-<p>RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.</p>
+<p>RHTML adds one other kind of variable: <i>RHTML local variables</i>; these are visible in all local JavaScript code within a <i>block of RHTML code</i>.</p>
 <p>These are introduced by the following RHTML constructs:</p>
 <ul>
     <li>
-        Constructs <elm>DEFINE</elm> and <elm>SCRIPT type="otoreact/local"</elm> introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag.
+        Constructs <elm>DEFINE</elm>, <elm>SCRIPT type="otoreact/local"</elm>, <elm>SCRIPT type="otoreact/static"</elm>, <elm>IMPORT defines=&hellip;</elm>, and <elm>DOCUMENT name</elm> introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag.
     </li>
     <li>
-        Constructs <elm>FOR</elm>, <elm>CASE value</elm> with capturing, and <elm>COMPONENT</elm> templates with parameters introduce local variables visible <u>within</u> the construct block.
+        Constructs <elm>FOR</elm>, <elm>CASE value</elm> with capturing, <elm>COMPONENT</elm> templates with parameters, and <elm>DOCUMENT params? window?</elm> introduce local variables visible <u>within</u> the construct block.
     </li>
 </ul>
 <p>
     RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
 </p>
-<p>RHTML local variables are <u>not</u> visible within other <elm>SCRIPT</elm> embedded or external scripts; these are executed just once in global scope.</p>
+<p>RHTML local variables are <u>not</u> visible within non-local <elm>SCRIPT</elm> embedded or external scripts; these scripts are executed just once in global scope.</p>
 
 <h4>Global variables in RHTML</h4>
 Global variables are visible in RHTML inline scripts, of course.
@@ -163,7 +167,7 @@ Global variables are visible in RHTML inline scripts, of course.
         In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
     </li>
     <li>
-        Or by using the <code>defines</code> attribute of <a href="#SCRIPT"><elm>SCRIPT type="otoreact"</elm></a>.
+        Or by writing <a href="#SCRIPT"><elm>SCRIPT type="otoreact/global" defines=&hellip;</elm></a>.
     </li>
 </ul>
     

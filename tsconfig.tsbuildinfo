@@ -227,13 +227,8 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "b491920450a0ff994a8d12eeaa27d265d0562336185d3c59dfd7015464c9de68",
-        "signature": "f8383c6b3ef2ab5bd272bba77dbf2ffb80089a7868640f42149e192a2828d5b6",
-        "affectsGlobalScope": false
-      },
-      "./otoreact2.ts": {
-        "version": "4afd6415163fc50f5bdcd10367e6db5e6702d4d043c317f401e4e723613a072c",
-        "signature": "5599a546ef929ddeabea4932f04c810ef654933ce083c221a4490272e5aea1e5",
+        "version": "dac951bed53c9514d9bae509ee5832b1ce2565e81d6540f73c6d860ada0506ed",
+        "signature": "a3abb3ee71c904f3617a6e0457f6431a0c075357784bf0e16e08dde4f99eac26",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
@@ -307,9 +302,64 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./otoreact - kopie.ts",
-      "./otoreact.ts",
-      "./otoreact2.ts",
+      [
+        "./otoreact.ts",
+        [
+          {
+            "file": "./otoreact.ts",
+            "start": 31469,
+            "length": 140,
+            "code": 2769,
+            "category": 1,
+            "messageText": {
+              "messageText": "No overload matches this call.",
+              "category": 1,
+              "code": 2769,
+              "next": [
+                {
+                  "messageText": "Overload 1 of 2, '(type: \"fullscreenchange\" | \"fullscreenerror\" | \"abort\" | \"animationcancel\" | \"animationend\" | \"animationiteration\" | \"animationstart\" | \"auxclick\" | \"blur\" | \"cancel\" | \"canplay\" | ... 80 more ... | \"paste\", listener: (this: HTMLElement, ev: Event | ... 13 more ... | ClipboardEvent) => any, options?: boolean | AddEventListenerOptions): void', gave the following error.",
+                  "category": 1,
+                  "code": 2772,
+                  "next": [
+                    {
+                      "messageText": "Argument of type 'string' is not assignable to parameter of type '\"fullscreenchange\" | \"fullscreenerror\" | \"abort\" | \"animationcancel\" | \"animationend\" | \"animationiteration\" | \"animationstart\" | \"auxclick\" | \"blur\" | \"cancel\" | \"canplay\" | ... 80 more ... | \"paste\"'.",
+                      "category": 1,
+                      "code": 2345
+                    }
+                  ]
+                },
+                {
+                  "messageText": "Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void', gave the following error.",
+                  "category": 1,
+                  "code": 2772,
+                  "next": [
+                    {
+                      "messageText": "Argument of type 'AbortController' is not assignable to parameter of type 'boolean | AddEventListenerOptions'.",
+                      "category": 1,
+                      "code": 2345,
+                      "next": [
+                        {
+                          "messageText": "Type 'AbortController' has no properties in common with type 'AddEventListenerOptions'.",
+                          "category": 1,
+                          "code": 2559
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            "relatedInformation": []
+          }
+        ]
+      ],
       "./samples.ts"
+    ],
+    "affectedFilesPendingEmit": [
+      [
+        "./otoreact.ts",
+        1
+      ]
     ]
   },
   "version": "4.1.3"

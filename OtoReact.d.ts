@@ -58,10 +58,12 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     rvars?: RVAR[];
     erase(par: Node): void;
 }
-export declare function RCompile(srcN?: hHTMLElement, setts?: Settings): Promise<void>;
-declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
-    ar?: Area;
-};
+export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
+declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
+    ar?: never;
+}) | (((t: T) => Promise<unknown>) & {
+    ar: Area;
+});
 declare type ParentNode = HTMLElement | DocumentFragment;
 declare type Handler = (ev: Event) => any;
 interface Store {

@@ -80,7 +80,7 @@ Notes:
 
 
 <h3 id="EventProperties">DOM event properties</h3>
-For each DOM event, say <code>onclick</code>, there is a corresponding DOM property that can be set with <code>#onclick</code>:
+For each DOM event attribute, say <code>onclick</code>, there is a corresponding DOM property that can be set with <code>#onclick</code>:
 <ul>
     <li>
         Setting <code>onclick="<i>Statements</i>"</code> is the same as <code>#onclick="(event) => \{ <i>Statements</i> \}"</code>
@@ -89,6 +89,14 @@ For each DOM event, say <code>onclick</code>, there is a corresponding DOM prope
         Setting <code>#onclick="<i>handlerFunction</i>"</code> is the same as <code>onclick="return (<i>handlerFunction</i>)(event);"</code>
     </li>
 </ul>
+
+<h3>DOM events without DOM event properties*</h3>
+HTML has a very small number of events, like <a href="{MDN}Web/API/Element/focusin_event"><code>focusin</code></a> and <a href="{MDN}Web/API/Element/focusout_event"><code>focusout</code></a>, for which there is no corresponding DOM event property.
+<br>One cannot set these from HTML using an attribute, nor can one set them from JavaScript through an event property, but only through calling <a href="{MDN}Web/API/EventTarget/addEventListener"><code>addEventListener()</code></a>.
+
+<p>
+    OtoReact, on the other hand, sets all event handlers through <code>addEventListener()</code>, and removes them as needed, so in RHTML one can simply write <code>onfocusin="&hellip;"</code> or <code>#onfocusin="&hellip;"</code> <i>as if</i> there were a property <code>onfocusin</code>.
+</p>
 
 
 <h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash, renew</h2>
