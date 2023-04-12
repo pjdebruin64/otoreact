@@ -221,14 +221,19 @@
         "signature": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
         "affectsGlobalScope": true
       },
+      "./otoreact - modifierclosures.ts": {
+        "version": "b178ccacff9e2e509c5b0d96eb640a6be6512a1532976ded69e5427681dc9197",
+        "signature": "8e88ea50c5aca94e4f5126b5eae48860538aee11541053eb18fb600b3068dca4",
+        "affectsGlobalScope": false
+      },
       "./otoreact - kopie.ts": {
         "version": "627d5c74cc584e2efb522fa0f6474a8b8dabf8c30e75c5ef3c91f4f386039d92",
         "signature": "550032bfaed03f490cc4cf4cb4584323e9420f3867e50d2b1992d1848526ad07",
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "dac951bed53c9514d9bae509ee5832b1ce2565e81d6540f73c6d860ada0506ed",
-        "signature": "a3abb3ee71c904f3617a6e0457f6431a0c075357784bf0e16e08dde4f99eac26",
+        "version": "608ee0bd352fa12796014311de3613901b1945e1c59e5ba1a7fbd622592fcc57",
+        "signature": "0014ae567318e4b1cd5471a8a0ec46e653748380acdf8aaeb0b9bf04677a7597",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
@@ -250,7 +255,6 @@
       "composite": true,
       "target": 7,
       "downlevelIteration": false,
-      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -302,64 +306,9 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./otoreact - kopie.ts",
-      [
-        "./otoreact.ts",
-        [
-          {
-            "file": "./otoreact.ts",
-            "start": 31469,
-            "length": 140,
-            "code": 2769,
-            "category": 1,
-            "messageText": {
-              "messageText": "No overload matches this call.",
-              "category": 1,
-              "code": 2769,
-              "next": [
-                {
-                  "messageText": "Overload 1 of 2, '(type: \"fullscreenchange\" | \"fullscreenerror\" | \"abort\" | \"animationcancel\" | \"animationend\" | \"animationiteration\" | \"animationstart\" | \"auxclick\" | \"blur\" | \"cancel\" | \"canplay\" | ... 80 more ... | \"paste\", listener: (this: HTMLElement, ev: Event | ... 13 more ... | ClipboardEvent) => any, options?: boolean | AddEventListenerOptions): void', gave the following error.",
-                  "category": 1,
-                  "code": 2772,
-                  "next": [
-                    {
-                      "messageText": "Argument of type 'string' is not assignable to parameter of type '\"fullscreenchange\" | \"fullscreenerror\" | \"abort\" | \"animationcancel\" | \"animationend\" | \"animationiteration\" | \"animationstart\" | \"auxclick\" | \"blur\" | \"cancel\" | \"canplay\" | ... 80 more ... | \"paste\"'.",
-                      "category": 1,
-                      "code": 2345
-                    }
-                  ]
-                },
-                {
-                  "messageText": "Overload 2 of 2, '(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void', gave the following error.",
-                  "category": 1,
-                  "code": 2772,
-                  "next": [
-                    {
-                      "messageText": "Argument of type 'AbortController' is not assignable to parameter of type 'boolean | AddEventListenerOptions'.",
-                      "category": 1,
-                      "code": 2345,
-                      "next": [
-                        {
-                          "messageText": "Type 'AbortController' has no properties in common with type 'AddEventListenerOptions'.",
-                          "category": 1,
-                          "code": 2559
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            "relatedInformation": []
-          }
-        ]
-      ],
+      "./otoreact - modifierclosures.ts",
+      "./otoreact.ts",
       "./samples.ts"
-    ],
-    "affectedFilesPendingEmit": [
-      [
-        "./otoreact.ts",
-        1
-      ]
     ]
   },
   "version": "4.1.3"

@@ -67,7 +67,7 @@ const enum WSpc {
 /* For any HTMLElement we create, we remember which event handlers have been added,
     So we can remove them when needed */
 type hHTMLElement = HTMLElement & {
-    hndlrs?: AbortController
+    hndlrs?: {[nm: string]: Handler}
 };
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
@@ -824,48 +824,55 @@ type Modifier = {
 }
 // Modifier Types
 const enum MType {
-    Attr, Prop, Src, Class, Style, Event, 
-    AddToProps, AddToStyle, AddToClassList, 
-    RestArgument,
-    oncreate, onupdate
+    Prop            // Set/update a property
+    , Attr          // Set/update an attribute
+    , Event         // Set an event handler, don't update
+    , PropEvent     // Set/update an event handler
+    , Class         // Add a class name. Class names are removed before every element update.
+    , Style         // Set/update a style property
+    , AddToClassList    // Add multiple class names
+    , AddToStyle        // Set/update multiple style propertues
+    , AddToProps    // Set/update multiple props
+    , RestArgument  // Apply multiple modifiers
+    , oncreate      // Set an oncreate handler
+    , onupdate      // Set an onupdate handler
+    , Src           // Set the src attribute, relative to the current source document, which need not be the current HTML document
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
 
 /* Apply modifier 'M' with actual value 'val' to element 'elm'.
     'cr' is true when the element is newly created. */
-function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
-    let {mt, nm} = M;
-    nm = M.c ||=
-        mt == MType.Style && ChkNm(elm.style, nm)
-        || mt == MType.Prop
-                && ChkNm(elm, 
-                    nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number'
-                    ? 'value' : nm)
-        || nm;
-    switch (mt) {
-        case MType.Attr:
-            elm.setAttribute(nm, val as string); 
-            break;
-        case MType.Src:
-            elm.setAttribute('src',  new URL(val as string, nm).href);
-            break;
+function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
+    let {nm} = M;
+    switch (M.mt) {
         case MType.Prop:
             // For string properties, make sure val is a string
-            if (M.isS ??= typeof elm[nm]=='string')
+            if (M.isS ??= typeof elm[
+                // And (in any case) determine properly cased name
+                M.c = ChkNm(elm, 
+                    nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number'
+                    ? 'value' : nm)
+            ]=='string')
                 if (val==N) // replace null and undefined by the empty string
                     val = Q
                 else
                     val = val.toString();
             // Avoid unnecessary property assignments; they may have side effects
-            if (val !== elm[nm])
+            if (val !== elm[nm=M.c])
                 elm[nm] = val;
             break;
+        case MType.Attr:
+            elm.setAttribute(nm, val as string); 
+            break;
+        case MType.PropEvent:
+            let h = (elm.hndlrs ||= {})[nm];
+            h && elm.removeEventListener(nm, h);
+            cr = elm.hndlrs[nm] = val as Handler;
+            
+            // Fall through
         case MType.Event:
-            if (val)
-                elm.addEventListener(
-                    nm, val as Handler
-                    , elm.hndlrs ||= new AbortController()
-                );
+            cr && val &&
+                elm.addEventListener(nm, val as Handler);
             
             if (nm == 'click' && R.setts.bAutoPointer)
                 elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : N;
@@ -874,10 +881,9 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             val && elm.classList.add(nm);
             break;
         case MType.Style:
-            elm.style[nm] = val || val === 0 ? val : N;
-            break;
-        case MType.AddToProps:
-            ass(elm, val);
+            elm.style[
+                M.c ||= ChkNm(elm.style, nm)
+            ] = val || val === 0 ? val : N;
             break;
         case MType.AddToStyle:
             if (val) 
@@ -910,6 +916,12 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: boolean) {
             break;
         case MType.onupdate:
             !cr && (val as ()=>void).call(elm); 
+        case MType.Src:
+            elm.setAttribute('src',  new URL(val as string, nm).href);
+            break;
+        case MType.AddToProps:
+            ass(elm, val);
+            break;
     }
 }
 function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
@@ -2611,8 +2623,6 @@ class RComp {
 
                 // Remove any class names
                 if (node.className) node.className = Q;
-                // Remove any event handlers
-                node.hndlrs?.abort();
 
                 ApplyMods(node, mods, cr);
                 parN = ar.parN
@@ -2656,7 +2666,7 @@ class RComp {
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr<Handler>(V, nm);
                     if (m = /^on(.*)/.exec(nm))
-                        addM(MType.Event, m[1], this.AddErrH(dV as Dep<Handler>));
+                        addM(MType.PropEvent, m[1], this.AddErrH(dV as Dep<Handler>));
                     else
                         addM(MType.Prop, nm, dV);
                 }
@@ -3093,7 +3103,7 @@ class DocLoc extends _RVAR<string> {
             let DL = this;
             this.query = new Proxy({}, {
                get( _, key: string) { return DL.url.searchParams.get(key); },
-               set( _, key: string, val: string) { DL.V = DL.search(key, val); return true}
+               set( _, key: string, val: string) { DL.V = DL.search(key, val); return T}
            });
 
             this.Subscribe(loc => {

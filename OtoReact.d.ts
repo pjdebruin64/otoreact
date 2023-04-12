@@ -17,10 +17,9 @@ declare type Settings = Partial<{
     headers: HeadersInit;
 }>;
 declare type hHTMLElement = HTMLElement & {
-    hndlrs?: Array<{
-        evType: string;
-        listener: Handler;
-    }>;
+    hndlrs?: {
+        [nm: string]: Handler;
+    };
 };
 declare type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) & {
     auto?: string;

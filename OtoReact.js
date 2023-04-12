@@ -106,9 +106,9 @@ class Context {
     }
 }
 export async function RCompile(srcN, setts) {
-    if (srcN.isConnected && !srcN.hndlrs)
+    if (srcN.isConnected && srcN.hndlrs === U)
         try {
-            srcN.hndlrs = [];
+            srcN.hndlrs = N;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             Jobs.add({ Exec: async () => {
@@ -370,51 +370,43 @@ function RVAR_Light(t, updTo) {
     return t;
 }
 function ApplyMod(elm, M, val, cr) {
-    let { mt, nm } = M;
-    nm = M.c || (M.c = mt == 4 && ChkNm(elm.style, nm)
-        || mt == 1
-            && ChkNm(elm, nm == 'valueasnumber' && elm.type == 'number'
-                ? 'value' : nm)
-        || nm);
-    switch (mt) {
+    let { nm } = M;
+    switch (M.mt) {
         case 0:
-            elm.setAttribute(nm, val);
-            break;
-        case 2:
-            elm.setAttribute('src', new URL(val, nm).href);
-            break;
-        case 1:
-            if (M.isS ?? (M.isS = typeof elm[nm] == 'string'))
+            if (M.isS ?? (M.isS = typeof elm[M.c = ChkNm(elm, nm == 'valueasnumber' && elm.type == 'number'
+                ? 'value' : nm)] == 'string'))
                 if (val == N)
                     val = Q;
                 else
                     val = val.toString();
-            if (val !== elm[nm])
+            if (val !== elm[nm = M.c])
                 elm[nm] = val;
             break;
-        case 5:
-            if (val) {
+        case 1:
+            elm.setAttribute(nm, val);
+            break;
+        case 3:
+            let h = (elm.hndlrs || (elm.hndlrs = {}))[nm];
+            h && elm.removeEventListener(nm, h);
+            cr = elm.hndlrs[nm] = val;
+        case 2:
+            cr && val &&
                 elm.addEventListener(nm, val);
-                (elm.hndlrs || (elm.hndlrs = [])).push({ evType: nm, listener: val });
-            }
             if (nm == 'click' && R.setts.bAutoPointer)
                 elm.style.cursor = val && !elm.disabled ? 'pointer' : N;
             break;
-        case 3:
+        case 4:
             val && elm.classList.add(nm);
             break;
-        case 4:
-            elm.style[nm] = val || val === 0 ? val : N;
-            break;
-        case 6:
-            ass(elm, val);
+        case 5:
+            elm.style[M.c || (M.c = ChkNm(elm.style, nm))] = val || val === 0 ? val : N;
             break;
         case 7:
             if (val)
                 for (let [nm, v] of Object.entries(val))
                     elm.style[nm] = v || v === 0 ? v : N;
             break;
-        case 8:
+        case 6:
             (function ACL(v) {
                 if (v)
                     switch (typeof v) {
@@ -442,6 +434,12 @@ function ApplyMod(elm, M, val, cr) {
             break;
         case 11:
             !cr && val.call(elm);
+        case 12:
+            elm.setAttribute('src', new URL(val, nm).href);
+            break;
+        case 8:
+            ass(elm, val);
+            break;
     }
 }
 function ApplyMods(elm, mods, cr) {
@@ -1470,18 +1468,13 @@ class RComp {
         if (postWs)
             this.ws = postWs;
         if (nm == 'A' && this.setts.bAutoReroute && !mods.some(M => M.nm == 'onclick'))
-            mods.push({ mt: 1, nm: 'onclick', depV: () => parN.onclick || (parN.href.indexOf(L.origin + DL.basepath) == 0 ? reroute : N) });
+            mods.push({ mt: 0, nm: 'onclick', depV: () => parN.onclick || (parN.href.indexOf(L.origin + DL.basepath) == 0 ? reroute : N) });
         return async function ELM(ar, re) {
             let { r: { node }, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
             if (re != 2)
                 await childBldr?.(chAr);
             if (node.className)
                 node.className = Q;
-            if (node.hndlrs) {
-                for (let { evType, listener } of node.hndlrs)
-                    node.removeEventListener(evType, listener);
-                node.hndlrs.length = 0;
-            }
             ApplyMods(node, mods, cr);
             parN = ar.parN;
         };
@@ -1493,23 +1486,23 @@ class RComp {
         }
         for (let [nm, V] of atts)
             if (m = /(.*?)\.+$/.exec(nm))
-                addM(0, nm, this.CText(V, nm));
+                addM(1, nm, this.CText(V, nm));
             else if (m = /^on(.*?)\.*$/i.exec(nm))
-                addM(5, m[1], this.AddErrH(this.CHandlr(nm, V)));
+                addM(2, m[1], this.AddErrH(this.CHandlr(nm, V)));
             else if (m = /^#class[:.](.*)$/.exec(nm))
-                addM(3, m[1], this.CExpr(V, nm));
+                addM(4, m[1], this.CExpr(V, nm));
             else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                addM(4, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
+                addM(5, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
             else if (m = /^\+((style)|class|)$/.exec(nm))
-                addM(m[2] ? 7 : m[1] ? 8 : 6, nm, this.CExpr(V, nm));
+                addM(m[2] ? 7 : m[1] ? 6 : 8, nm, this.CExpr(V, nm));
             else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
                 let p = m[1], nm = altProps[m[2]] || m[2], dSet;
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr(V, nm);
                     if (m = /^on(.*)/.exec(nm))
-                        addM(5, m[1], this.AddErrH(dV));
+                        addM(3, m[1], this.AddErrH(dV));
                     else
-                        addM(1, nm, dV);
+                        addM(0, nm, dV);
                 }
                 if (p != '#') {
                     let dS = this.CTarget(V), cnm;
@@ -1527,7 +1520,7 @@ class RComp {
                     if (/\+/.test(p))
                         addM(11, nm, dSet);
                     if (/[@!]/.test(p))
-                        addM(5, /!!|@@/.test(p) ? 'change' : 'input', dSet);
+                        addM(2, /!!|@@/.test(p) ? 'change' : 'input', dSet);
                 }
             }
             else if (m = /^\.\.\.(.*)/.exec(nm)) {
@@ -1536,9 +1529,9 @@ class RComp {
                 addM(9, nm, this.CT.getLV(m[1]));
             }
             else if (nm == 'src')
-                addM(2, this.FilePath, this.CText(V, nm));
+                addM(12, this.FilePath, this.CText(V, nm));
             else
-                addM(0, nm, this.CText(V, nm));
+                addM(1, nm, this.CText(V, nm));
         atts.clear();
         return mods;
     }
@@ -1796,7 +1789,7 @@ class DocLoc extends _RVAR {
         let DL = this;
         this.query = new Proxy({}, {
             get(_, key) { return DL.url.searchParams.get(key); },
-            set(_, key, val) { DL.V = DL.search(key, val); return true; }
+            set(_, key, val) { DL.V = DL.search(key, val); return T; }
         });
         this.Subscribe(loc => {
             let h = (this.url = new URL(loc)).href;
