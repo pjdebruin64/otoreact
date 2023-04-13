@@ -908,8 +908,7 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
             })(val);
             break;
         case MType.RestArgument:
-            for (let {M, v} of val as RestParameter || E)
-                ApplyMod(elm, M, v, cr);
+            ApplyRest(elm, val as RestParameter, cr)
             break;
         case MType.oncreate:
             cr && (val as ()=>void).call(elm);
@@ -934,6 +933,10 @@ function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
                     , cr);
     }
     finally { ro = F; }
+}
+function ApplyRest(elm: hHTMLElement, R: RestParameter, cr: booly){
+    for (let {M, v} of R || E)
+        ApplyMod(elm, M, v, cr);
 }
 
 class RComp {
@@ -2471,7 +2474,7 @@ class RComp {
                             shadow.appendChild(style.cloneNode(T));
                     
                     if (S.RP)
-                        ApplyMod(node, {mt: MType.RestArgument, nm: N, depV: N}, args[S.RP], cr);
+                        ApplyRest(node, args[S.RP] as RestParameter, cr);
                     chAr.parN = shadow;
                     sub = chAr;
                 }
@@ -2534,8 +2537,11 @@ class RComp {
         if (RP) {
             // Compile all remaining attributes into a getter for the rest parameter
             let mods = this.CAtts(atts);
-            gArgs.push({nm: RP, dG:
-                () => mods.map((M: Modifier) => ({M, v: M.depV()})) as RestParameter
+            gArgs.push({
+                nm: RP, 
+                dG: () => mods.map(
+                                M => ({M, v: M.depV()})
+                            )
             });
         }
         
@@ -2879,8 +2885,7 @@ class RComp {
         return () => {
             let hndlr = dHndlr()
                 , {e,s} = on;
-            return (hndlr && (e||s)
-                ? (ev: Event) => {
+            return (ev: Event) => {
                     try {
                         let a = hndlr.call(ev.target,ev);
                         // When the handler returns a promise, the result is awaited for
@@ -2892,9 +2897,7 @@ class RComp {
                     catch (er) {
                         (e || thro)(er);
                     }
-                }
-                : hndlr
-            );
+                };
         };
     }
 
