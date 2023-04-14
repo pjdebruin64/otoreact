@@ -67,7 +67,7 @@ const enum WSpc {
 /* For any HTMLElement we create, we remember which event handlers have been added,
     So we can remove them when needed */
 type hHTMLElement = HTMLElement & {
-    hndlrs?: {[nm: string]: Handler}
+    hndlrs?: Map<Modifier, Hndlr>
 };
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
@@ -826,8 +826,7 @@ type Modifier = {
 const enum MType {
     Prop            // Set/update a property
     , Attr          // Set/update an attribute
-    , Event         // Set an event handler, don't update
-    , PropEvent     // Set/update an event handler
+    , Event         // Set/update an event handler
     , Class         // Add a class name. Class names are removed before every element update.
     , Style         // Set/update a style property
     , AddToClassList    // Add multiple class names
@@ -864,16 +863,18 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
         case MType.Attr:
             elm.setAttribute(nm, val as string); 
             break;
-        case MType.PropEvent:
-            let h = (elm.hndlrs ||= {})[nm];
-            h && elm.removeEventListener(nm, h);
-            cr = elm.hndlrs[nm] = val as Handler;
-            
-            // Fall through
         case MType.Event:
-            cr && val &&
-                elm.addEventListener(nm, val as Handler);
+            // Set and remember new handler
+            let H: Hndlr;
+            if (cr) {
+                (elm.hndlrs ||= new Map()).set(M, H = new Hndlr());
+                elm.addEventListener(nm, H.hndl.bind(H));
+            }
+            else
+                H = elm.hndlrs.get(M);
+            H.on = on; H.h = val as Handler;
             
+            // Perform bAutoPointer
             if (nm == 'click' && R.setts.bAutoPointer)
                 elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : N;
             break;
@@ -908,13 +909,14 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
             })(val);
             break;
         case MType.RestArgument:
-            ApplyRest(elm, val as RestParameter, cr)
+            for (let {M, v} of (val as RestParameter) || E)
+                ApplyMod(elm, M, v, cr);
             break;
         case MType.oncreate:
-            cr && (val as ()=>void).call(elm);
+            cr && (val as Handler).call(elm);
             break;
         case MType.onupdate:
-            !cr && (val as ()=>void).call(elm); 
+            !cr && (val as Handler).call(elm); 
         case MType.Src:
             elm.setAttribute('src',  new URL(val as string, nm).href);
             break;
@@ -923,7 +925,10 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
             break;
     }
 }
-function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
+function ApplyMods(elm: hHTMLElement, mods: Modifier[], cr?: boolean) {
+    // Remove any class names
+    if (elm.className) elm.className = Q;
+
     // Apply all modifiers: adding attributes, classes, styles, events
     ro= T;
     try {
@@ -934,9 +939,28 @@ function ApplyMods(elm: HTMLElement, mods: Modifier[], cr?: boolean) {
     }
     finally { ro = F; }
 }
-function ApplyRest(elm: hHTMLElement, R: RestParameter, cr: booly){
-    for (let {M, v} of R || E)
-        ApplyMod(elm, M, v, cr);
+
+// Object to supply DOM event handlers with error handling and 'this' binding.
+// It allows the handler and onerror handlers to be updated without creating a new closure
+// and without replacing the target element event listener.
+class Hndlr {
+    on: typeof on;  // onerror and onsuccess handler
+    h: Handler;     // User-defined handler
+    hndl(ev: Event, ...r: any[]) {
+        if (this.h)
+            try {
+                var {e,s} = this.on,
+                    a = this.h.call(ev.target, ev, ...r);
+                // When the handler returns a promise, the result is awaited for
+                return (a instanceof Promise
+                    ? a.then(v => (s?.(ev),v), e)
+                    : s?.(ev), a
+                );
+            }
+            catch (er) {
+                (e || thro)(er);
+            }
+    }
 }
 
 class RComp {
@@ -1868,7 +1892,7 @@ class RComp {
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
                     Ev(US+
-                        `(function([${ct}]){{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
+                        `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
                     ) as DepE<unknown[]>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
@@ -2473,8 +2497,7 @@ class RComp {
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
                     
-                    if (S.RP)
-                        ApplyRest(node, args[S.RP] as RestParameter, cr);
+                    //if (S.RP) ApplyRest(node, args[S.RP] as RestParameter, cr);
                     chAr.parN = shadow;
                     sub = chAr;
                 }
@@ -2627,9 +2650,6 @@ class RComp {
                     // Build / update childnodes
                     await childBldr?.(chAr);
 
-                // Remove any class names
-                if (node.className) node.className = Q;
-
                 ApplyMods(node, mods, cr);
                 parN = ar.parN
             };
@@ -2648,7 +2668,7 @@ class RComp {
 
             else if (m = /^on(.*?)\.*$/i.exec(nm))              // Event handlers
                 addM(MType.Event, m[1],
-                    this.AddErrH(this.CHandlr(nm, V))
+                    this.CHandlr(nm, V)
                 );
             else if (m = /^#class[:.](.*)$/.exec(nm))
                 addM(MType.Class, m[1],
@@ -2672,7 +2692,7 @@ class RComp {
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr<Handler>(V, nm);
                     if (m = /^on(.*)/.exec(nm))
-                        addM(MType.PropEvent, m[1], this.AddErrH(dV as Dep<Handler>));
+                        addM(MType.Event, m[1], dV as Dep<Handler>);
                     else
                         addM(MType.Prop, nm, dV);
                 }
@@ -2827,6 +2847,7 @@ class RComp {
         return /^#/.test(nm) ? this.CExpr<Handler>(text, nm)
             : this.CExpr<Handler>(`function(event){${text}\n}`, nm, text)
     }
+
     CExpr<T>(
         expr: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
@@ -2835,7 +2856,7 @@ class RComp {
     ): Dep<T> {
         return (expr == N ? <null>expr  // when 'expr' is either null or undefined
             : this.Closure(
-                `return(${expr}\n)`
+                `return(\n${expr}\n)`
                 , '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1] // Error text
             )
         );
@@ -2851,9 +2872,9 @@ class RComp {
 
     Closure<T>(body: string, E: string = Q): Dep<T> {
         // See if the context can be abbreviated
-        let {ct,lvMap: varM, d} = this.CT, n=d+1
+        let {ct,lvMap, d} = this.CT, n=d+1
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k = varM.get(m[0]);
+            let k = lvMap.get(m[0]);
             if (k?.[0] < n) n = k[0];
         }
         if (n>d)
@@ -2885,7 +2906,7 @@ class RComp {
         return () => {
             let hndlr = dHndlr()
                 , {e,s} = on;
-            return (ev: Event) => {
+            return hndlr && ((ev: Event) => {
                     try {
                         let a = hndlr.call(ev.target,ev);
                         // When the handler returns a promise, the result is awaited for
@@ -2897,7 +2918,7 @@ class RComp {
                     catch (er) {
                         (e || thro)(er);
                     }
-                };
+                });
         };
     }
 
