@@ -614,7 +614,7 @@ export class _RVAR<T = unknown>{
             );
         }
         init instanceof Promise ? 
-            init.then( v => this.V = v,  on.e)
+            init.then( v => this.V = v,  oes.e)
             : (this.v = init)
     }
     // The value of the variable
@@ -653,7 +653,7 @@ export class _RVAR<T = unknown>{
     {
         return t =>
             t instanceof Promise ?
-                ( (this.V = U), t.then(v => this.V = v, on.e))
+                ( (this.V = U), t.then(v => this.V = v, oes.e))
                 : (this.V = t);
     }
     get Clear() {
@@ -711,11 +711,11 @@ export type RVAR_Light<T> = T & {
         
 function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, re:number=1): Subscriber {
     let ar: Area = {parN, parR, r: r||T },
-        eon = {env, on};
+        eon = {env, oes};
 
     return ass(
         () => (
-                ({env, on} = eon),
+                ({env, oes} = eon),
                 b({...ar}, re)
         )
         , {ar});
@@ -725,7 +725,7 @@ let
 /* Runtime data */
     env: Environment,       // Current runtime environment
     parN: ParentNode,       // Current html node
-    on = {e: <Handler>N, s: <Handler>N},    // Current onerror and onsuccess handlers
+    oes = {e: <Handler>N, s: <Handler>N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
     Jobs = new Set< {Exec: () => Promise<void> } //| (() => Promise<void>) 
@@ -842,7 +842,7 @@ type RestParameter = Array<{M: Modifier, v: unknown}>;
 /* Apply modifier 'M' with actual value 'val' to element 'elm'.
     'cr' is true when the element is newly created. */
 function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
-    let {nm} = M;
+    let {nm} = M, H: Hndlr;
     switch (M.mt) {
         case MType.Prop:
             // For string properties, make sure val is a string
@@ -865,14 +865,13 @@ function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
             break;
         case MType.Event:
             // Set and remember new handler
-            let H: Hndlr;
             if (cr) {
                 (elm.hndlrs ||= new Map()).set(M, H = new Hndlr());
                 elm.addEventListener(nm, H.hndl.bind(H));
             }
             else
                 H = elm.hndlrs.get(M);
-            H.on = on; H.h = val as Handler;
+            H.oes = oes; H.h = val as Handler;
             
             // Perform bAutoPointer
             if (nm == 'click' && R.setts.bAutoPointer)
@@ -944,13 +943,14 @@ function ApplyMods(elm: hHTMLElement, mods: Modifier[], cr?: boolean) {
 // It allows the handler and onerror handlers to be updated without creating a new closure
 // and without replacing the target element event listener.
 class Hndlr {
-    on: typeof on;  // onerror and onsuccess handler
+    oes: typeof oes;  // onerror and onsuccess handler
     h: Handler;     // User-defined handler
+
     hndl(ev: Event, ...r: any[]) {
         if (this.h)
             try {
-                var {e,s} = this.on,
-                    a = this.h.call(ev.target, ev, ...r);
+                var {e,s} = this.oes,
+                    a = this.h.call(ev.currentTarget, ev, ...r);
                 // When the handler returns a promise, the result is awaited for
                 return (a instanceof Promise
                     ? a.then(v => (s?.(ev),v), e)
@@ -1777,13 +1777,13 @@ class RComp {
                         }
                     : m[5]  // onerror|onsuccess
                     ? async function SetOnES(ar: Area, re) {
-                            let s = on; 
-                            on = {...on}
+                            let s = oes; 
+                            oes = {...oes}
                             try {
-                                on[es] = dV();
+                                oes[es] = dV();
                                 await b(ar, re);
                             }
-                            finally { on = s; }
+                            finally { oes = s; }
                         }
                     :   m[7]   // hash
                     ? async function HASH(ar: Area, re) {
@@ -1841,8 +1841,8 @@ class RComp {
                 if (this.setts.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (on.e)
-                    on.e(e);
+                if (oes.e)
+                    oes.e(e);
                 else if (this.setts.bShowErrors) {
                     let errN =
                         ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
@@ -2309,12 +2309,12 @@ class RComp {
                         };
 
                     if (iter instanceof Promise) {
-                        let subEnv = {env, on};
+                        let subEnv = {env, oes};
                         r.rvars = [
                             RVAR(N, iter)
                             .Subscribe(r.subs = 
                                 ass(iter => (
-                                    ({env, on} = subEnv),
+                                    ({env, oes} = subEnv),
                                     pIter(iter as Iterable<Item>)
                                 ), {sAr: T})
                             )
@@ -2667,9 +2667,8 @@ class RComp {
                 addM(MType.Attr, nm, this.CText(V, nm));
 
             else if (m = /^on(.*?)\.*$/i.exec(nm))              // Event handlers
-                addM(MType.Event, m[1],
-                    this.CHandlr(nm, V)
-                );
+                addM(MType.Event, m[1], this.CHandlr(nm, V) );
+
             else if (m = /^#class[:.](.*)$/.exec(nm))
                 addM(MType.Class, m[1],
                     this.CExpr<boolean>(V, nm)
@@ -2843,7 +2842,7 @@ class RComp {
             );
     }
 
-    private CHandlr(nm: string, text: string): Dep<Handler> {
+    private CHandlr(nm: string, text: string): DepE<Handler> {
         return /^#/.test(nm) ? this.CExpr<Handler>(text, nm)
             : this.CExpr<Handler>(`function(event){${text}\n}`, nm, text)
     }
@@ -2889,37 +2888,15 @@ class RComp {
         try {
             var f = Ev(US+
                     `(function(${ct}){${body}})`  // Expression evaluator
-            ) as (env:Environment) => T;
+            ) as (e:Environment) => T;
             return () => {
                     try { 
                         return f.call(parN, env);
                     } 
-                    catch (e) {throw e+E; } // Runtime error
+                    catch (x) {throw x+E; } // Runtime error
                 };
         }
-        catch (e) {throw e+E; } // Compiletime error
-    }
-
-    // Converts an event handler into one that on error calls the 'onerror' handler,
-    // and that calls the 'onsuccess' handler on success
-    private AddErrH(dHndlr: Dep<Handler>): Dep<Handler> {
-        return () => {
-            let hndlr = dHndlr()
-                , {e,s} = on;
-            return hndlr && ((ev: Event) => {
-                    try {
-                        let a = hndlr.call(ev.target,ev);
-                        // When the handler returns a promise, the result is awaited for
-                        return (a instanceof Promise
-                            ? a.then(v => (s?.(ev),v), e)
-                            : s?.(ev), a
-                        );
-                    }
-                    catch (er) {
-                        (e || thro)(er);
-                    }
-                });
-        };
+        catch (x) {throw x+E; } // Compiletime error
     }
 
     // Returns the normalized (absolute) form of URL 'src'.

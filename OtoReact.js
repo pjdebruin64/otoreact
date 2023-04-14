@@ -249,7 +249,7 @@ export class _RVAR {
             this.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
         }
         init instanceof Promise ?
-            init.then(v => this.V = v, on.e)
+            init.then(v => this.V = v, oes.e)
             : (this.v = init);
     }
     Subscribe(s, bImm, cr) {
@@ -273,7 +273,7 @@ export class _RVAR {
     }
     get Set() {
         return t => t instanceof Promise ?
-            ((this.V = U), t.then(v => this.V = v, on.e))
+            ((this.V = U), t.then(v => this.V = v, oes.e))
             : (this.V = t);
     }
     get Clear() {
@@ -309,11 +309,11 @@ export class _RVAR {
     }
 }
 function Subscriber({ parN, parR }, b, r, re = 1) {
-    let ar = { parN, parR, r: r || T }, eon = { env, on };
-    return ass(() => (({ env, on } = eon),
+    let ar = { parN, parR, r: r || T }, eon = { env, oes };
+    return ass(() => (({ env, oes } = eon),
         b({ ...ar }, re)), { ar });
 }
-let env, parN, on = { e: N, s: N }, Jobs = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
+let env, parN, oes = { e: N, s: N }, Jobs = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => { start += now() - t; });
 }, RUpd = () => {
@@ -370,7 +370,7 @@ function RVAR_Light(t, updTo) {
     return t;
 }
 function ApplyMod(elm, M, val, cr) {
-    let { nm } = M;
+    let { nm } = M, H;
     switch (M.mt) {
         case 0:
             if (M.isS ?? (M.isS = typeof elm[M.c = ChkNm(elm, nm == 'valueasnumber' && elm.type == 'number'
@@ -386,14 +386,13 @@ function ApplyMod(elm, M, val, cr) {
             elm.setAttribute(nm, val);
             break;
         case 2:
-            let H;
             if (cr) {
                 (elm.hndlrs || (elm.hndlrs = new Map())).set(M, H = new Hndlr());
                 elm.addEventListener(nm, H.hndl.bind(H));
             }
             else
                 H = elm.hndlrs.get(M);
-            H.on = on;
+            H.oes = oes;
             H.h = val;
             if (nm == 'click' && R.setts.bAutoPointer)
                 elm.style.cursor = val && !elm.disabled ? 'pointer' : N;
@@ -461,7 +460,7 @@ class Hndlr {
     hndl(ev, ...r) {
         if (this.h)
             try {
-                var { e, s } = this.on, a = this.h.call(ev.target, ev, ...r);
+                var { e, s } = this.oes, a = this.h.call(ev.currentTarget, ev, ...r);
                 return (a instanceof Promise
                     ? a.then(v => (s?.(ev), v), e)
                     : s?.(ev), a);
@@ -990,14 +989,14 @@ class RComp {
                         }
                         : m[5]
                             ? async function SetOnES(ar, re) {
-                                let s = on;
-                                on = { ...on };
+                                let s = oes;
+                                oes = { ...oes };
                                 try {
-                                    on[es] = dV();
+                                    oes[es] = dV();
                                     await b(ar, re);
                                 }
                                 finally {
-                                    on = s;
+                                    oes = s;
                                 }
                             }
                             : m[7]
@@ -1044,8 +1043,8 @@ class RComp {
                 if (this.setts.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (on.e)
-                    on.e(e);
+                if (oes.e)
+                    oes.e(e);
                 else if (this.setts.bShowErrors) {
                     let errN = ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
                     if (r)
@@ -1311,11 +1310,11 @@ class RComp {
                             r.ch = N;
                     };
                     if (iter instanceof Promise) {
-                        let subEnv = { env, on };
+                        let subEnv = { env, oes };
                         r.rvars = [
                             RVAR(N, iter)
                                 .Subscribe(r.subs =
-                                ass(iter => (({ env, on } = subEnv),
+                                ass(iter => (({ env, oes } = subEnv),
                                     pIter(iter)), { sAr: T }))
                         ];
                     }
@@ -1652,30 +1651,14 @@ class RComp {
                 try {
                     return f.call(parN, env);
                 }
-                catch (e) {
-                    throw e + E;
+                catch (x) {
+                    throw x + E;
                 }
             };
         }
-        catch (e) {
-            throw e + E;
+        catch (x) {
+            throw x + E;
         }
-    }
-    AddErrH(dHndlr) {
-        return () => {
-            let hndlr = dHndlr(), { e, s } = on;
-            return hndlr && ((ev) => {
-                try {
-                    let a = hndlr.call(ev.target, ev);
-                    return (a instanceof Promise
-                        ? a.then(v => (s?.(ev), v), e)
-                        : s?.(ev), a);
-                }
-                catch (er) {
-                    (e || thro)(er);
-                }
-            });
-        };
     }
     GetURL(src) {
         return new URL(src, this.FilePath).href;

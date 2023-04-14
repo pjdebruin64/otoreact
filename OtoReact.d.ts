@@ -99,7 +99,7 @@ export declare type RVAR_Light<T> = T & {
     readonly V?: T;
 };
 declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;
-declare let on: {
+declare let oes: {
     e: Handler;
     s: Handler;
 };
@@ -127,7 +127,7 @@ declare const enum MType {
     Src = 11
 }
 declare class Hndlr {
-    on: typeof on;
+    oes: typeof oes;
     h: Handler;
     hndl(ev: Event, ...r: any[]): any;
 }
