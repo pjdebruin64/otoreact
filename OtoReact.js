@@ -462,9 +462,10 @@ class Hndlr {
         if (this.h)
             try {
                 var { e, s } = this.oes, a = this.h.call(ev.currentTarget, ev, ...r);
-                return (a instanceof Promise
-                    ? a.then(v => (s?.(ev), v), e)
-                    : s?.(ev), a);
+                a === false && ev.preventDefault();
+                a instanceof Promise
+                    ? a.then(_ => s?.(ev), e)
+                    : s?.(ev);
             }
             catch (er) {
                 (e || thro)(er);

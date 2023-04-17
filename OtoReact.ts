@@ -949,13 +949,16 @@ class Hndlr {
             try {
                 var {e,s} = this.oes,
                     a = this.h.call(ev.currentTarget, ev, ...r);
-                // When the handler returns a promise, the result is awaited for
-                return (a instanceof Promise
-                    ? a.then(v => (s?.(ev),v), e)
-                    : s?.(ev), a
-                );
+                // Mimic return value treatment of 'onevent' attribute/property
+                a === false && ev.preventDefault();
+                a instanceof Promise
+                    // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
+                    ? a.then(_ => s?.(ev), e)
+                    // Otherwise call an onsuccess handler
+                    : s?.(ev);
             }
             catch (er) {
+                // Call onerror handler or retrow the error
                 (e || thro)(er);
             }
     }
