@@ -66,9 +66,7 @@ const enum WSpc {
 
 /* For any HTMLElement we create, we remember which event handlers have been added,
     So we can remove them when needed */
-type hHTMLElement = HTMLElement & {
-    hndlrs?: Map<Modifier, Hndlr>
-};
+type hHTMLElement = HTMLElement & {b?: booly};
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
@@ -319,9 +317,9 @@ class Context {
 
 export async function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void> {
     // if (!setts?.version) alert('version 0')
-    if (srcN.isConnected && srcN.hndlrs===U)   // No duplicate compilation
+    if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {
-            srcN.hndlrs = N;   // No duplicate compilation
+            srcN.b = T;   // No duplicate compilation
             let
                 m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
                 , C = new RComp(
@@ -409,7 +407,7 @@ const PrepRng = <VT = unknown>(
     tag: string,
     elm?: HTMLElement
 ): {
-    r: Range<hHTMLElement> & T    // Sub-range
+    r: Range<HTMLElement> & T    // Sub-range
     , chAr: Area                    // Sub-area
     , cr: boolean                  // True when the sub-range is being created
 } => {
@@ -838,105 +836,105 @@ const enum MType {
     , Src           // Set the src attribute, relative to the current source document, which need not be the current HTML document
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
-
-/* Apply modifier 'M' with actual value 'val' to element 'elm'.
-    'cr' is true when the element is newly created. */
-function ApplyMod(elm: hHTMLElement, M: Modifier, val: unknown, cr: booly) {
-    let {nm} = M, H: Hndlr;
-    switch (M.mt) {
-        case MType.Prop:
-            // For string properties, make sure val is a string
-            if (M.isS ??= typeof elm[
-                // And (in any case) determine properly cased name
-                M.c = ChkNm(elm, 
-                    nm=='valueasnumber' && (elm as HTMLInputElement).type == 'number'
-                    ? 'value' : nm)
-            ]=='string')
-                if (val==N) // replace null and undefined by the empty string
-                    val = Q
-                else
-                    val = val.toString();
-            // Avoid unnecessary property assignments; they may have side effects
-            if (val !== elm[nm=M.c])
-                elm[nm] = val;
-            break;
-        case MType.Attr:
-            elm.setAttribute(nm, val as string); 
-            break;
-        case MType.Event:
-            // Set and remember new handler
-            if (cr) {
-                (elm.hndlrs ||= new Map()).set(M, H = new Hndlr());
-                elm.addEventListener(nm, H.hndl.bind(H));
-            }
-            else
-                H = elm.hndlrs.get(M);
-            H.oes = oes; H.h = val as Handler;
-            
-            // Perform bAutoPointer
-            if (nm == 'click' && R.setts.bAutoPointer)
-                elm.style.cursor = val && !(elm as HTMLButtonElement).disabled ? 'pointer' : N;
-            break;
-        case MType.Class:
-            val && elm.classList.add(nm);
-            break;
-        case MType.Style:
-            elm.style[
-                M.c ||= ChkNm(elm.style, nm)
-            ] = val || val === 0 ? val : N;
-            break;
-        case MType.AddToStyle:
-            if (val) 
-                for (let [nm,v] of Object.entries(val as Object))
-                    elm.style[nm] = v || v === 0 ? v : N;
-            break
-        case MType.AddToClassList:
-            (function ACL(v: any) {
-                if (v)
-                    switch (typeof v) {
-                        case 'string': elm.classList.add(v); break;
-                        case 'object':
-                            if (v)
-                                if (Array.isArray(v)) 
-                                    v.forEach(ACL);
-                                else
-                                    for (let [nm, b] of Object.entries(v as Object))
-                                        b && ACL(nm);
-                            break;
-                        default: throw `Invalid value`;
-                }
-            })(val);
-            break;
-        case MType.RestArgument:
-            for (let {M, v} of (val as RestParameter) || E)
-                ApplyMod(elm, M, v, cr);
-            break;
-        case MType.oncreate:
-            cr && (val as Handler).call(elm);
-            break;
-        case MType.onupdate:
-            !cr && (val as Handler).call(elm); 
-        case MType.Src:
-            elm.setAttribute('src',  new URL(val as string, nm).href);
-            break;
-        case MType.AddToProps:
-            ass(elm, val);
-            break;
-    }
-}
-function ApplyMods(elm: hHTMLElement, mods: Modifier[], cr?: boolean) {
+function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean) {
+    let e = r.node, i = 0;
     // Remove any class names
-    if (elm.className) elm.className = Q;
+    if (e.className) e.className = Q;
 
     // Apply all modifiers: adding attributes, classes, styles, events
     ro= T;
     try {
         for (let M of mods)
             // See what to do with it
-            ApplyMod(elm, M, M.depV()    // Evaluate the dependent value in the current environment
-                    , cr);
+            ApplyMod(M, M.depV());    // Evaluate the dependent value in the current environment
     }
     finally { ro = F; }
+    
+
+    /* Apply modifier 'M' with actual value 'x' to element 'e'. */
+    function ApplyMod(M: Modifier, x: unknown) {
+        let {nm} = M, H: Hndlr;
+        switch (M.mt) {
+            case MType.Prop:
+                // For string properties, make sure val is a string
+                if (M.isS ??= typeof e[
+                    // And (in any case) determine properly cased name
+                    M.c = ChkNm(e, 
+                        nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
+                        ? 'value' : nm)
+                ]=='string')
+                    if (x==N) // replace null and undefined by the empty string
+                        x = Q
+                    else
+                        x = x.toString();
+                // Avoid unnecessary property assignments; they may have side effects
+                if (x !== e[nm=M.c])
+                    e[nm] = x;
+                break;
+            case MType.Attr:
+                e.setAttribute(nm, x as string); 
+                break;
+            case MType.Event:
+                // Set and remember new handler
+                if (cr) {
+                    H = (r.val ||= [])[i++] = new Hndlr();
+                    e.addEventListener(nm, H.hndl.bind(H));
+                }
+                else
+                    H = r.val[i++];
+                H.oes = oes; H.h = x as Handler;
+                
+                // Perform bAutoPointer
+                if (nm == 'click' && R.setts.bAutoPointer)
+                    e.style.cursor = x && !(e as HTMLButtonElement).disabled ? 'pointer' : N;
+                break;
+            case MType.Class:
+                x && e.classList.add(nm);
+                break;
+            case MType.Style:
+                e.style[
+                    M.c ||= ChkNm(e.style, nm)
+                ] = x || x === 0 ? x : N;
+                break;
+            case MType.AddToStyle:
+                if (x) 
+                    for (let [nm,s] of Object.entries(x as Object))
+                        e.style[nm] = s || s === 0 ? s : N;
+                break
+            case MType.AddToClassList:
+                (function ACL(v: any) {
+                    if (v)
+                        switch (typeof v) {
+                            case 'string': e.classList.add(v); break;
+                            case 'object':
+                                if (v)
+                                    if (Array.isArray(v)) 
+                                        v.forEach(ACL);
+                                    else
+                                        for (let [nm, b] of Object.entries(v as Object))
+                                            b && ACL(nm);
+                                break;
+                            default: throw `Invalid value`;
+                    }
+                })(x);
+                break;
+            case MType.RestArgument:
+                for (let {M, v} of (x as RestParameter) || E)
+                    ApplyMod(M, v);
+                break;
+            case MType.oncreate:
+                cr && (x as Handler).call(e);
+                break;
+            case MType.onupdate:
+                !cr && (x as Handler).call(e); 
+            case MType.Src:
+                e.setAttribute('src',  new URL(x as string, nm).href);
+                break;
+            case MType.AddToProps:
+                ass(e, x);
+                break;
+        }
+    }
 }
 
 // Object to supply DOM event handlers with error handling and 'this' binding.
@@ -1526,15 +1524,14 @@ class RComp {
                        
                         bl = async function RHTML(ar) {
                             let src = dSrc()
-                                , {r, cr} = PrepElm(ar, 'rhtml-rhtml')
-                                , {node} = r;
-                            ApplyMods(node, mods, cr);
+                                , {r, cr} = PrepElm(ar, 'rhtml-rhtml');
+                            ApplyMods(r as Range<HTMLElement,Hndlr[]>, mods, cr);
 
                             if (src != r.res) {
                                 r.res = src;
                                 let 
                                     s = env,
-                                    sRoot = C.head = node.shadowRoot || node.attachShadow({mode: 'open'}),
+                                    sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({mode: 'open'}),
                                     tempElm = D.createElement('rhtml'),
                                     sAr = {
                                         parN: sRoot,
@@ -2639,7 +2636,7 @@ class RComp {
         // 're' is 2 when the routine is called because of a 'thisreactson' attribute.
         // In that case the childnodes should not be updated.
         return async function ELM(ar: Area, re: number) {
-                let {r: {node}, chAr, cr} = 
+                let {r, chAr, cr} = 
                     PrepElm(
                         ar,
                         nm || dTag(), 
@@ -2650,7 +2647,7 @@ class RComp {
                     // Build / update childnodes
                     await childBldr?.(chAr);
 
-                ApplyMods(node, mods, cr);
+                ApplyMods(r as Range<HTMLElement,Hndlr[]>, mods, cr);
                 parN = ar.parN
             };
     }

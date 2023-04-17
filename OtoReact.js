@@ -106,9 +106,9 @@ class Context {
     }
 }
 export async function RCompile(srcN, setts) {
-    if (srcN.isConnected && srcN.hndlrs === U)
+    if (srcN.isConnected && !srcN.b)
         try {
-            srcN.hndlrs = N;
+            srcN.b = T;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             Jobs.add({ Exec: async () => {
@@ -369,91 +369,92 @@ function RVAR_Light(t, updTo) {
     }
     return t;
 }
-function ApplyMod(elm, M, val, cr) {
-    let { nm } = M, H;
-    switch (M.mt) {
-        case 0:
-            if (M.isS ?? (M.isS = typeof elm[M.c = ChkNm(elm, nm == 'valueasnumber' && elm.type == 'number'
-                ? 'value' : nm)] == 'string'))
-                if (val == N)
-                    val = Q;
-                else
-                    val = val.toString();
-            if (val !== elm[nm = M.c])
-                elm[nm] = val;
-            break;
-        case 1:
-            elm.setAttribute(nm, val);
-            break;
-        case 2:
-            if (cr) {
-                (elm.hndlrs || (elm.hndlrs = new Map())).set(M, H = new Hndlr());
-                elm.addEventListener(nm, H.hndl.bind(H));
-            }
-            else
-                H = elm.hndlrs.get(M);
-            H.oes = oes;
-            H.h = val;
-            if (nm == 'click' && R.setts.bAutoPointer)
-                elm.style.cursor = val && !elm.disabled ? 'pointer' : N;
-            break;
-        case 3:
-            val && elm.classList.add(nm);
-            break;
-        case 4:
-            elm.style[M.c || (M.c = ChkNm(elm.style, nm))] = val || val === 0 ? val : N;
-            break;
-        case 6:
-            if (val)
-                for (let [nm, v] of Object.entries(val))
-                    elm.style[nm] = v || v === 0 ? v : N;
-            break;
-        case 5:
-            (function ACL(v) {
-                if (v)
-                    switch (typeof v) {
-                        case 'string':
-                            elm.classList.add(v);
-                            break;
-                        case 'object':
-                            if (v)
-                                if (Array.isArray(v))
-                                    v.forEach(ACL);
-                                else
-                                    for (let [nm, b] of Object.entries(v))
-                                        b && ACL(nm);
-                            break;
-                        default: throw `Invalid value`;
-                    }
-            })(val);
-            break;
-        case 8:
-            for (let { M, v } of val || E)
-                ApplyMod(elm, M, v, cr);
-            break;
-        case 9:
-            cr && val.call(elm);
-            break;
-        case 10:
-            !cr && val.call(elm);
-        case 11:
-            elm.setAttribute('src', new URL(val, nm).href);
-            break;
-        case 7:
-            ass(elm, val);
-            break;
-    }
-}
-function ApplyMods(elm, mods, cr) {
-    if (elm.className)
-        elm.className = Q;
+function ApplyMods(r, mods, cr) {
+    let e = r.node, i = 0;
+    if (e.className)
+        e.className = Q;
     ro = T;
     try {
         for (let M of mods)
-            ApplyMod(elm, M, M.depV(), cr);
+            ApplyMod(M, M.depV());
     }
     finally {
         ro = F;
+    }
+    function ApplyMod(M, x) {
+        let { nm } = M, H;
+        switch (M.mt) {
+            case 0:
+                if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'valueasnumber' && e.type == 'number'
+                    ? 'value' : nm)] == 'string'))
+                    if (x == N)
+                        x = Q;
+                    else
+                        x = x.toString();
+                if (x !== e[nm = M.c])
+                    e[nm] = x;
+                break;
+            case 1:
+                e.setAttribute(nm, x);
+                break;
+            case 2:
+                if (cr) {
+                    H = (r.val || (r.val = []))[i++] = new Hndlr();
+                    e.addEventListener(nm, H.hndl.bind(H));
+                }
+                else
+                    H = r.val[i++];
+                H.oes = oes;
+                H.h = x;
+                if (nm == 'click' && R.setts.bAutoPointer)
+                    e.style.cursor = x && !e.disabled ? 'pointer' : N;
+                break;
+            case 3:
+                x && e.classList.add(nm);
+                break;
+            case 4:
+                e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : N;
+                break;
+            case 6:
+                if (x)
+                    for (let [nm, s] of Object.entries(x))
+                        e.style[nm] = s || s === 0 ? s : N;
+                break;
+            case 5:
+                (function ACL(v) {
+                    if (v)
+                        switch (typeof v) {
+                            case 'string':
+                                e.classList.add(v);
+                                break;
+                            case 'object':
+                                if (v)
+                                    if (Array.isArray(v))
+                                        v.forEach(ACL);
+                                    else
+                                        for (let [nm, b] of Object.entries(v))
+                                            b && ACL(nm);
+                                break;
+                            default: throw `Invalid value`;
+                        }
+                })(x);
+                break;
+            case 8:
+                for (let { M, v } of x || E)
+                    ApplyMod(M, v);
+                break;
+            case 9:
+                cr && x.call(e);
+                break;
+            case 10:
+                !cr && x.call(e);
+            case 11:
+                e.setAttribute('src', new URL(x, nm).href);
+                break;
+            case 7:
+                ass(e, x);
+                break;
+        }
     }
 }
 class Hndlr {
@@ -794,11 +795,11 @@ class RComp {
                             let dSrc = this.CParam(atts, 'srctext', T), mods = this.CAtts(atts), C = new RComp(N, this.FilePath, { bSubfile: T, bTiming: this.setts.bTiming }), { ws, rspc } = this;
                             this.ws = 1;
                             bl = async function RHTML(ar) {
-                                let src = dSrc(), { r, cr } = PrepElm(ar, 'rhtml-rhtml'), { node } = r;
-                                ApplyMods(node, mods, cr);
+                                let src = dSrc(), { r, cr } = PrepElm(ar, 'rhtml-rhtml');
+                                ApplyMods(r, mods, cr);
                                 if (src != r.res) {
                                     r.res = src;
-                                    let s = env, sRoot = C.head = node.shadowRoot || node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
+                                    let s = env, sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
                                         parR: r.ch || (r.ch = new Range(N, N, 'Shadow'))
                                     };
@@ -1488,10 +1489,10 @@ class RComp {
         if (nm == 'A' && this.setts.bAutoReroute && !mods.some(M => M.nm == 'onclick'))
             mods.push({ mt: 0, nm: 'onclick', depV: () => parN.onclick || (parN.href.indexOf(L.origin + DL.basepath) == 0 ? reroute : N) });
         return async function ELM(ar, re) {
-            let { r: { node }, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
+            let { r, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
             if (re != 2)
                 await childBldr?.(chAr);
-            ApplyMods(node, mods, cr);
+            ApplyMods(r, mods, cr);
             parN = ar.parN;
         };
     }

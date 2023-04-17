@@ -18,7 +18,7 @@ declare type Settings = Partial<{
     headers: HeadersInit;
 }>;
 declare type hHTMLElement = HTMLElement & {
-    hndlrs?: Map<Modifier, Hndlr>;
+    b?: booly;
 };
 declare type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) & {
     auto?: string;
@@ -57,7 +57,6 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     erase(par: Node): void;
 }
 export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
-declare type Dep<T> = (() => T);
 declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
     ar?: never;
 }) | (((t: T) => Promise<unknown>) & {
@@ -99,38 +98,8 @@ export declare type RVAR_Light<T> = T & {
     readonly V?: T;
 };
 declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;
-declare let oes: {
-    e: Handler;
-    s: Handler;
-};
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
-declare type Modifier = {
-    mt: MType;
-    nm: string;
-    depV: Dep<unknown>;
-    c?: string;
-    isS?: booly;
-};
-declare const enum MType {
-    Prop = 0,
-    Attr = 1,
-    Event = 2,
-    Class = 3,
-    Style = 4,
-    AddToClassList = 5,
-    AddToStyle = 6,
-    AddToProps = 7,
-    RestArgument = 8,
-    oncreate = 9,
-    onupdate = 10,
-    Src = 11
-}
-declare class Hndlr {
-    oes: typeof oes;
-    h: Handler;
-    hndl(ev: Event, ...r: any[]): any;
-}
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class DocLoc extends _RVAR<string> {
