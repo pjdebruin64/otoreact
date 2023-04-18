@@ -419,7 +419,9 @@ const PrepRng = <VT = unknown>(
                 || ar.parN.insertBefore<HTMLElement>(D.createElement(tag), ar.bfor)
             ) as Range<HTMLElement> & T;
     else
-        ar.r = r.nx || T;
+        ar.r = r.nx 
+            // When updating (i.e. when !cr), then make sure ar.r is always truthy:
+            || T;
 
     nodeCnt++
     return { 
@@ -1427,7 +1429,7 @@ class RComp {
                                     , task = 
                                         // Parse the contents of the file
                                         // Compile the parsed contents of the file in the original context
-                                        C.Compile(N, await this.fetchModule(src))
+                                        C.Compile(N, await this.fetchM(src))
                                         .catch(e => {alert(e); throw e});
                                 return async function INCLUDE(ar) {
                                         await NoTime(task);
@@ -1456,7 +1458,7 @@ class RComp {
                             let C = new RComp(this, this.GetPath(src), {bSubfile: T}, new Context());
                             C.log(src);
                             OMods.set(src
-                                , cTask = C.CIter(await this.fetchModule(src))
+                                , cTask = C.CIter(await this.fetchM(src))
                                             .then(b => [b, C.CT]
                                                 , e => {alert(e); throw e}
                                             )
@@ -1535,7 +1537,7 @@ class RComp {
                                 let 
                                     s = env,
                                     sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({mode: 'open'}),
-                                    tempElm = D.createElement('rhtml'),
+                                    tmp = D.createElement('rhtml'),
                                     sAr = {
                                         parN: sRoot,
                                         parR: r.ch ||= new Range(N, N, 'Shadow')
@@ -1544,10 +1546,10 @@ class RComp {
                                 r.ch.erase(sRoot); sRoot.innerHTML=Q;
                                 try {
                                     // Parsing
-                                    tempElm.innerHTML = src;
+                                    tmp.innerHTML = src;
                                     // Compiling
                                     await ass(C, {ws,rspc, CT: new Context()}
-                                        ).Compile(tempElm, tempElm.childNodes);
+                                        ).Compile(tmp, tmp.childNodes);
                                     // Building
                                     await C.Build(sAr);
                                 }
@@ -2918,7 +2920,7 @@ class RComp {
 
     // Fetch an RHTML module, either from a <MODULE id> element within the current document,
     // or else from an external file
-    async fetchModule(src: string): Promise<Iterable<ChildNode>> {
+    async fetchM(src: string): Promise<Iterable<ChildNode>> {
         let m = this.doc.getElementById(src);
         if (!m) {
             // External

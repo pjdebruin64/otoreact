@@ -150,7 +150,8 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
         r = new Range(ar, elm
             || ar.parN.insertBefore(D.createElement(tag), ar.bfor));
     else
-        ar.r = r.nx || T;
+        ar.r = r.nx
+            || T;
     nodeCnt++;
     return {
         r,
@@ -735,7 +736,7 @@ class RComp {
                         bl = await (srcE.children.length || srcE.textContent.trim()
                             ? this.CChilds(srcE)
                             : this.Framed(async (SF) => {
-                                let C = new RComp(this, this.GetPath(src), { bSubfile: T }), task = C.Compile(N, await this.fetchModule(src))
+                                let C = new RComp(this, this.GetPath(src), { bSubfile: T }), task = C.Compile(N, await this.fetchM(src))
                                     .catch(e => { alert(e); throw e; });
                                 return async function INCLUDE(ar) {
                                     await NoTime(task);
@@ -750,7 +751,7 @@ class RComp {
                             if (!cTask) {
                                 let C = new RComp(this, this.GetPath(src), { bSubfile: T }, new Context());
                                 C.log(src);
-                                OMods.set(src, cTask = C.CIter(await this.fetchModule(src))
+                                OMods.set(src, cTask = C.CIter(await this.fetchM(src))
                                     .then(b => [b, C.CT], e => { alert(e); throw e; }));
                             }
                             let task = cTask.then(([b, CT]) => {
@@ -800,15 +801,15 @@ class RComp {
                                 ApplyMods(r, mods, cr);
                                 if (src != r.res) {
                                     r.res = src;
-                                    let s = env, sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({ mode: 'open' }), tempElm = D.createElement('rhtml'), sAr = {
+                                    let s = env, sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({ mode: 'open' }), tmp = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
                                         parR: r.ch || (r.ch = new Range(N, N, 'Shadow'))
                                     };
                                     r.ch.erase(sRoot);
                                     sRoot.innerHTML = Q;
                                     try {
-                                        tempElm.innerHTML = src;
-                                        await ass(C, { ws, rspc, CT: new Context() }).Compile(tempElm, tempElm.childNodes);
+                                        tmp.innerHTML = src;
+                                        await ass(C, { ws, rspc, CT: new Context() }).Compile(tmp, tmp.childNodes);
                                         await C.Build(sAr);
                                     }
                                     catch (e) {
@@ -1671,7 +1672,7 @@ class RComp {
     FetchText(src) {
         return RFetch(this.GetURL(src), { headers: this.setts.headers }).then(r => r.text());
     }
-    async fetchModule(src) {
+    async fetchM(src) {
         let m = this.doc.getElementById(src);
         if (!m) {
             let { head, body } = P.parseFromString(await this.FetchText(src), 'text/html'), e = body.firstElementChild;
