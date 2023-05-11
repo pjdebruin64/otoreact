@@ -300,9 +300,11 @@ Further on, <elm>FOR</elm> can have the following attributes:
     You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript <a href="{MDN}Web/JavaScript/Guide/Modules"><i>module</i></a>.
 </p>
 <p>
-    Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact add a number of extra options.
+    Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact adds a number of extra options.
     <br>Together, you have the following alternatives:
 </p>
+<h4>Regular classic/module scripts</h4>
+These are the two regular forms of JavaScript.
 <dl>
     <dt><elm>SCRIPT src?</elm> or <elm>SCRIPT type="<b>text/javascript</b>" src?</elm></dt>
     <dd>
@@ -317,10 +319,10 @@ Further on, <elm>FOR</elm> can have the following attributes:
             <li>
                 <i>Outside</i> the main file, in included or imported RHTML files, OtoReact will execute the internal or external script as classic JavaScript <i>while compiling the file</i>.
                 <br>OtoReact functions are available.
-                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, as with <code>type="module"</code>, or switch to <elm>SCRIPT type="otoreact" defines?="<i>nameList</i>"</elm>.
+                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, or switch to <elm>SCRIPT type="otoreact" defines?="<i>nameList</i>"</elm>.
                 <br>One can use strict mode as above.
                 <br>With attribute <code>async</code>, fetching and executing is done asynchronously, and awaited for when the respective DOM tree is being built.
-                <br>With attribute <code>defer</code>, execution is postponed till the first time the DOM tree is being built.
+                <br>With attribute <code>defer</code>, execution is defered till, and awaited for, the first time the DOM tree is being built.
             </li>
         </ul>
     </dd>
@@ -340,18 +342,22 @@ Further on, <elm>FOR</elm> can have the following attributes:
             </li>
         </ul>
     </dd>
+</dl>
 
+<h4>OtoReact-supported classic JavaScript</h4>
+These are three forms of classic JavaScript with OtoReact features.
+<br>Strict mode is involed automatically.
+<dl>
     <dt><elm>SCRIPT type="<b>otoreact</b>" src? defines?="<i>nameList</i>"</elm>,
         <br><elm>SCRIPT type="<b>otoreact/global</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
         <br>Names are not automatically defined in global scope, but one can provide a comma-separated <code>defines="<i>nameList</i>"</code> telling which names should be put in global scope.
-        <br>OtoReact invokes strict mode automatically.
     </dd>
     
     <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines="<i>nameList</i>"</elm></dt>
     <dd>
-        OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
+        OtoReact asynchronously fetches the internal or external script, and executes it <i>once</i> as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
         <br>Names listed in <i>nameList</i> are not put in global scope, but are defined <i>as OtoReact local variables</i>.
         <p>
             So when this type of script is used inside, e.g., a component, then the script is executed just once, the values of the listed names are internally remembered, and visible as local variables just inside the component.
@@ -367,7 +373,11 @@ Further on, <elm>FOR</elm> can have the following attributes:
             So when this type of script is used inside a component template, then each instance of the component will have its own set of data.
         </p>
     </dd>
+</dl>
 
+<h4>OtoReact-supported JavaScript modules</h4>
+These are two forms of JavaScript modules with OtoReact features.
+<dl>
     <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?="<i>nameList</i>"</elm>
         <br><elm>SCRIPT type="<b>otoreact/global; type=module</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>

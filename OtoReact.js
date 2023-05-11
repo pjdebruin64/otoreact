@@ -401,15 +401,21 @@ function ApplyMods(r, mods, cr) {
             case 2:
                 if (cr) {
                     H = (r.val || (r.val = []))[i++] = new Hndlr();
+                    H.oes = oes;
                     e.addEventListener(nm, H.hndl.bind(H));
                 }
                 else
                     H = r.val[i++];
-                H.oes = oes;
                 H.h = x;
-                if (nm == 'click' && R.setts.bAutoPointer)
-                    e.style.cursor = x && !e.disabled ? 'pointer' : N;
+                if (nm == 'click') {
+                    parN.hasC = x;
+                    if (R.setts.bAutoPointer)
+                        e.style.cursor = x && !e.disabled ? 'pointer' : N;
+                }
                 break;
+            case 12:
+                if (cr && !r.val.some)
+                    break;
             case 3:
                 x && e.classList.add(nm);
                 break;
@@ -449,6 +455,7 @@ function ApplyMods(r, mods, cr) {
                 break;
             case 10:
                 !cr && x.call(e);
+                break;
             case 11:
                 e.setAttribute('src', new URL(x, nm).href);
                 break;
@@ -656,7 +663,7 @@ class RComp {
             let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
-                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(create|update|destroy|compile)+)$/
+                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|((before)|on|after)(?:create|update|destroy)+|oncompile)$/
                         .exec(att))
                     if (m[1])
                         m[4] && tag != 'REACT'
@@ -673,10 +680,8 @@ class RComp {
                             });
                     else {
                         let txt = atts.g(att);
-                        if (m[10] == 'compile')
-                            Ev(`(function(){${txt}\n})`).call(srcE);
-                        else
-                            (m[9] ? bf : af)
+                        if (m[9])
+                            (m[10] ? bf : af)
                                 .push({
                                 att,
                                 txt,
@@ -685,6 +690,8 @@ class RComp {
                                 D: /y/.test(att),
                                 hndlr: m[9] && this.CHandlr(att, txt)
                             });
+                        else
+                            Ev(`(function(){${txt}\n})`).call(srcE);
                     }
             if (bUnhide)
                 atts.set('#hidden', 'false');
@@ -992,11 +999,11 @@ class RComp {
                         }
                         : m[5]
                             ? async function SetOnES(ar, re) {
-                                let s = oes;
-                                oes = { ...oes };
+                                let s = oes, { sub, r } = PrepRng(ar, srcE, att);
+                                oes = Object.assign(r.val || (r.val = {}), oes);
                                 try {
                                     oes[es] = dV();
-                                    await b(ar, re);
+                                    await b(sub, re);
                                 }
                                 finally {
                                     oes = s;
@@ -1004,7 +1011,7 @@ class RComp {
                             }
                             : m[7]
                                 ? async function HASH(ar, re) {
-                                    let { sub, r, cr } = PrepRng(ar, srcE, 'hash'), hashes = dV();
+                                    let { sub, r, cr } = PrepRng(ar, srcE, att), hashes = dV();
                                     if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                                         r.val = hashes;
                                         await b(sub, re);
@@ -1488,8 +1495,14 @@ class RComp {
         let mods = this.CAtts(atts), childBldr = await this.CChilds(srcE);
         if (postWs)
             this.ws = postWs;
-        if (nm == 'A' && this.setts.bAutoReroute && !mods.some(M => M.nm == 'onclick'))
-            mods.push({ mt: 0, nm: 'onclick', depV: () => parN.onclick || (parN.href.indexOf(L.origin + DL.basepath) == 0 ? reroute : N) });
+        if (nm == 'A' && this.setts.bAutoReroute)
+            mods.push({
+                mt: 2,
+                nm: 'click',
+                depV: () => !parN.hasC && !parN.download
+                    && parN.href.startsWith(L.origin + DL.basepath)
+                    ? reroute : N
+            });
         return async function ELM(ar, re) {
             let { r, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
             if (re != 2)
@@ -1616,8 +1629,7 @@ class RComp {
         return expr == N ? dU : this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
     }
     CHandlr(nm, text) {
-        return /^#/.test(nm) ? this.CExpr(text, nm)
-            : this.CExpr(`function(event){${text}\n}`, nm, text);
+        return this.CExpr(/^#/.test(nm) ? text : `function(event){${text}\n}`, nm, text);
     }
     CExpr(expr, nm, src = expr, dlms = '""') {
         return (expr == N ? expr
@@ -1642,10 +1654,10 @@ class RComp {
         if (n > d)
             ct = Q;
         else {
-            let p0 = d - n, p1 = p0;
+            let p = d - n, q = p;
             while (n--)
-                p1 = ct.indexOf(']', p1) + 1;
-            ct = `[${ct.slice(0, p0)}${ct.slice(p1)}]`;
+                q = ct.indexOf(']', q) + 1;
+            ct = `[${ct.slice(0, p)}${ct.slice(q)}]`;
         }
         try {
             var f = Ev(US +

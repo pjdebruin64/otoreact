@@ -190,10 +190,31 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
 
 
 <h2>Why OtoReact?</h2>
-
+Some advantages of using OtoReact above other frameworks:
 <ol>
     <li>
-        
+        We think it is <i>conceptually simpler</i> to have the full document definitions in enriched HTML, rather than requiring JavaScript to invoke the framework, define components, link everything together, etc.
+    </li>
+    <li>
+        State variables (RVAR's) can be defined in any local HTML scope, while in other frameworks state variables are only available at the component level.
+        <br>So if you need a state variable within a <elm>FOR</elm> iteration, then you can simply define a <i>single</i> RVAR within that <elm>FOR</elm> block, and OtoReact will repeatedly instantiate the RVAR.
+        <br>In other frameworks you would either have to define a whole <i>array</i> of state variables, or define a separate component just for the body of this iteration.
+    </li>
+    <li>
+        Components can be defined in any local HTML scope, meaning you can easily use them to avoid local code repetitions.
+        <br>Local component definitions can refer to local variables visible at the point of definition, without needing these to be passed as parameters.
+    </li>
+    <li>
+        There are some small nifty features. E.g. the simple fact that <code>null</code> and <code>undefined</code> are not rendered simplifies many embedded expressions.
+    </li>
+    <li>
+        Installation (i.e. downloading a single file) is much simpler, and takes much less disk space, than with most other frameworks.
+    </li>
+</ol>
+<p>Drawbacks:</p>
+<ol>
+    <li>
+        OtoReact does not yet do any dependency analysis.
     </li>
 </ol>
 

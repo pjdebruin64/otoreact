@@ -682,7 +682,9 @@ export class _RVAR<T = unknown>{
         for (let subs of this._Subs)
             try { 
                 let P = subs(this.V);
+                // When this is a DOM subscriber
                 if (subs.ar)
+                    // Then await its completion, so that no two DOM builders run together
                     await P;
             }
             catch (e) {    
@@ -712,20 +714,22 @@ export type RVAR_Light<T> = T & {
 function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, re:number=1): Subscriber {
     let ar: Area = {parN, parR, r: r||T },
         eon = {env, oes};
-
+    // A DOM subscriber is  a routine that restores the current environment and error/success handlers,
+    // and runs a DOMBuilder
     return ass(
         () => (
                 ({env, oes} = eon),
                 b({...ar}, re)
         )
+        // Assign property .ar just to mark it as a DOMSubscriber
         , {ar});
 }
 
 let    
 /* Runtime data */
     env: Environment,       // Current runtime environment
-    parN: ParentNode,       // Current html node
-    oes = {e: <Handler>N, s: <Handler>N},    // Current onerror and onsuccess handlers
+    parN: ParentNode & {hasC?: booly},       // Current html node
+    oes = {e: N, s: N} as {e: Handler, s: Handler},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
     Jobs = new Set< {Exec: () => Promise<void> } //| (() => Promise<void>) 
@@ -760,7 +764,6 @@ export async function DoUpdate() {
             if (upd++ - u0 > 25)
             { alert('Infinite react-loop'); break; }
             for (let j of J)
-                //await ( (j as {Exec: () => Promise<void> }).Exec || (j as () => Promise<void>))();
                 await j.Exec();
         }
         if (nodeCnt)
@@ -836,6 +839,7 @@ const enum MType {
     , oncreate      // Set an oncreate handler
     , onupdate      // Set an onupdate handler
     , Src           // Set the src attribute, relative to the current source document, which need not be the current HTML document
+    , AutoReroute
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
 function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean) {
@@ -880,15 +884,23 @@ function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean
                 // Set and remember new handler
                 if (cr) {
                     H = (r.val ||= [])[i++] = new Hndlr();
+                    H.oes = oes;
                     e.addEventListener(nm, H.hndl.bind(H));
                 }
                 else
                     H = r.val[i++];
-                H.oes = oes; H.h = x as Handler;
+
+                H.h = x as Handler;
                 
                 // Perform bAutoPointer
-                if (nm == 'click' && R.setts.bAutoPointer)
-                    e.style.cursor = x && !(e as HTMLButtonElement).disabled ? 'pointer' : N;
+                if (nm == 'click') {
+                    parN.hasC = <booly>x;
+                    if (R.setts.bAutoPointer)
+                        e.style.cursor = x && !(e as HTMLButtonElement).disabled ? 'pointer' : N;
+                }
+                break;
+            case MType.AutoReroute:
+                if (cr && !r.val.some)
                 break;
             case MType.Class:
                 x && e.classList.add(nm);
@@ -928,7 +940,8 @@ function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean
                 cr && (x as Handler).call(e);
                 break;
             case MType.onupdate:
-                !cr && (x as Handler).call(e); 
+                !cr && (x as Handler).call(e);
+                break;
             case MType.Src:
                 e.setAttribute('src',  new URL(x as string, nm).href);
                 break;
@@ -947,22 +960,23 @@ class Hndlr {
     h: Handler;     // User-defined handler
 
     hndl(ev: Event, ...r: any[]) {
-        if (this.h)
-            try {
-                var {e,s} = this.oes,
-                    a = this.h.call(ev.currentTarget, ev, ...r);
-                // Mimic return value treatment of 'onevent' attribute/property
-                a === false && ev.preventDefault();
-                a instanceof Promise
-                    // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
-                    ? a.then(_ => s?.(ev), e)
-                    // Otherwise call an onsuccess handler
-                    : s?.(ev);
-            }
-            catch (er) {
-                // Call onerror handler or retrow the error
-                (e || thro)(er);
-            }
+            if (this.h)
+                try {
+                    var {e,s} = this.oes,
+                        a = this.h.call(ev.currentTarget, ev, ...r);
+                    // Mimic return value treatment of 'onevent' attribute/property
+                    a === false && ev.preventDefault();
+                    a instanceof Promise
+                        // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
+                        ? a.then(_ => s?.(ev), e)
+                        // Otherwise call an onsuccess handler
+                        : s?.(ev);
+                }
+                catch (er) {
+                    // Call onerror handler or retrow the error
+                    (e || thro)(er);
+                }
+        
     }
 }
 
@@ -1308,7 +1322,7 @@ class RComp {
                 // Check for generic attributes
             for (let [att] of atts)
                 if (m = 
-                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(create|update|destroy|compile)+)$/
+                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|((before)|on|after)(?:create|update|destroy)+|oncompile)$/
                      .exec(att))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
@@ -1326,25 +1340,25 @@ class RComp {
                                         :   // reacton, hash
                                           this.CAttExpList<RVAR>(atts, att, T)
                                 });
-                    else { // #?(before|after|on)(create|update|destroy)+
+                    else { 
                         let txt = atts.g(att);
-                        if (m[10]=='compile')
-                            Ev(`(function(){${txt}\n})`).call(srcE);
-                        else
-                        // We have a pseudo-event
-                        (m[9] ? bf : af)    // Is it before or after
-                        .push(
-                            {
+                        if (m[9])  // #?(before|after|on)(compile|create|update|destroy)+
+                            // We have a pseudo-event
+                            (m[10] ? bf : af)    // Is it before or after
+                            .push({
                                 att, 
                                 txt, 
                                 C:/c/.test(att),    // 'att' contains 'create'
                                 U:/u/.test(att),    // 'att' contains 'update'
                                 D:/y/.test(att),    // 'att' contains 'destroy'
-                                    // 'before' events are compiled now, before the element is compiled
-                                    // 'after' events are compiled after the element has been compiled, so they may
-                                    // refer to local variables introduced by the element.
+                                // 'before' events are compiled now, before the element is compiled
                                 hndlr: m[9] && this.CHandlr(att,txt)
+                                // 'after' events are compiled after the element has been compiled, so they may
+                                // refer to local variables introduced by the element.
                             });
+                        else    // oncompile
+                            // Execute now, with 'srcE' as 'this'
+                            Ev(`(function(){${txt}\n})`).call(srcE);
                     }
 
             if (bUnhide) atts.set('#hidden', 'false'); 
@@ -1749,7 +1763,7 @@ class RComp {
                     rre = m[3] ? 2 : 1,    // 'thisreactson'?
                     es = m[6] ? 'e' : 's';
                 bl = 
-                    m[2]
+                    m[2]    // reacton, thisreactson
                     ?  async function REACT(ar: Area, re: number) {                
                             let {r, sub} = PrepRng(ar, srcE, att);
 
@@ -1757,21 +1771,25 @@ class RComp {
                                 await b(sub, re);
                             r.upd = upd;
                             
+                            // Only when not called from a subscriber:
                             if (!re) {
                                 let 
+                                    // Create a subscriber, or get the one created earlier
                                     subs: Subscriber = r.subs ||= Subscriber(ar, REACT, r, rre)
-                                    , pVars: RVAR[] = r.rvars
+                                    // Remember previously subscribed rvars
+                                    , pVars: RVAR[] = r.rvars   // 
                                     , i = 0;
 
+                                // Consider the currently provided rvars
                                 for (let rvar of r.rvars = <RVAR[]>dV()) {
                                     if (pVars) {
                                         // Check whether the current rvar(s) are the same as the previous one(s)
                                         let p = pVars[i++];
                                         if (rvar==p)
-                                            continue;           // Yes, continue
+                                            continue;           // Yes, continue with next
                                         p._Subs.delete(subs);   // No, unsubscribe from the previous one
                                     }
-
+                                    // Subscribe current rvar
                                     try { rvar.Subscribe(subs); }
                                     catch { ErrAtt('This is not an RVAR', att) }
                                 }
@@ -1779,17 +1797,19 @@ class RComp {
                         }
                     : m[5]  // onerror|onsuccess
                     ? async function SetOnES(ar: Area, re) {
-                            let s = oes; 
-                            oes = {...oes}
-                            try {
-                                oes[es] = dV();
-                                await b(ar, re);
-                            }
-                            finally { oes = s; }
+                        
+                        let s = oes,
+                            {sub, r} = PrepRng(ar, srcE, att);
+                        oes = Object.assign(r.val ||= {}, oes);
+                        try {
+                            oes[es] = dV();
+                            await b(sub, re);
                         }
-                    :   m[7]   // hash
+                        finally { oes = s; }
+                    }
+                    : m[7]   // hash
                     ? async function HASH(ar: Area, re) {
-                        let {sub, r,cr} = PrepRng(ar, srcE, 'hash')
+                        let {sub, r,cr} = PrepRng(ar, srcE, att)
                             , hashes = <unknown[]>dV();
     
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
@@ -1797,7 +1817,7 @@ class RComp {
                             await b(sub, re);
                         }
                     }
-                    : m[8]  // if
+                    : m[8]  // #if
                     ?   function hIf(ar: Area) {
                             let c = <booly>dV(),
                                 {sub} = PrepRng(ar, srcE, att, 1, !c)
@@ -2633,9 +2653,18 @@ class RComp {
         if (postWs)
             this.ws = postWs;
 
-        if (nm=='A' && this.setts.bAutoReroute && !mods.some(M => M.nm=='onclick'))
-            mods.push({mt: MType.Prop, nm: 'onclick',
-                depV: () => (parN as HTMLAnchorElement).onclick || ((parN as HTMLAnchorElement).href.indexOf(L.origin + DL.basepath) == 0 ? reroute: N)})
+        if (nm=='A' && this.setts.bAutoReroute) // Handle bAutoReroute
+            mods.push({
+                mt: MType.Event,
+                nm: 'click',
+                depV: () =>
+                    // When the A-element has no 'onclick' handler and no 'download' attribute
+                    !parN.hasC && !(parN as HTMLAnchorElement).download 
+                    // and the href starts with the current basepath
+                    && (parN as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
+                    // Then we set the 'reroute' onclick-handler
+                    ? reroute: N
+            })
 
         // Now the runtime action
         // 're' is 2 when the routine is called because of a 'thisreactson' attribute.
@@ -2845,10 +2874,33 @@ class RComp {
     }
 
     private CHandlr(nm: string, text: string): DepE<Handler> {
-        return /^#/.test(nm) ? this.CExpr<Handler>(text, nm)
-            : this.CExpr<Handler>(`function(event){${text}\n}`, nm, text)
+        return this.CExpr<Handler>(
+            /^#/.test(nm) ? text : `function(event){${text}\n}`
+            , nm, text)
     }
+/*
+    private CHandlr1(nm: string, text: string) {
+        if(/^#/.test(nm))
+            return this.CExpr<Handler>(text, nm)
+        else 
+            try {
+                var ES = this.SS(),
+                 lEvent = this.LVar('event'),
+                    dh = this.CExpr(text, nm),
+                    hh = () => {
 
+                        (ev: Event) => {
+                            lEvent(ev);
+                            let a = dh()
+                        }
+
+                    }
+
+                return hh
+            }
+            finally { ES(); }            
+    }
+*/
     CExpr<T>(
         expr: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
@@ -2881,10 +2933,10 @@ class RComp {
         if (n>d)
             ct = Q;
         else {
-            let p0 = d-n, p1 = p0
+            let p = d-n, q = p
             while (n--)
-                p1 = ct.indexOf(']', p1) + 1;
-            ct = `[${ct.slice(0,p0)}${ct.slice(p1)}]`;
+                q = ct.indexOf(']', q) + 1;
+            ct = `[${ct.slice(0,p)}${ct.slice(q)}]`;
         }
 
         try {
