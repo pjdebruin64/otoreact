@@ -241,8 +241,8 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 // We use negative indices for this, like { [k: number]: ConstructDef} for k<0
 type Environment =  [Environment?, ...unknown[] ];
 
-// An Environment Key points to a value in an environment. It consists of a frame number and an array index.
-type EnvKey = [number, number];
+// An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
+type EnvKey = {f: number, i: number};
 
 // A CONTEXT keeps track at runtime of all visible local variables and constructs, and were thet are s
 class Context {
@@ -278,8 +278,8 @@ class Context {
         if (k) {
             let d = this.d;
             return (e:Environment = env) => {
-                let [F,i] = k;
-                for(;F < d; F++)
+                let {f,i} = k;
+                for(;f < d; f++)
                     e = e[0];
                 return e[i] as T;
             }
@@ -728,7 +728,7 @@ function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, re:number=1): S
 let    
 /* Runtime data */
     env: Environment,       // Current runtime environment
-    parN: ParentNode & {hasC?: booly},       // Current html node
+    parN: ParentNode,       // Current html node
     oes = {e: N, s: N} as {e: Handler, s: Handler},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
@@ -820,7 +820,7 @@ function RVAR_Light<T>(
 // Element modifiers
 type Modifier = {
     mt: MType,          // Modifier type
-    nm: string,         // Modifier name
+    nm?: string,         // Modifier name
     depV: Dep<unknown>, // Routine to compute the value
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
@@ -843,7 +843,10 @@ const enum MType {
 }
 type RestParameter = Array<{M: Modifier, v: unknown}>;
 function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean) {
-    let e = r.node, i = 0;
+    let 
+        e = r.node
+        , i = 0
+        , hasC: booly;
     // Remove any class names
     if (e.className) e.className = Q;
 
@@ -886,6 +889,7 @@ function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean
                     H = (r.val ||= [])[i++] = new Hndlr();
                     H.oes = oes;
                     e.addEventListener(nm, H.hndl.bind(H));
+                    if (nm == 'click') hasC = <booly>x;
                 }
                 else
                     H = r.val[i++];
@@ -893,14 +897,18 @@ function ApplyMods(r: Range<HTMLElement,Hndlr[]>, mods: Modifier[], cr?: boolean
                 H.h = x as Handler;
                 
                 // Perform bAutoPointer
-                if (nm == 'click') {
-                    parN.hasC = <booly>x;
-                    if (R.setts.bAutoPointer)
-                        e.style.cursor = x && !(e as HTMLButtonElement).disabled ? 'pointer' : N;
-                }
+                if (nm == 'click' && R.setts.bAutoPointer)
+                    e.style.cursor = x && !(e as HTMLButtonElement).disabled ? 'pointer' : N;
+                
                 break;
+
             case MType.AutoReroute:
-                if (cr && !r.val.some)
+                // When the A-element has no 'onclick' handler and no 'download' attribute
+                if (cr && !hasC && !(parN as HTMLAnchorElement).download 
+                // and the (initial) href starts with the current basepath
+                && (parN as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath))
+                    // Then we add the 'reroute' onclick-handler
+                    e.addEventListener('click', reroute);
                 break;
             case MType.Class:
                 x && e.classList.add(nm);
@@ -1093,12 +1101,12 @@ class RComp {
                 catch { throw `Reserved keyword '${nm}'`; }
             }
             let {CT} = this
-                , L = ++CT.L        // Reserve a place in the environment
+                , i = ++CT.L        // Reserve a place in the environment
                 , vM = CT.lvMap
                 , p = vM.get(nm);    // If another variable with the same name was visible, remember its key
 
             // Set the key for the new variable
-            vM.set(nm , [CT.d,L]);
+            vM.set(nm , {f:CT.d, i});
 
             // Register a routine to restore the previous key
             this.rActs.push(() => mapSet(vM,nm,p));
@@ -1108,11 +1116,11 @@ class RComp {
                     + ',' + nm;
 
             // The routine to set the value
-            var lv = (v => (env[L] = v) ) as LVar<T>
+            var lv = (v => env[i] = v ) as LVar<T>
         }
         else
             // An empty variable name results in a dummy LVar
-            lv = dU as any as LVar<T>;
+            lv = dU as any;
         lv.nm = nm; // Attach the name of the Lvar to the routine
         return lv;        
     }
@@ -1130,7 +1138,7 @@ class RComp {
 
         for (let S of listS) {
             let p = cM.get(S.nm);
-            cM.set(S.nm, {S, k: [CT.d, --CT.M]});
+            cM.set(S.nm, {S, k: {f: CT.d, i: --CT.M}});
             this.rActs.push(() => mapSet(cM,S.nm,p));
         }
 
@@ -2655,15 +2663,8 @@ class RComp {
 
         if (nm=='A' && this.setts.bAutoReroute) // Handle bAutoReroute
             mods.push({
-                mt: MType.Event,
-                nm: 'click',
-                depV: () =>
-                    // When the A-element has no 'onclick' handler and no 'download' attribute
-                    !parN.hasC && !(parN as HTMLAnchorElement).download 
-                    // and the href starts with the current basepath
-                    && (parN as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
-                    // Then we set the 'reroute' onclick-handler
-                    ? reroute: N
+                mt: MType.AutoReroute,
+                depV: dU
             })
 
         // Now the runtime action
@@ -2700,21 +2701,22 @@ class RComp {
             else if (m = /^on(.*?)\.*$/i.exec(nm))              // Event handlers
                 addM(MType.Event, m[1], this.CHandlr(nm, V) );
 
-            else if (m = /^#class[:.](.*)$/.exec(nm))
+            else if (m = /^#class[:.](.*)$/.exec(nm))           // Conditional classnames
                 addM(MType.Class, m[1],
                     this.CExpr<boolean>(V, nm)
                 );
-            else if (m = /^(#)?style\.(.*)$/.exec(nm))
+            else if (m = /^(#)?style\.(.*)$/.exec(nm))          // Style properties
                 addM(MType.Style, m[2],
                     m[1] ? this.CExpr<unknown>(V, nm) : this.CText(V, nm)
                 );
-            else if (m = /^\+((style)|class|)$/.exec(nm))
+            else if (m = /^\+((style)|class|)$/.exec(nm))       // Add to style or classlist or element properties
                 addM( 
                     m[2] ? MType.AddToStyle : m[1] ? MType.AddToClassList : MType.AddToProps,
                     nm,
                     this.CExpr<object>(V, nm)
                 );
-            else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
+            else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // Two-way attributes
+                // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                 let p = m[1]
                     , nm = altProps[m[2]] || m[2]
                     , dSet: Dep<Handler>;
@@ -2750,13 +2752,14 @@ class RComp {
                             dSet);
                 } 
             }
-            else if (m = /^\.\.\.(.*)/.exec(nm)) {
+            else if (m = /^\.\.\.(.*)/.exec(nm)) {      // Rest parameter
                 if (V) throw 'A rest parameter cannot have a value';
                 addM(MType.RestArgument, nm, this.CT.getLV(m[1]) );
             }
-            else if (nm == 'src')
+            else if (nm == 'src')                       
+                            // Src attribute gets special treatment, to handle relative pathnames
                 addM(MType.Src, this.FilePath, this.CText(V, nm) );
-            else
+            else            // Other attributes
                 addM(MType.Attr, nm, this.CText(V, nm) );
         
         atts.clear();
@@ -2770,7 +2773,7 @@ class RComp {
         let 
             // Regular expression to recognize string interpolations, with or without dollar,
             // with support for two levels of nested braces,
-            // where we also must take care to skip js strings possibly containing braces and escaped quotes.
+            // where we also must take care to skip js strings possibly containing braces,  escaped quotes, quoted strings, regexps, backquoted strings containing other expressions.
             // Backquoted js strings containing js expressions containing backquoted strings might go wrong
             // (We can't use negative lookbehinds; Safari does not support them)
             f = (re:string) => 
@@ -2778,7 +2781,7 @@ class RComp {
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
-|/(?:\\\\.|[^])*?\
+|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |[^])*?`
             , rIS = this.rIS ||= 
                 new RegExp(
@@ -2927,8 +2930,8 @@ class RComp {
         // See if the context can be abbreviated
         let {ct,lvMap, d} = this.CT, n=d+1
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k = lvMap.get(m[0]);
-            if (k?.[0] < n) n = k[0];
+            let k: EnvKey = lvMap.get(m[0]);
+            if (k?.f < n) n = k.f;
         }
         if (n>d)
             ct = Q;
@@ -2941,7 +2944,7 @@ class RComp {
 
         try {
             var f = Ev(US+
-                    `(function(${ct}){${body}})`  // Expression evaluator
+                    `(function(${ct}){${body}\n})`  // Expression evaluator
             ) as (e:Environment) => T;
             return () => {
                     try { 

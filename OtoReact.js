@@ -85,8 +85,8 @@ class Context {
         if (k) {
             let d = this.d;
             return (e = env) => {
-                let [F, i] = k;
-                for (; F < d; F++)
+                let { f, i } = k;
+                for (; f < d; f++)
                     e = e[0];
                 return e[i];
             };
@@ -371,7 +371,7 @@ function RVAR_Light(t, updTo) {
     return t;
 }
 function ApplyMods(r, mods, cr) {
-    let e = r.node, i = 0;
+    let e = r.node, i = 0, hasC;
     if (e.className)
         e.className = Q;
     ro = T;
@@ -403,19 +403,20 @@ function ApplyMods(r, mods, cr) {
                     H = (r.val || (r.val = []))[i++] = new Hndlr();
                     H.oes = oes;
                     e.addEventListener(nm, H.hndl.bind(H));
+                    if (nm == 'click')
+                        hasC = x;
                 }
                 else
                     H = r.val[i++];
                 H.h = x;
-                if (nm == 'click') {
-                    parN.hasC = x;
-                    if (R.setts.bAutoPointer)
-                        e.style.cursor = x && !e.disabled ? 'pointer' : N;
-                }
+                if (nm == 'click' && R.setts.bAutoPointer)
+                    e.style.cursor = x && !e.disabled ? 'pointer' : N;
                 break;
             case 12:
-                if (cr && !r.val.some)
-                    break;
+                if (cr && !hasC && !parN.download
+                    && parN.href.startsWith(L.origin + DL.basepath))
+                    e.addEventListener('click', reroute);
+                break;
             case 3:
                 x && e.classList.add(nm);
                 break;
@@ -534,12 +535,12 @@ class RComp {
                     throw `Reserved keyword '${nm}'`;
                 }
             }
-            let { CT } = this, L = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
-            vM.set(nm, [CT.d, L]);
+            let { CT } = this, i = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
+            vM.set(nm, { f: CT.d, i });
             this.rActs.push(() => mapSet(vM, nm, p));
             CT.ct = CT.ct.replace(new RegExp(`\\b${nm}\\b`), Q)
                 + ',' + nm;
-            var lv = (v => (env[L] = v));
+            var lv = (v => env[i] = v);
         }
         else
             lv = dU;
@@ -553,7 +554,7 @@ class RComp {
         let { CT } = this, { csMap: cM, M } = CT;
         for (let S of listS) {
             let p = cM.get(S.nm);
-            cM.set(S.nm, { S, k: [CT.d, --CT.M] });
+            cM.set(S.nm, { S, k: { f: CT.d, i: --CT.M } });
             this.rActs.push(() => mapSet(cM, S.nm, p));
         }
         return (CDefs) => {
@@ -1497,11 +1498,8 @@ class RComp {
             this.ws = postWs;
         if (nm == 'A' && this.setts.bAutoReroute)
             mods.push({
-                mt: 2,
-                nm: 'click',
-                depV: () => !parN.hasC && !parN.download
-                    && parN.href.startsWith(L.origin + DL.basepath)
-                    ? reroute : N
+                mt: 12,
+                depV: dU
             });
         return async function ELM(ar, re) {
             let { r, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
@@ -1572,7 +1570,7 @@ class RComp {
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
-|/(?:\\\\.|[^])*?\
+|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |[^])*?`, rIS = this.rIS || (this.rIS = new RegExp(`\\\\([{}])|\\$${this.setts.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.setts.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
@@ -1648,8 +1646,8 @@ class RComp {
         let { ct, lvMap, d } = this.CT, n = d + 1;
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = lvMap.get(m[0]);
-            if (k?.[0] < n)
-                n = k[0];
+            if (k?.f < n)
+                n = k.f;
         }
         if (n > d)
             ct = Q;
@@ -1661,7 +1659,7 @@ class RComp {
         }
         try {
             var f = Ev(US +
-                `(function(${ct}){${body}})`);
+                `(function(${ct}){${body}\n})`);
             return () => {
                 try {
                     return f.call(parN, env);
