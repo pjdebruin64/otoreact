@@ -70,6 +70,8 @@
     <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.</li>
 </ul>
 
+See also <a href="#WhyOtoReact">Why OtoReact</a>.
+
 <h2>Samples</h2>
 <h3>What's your name</h3>
 <p>
@@ -146,7 +148,7 @@ Study the source code after you have read more of this documentation.
 
 <h4>Reactive !== Responsive</h4>
 <i>Reactive</i> is not the same thing as <i>responsive</i>, though there is some overlap.
-<br><a href="{wiki}Responsive_web_design">Resonsive web design</a> is a phrase used to indicate web pages that adapt themselves to the device they are viewed on.
+<br><a href="{wiki}Responsive_web_design">Responsive web design</a> is a phrase used to indicate web pages that adapt themselves to the device they are viewed on.
 <p>
     This document for example changes its layout when being printed or viewed on a narrow screen: the table of contents moves to the top, and on a mobile device font sizes are adapted.
 </p>
@@ -158,9 +160,11 @@ Study the source code after you have read more of this documentation.
 <h4>No server-side functionality</h4>
 OtoReact does not provide server-side functionality. You need other tooling for that, like Node.js (+ Express), Python, PHP, .Net, or perhaps you can use existing web API's.
 
+<!--
 <h4>Use file extension .html, not .rhtml</h4>
 By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
 <p>Using ".rhtml" might also cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
+-->
 
 <h2 id="DocSetup">Document setup</h2>
 <ol>
@@ -189,32 +193,103 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
 <p>That's all!</p>
 
 
-<h2>Why OtoReact?</h2>
+<h2 id="WhyOtoReact">Why OtoReact?</h2>
 Some advantages of using OtoReact above other frameworks:
 <ol>
     <li>
         We think it is <i>conceptually simpler</i> to have the full document definitions in enriched HTML, rather than requiring JavaScript to invoke the framework, define components, link everything together, etc.
     </li>
     <li>
-        State variables (RVAR's) can be defined in any local HTML scope, while in other frameworks state variables are only available at the component level.
+        <i>Installation</i> (i.e. downloading a single file) is much simpler, and takes much less disk space, than with most other frameworks.
+    </li>
+    <li>
+        State variables (RVAR's) can be defined in <i>any local HTML scope</i>, while in other frameworks state variables are only available at the component level.
         <br>So if you need a state variable within a <elm>FOR</elm> iteration, then you can simply define a <i>single</i> RVAR within that <elm>FOR</elm> block, and OtoReact will repeatedly instantiate the RVAR.
         <br>In other frameworks you would either have to define a whole <i>array</i> of state variables, or define a separate component just for the body of this iteration.
     </li>
     <li>
-        Components can be defined in any local HTML scope, meaning you can easily use them to avoid local code repetitions.
+        <i>Components</i> can be defined in any local HTML scope, meaning you can easily use them to avoid local code repetitions.
         <br>Local component definitions can refer to local variables visible at the point of definition, without needing these to be passed as parameters.
     </li>
     <li>
-        There are some small nifty features. E.g. the simple fact that <code>null</code> and <code>undefined</code> are not rendered simplifies many embedded expressions.
+        Just as in any modern programming language, OtoReact (and Svelte) have control structures for conditional and repeated code that <i>surround</i> the code blocks they apply to.
+        <br>Angular and Vue depend on attributes to be inserted <i>inside</i> the element to be repeated or conditionally rendered.
+        <p>Compare:</p>
+        <style>
+            div.narrow {
+                column-count: auto;
+                column-width: 270px;
+            }
+            div.narrow > div {
+                page-break-inside: avoid;
+            }
+        </style>
+        <div class="narrow">
+            <div>
+                <b>Angular:</b>
+                <pre>
+<{}li *ngFor="let item of items">
+    \{\{ item.message }}
+<{}/li>
+</pre></div>
+    <div>
+        <b>Svelte:</b>
+        <pre>
+\{#each items as item}
+    <{}li>
+        \{ item.message }
+    <{}/li>
+\{/each}
+</pre></div>
+        <div>
+            <b>Vue:</b>
+            <pre>
+<{}li v-for="item in items">
+    \{\{ item.message }}
+<{}/li>
+</pre></div>
+<div>
+    <b>React:</b>
+    <pre>
+items.map( item => (
+    <{}li>
+        \{ item.message }
+    <{}/li>
+))
+</pre></div>
+    <div>
+        <b>OtoReact:</b>
+        <pre>
+<{}for let="item" of="items">
+    <{}li>
+        \{ item.message }
+    <{}/li>
+<{}/for>
+</pre></div>
+</div>
     </li>
     <li>
-        Installation (i.e. downloading a single file) is much simpler, and takes much less disk space, than with most other frameworks.
+        There are several small nifty features you won't find in other frameworks. E.g. the simple fact that <code>null</code> and <code>undefined</code> are not rendered simplifies many embedded expressions.
     </li>
 </ol>
-<p>Drawbacks:</p>
+<p>Some drawbacks are:</p>
 <ol>
     <li>
-        OtoReact does not yet do any dependency analysis.
+        OtoReact does not yet do dependency analysis. Depending on the size and complexity of your application, it may be desirable or required to insert hints (attributes <code>reacton</code> and <code>hash</code>) that indicate which RHTML parts should react on which state variables.
+    </li>
+    <li>
+        The HTML parser does not allow OtoReacts control structures inside <elm>table</elm>, <elm>select</elm>, and <elm>datalist</elm> (see <a href="docu#Limitations">Parser limitations</a>), so one has to use alternative element names <elm>table.</elm>, <elm>select.</elm>, etc. instead.
+    </li>
+    <li>
+        Runtime compilation is theoretically slower than serving a precompiled application. However:
+        <ul>
+            <li>
+                Compilation time, usually ranging from 5 - 100 milliseconds, is quite small in relation to the overall load time of a web application.
+            </li>
+            <li>
+                In many or most cases, compilation can be done while the application waits for other resources like images or data, so it doesn't increase the overall load time <i>at all</i>.
+            </li>
+        </ul>
     </li>
 </ol>
 

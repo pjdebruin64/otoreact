@@ -3,7 +3,8 @@ const U = undefined, N = null, T = true, F = false, Q = '', E = [], W = window, 
     bAutoSubscribe: T,
     bAutoPointer: T,
     preformatted: E,
-    storePrefix: "RVAR_"
+    storePrefix: "RVAR_",
+    version: 1
 }, P = new DOMParser(), Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; };
 class Range {
     constructor(ar, node, text) {
@@ -525,16 +526,15 @@ class RComp {
     }
     LVar(nm, f) {
         if ((nm = (nm ?? Q).trim()) || f) {
-            if (nm) {
-                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
-                    throw `Invalid identifier '${nm}'`;
+            if (nm)
                 try {
-                    Ev(US + `let ${nm}=0`);
+                    if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
+                        throw N;
+                    Ev(`let ${nm}=0`);
                 }
                 catch {
-                    throw `Reserved keyword '${nm}'`;
+                    throw `Invalid identifier '${nm}'`;
                 }
-            }
             let { CT } = this, i = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
             vM.set(nm, { f: CT.d, i });
             this.rActs.push(() => mapSet(vM, nm, p));
@@ -598,7 +598,7 @@ class RComp {
             arr.pop();
         let bldrs = await this.CArr(arr, this.rspc), l = bldrs.length;
         return !l ? N
-            : l - 1 ? async function Iter(ar) {
+            : l > 1 ? async function Iter(ar) {
                 for (let b of bldrs)
                     await b(ar);
             }
@@ -664,7 +664,7 @@ class RComp {
             let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
-                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|((before)|on|after)(?:create|update|destroy)+|oncompile)$/
+                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:(create|update|destroy)+|compile))$/
                         .exec(att))
                     if (m[1])
                         m[4] && tag != 'REACT'
@@ -681,8 +681,8 @@ class RComp {
                             });
                     else {
                         let txt = atts.g(att);
-                        if (m[9])
-                            (m[10] ? bf : af)
+                        if (m[10])
+                            (m[9] ? bf : af)
                                 .push({
                                 att,
                                 txt,
@@ -1202,7 +1202,7 @@ class RComp {
         };
     }
     CFor(srcE, atts) {
-        let letNm = atts.g('let') ?? atts.g('var'), ixNm = atts.g('index', U, U, T);
+        let letNm = atts.g('let'), ixNm = atts.g('index', U, U, T);
         this.rspc = F;
         if (letNm != N) {
             let dOf = this.CAttExp(atts, 'of', T), pvNm = atts.g('previous', U, U, T), nxNm = atts.g('next', U, U, T), dUpd = this.CAttExp(atts, 'updates'), bRe = atts.gB('reacting') || atts.gB('reactive') || dUpd;
@@ -1358,8 +1358,8 @@ class RComp {
         }
     }
     async CComponent(srcE, atts) {
-        let bRec = atts.gB('recursive'), { head, ws } = this, signats = [], CDefs = [], encaps = atts.gB('encapsulate')
-            && (this.head = srcE.ownerDocument.createDocumentFragment()).children, arr = Array.from(srcE.children), elmSign = arr.shift() || thro('Missing signature(s)'), eTmpl = arr.pop(), t = /^TEMPLATE(S)?$/.exec(eTmpl?.tagName) || thro('Missing template(s)');
+        let bRec = atts.gB('recursive'), { head, ws } = this, encaps = atts.gB('encapsulate')
+            && (this.head = srcE.ownerDocument.createDocumentFragment()).children, arr = Array.from(srcE.children), elmSign = arr.shift() || thro('Missing signature(s)'), eTmpl = arr.pop(), t = /^TEMPLATE(S)?$/.exec(eTmpl?.tagName) || thro('Missing template(s)'), signats = [], CDefs = [];
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(new Signat(elm, this));
         try {
@@ -1600,9 +1600,9 @@ class RComp {
         }
     }
     CPatt(patt, url) {
-        let reg = Q, lvars = [], regIS = /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\[^])|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
-        while (regIS.lastIndex < patt.length) {
-            let ix = regIS.lastIndex, m = regIS.exec(patt), lits = patt.slice(ix, m.index);
+        let reg = Q, lvars = [], rP = /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\[^])|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
+        while (rP.lastIndex < patt.length) {
+            let ix = rP.lastIndex, m = rP.exec(patt), lits = patt.slice(ix, m.index);
             reg +=
                 lits.replace(/\W/g, s => '\\' + s)
                     + (m[1] != N
@@ -1679,8 +1679,8 @@ class RComp {
     GetPath(src) {
         return this.GetURL(src).replace(/[^/]*$/, Q);
     }
-    FetchText(src) {
-        return RFetch(this.GetURL(src), { headers: this.setts.headers }).then(r => r.text());
+    async FetchText(src) {
+        return (await RFetch(this.GetURL(src), { headers: this.setts.headers })).text();
     }
     async fetchM(src) {
         let m = this.doc.getElementById(src);
@@ -1726,9 +1726,9 @@ class Atts extends Map {
     }
 }
 const altProps = {
-    "class": "className",
+    class: "className",
     for: "htmlFor"
-}, reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL|SELECT|TITLE)$/, reInline = /^(BUTTON|INPUT|IMG)$/, reWS = /^[ \t\n\r]*$/, Cnms = {}, ChkNm = (obj, nm) => {
+}, reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|SELECT|PRE)$/, reInline = /^(BUTTON|INPUT|IMG)$/, reWS = /^[ \t\n\r]*$/, Cnms = {}, ChkNm = (obj, nm) => {
     let c = Cnms[nm], r;
     if (!c) {
         c = nm;

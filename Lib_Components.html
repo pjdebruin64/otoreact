@@ -373,7 +373,7 @@
                                 >
                             </a>
                         </div>
-                        <nav class=topbar style="grid-area: nav">
+                        <nav id="topbar" class=topbar style="grid-area: nav">
                             <a. href="."         #onclick=reroute #class:active="subpath==''">Intro</a.>
                             <a. href="docu"      #onclick=reroute #class:active="subpath=='docu'">Docu</a.>
                             <a. href="routing"   #onclick=reroute #class:active="subpath=='routing'">Routing</a.>
@@ -385,7 +385,7 @@
                 <main style.position="relative">
                     <button class="nav narrow-only"
                         style="position: fixed; bottom: 8pt; right: 8pt; background-color: var(--TC); z-index:1;"
-                        onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
+                        onclick="reroute('#topbar'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
                     
                     <!-- Here the contents of the page definition will be inserted -->

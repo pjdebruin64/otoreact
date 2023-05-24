@@ -21,7 +21,8 @@ const
         bAutoSubscribe: T,
         bAutoPointer:   T,
         preformatted:   E as string[],
-        storePrefix:    "RVAR_"
+        storePrefix:    "RVAR_",
+        version:        1
     },
     
     // Some utilities
@@ -58,6 +59,7 @@ type Settings = Partial<{
 
 // Current whitespace mode of the compiler:
 const enum WSpc {
+    zero = 0,
     block = 1,      // We are in block mode; whitespace is irrelevant
     inlineSpc,      // We are in inline mode with trailing whitespace, so more whitespace can be skipped
     inline,         // We are in inline mode, whitespace is relevant
@@ -1092,14 +1094,16 @@ class RComp {
         if ((nm = (nm??Q).trim()) || f)
         //if (nm = nm?.trim())
         {
-            if (nm) {
-                // Check valid JavaScript identifier
-                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm)) throw `Invalid identifier '${nm}'`;
-
-                // Check for reserved keywords
-                try { Ev(US+`let ${nm}=0`); }
-                catch { throw `Reserved keyword '${nm}'`; }
-            }
+            if (nm)
+                try {
+                    // Check valid JavaScript identifier
+                    if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
+                        throw N;
+                    // Check for reserved keywords
+                    Ev(`let ${nm}=0`); 
+                }
+                catch { throw `Invalid identifier '${nm}'`; }
+            
             let {CT} = this
                 , i = ++CT.L        // Reserve a place in the environment
                 , vM = CT.lvMap
@@ -1211,7 +1215,7 @@ class RComp {
         let bldrs = await this.CArr(arr, this.rspc), l=bldrs.length;
 
         return !l ? N
-            : l-1 ? async function Iter(ar: Area)
+            : l > 1 ? async function Iter(ar: Area)
                 {   
                     for (let b of bldrs)
                         await b(ar);
@@ -1330,7 +1334,7 @@ class RComp {
                 // Check for generic attributes
             for (let [att] of atts)
                 if (m = 
-                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|((before)|on|after)(?:create|update|destroy)+|oncompile)$/
+                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:(create|update|destroy)+|compile))$/
                      .exec(att))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
@@ -1350,9 +1354,9 @@ class RComp {
                                 });
                     else { 
                         let txt = atts.g(att);
-                        if (m[9])  // #?(before|after|on)(compile|create|update|destroy)+
+                        if (m[10])  // #?(before|after|on)(compile|create|update|destroy)+
                             // We have a pseudo-event
-                            (m[10] ? bf : af)    // Is it before or after
+                            (m[9] ? bf : af)    // Is it before or after
                             .push({
                                 att, 
                                 txt, 
@@ -2136,7 +2140,7 @@ class RComp {
             fragm?: DocumentFragment;            
         }
 
-        let letNm = atts.g('let') ?? atts.g('var')
+        let letNm = atts.g('let')
             , ixNm = atts.g('index',U,U,T);
         this.rspc = F;
 
@@ -2396,16 +2400,16 @@ class RComp {
 
         let bRec = atts.gB('recursive'),
             {head, ws} = this
-            // There may be multiple components, each having a signature and a definition
-            , signats: Array<Signat> = []
-            , CDefs: Array<ConstructDef> = []
             // When encapsulate is specified, then 'encaps' becomes a HTMLCollection that shall contain all encapsulated style definitions
             , encaps = atts.gB('encapsulate')
                 && (this.head = srcE.ownerDocument.createDocumentFragment()).children
             , arr = Array.from(srcE.children) as Array<HTMLElement>
             , elmSign = arr.shift() || thro('Missing signature(s)')
             , eTmpl = arr.pop()
-            , t = /^TEMPLATE(S)?$/.exec(eTmpl?.tagName) || thro('Missing template(s)');
+            , t = /^TEMPLATE(S)?$/.exec(eTmpl?.tagName) || thro('Missing template(s)')
+            // There may be multiple components, each having a signature and a definition
+            , signats: Array<Signat> = []
+            , CDefs: Array<ConstructDef> = [];
 
         for (let elm of /^SIGNATURES?$/.test(elmSign.tagName) ? elmSign.children : [elmSign])
             signats.push(new Signat(elm, this));
@@ -2687,7 +2691,8 @@ class RComp {
             };
     }
 
-    private CAtts(atts: Atts) { 
+    private CAtts(atts: Atts): Array<Modifier> {
+        // Compile aatributes into an array of modifiers
         let mods: Array<Modifier> = []
             , m: RegExpExecArray;
         function addM(mt: MType, nm: string, depV: Dep<unknown>){
@@ -2832,12 +2837,12 @@ class RComp {
         let reg = Q, lvars: LVar[] = []
         
         // These are the subpatterns that are need converting; all remaining characters are literals and will be quoted when needed
-        , regIS =
+        , rP =
             /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\[^])|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
 
-        while (regIS.lastIndex < patt.length) {
-            let ix = regIS.lastIndex
-                , m = regIS.exec(patt)
+        while (rP.lastIndex < patt.length) {
+            let ix = rP.lastIndex
+                , m = rP.exec(patt)
                 , lits = patt.slice(ix, m.index);
 
             reg += // Quote 'lits' such that it can be literally included in a RegExp
@@ -2967,10 +2972,10 @@ class RComp {
     }
 
     // Fetches text from an URL
-    FetchText(src: string): Promise<string> {
-        return RFetch(this.GetURL(src)
-            , {headers: this.setts.headers}
-        ).then(r => r.text());
+    async FetchText(src: string): Promise<string> {
+        return (
+            await RFetch(this.GetURL(src), {headers: this.setts.headers})
+        ).text();
     }
 
     // Fetch an RHTML module, either from a <MODULE id> element within the current document,
@@ -3042,12 +3047,12 @@ class Atts extends Map<string,string> {
 const
     // Property names to be replaced
     altProps = {
-        "class": "className", 
+        class: "className", 
         for: "htmlFor"
     }
 
     // Elements that trigger block mode; whitespace before/after is irrelevant
-    , reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|OL|P|TABLE|T[RHD]|UL|SELECT|TITLE)$/
+    , reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|SELECT|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
     , reInline = /^(BUTTON|INPUT|IMG)$/     // Elements that trigger inline mode
     , reWS = /^[ \t\n\r]*$/                 // Just whitespace, non-breaking space U+00A0 excluded!
 

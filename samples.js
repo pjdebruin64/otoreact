@@ -686,12 +686,9 @@ const demoScoping = `(Look at the source code please)
 const basicSetup = `<!DOCTYPE html>
 <html>
     <head>
-        <script type=module>
-            import {RCompile} from './OtoReact.js';
-            RCompile(document.body)
-        </script>
+        <script type=module src="./OtoReact.js"></script>
     </head>
-    <body hidden>
+    <body hidden RHTML>
         <!-- Here goes your RHTML -->
         <FOR let=i of="range(5)">
             <div>Hello world {i}</div>
