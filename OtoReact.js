@@ -128,7 +128,7 @@ export async function RCompile(srcN, setts) {
         }
 }
 const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
-    let { parN, r, bR } = ar, sub = { parN, bR }, cr = !r;
+    let { parN, r } = ar, sub = { parN }, cr = !r;
     if (cr) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
@@ -156,7 +156,7 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
     nodeCnt++;
     return {
         r,
-        chAr: {
+        sub: {
             parN: parN = r.node,
             r: r.ch,
             bfor: N,
@@ -310,10 +310,10 @@ export class _RVAR {
         return this.v?.toString() ?? Q;
     }
 }
-function Subscriber({ parN, parR }, b, r, re = 1) {
+function Subscriber({ parN, parR }, b, r, bR = false) {
     let ar = { parN, parR, r: r || T }, eon = { env, oes };
     return ass(() => (({ env, oes } = eon),
-        b({ ...ar }, re)), { ar });
+        b({ ...ar }, bR)), { ar });
 }
 let env, parN, oes = { e: N, s: N }, Jobs = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
@@ -706,9 +706,9 @@ class RComp {
                             NoChilds(srcE);
                             let rv = atts.g('rvar'), t = '@value', twv = rv && atts.g(t), dGet = twv ? this.CExpr(twv, t) : this.CParam(atts, 'value'), bUpd = atts.gB('reacting') || atts.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
                             auto = rv && atts.gB('auto', this.setts.bAutoSubscribe) && !onMod && rv;
-                            bl = async function DEF(ar, re) {
+                            bl = async function DEF(ar, bR) {
                                 let r = ar.r, v, upd;
-                                if (!r || bUpd || re) {
+                                if (!r || bUpd || bR != N) {
                                     try {
                                         ro = T;
                                         v = dGet?.();
@@ -917,7 +917,7 @@ class RComp {
                             this.ws = 4;
                             b = await this.CChilds(srcE);
                             bl = b && async function RSTYLE(ar) {
-                                await b(PrepElm(ar, 'STYLE').chAr);
+                                await b(PrepElm(ar, 'STYLE').sub);
                                 parN = ar.parN;
                             };
                         }
@@ -951,7 +951,7 @@ class RComp {
                 for (let g of af)
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function Pseudo(ar, re) {
+                bl = async function Pseudo(ar, bR) {
                     let { r, prvR } = ar, bfD;
                     for (let g of bf) {
                         if (g.D)
@@ -959,7 +959,7 @@ class RComp {
                         if (r ? g.U : g.C)
                             g.hndlr().call(r?.node || ar.parN);
                     }
-                    await b(ar, re);
+                    await b(ar, bR);
                     let prev = (r ? ar.r != r && r
                         : ar.prvR != prvR && ar.prvR) || PrepRng(ar).r;
                     prev.bfD = bfD;
@@ -972,25 +972,25 @@ class RComp {
                 };
             }
             for (let { att, m, dV } of this.setts.version ? glAtts : glAtts.reverse()) {
-                let b = bl, rre = m[3] ? 2 : 1, es = m[6] ? 'e' : 's';
+                let b = bl, bT = !!m[3], es = m[6] ? 'e' : 's';
                 bl =
                     m[2]
-                        ? async function REACT(ar, re) {
-                            let { r, sub } = PrepRng(ar, srcE, att);
+                        ? async function REACT(ar, bR) {
+                            let { r, sub, cr } = PrepRng(ar, srcE, att);
                             if (r.upd != upd)
-                                await b(sub, re);
+                                await b(sub, bR);
                             r.upd = upd;
-                            if (!re) {
-                                let subs = r.subs || (r.subs = Subscriber(ar, REACT, r, rre)), pVars = r.rvars, i = 0;
+                            if (cr || bR == N) {
+                                let s = r.subs || (r.subs = Subscriber(ar, REACT, r, bT)), pVars = r.rvars, i = 0;
                                 for (let rvar of r.rvars = dV()) {
                                     if (pVars) {
                                         let p = pVars[i++];
                                         if (rvar == p)
                                             continue;
-                                        p._Subs.delete(subs);
+                                        p._Subs.delete(s);
                                     }
                                     try {
-                                        rvar.Subscribe(subs);
+                                        rvar.Subscribe(s);
                                     }
                                     catch {
                                         ErrAtt('This is not an RVAR', att);
@@ -999,34 +999,35 @@ class RComp {
                             }
                         }
                         : m[5]
-                            ? async function SetOnES(ar, re) {
+                            ? async function SetOnES(ar, bR) {
                                 let s = oes, { sub, r } = PrepRng(ar, srcE, att);
                                 oes = Object.assign(r.val || (r.val = {}), oes);
                                 try {
                                     oes[es] = dV();
-                                    await b(sub, re);
+                                    await b(sub, bR);
                                 }
                                 finally {
                                     oes = s;
                                 }
                             }
                             : m[7]
-                                ? async function HASH(ar, re) {
+                                ? async function HASH(ar, bR) {
                                     let { sub, r, cr } = PrepRng(ar, srcE, att), hashes = dV();
                                     if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                                         r.val = hashes;
-                                        await b(sub, re);
+                                        await b(sub, bR);
                                     }
                                 }
                                 : m[8]
-                                    ? function hIf(ar) {
-                                        let c = dV(), { sub } = PrepRng(ar, srcE, att, 1, !c);
+                                    ? function hIf(ar, bR) {
+                                        let c = dV(), p = PrepRng(ar, srcE, att, 1, !c);
                                         if (c)
-                                            return b(sub);
+                                            return b(p.sub, bR);
                                     }
                                     :
-                                        function renew(sub) {
-                                            return b(PrepRng(sub, srcE, 'renew', 2).sub);
+                                        function renew(sub, bR) {
+                                            return b(PrepRng(sub, srcE, 'renew', 2)
+                                                .sub, bR);
                                         };
             }
             return bl != dB && ass(this.rActs.length == CTL
@@ -1166,7 +1167,7 @@ class RComp {
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
-        return caseList.length && async function CASE(ar) {
+        return caseList.length && async function CASE(ar, bR) {
             let val = dVal?.(), RRE, cAlt;
             try {
                 for (var alt of caseList)
@@ -1182,16 +1183,16 @@ class RComp {
             finally {
                 if (bHiding) {
                     for (let alt of caseList) {
-                        let { r, chAr, cr } = PrepElm(ar, 'WHEN');
-                        if (!(r.node.hidden = alt != cAlt) && !ar.bR
+                        let { r, sub, cr } = PrepElm(ar, 'WHEN');
+                        if (!(r.node.hidden = alt != cAlt) && !bR
                             || cr)
-                            await alt.b(chAr);
+                            await alt.b(sub);
                     }
                     parN = ar.parN;
                 }
                 else {
                     let { sub, cr } = PrepRng(ar, srcE, Q, 1, cAlt);
-                    if (cAlt && (cr || !ar.bR)) {
+                    if (cAlt && (cr || !bR)) {
                         if (RRE)
                             RRE.shift(),
                                 SetLVars(cAlt.patt.lvars, cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE);
@@ -1208,7 +1209,7 @@ class RComp {
             let dOf = this.CAttExp(atts, 'of', T), pvNm = atts.g('previous', U, U, T), nxNm = atts.g('next', U, U, T), dUpd = this.CAttExp(atts, 'updates'), bRe = atts.gB('reacting') || atts.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
                 let vLet = this.LVar(letNm), vIx = this.LVar(ixNm), vPv = this.LVar(pvNm), vNx = this.LVar(nxNm), dKey = this.CAttExp(atts, 'key'), dHash = this.CAttExpList(atts, 'hash'), b = await this.CIter(srcE.childNodes);
-                return b && async function FOR(ar) {
+                return b && async function FOR(ar, bR) {
                     let { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, iter = dOf() || E, pIter = async (iter) => {
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                             throw `[of] Value (${iter}) is not iterable`;
@@ -1291,7 +1292,8 @@ class RComp {
                             chR.prev = prvR;
                             prvR = chR;
                             if (cr ||
-                                !hash || hash.some((h, i) => h != chR.hash[i])) {
+                                !bR
+                                    && (!hash || hash.some((h, i) => h != chR.hash[i]))) {
                                 chR.hash = hash;
                                 let { sub, EF } = SF(chAr, chR);
                                 try {
@@ -1410,12 +1412,12 @@ class RComp {
                     env
                 })));
                 if (styles) {
-                    let { r: { node }, chAr, cr } = PrepElm(sub, tag), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
+                    let { r: { node }, sub: s, cr } = PrepElm(sub, tag), shadow = node.shadowRoot || node.attachShadow({ mode: 'open' });
                     if (cr)
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
-                    chAr.parN = shadow;
-                    sub = chAr;
+                    s.parN = shadow;
+                    sub = s;
                 }
                 await b(sub).finally(EF);
                 parN = ar.parN;
@@ -1501,10 +1503,10 @@ class RComp {
                 mt: 12,
                 depV: dU
             });
-        return async function ELM(ar, re) {
-            let { r, chAr, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
-            if (re != 2)
-                await childBldr?.(chAr);
+        return async function ELM(ar, bR) {
+            let { r, sub, cr } = PrepElm(ar, nm || dTag(), ar.srcN);
+            if (cr || !bR)
+                await childBldr?.(sub);
             ApplyMods(r, mods, cr);
             parN = ar.parN;
         };
@@ -1831,7 +1833,7 @@ let R, DL = new DocLoc(), reroute = arg => {
         arg.preventDefault();
         arg = arg.currentTarget.href;
     }
-    DL.V = new URL(arg, DL.V).href;
+    DL.U = new URL(arg, DL.V).href;
 };
 export { DL as docLocation, reroute };
 ass(G, { RVAR, range, reroute, RFetch });

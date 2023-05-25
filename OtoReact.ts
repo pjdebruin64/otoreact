@@ -73,10 +73,10 @@ type hHTMLElement = HTMLElement & {b?: booly};
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
     The created DOM is yielded in 'ar.r'.
-    're' is 1 when the DOMBuilder is called on behalf of a 'reacton' attribute on the current source node,
-    2 when on behalf of a 'thisreactson' attribute.
+    'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
+        false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) 
+type DOMBuilder = ((ar: Area, bR?: boolean) => Promise<void>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -98,10 +98,6 @@ type Area<VT = unknown> = {
     srcN?: HTMLElement;     // Optional source node to be replaced by the new DOM 
     parR?: Range;         // The new range shall either be the first child this parent range,
     prvR?: Range;        // Or the next sibling of this previous range
-
-    /* When r, i.e. when the DOM has to be updated: */
-    bR?: boolean,         // true == update root node only, not its children
-                          // Set by 'thisreactson'.
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
@@ -373,8 +369,8 @@ const PrepRng = <VT = unknown>(
     cr: booly    // True when the sub-range has to be created
 } =>
 {
-    let {parN, r, bR} = ar as AreaR,
-        sub: Area = {parN, bR }
+    let {parN, r} = ar as AreaR,
+        sub: Area = {parN }
         , cr = !r;
     if (cr) {
         sub.srcN = ar.srcN;
@@ -410,7 +406,7 @@ const PrepRng = <VT = unknown>(
     elm?: HTMLElement
 ): {
     r: Range<HTMLElement> & T    // Sub-range
-    , chAr: Area                    // Sub-area
+    , sub: Area                    // Sub-area
     , cr: boolean                  // True when the sub-range is being created
 } => {
     let r = ar.r as Range<HTMLElement> & T,
@@ -428,7 +424,7 @@ const PrepRng = <VT = unknown>(
     nodeCnt++
     return { 
         r, 
-        chAr: {
+        sub: {
             parN: parN = r.node, 
             r: r.ch, 
             bfor: N,
@@ -713,15 +709,15 @@ export type RVAR_Light<T> = T & {
 };
 
         
-function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, re:number=1): Subscriber {
-    let ar: Area = {parN, parR, r: r||T },
+function Subscriber({parN, parR}: Area, b: DOMBuilder, r: Range, bR:boolean = false): Subscriber {
+    let ar: Area = {parN, parR, r: r||T},
         eon = {env, oes};
     // A DOM subscriber is  a routine that restores the current environment and error/success handlers,
     // and runs a DOMBuilder
     return ass(
         () => (
                 ({env, oes} = eon),
-                b({...ar}, re)
+                b({...ar}, bR)
         )
         // Assign property .ar just to mark it as a DOMSubscriber
         , {ar});
@@ -1397,14 +1393,14 @@ class RComp {
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
 
                         auto = rv && atts.gB('auto', this.setts.bAutoSubscribe) && !onMod && rv; 
-                        bl = async function DEF(ar, re?: number) {
+                        bl = async function DEF(ar, bR?) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
                                 // Evaluate the value only when:
                                 // !r   : We are building the DOM
                                 // bUpd : 'updating' was specified
                                 // re:  : The routine is called because of a 'reacton' subscribtion
-                                if (!r || bUpd || re){
+                                if (!r || bUpd || bR != N){
                                     try {
                                         ro=T;
                                         v = dGet?.();
@@ -1688,7 +1684,7 @@ class RComp {
                             b = await this.CChilds(srcE);
                         
                             bl = b && async function RSTYLE(ar: Area) {
-                                await b(PrepElm(ar, 'STYLE').chAr);
+                                await b(PrepElm(ar, 'STYLE').sub);
                                 parN = ar.parN;
                             };
                         }
@@ -1741,7 +1737,7 @@ class RComp {
                 for (let g of af)
                     g.hndlr = this.CHandlr(g.att, g.txt);
                 let b = bl;
-                bl = async function Pseudo(ar: AreaR, re) {
+                bl = async function Pseudo(ar: AreaR, bR) {
                     let {r,prvR} = ar, bfD: Handler;
                     for (let g of bf) {
                         if (g.D)
@@ -1751,7 +1747,7 @@ class RComp {
                                 r?.node || ar.parN
                             );
                     }
-                    await b(ar, re);
+                    await b(ar, bR);
                     // When b has not created its own range, then we create one
                     let prev = 
                         (r ? ar.r != r && r
@@ -1772,22 +1768,22 @@ class RComp {
             // Compile global attributes
             for (let {att, m, dV} of this.setts.version ? glAtts : glAtts.reverse()) {
                 let b = bl,
-                    rre = m[3] ? 2 : 1,    // 'thisreactson'?
-                    es = m[6] ? 'e' : 's';
+                    bT = !!m[3],    // 'thisreactson'?
+                    es = m[6] ? 'e' : 's';  // onerror or onsuccess
                 bl = 
                     m[2]    // reacton, thisreactson
-                    ?  async function REACT(ar: Area, re: number) {                
-                            let {r, sub} = PrepRng(ar, srcE, att);
+                    ?  async function REACT(ar: Area, bR) {                
+                            let {r, sub, cr} = PrepRng(ar, srcE, att);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
-                                await b(sub, re);
+                                await b(sub, bR);
                             r.upd = upd;
                             
                             // Only when not called from a subscriber:
-                            if (!re) {
+                            if (cr || bR == N) {
                                 let 
                                     // Create a subscriber, or get the one created earlier
-                                    subs: Subscriber = r.subs ||= Subscriber(ar, REACT, r, rre)
+                                    s: Subscriber = r.subs ||= Subscriber(ar, REACT, r, bT)
                                     // Remember previously subscribed rvars
                                     , pVars: RVAR[] = r.rvars   // 
                                     , i = 0;
@@ -1799,49 +1795,48 @@ class RComp {
                                         let p = pVars[i++];
                                         if (rvar==p)
                                             continue;           // Yes, continue with next
-                                        p._Subs.delete(subs);   // No, unsubscribe from the previous one
+                                        p._Subs.delete(s);   // No, unsubscribe from the previous one
                                     }
                                     // Subscribe current rvar
-                                    try { rvar.Subscribe(subs); }
+                                    try { rvar.Subscribe(s); }
                                     catch { ErrAtt('This is not an RVAR', att) }
                                 }
                             }
                         }
                     : m[5]  // onerror|onsuccess
-                    ? async function SetOnES(ar: Area, re) {
+                    ? async function SetOnES(ar: Area, bR) {
                         
                         let s = oes,
                             {sub, r} = PrepRng(ar, srcE, att);
                         oes = Object.assign(r.val ||= {}, oes);
                         try {
                             oes[es] = dV();
-                            await b(sub, re);
+                            await b(sub, bR);
                         }
                         finally { oes = s; }
                     }
                     : m[7]   // hash
-                    ? async function HASH(ar: Area, re) {
+                    ? async function HASH(ar: Area, bR) {
                         let {sub, r,cr} = PrepRng(ar, srcE, att)
                             , hashes = <unknown[]>dV();
     
                         if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
                             r.val = hashes;
-                            await b(sub, re);
+                            await b(sub, bR);
                         }
                     }
                     : m[8]  // #if
-                    ?   function hIf(ar: Area) {
+                    ?   function hIf(ar: Area, bR) {
                             let c = <booly>dV(),
-                                {sub} = PrepRng(ar, srcE, att, 1, !c)
+                                p = PrepRng(ar, srcE, att, 1, !c)
                             if (c)
-                                return b(sub)
+                                return b(p.sub, bR)
                         }
                     :   // Renew
-                        function renew(sub: Area) {
+                        function renew(sub: Area, bR) {
                             return b(
-                                PrepRng(sub, srcE, 'renew', 2
-                                    //, dV ? 1 : 2 , dV?.()
-                                ).sub
+                                PrepRng(sub, srcE, 'renew', 2)
+                                .sub, bR
                             );
                         }
             }
@@ -2080,7 +2075,7 @@ class RComp {
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
 
-        return caseList.length && async function CASE(ar: Area) {
+        return caseList.length && async function CASE(ar: Area, bR) {
             let val = dVal?.()
                 , RRE: RegExpExecArray
                 , cAlt: typeof caseList[0];
@@ -2098,18 +2093,18 @@ class RComp {
                 if (bHiding) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
                     for (let alt of caseList) {
-                        let {r, chAr, cr} = PrepElm(ar, 'WHEN');
-                        if ( !(r.node.hidden = alt != cAlt) && !ar.bR
+                        let {r, sub, cr} = PrepElm(ar, 'WHEN');
+                        if ( !(r.node.hidden = alt != cAlt) && !bR
                             || cr
                         )
-                            await alt.b(chAr);
+                            await alt.b(sub);
                     }
                     parN = ar.parN;
                 }
                 else {
                     // This is the regular CASE  
                     let {sub, cr} = PrepRng(ar, srcE, Q, 1, cAlt);
-                    if (cAlt && (cr || !ar.bR)) {
+                    if (cAlt && (cr || !bR)) {
                         if (RRE)
                             RRE.shift(),
                             SetLVars(
@@ -2169,7 +2164,7 @@ class RComp {
                     b = await this.CIter(srcE.childNodes);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return b && async function FOR(this: RComp, ar: Area) {
+                return b && async function FOR(this: RComp, ar: Area, bR) {
                     let {r, sub} = PrepRng<Map<Key, ForRange>>(ar, srcE, Q),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Nxt,
@@ -2302,7 +2297,8 @@ class RComp {
                                 prvR = chR;
                                 // Does this range need building or updating?
                                 if (cr ||
-                                    !hash ||  hash.some((h,i) => h != chR.hash[i]
+                                    !bR
+                                    && (!hash ||  hash.some((h,i) => h != chR.hash[i])
                                 )
                                 ) {
                                     chR.hash = hash;
@@ -2525,15 +2521,15 @@ class RComp {
                 ));
 
                 if (styles) {
-                    let {r: {node}, chAr, cr} = PrepElm(sub, tag), 
+                    let {r: {node}, sub: s, cr} = PrepElm(sub, tag), 
                         shadow = node.shadowRoot || node.attachShadow({mode: 'open'});
                     if (cr)
                         for (let style of styles)
                             shadow.appendChild(style.cloneNode(T));
                     
                     //if (S.RP) ApplyRest(node, args[S.RP] as RestParameter, cr);
-                    chAr.parN = shadow;
-                    sub = chAr;
+                    s.parN = shadow;
+                    sub = s;
                 }
                 await b(sub).finally(EF);
                 parN=ar.parN;
@@ -2672,19 +2668,17 @@ class RComp {
             })
 
         // Now the runtime action
-        // 're' is 2 when the routine is called because of a 'thisreactson' attribute.
-        // In that case the childnodes should not be updated.
-        return async function ELM(ar: Area, re: number) {
-                let {r, chAr, cr} = 
+        return async function ELM(ar: Area, bR) {
+                let {r, sub, cr} = 
                     PrepElm(
                         ar,
                         nm || dTag(), 
                         ar.srcN
                     );
                 
-                if (re!=2)
+                if (cr || !bR)
                     // Build / update childnodes
-                    await childBldr?.(chAr);
+                    await childBldr?.(sub);
 
                 ApplyMods(r as Range<HTMLElement,Hndlr[]>, mods, cr);
                 parN = ar.parN
@@ -3172,7 +3166,7 @@ class DocLoc extends _RVAR<string> {
             this.Subscribe(loc => {
                 let h = (this.url = new URL(loc)).href;
                 h == L.href || history.pushState(N, N, h);    // Change URL withour reloading the page
-                    ScrollToHash();
+                ScrollToHash(); // Scroll to hash, even when URL remains the same
             },T,T);
         }
         basepath: string;
@@ -3205,7 +3199,7 @@ let
                 arg.preventDefault();
                 arg = (arg.currentTarget as HTMLAnchorElement).href;
             }
-            DL.V = new URL(arg, DL.V).href;
+            DL.U = new URL(arg, DL.V).href;
         };
 export {DL as docLocation, reroute}
 

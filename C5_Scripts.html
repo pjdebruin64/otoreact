@@ -7,9 +7,9 @@
 <p>Here a summary of the OtoReact routing features:</p>
 <dl>
     <dt><code>docLocation</code></dt>
-    <dd reacton=docLocation>
+    <dd>
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
-        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "{docLocation.V}").
+        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "<react on=docLocation>{docLocation.V}</react>").
         <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.</p>
         <p>It has four additional properties and methods:</p>
         <dl>
@@ -22,7 +22,7 @@
             <dt><code>docLocation.subpath</code></dt>
             <dd>
                 Gets or sets the part of the current pathname after the base path.
-                <br>For this page it is "{docLocation.subpath}".
+                <br>For this page it is "<react on=docLocation>{docLocation.subpath}</react>".
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
 

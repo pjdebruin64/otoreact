@@ -20,7 +20,7 @@ declare type Settings = Partial<{
 declare type hHTMLElement = HTMLElement & {
     b?: booly;
 };
-declare type DOMBuilder = ((ar: Area, re?: number) => Promise<void>) & {
+declare type DOMBuilder = ((ar: Area, bR?: boolean) => Promise<void>) & {
     auto?: string;
     nm?: string;
 };
@@ -31,7 +31,6 @@ declare type Area<VT = unknown> = {
     srcN?: HTMLElement;
     parR?: Range;
     prvR?: Range;
-    bR?: boolean;
 };
 declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     text?: string;
@@ -97,7 +96,7 @@ export declare type RVAR_Light<T> = T & {
     readonly U?: T;
     readonly V?: T;
 };
-declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, re?: number): Subscriber;
+declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, bR?: boolean): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
