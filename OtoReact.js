@@ -1836,7 +1836,8 @@ let R, DL = new DocLoc(), reroute = arg => {
     DL.U = new URL(arg, DL.V).href;
 };
 export { DL as docLocation, reroute };
-ass(G, { RVAR, range, reroute, RFetch });
+ass(G, { RVAR, range, reroute, RFetch
+});
 W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
 setTimeout(() => {
     for (let src of D.querySelectorAll('*[rhtml],*[type=RHTML]')) {

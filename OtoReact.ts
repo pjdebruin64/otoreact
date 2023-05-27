@@ -8,7 +8,7 @@ const
     U = undefined, N = null, T = true, F = false, Q='', 
     E = [],     // Empty array, must remain empty
     W = window, D = document, L = location,
-    G = self,
+    G = <typeof globalThis>self,
         // Polyfill for globalThis
         //W.globalThis || ((W as any).globalThis = W.self)
     US = "'use strict';",
@@ -33,6 +33,8 @@ const
     now = () => performance.now(),
     thro = (err: any) => {throw err}
     ;
+
+//if (G.R$) {alert(`OtoReact is loaded both from:\n  ${G.R$}\nand from:\n  ${import.meta.url}\nYour application may not function correctly.`); throw Q;}
 
 // Type used for truthy / falsy values
 type booly = boolean|string|number|object;
@@ -3205,7 +3207,9 @@ export {DL as docLocation, reroute}
 
 // Define global constants
 ass(
-    G, {RVAR, range, reroute, RFetch}
+    G, {RVAR, range, reroute, RFetch
+        //, R$: import.meta.url
+    }
 );
 
 // Close registered child windows on page hide (= window close)

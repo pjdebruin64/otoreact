@@ -353,26 +353,26 @@ These are three forms of classic JavaScript with OtoReact features.
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
         <br>Names are not automatically defined in global scope, but one can provide a comma-separated <code>defines="<i>nameList</i>"</code> telling which names should be put in global scope.
+    </dd>  
+    
+    <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?="<i>nameList</i>" updating?</elm></dt>
+    <dd>
+        This type of script is executed <i>every time</i> the surrounding RHTML is being <i>built</i>.
+        <br>With attribute <code class="sourcecode">updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
+        <br>Local variables from the surrounding RHTML are visible inside the script, and names listed in <i>nameList</i> are defined as new OtoReact <i>local variables</i>.
+        <p>
+            So when this type of script is used inside a component template, then each instance of the component will have its own set of data.
+        </p>
     </dd>
     
     <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it <i>once</i> as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
-        <br>Names listed in <i>nameList</i> are not put in global scope, but are defined <i>as OtoReact local variables</i>.
+        <br>Names listed in <i>nameList</i> are not put in global scope, but are defined as OtoReact <i>local variables</i>.
         <p>
             So when this type of script is used inside, e.g., a component, then the script is executed just once, the values of the listed names are internally remembered, and visible as local variables just inside the component.
         </p>
-    </dd>    
-    
-    <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?="<i>nameList</i>" updating?</elm></dt>
-    <dd>
-        This type of script is executed <i>every time</i> the surrounding RHTML is being built.
-        <br>With attribute <code class="sourcecode">updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
-        <br>Local variables from the surrounding RHTML are visible inside the script, and names listed in <i>nameList</i> are defined <i>as new OtoReact local variables</i>.
-        <p>
-            So when this type of script is used inside a component template, then each instance of the component will have its own set of data.
-        </p>
-    </dd>
+    </dd>  
 </dl>
 
 <h4>OtoReact-supported JavaScript modules</h4>
@@ -500,9 +500,9 @@ Besides parameters, components can have <i>slots</i>.
 
 <p>Now note:</p>
 <ul>
-    <li>A construct signature contains a signature of each contruct slot</li>
-    <li>A construct template can contain instances of each construct slot</li>
-    <li>A construct instance can or must contain templates for each construct slot</li>
+    <li>A construct <i>signature</i> contains a <i>signature</i> of each contruct slot</li>
+    <li>A construct <i>template</i> can contain <i>instances</i> of each construct slot</li>
+    <li>A construct <i>instance</i> can contain <i>templates</i> for each construct slot</li>
 </ul>
 
 
@@ -577,7 +577,7 @@ Notes:
     </li>
 </ul>
 <p>
-    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, both simpler and more powerful.
+    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, that is much simpler and at the same time much more powerful.
 </p>
 
 
@@ -647,7 +647,7 @@ Notes:
         <li>
             Slot names starting with "CONTENT" are special. When a component signature contains such a <elm>CONTENT*</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
         </li>
-        <li>There may be at most one such content slot</li>
+        <li>There may be at most one such content slot.</li>
     </ul>
 </p>
 

@@ -7,8 +7,16 @@
 </component>
 
 <h1>RHTML Concepts</h1>
-This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of all features.
-<br>Sections marked with a '*' are advanced and should be skipped on first reading.
+This chapter introduces a number of basic RHTML concepts, and gives full documentation of these features.
+<p>Sections marked with a '*' are advanced and should be skipped on first reading.
+<p>Notation</p>
+<blockquote>
+    <idemo src="This is <{}b>bold<{}/b>"></idemo>
+</blockquote>
+means:
+<blockquote>
+    Source text "This is <{}b>bold<{}/b>" produces output "This is <b>bold</b>".
+</blockquote>
 
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
@@ -50,7 +58,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
-        <a href=#DEFINE><elm>DEFINE</elm></a> introduces a local variable or reactive variable
+        <a href=#DEFINE><elm>DEF</elm></a> or <elm>DEFINE</elm> introduces a local variable or reactive variable
     </li>
     <li>
         <a href=#IF><elm>IF</elm></a> specifies a conditional block of RHTML
