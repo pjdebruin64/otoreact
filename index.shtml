@@ -31,7 +31,6 @@
     
     </script>
     <script src="samples.js?" defer></script>
-    <script type=module src="./OtoReact.js"></script>
     <script>
         var myIP = '<!--#echo var="REMOTE_ADDR"-->'
 
@@ -51,7 +50,7 @@
         }
     </script>
     <script type=module>
-        import { RVAR, docLocation} from './Otoreact.js';
+        import { RVAR, docLocation} from './OtoReact.js';
         let popup = RVAR('popup', {display: 'none'});
 
         docLocation.Subscribe(() => {
