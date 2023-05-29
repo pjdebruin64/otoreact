@@ -991,6 +991,7 @@ class Hndlr {
 class RComp {
 
     static iNum=0;
+    static iStyle = 0;
     public num = RComp.iNum++;  // Rcompiler instance number, just for identification dureing debugging
 
     CT: Context         // Compile-time context
@@ -1001,6 +1002,7 @@ class RComp {
     private doc: Document;
     private head: Node;
     public FilePath: string;
+    lscl: string[];     // Local stylesheet classlist
  
     constructor(
         RC?: RComp,
@@ -1013,6 +1015,7 @@ class RComp {
         this.doc = RC?.doc || D
         this.head  = RC?.head || this.doc.head;
         this.CT    = new Context(CT, T);
+        this.lscl= RC?.lscl || [];
     }
 /*
     'Framed' compiles a range of RHTML within a new variable-frame.
@@ -1191,7 +1194,6 @@ class RComp {
 
     private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
     private rspc: booly = T;     // While compiling: may the generated DOM output be right-trimmed
-    
 
     private srcNodeCnt = 0;   // To check for empty Content
 
@@ -1679,15 +1681,38 @@ class RComp {
 
                     case 'RSTYLE':
                         let s: [boolean, RegExp, WSpc]
-                            = [this.setts.bDollarRequired, this.rIS, this.ws];
+                            = [this.setts.bDollarRequired, this.rIS, this.ws]
+                            , cNm: string;
+
+                        if ((/^(local)$|^global$/i.exec(atts.g('scope') ?? 'global') || thro('Invalid scope'))[1]) {
+                            let l = this.lscl;
+                            this.lscl = [...this.lscl, cNm = `R$${RComp.iStyle++}`];
+                            this.rActs.push(() => this.lscl = l);
+                        }
+
                         try {
                             this.setts.bDollarRequired = T; this.rIS = N;
                             this.ws = WSpc.preserve;
                             b = await this.CChilds(srcE);
-                        
+                            
                             bl = b && async function RSTYLE(ar: Area) {
+
                                 await b(PrepElm(ar, 'STYLE').sub);
+                                    
+                                if (cNm)
+                                    for (let rule of(parN as HTMLStyleElement).sheet.cssRules)
+                                        (function AddClass(r: CSSRule){
+                                            if (r instanceof CSSStyleRule) // CSSStyleRule
+                                                r.selectorText = r.selectorText.replaceAll(
+                                                    /(?:\w|[-.#]|\[.*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/g, `$&.${cNm}`);
+                                            else if (r instanceof CSSGroupingRule)
+                                                // CSSMediaRule, CSSPageRule, CSSSupportsRule, CSSLayerBlockRule
+                                                for (let s of r.cssRules)
+                                                    AddClass(s);
+                                        })(rule)
+                                
                                 parN = ar.parN;
+
                             };
                         }
                         finally {
@@ -2658,7 +2683,8 @@ class RComp {
         let mods = this.CAtts(atts)
 
         // Compile the given childnodes into a routine that builds the actual childnodes
-            , childBldr = await this.CChilds(srcE);
+            , childBldr = await this.CChilds(srcE)
+            , {lscl}= this
 
         if (postWs)
             this.ws = postWs;
@@ -2683,6 +2709,7 @@ class RComp {
                     await childBldr?.(sub);
 
                 ApplyMods(r as Range<HTMLElement,Hndlr[]>, mods, cr);
+                r.node.classList.add(...lscl);
                 parN = ar.parN
             };
     }

@@ -496,6 +496,7 @@ class RComp {
         this.doc = RC?.doc || D;
         this.head = RC?.head || this.doc.head;
         this.CT = new Context(CT, T);
+        this.lscl = RC?.lscl || [];
     }
     Framed(Comp) {
         let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M;
@@ -910,7 +911,12 @@ class RComp {
                         };
                         break;
                     case 'RSTYLE':
-                        let s = [this.setts.bDollarRequired, this.rIS, this.ws];
+                        let s = [this.setts.bDollarRequired, this.rIS, this.ws], cNm;
+                        if ((/^(local)$|^global$/i.exec(atts.g('scope') ?? 'global') || thro('Invalid scope'))[1]) {
+                            let l = this.lscl;
+                            this.lscl = [...this.lscl, cNm = `R$${RComp.iStyle++}`];
+                            this.rActs.push(() => this.lscl = l);
+                        }
                         try {
                             this.setts.bDollarRequired = T;
                             this.rIS = N;
@@ -918,6 +924,15 @@ class RComp {
                             b = await this.CChilds(srcE);
                             bl = b && async function RSTYLE(ar) {
                                 await b(PrepElm(ar, 'STYLE').sub);
+                                if (cNm)
+                                    for (let rule of parN.sheet.cssRules)
+                                        (function AddClass(r) {
+                                            if (r instanceof CSSStyleRule)
+                                                r.selectorText = r.selectorText.replaceAll(/(?:\w|[-.#]|\[.*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/g, `$&.${cNm}`);
+                                            else if (r instanceof CSSGroupingRule)
+                                                for (let s of r.cssRules)
+                                                    AddClass(s);
+                                        })(rule);
                                 parN = ar.parN;
                             };
                         }
@@ -1495,7 +1510,7 @@ class RComp {
         }
         if (preWs == 4)
             postWs = preWs;
-        let mods = this.CAtts(atts), childBldr = await this.CChilds(srcE);
+        let mods = this.CAtts(atts), childBldr = await this.CChilds(srcE), { lscl } = this;
         if (postWs)
             this.ws = postWs;
         if (nm == 'A' && this.setts.bAutoReroute)
@@ -1508,6 +1523,7 @@ class RComp {
             if (cr || !bR)
                 await childBldr?.(sub);
             ApplyMods(r, mods, cr);
+            r.node.classList.add(...lscl);
             parN = ar.parN;
         };
     }
@@ -1698,6 +1714,7 @@ class RComp {
     }
 }
 RComp.iNum = 0;
+RComp.iStyle = 0;
 class Atts extends Map {
     constructor(elm) {
         super();
