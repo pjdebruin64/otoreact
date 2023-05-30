@@ -78,7 +78,7 @@ type hHTMLElement = HTMLElement & {b?: booly};
     'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
         false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder = ((ar: Area, bR?: boolean) => Promise<void>) 
+type DOMBuilder = ((ar: Area, bR?: boolean) => Promise<unknown>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -1234,18 +1234,19 @@ class RComp {
                 
                 case 1:         //Node.ELEMENT_NODE:
                     this.srcNodeCnt ++;
-                    bl = await this.CElm(srcN as HTMLElement);
 
-                    if (rv = bl?.auto)
+                    if (rv = (bl = await this.CElm(srcN as HTMLElement))?.auto)
                         // Handle auto-subscription
                         try {
                             // Check for compile-time subscribers
                             bldrs.push(bl);
 
-                            var s = this.cRvars[rv],    // Save previous value
+                            var 
+                                gv = this.CT.getLV(rv) as DepE<RVAR> // Routine to get the rvar
                                 // Compile remaining nodes, but first set this.cRvars[rv] to something truthy
-                                bs = await this.CArr(arr, rspc, this.cRvars[rv] =  i),
-                                gv = this.CT.getLV(rv) as DepE<RVAR>;
+                                , s = this.cRvars[rv]    // Save previous value
+                                , bs = await this.CArr(arr, rspc, this.cRvars[rv] =  i)
+                                ;
 
                             // Were there no compile-time reacts for this rvar?
                             bl = bs.length && this.cRvars[rv]
@@ -1794,12 +1795,48 @@ class RComp {
 
             // Compile global attributes
             for (let {att, m, dV} of this.setts.version ? glAtts : glAtts.reverse()) {
-                let b = bl,
-                    bT = !!m[3],    // 'thisreactson'?
-                    es = m[6] ? 'e' : 's';  // onerror or onsuccess
-                bl = 
+                let b = bl
+                    , es = m[6] ? 'e' : 's';  // onerror or onsuccess
+                if (m[2]) { // (this)?reacts?on|(on)
+                    let R =
+                        async (ar: Area, bR?: boolean) => {
+                            let {r, sub} = PrepRng(ar, srcE, att);
+
+                            if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
+                                await b(sub, bR);
+                            r.upd = upd;
+                            return r;
+                        }
+                        , RE = this.ErrH(R, srcE)
+                        , bTR = !!m[3]    // 'thisreactson'?
+                        ;
+                    bl = async function REACT(ar: Area, bR) {
+                        let r = await R(ar, bR)
+                            // Create a subscriber, or get the one created earlier
+                            , s: Subscriber = r.subs ||= Subscriber(ar, RE, r, bTR)
+                            // Remember previously subscribed rvars
+                            , pv: RVAR[] = r.rvars   // 
+                            , i = 0;
+
+                        // Consider the currently provided rvars
+                        for (let rvar of r.rvars = <RVAR[]>dV()) {
+                            if (pv) {
+                                // Check whether the current rvar(s) are the same as the previous one(s)
+                                let p = pv[i++];
+                                if (rvar==p)
+                                    continue;           // Yes, continue with next
+                                p._Subs.delete(s);   // No, unsubscribe from the previous one
+                            }
+                            // Subscribe current rvar
+                            try { rvar.Subscribe(s); }
+                            catch { ErrAtt('This is not an RVAR', att) }
+                        }
+                    }
+                }
+                else
+                bl = /*
                     m[2]    // reacton, thisreactson
-                    ?  async function REACT(ar: Area, bR) {                
+                    ?  (b = this.ErrH(b, srcE), async function REACT(ar: Area, bR) {                
                             let {r, sub, cr} = PrepRng(ar, srcE, att);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
@@ -1810,7 +1847,7 @@ class RComp {
                             if (cr || bR == N) {
                                 let 
                                     // Create a subscriber, or get the one created earlier
-                                    s: Subscriber = r.subs ||= Subscriber(ar, REACT, r, bT)
+                                    s: Subscriber = r.subs ||= Subscriber(ar, REACT, r, bTR)
                                     // Remember previously subscribed rvars
                                     , pVars: RVAR[] = r.rvars   // 
                                     , i = 0;
@@ -1829,28 +1866,28 @@ class RComp {
                                     catch { ErrAtt('This is not an RVAR', att) }
                                 }
                             }
-                        }
-                    : m[5]  // onerror|onsuccess
+                        })
+                    : */
+                    m[5]  // set onerror or onsuccess
                     ? async function SetOnES(ar: Area, bR) {
-                        
-                        let s = oes,
+                        let s = oes,    // Remember current setting
                             {sub, r} = PrepRng(ar, srcE, att);
+                        // Create a copy. On updates, assign current values to the copy created before.
                         oes = Object.assign(r.val ||= {}, oes);
                         try {
-                            oes[es] = dV();
-                            await b(sub, bR);
+                            oes[es] = dV();     // Now set the new value
+                            await b(sub, bR);   // Run the builder
                         }
-                        finally { oes = s; }
+                        finally { oes = s; }    // Restore current setting
                     }
                     : m[7]   // hash
-                    ? async function HASH(ar: Area, bR) {
-                        let {sub, r,cr} = PrepRng(ar, srcE, att)
-                            , hashes = <unknown[]>dV();
+                    ? function HASH(ar: Area, bR) {
+                        let {sub, r,cr} = PrepRng<unknown[]>(ar, srcE, att)
+                            , ph  = r.val;
+                        r.val = <unknown[]>dV();
     
-                        if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
-                            r.val = hashes;
-                            await b(sub, bR);
-                        }
+                        if (cr || r.val.some((hash, i) => hash !== ph[i]))
+                            return b(sub, bR);
                     }
                     : m[8]  // #if
                     ?   function hIf(ar: Area, bR) {
@@ -1862,8 +1899,8 @@ class RComp {
                     :   // Renew
                         function renew(sub: Area, bR) {
                             return b(
-                                PrepRng(sub, srcE, 'renew', 2)
-                                .sub, bR
+                                PrepRng(sub, srcE, att, 2).sub
+                                , bR
                             );
                         }
             }
@@ -1871,9 +1908,7 @@ class RComp {
             return bl != dB && ass(
                 this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
-                : function Elm(ar: Area) {
-                    return bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
-                }
+                : (ar: Area) => bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
                 , {auto,nm});
         }
         catch (e) { throw ErrMsg(srcE, e); }
@@ -1881,14 +1916,14 @@ class RComp {
 
     private ErrH(b: DOMBuilder, srcN: ChildNode): DOMBuilder{
 
-        return b && (async (ar: AreaR) => {
+        return b && (async (ar: AreaR, bR) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
                 r.errN = U;
             }
             try {
-                await b(ar);
+                await b(ar, bR);
             } 
             catch (e) { 
                 let msg = 

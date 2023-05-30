@@ -613,11 +613,10 @@ class RComp {
             switch (srcN.nodeType) {
                 case 1:
                     this.srcNodeCnt++;
-                    bl = await this.CElm(srcN);
-                    if (rv = bl?.auto)
+                    if (rv = (bl = await this.CElm(srcN))?.auto)
                         try {
                             bldrs.push(bl);
-                            var s = this.cRvars[rv], bs = await this.CArr(arr, rspc, this.cRvars[rv] = i), gv = this.CT.getLV(rv);
+                            var gv = this.CT.getLV(rv), s = this.cRvars[rv], bs = await this.CArr(arr, rspc, this.cRvars[rv] = i);
                             bl = bs.length && this.cRvars[rv]
                                 ? async function Auto(ar) {
                                     let { r, sub, cr } = PrepRng(ar);
@@ -987,33 +986,36 @@ class RComp {
                 };
             }
             for (let { att, m, dV } of this.setts.version ? glAtts : glAtts.reverse()) {
-                let b = bl, bT = !!m[3], es = m[6] ? 'e' : 's';
-                bl =
-                    m[2]
-                        ? async function REACT(ar, bR) {
-                            let { r, sub, cr } = PrepRng(ar, srcE, att);
-                            if (r.upd != upd)
-                                await b(sub, bR);
-                            r.upd = upd;
-                            if (cr || bR == N) {
-                                let s = r.subs || (r.subs = Subscriber(ar, REACT, r, bT)), pVars = r.rvars, i = 0;
-                                for (let rvar of r.rvars = dV()) {
-                                    if (pVars) {
-                                        let p = pVars[i++];
-                                        if (rvar == p)
-                                            continue;
-                                        p._Subs.delete(s);
-                                    }
-                                    try {
-                                        rvar.Subscribe(s);
-                                    }
-                                    catch {
-                                        ErrAtt('This is not an RVAR', att);
-                                    }
-                                }
+                let b = bl, es = m[6] ? 'e' : 's';
+                if (m[2]) {
+                    let R = async (ar, bR) => {
+                        let { r, sub } = PrepRng(ar, srcE, att);
+                        if (r.upd != upd)
+                            await b(sub, bR);
+                        r.upd = upd;
+                        return r;
+                    }, RE = this.ErrH(R, srcE), bTR = !!m[3];
+                    bl = async function REACT(ar, bR) {
+                        let r = await R(ar, bR), s = r.subs || (r.subs = Subscriber(ar, RE, r, bTR)), pv = r.rvars, i = 0;
+                        for (let rvar of r.rvars = dV()) {
+                            if (pv) {
+                                let p = pv[i++];
+                                if (rvar == p)
+                                    continue;
+                                p._Subs.delete(s);
+                            }
+                            try {
+                                rvar.Subscribe(s);
+                            }
+                            catch {
+                                ErrAtt('This is not an RVAR', att);
                             }
                         }
-                        : m[5]
+                    };
+                }
+                else
+                    bl =
+                        m[5]
                             ? async function SetOnES(ar, bR) {
                                 let s = oes, { sub, r } = PrepRng(ar, srcE, att);
                                 oes = Object.assign(r.val || (r.val = {}), oes);
@@ -1026,12 +1028,11 @@ class RComp {
                                 }
                             }
                             : m[7]
-                                ? async function HASH(ar, bR) {
-                                    let { sub, r, cr } = PrepRng(ar, srcE, att), hashes = dV();
-                                    if (cr || hashes.some((hash, i) => hash !== r.val[i])) {
-                                        r.val = hashes;
-                                        await b(sub, bR);
-                                    }
+                                ? function HASH(ar, bR) {
+                                    let { sub, r, cr } = PrepRng(ar, srcE, att), ph = r.val;
+                                    r.val = dV();
+                                    if (cr || r.val.some((hash, i) => hash !== ph[i]))
+                                        return b(sub, bR);
                                 }
                                 : m[8]
                                     ? function hIf(ar, bR) {
@@ -1041,29 +1042,26 @@ class RComp {
                                     }
                                     :
                                         function renew(sub, bR) {
-                                            return b(PrepRng(sub, srcE, 'renew', 2)
-                                                .sub, bR);
+                                            return b(PrepRng(sub, srcE, att, 2).sub, bR);
                                         };
             }
             return bl != dB && ass(this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
-                : function Elm(ar) {
-                    return bl(ar).catch(e => { throw ErrMsg(srcE, e, 39); });
-                }, { auto, nm });
+                : (ar) => bl(ar).catch(e => { throw ErrMsg(srcE, e, 39); }), { auto, nm });
         }
         catch (e) {
             throw ErrMsg(srcE, e);
         }
     }
     ErrH(b, srcN) {
-        return b && (async (ar) => {
+        return b && (async (ar, bR) => {
             let r = ar.r;
             if (r?.errN) {
                 ar.parN.removeChild(r.errN);
                 r.errN = U;
             }
             try {
-                await b(ar);
+                await b(ar, bR);
             }
             catch (e) {
                 let msg = srcN instanceof HTMLElement ? ErrMsg(srcN, e, 39) : e;
