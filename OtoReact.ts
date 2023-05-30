@@ -1593,10 +1593,6 @@ class RComp {
                         bl = await this.CScript(srcE as HTMLScriptElement, atts); 
                         break;
 
-                    case 'STYLE':
-                        this.head.appendChild(srcE);
-                        break;
-
                     case 'COMPONENT':
                         bl = await this.CComponent(srcE, atts);
                         break;
@@ -1680,40 +1676,33 @@ class RComp {
                         }
                     break;
 
-                    case 'RSTYLE':
-                        let s: [boolean, RegExp, WSpc]
-                            = [this.setts.bDollarRequired, this.rIS, this.ws]
-                            , cNm: string;
-
+                    case 'STYLE':
                         if ((/^(local)$|^global$/i.exec(atts.g('scope') ?? 'global') || thro('Invalid scope'))[1]) {
-                            let l = this.lscl;
-                            this.lscl = [...this.lscl, cNm = `R$${RComp.iStyle++}`];
+                            let l = this.lscl
+                                , cNm = `R_${RComp.iStyle++}`;
+                            this.lscl = [...this.lscl, cNm];
                             this.rActs.push(() => this.lscl = l);
+                            
+                            (srcE as HTMLStyleElement).innerText = 
+                                (srcE as HTMLStyleElement).innerText.replaceAll(
+                                    /{.*?}|@.*?{|(\w|[-.#:()\u00A0-\uFFFF]|\[(?:"(?:\\.|.)*?"|'(?:\\.|.)*?'|.)*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/gs,
+                                    (m,p1) => p1 ? `${m}.${cNm}` : m
+                                );
                         }
+                        this.head.appendChild(srcE);
+                        break;
 
+                    case 'RSTYLE':
+                        let s: [boolean, RegExp, WSpc] = [this.setts.bDollarRequired, this.rIS, this.ws]
                         try {
                             this.setts.bDollarRequired = T; this.rIS = N;
                             this.ws = WSpc.preserve;
-                            b = await this.CChilds(srcE);
                             
+                            b = await this.CChilds(srcE);                            
                             bl = b && async function RSTYLE(ar: Area) {
 
                                 await b(PrepElm(ar, 'STYLE').sub);
-                                    
-                                if (cNm)
-                                    for (let rule of(parN as HTMLStyleElement).sheet.cssRules)
-                                        (function AddClass(r: CSSRule){
-                                            if (r instanceof CSSStyleRule) // CSSStyleRule
-                                                r.selectorText = r.selectorText.replaceAll(
-                                                    /(?:\w|[-.#]|\[.*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/g, `$&.${cNm}`);
-                                            else if (r instanceof CSSGroupingRule)
-                                                // CSSMediaRule, CSSPageRule, CSSSupportsRule, CSSLayerBlockRule
-                                                for (let s of r.cssRules)
-                                                    AddClass(s);
-                                        })(rule)
-                                
                                 parN = ar.parN;
-
                             };
                         }
                         finally {
