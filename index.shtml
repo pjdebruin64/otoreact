@@ -116,8 +116,8 @@
                 </pageHead>
 
                 <section>
-                    <include src="C1_Introduction.html">
-                        <!--#include file="C1_Introduction.html"-->
+                    <include src="P1_Introduction.html">
+                        <!--#include file="P1_Introduction.html"-->
                     </include>                    
                 </section>
             </pageLayout>
@@ -129,16 +129,16 @@
                 </pageHead>
 
                 <section>
-                    <include src="C2_Concepts.html"><!--#include file="C2_Concepts.html"--></include>
+                    <include src="C1_Concepts.html"><!--#include file="C1_Concepts.html"--></include>
                 </section>
                 <section>
-                    <include src="C3_HtmlElements.html"></include>
+                    <include src="C2_HtmlElements.html"></include>
                 </section>
                 <section>
-                    <include src="C4_Constructs.html"></include>
+                    <include src="C3_Constructs.html"></include>
                 </section>
                 <section>
-                    <include src="C5_Scripts.html"></include>
+                    <include src="C4_OtherSubjects.html"></include>
                 </section>
             </pageLayout>
 
@@ -164,7 +164,7 @@
         border: 4px solid #FFE75B; padding: 8px; border-radius: 4px;
         outline: 8px solid white"
         >
-            This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a> and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a>.
+            This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a><!--  and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a> -->.
             <button onclick="cookiesAck.V=true">Understood</button>
         </div>
     </if>

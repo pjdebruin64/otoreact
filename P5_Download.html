@@ -5,12 +5,12 @@
   </pageHead>
 
   <leftbar>
-    <if cond="locationExternal">
+    <if cond="0 && locationExternal">
       <button onclick="donate.V=true;" style="margin-top:1ex">Donate!</button>
     </if>
   </leftbar>
 
-  <if cond=donate.V reacton=donate>
+  <if cond="donate.V" reacton=donate>
     <iframe style="width:20em; height:420px; position: absolute; top: 1ex;right: 1ex; border:solid 2pt gold; padding:8px; background-color: white"
       src="donate.html"
       oncreate="; this.parentElement.scroll(0,0); gtag('event', 'begin_checkout')"

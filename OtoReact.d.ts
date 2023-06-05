@@ -20,7 +20,7 @@ declare type Settings = Partial<{
 declare type hHTMLElement = HTMLElement & {
     b?: booly;
 };
-declare type DOMBuilder = ((ar: Area, bR?: boolean) => Promise<unknown>) & {
+declare type DOMBuilder<RT = unknown> = ((ar: Area, bR?: boolean) => Promise<RT>) & {
     auto?: string;
     nm?: string;
 };

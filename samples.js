@@ -48,21 +48,21 @@ const sampleGreeting = `<!-- Create a local reactive variable (RVAR) to receive 
 
     </body>
 </html>
-`, sampleServerData2 = `<style>
-  table.colorTable {
+`, sampleServerData2 = `<style scope=local>
+  main {
+    height:45em;
+    width:100%;
+    overflow-y:scroll;
+  }
+  table {
     margin: auto;
   }
-  table.colorTable td {
+  td {
     padding: 0px 4px;
     text-align: center;
     max-width: 8em;
     overflow:hidden;
     font-size: small;
-  }
-  div.scrollbox {
-    height:45em;
-    width:100%;
-    overflow-y:scroll;
   }
 
   @keyframes Disappearing {
@@ -104,12 +104,12 @@ function StartStop() {
 }
 </script>
 
-<div class=scrollbox>
+<main>
 <!--
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table. class=colorTable
+<table.
         #class:animate="handle.V" thisreactson=handle>
 
   <!-- Table caption -->
@@ -149,7 +149,7 @@ function StartStop() {
   </tbody.>
 
 </table.>
-</div>`;
+</main>`;
 const sampleBraces = `1 + 1 = {1 + 1}  \\{ Check }
 <p>
 Null and undefined are not shown:    "{null} {undefined}".
@@ -381,18 +381,21 @@ td { text-align: center }
   <DDef item>{thisYear -  item.year}</DDef>
 </TableMaker>
 `;
-const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
-<style>
-    div.tic-tac-toe {
+const sampleTicTacToe = `<style>
+    main {
         display:grid;
         grid-template-columns: auto 120pt;
         background-color: white;
     }
-    .tic-tac-toe table {
+    header {
+        grid-column: 1/3;
+        text-align: center;
+    }
+    table {
         width: fit-content;
         margin:1ex
     }
-    .tic-tac-toe td {
+    td {
         height: 4ex; width: 4ex;
         padding: 0px;
         border: 2px solid;
@@ -400,7 +403,7 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
         text-align: center;
         vertical-align: middle;
     }
-    .tic-tac-toe button {
+    button {
         font-size: 80%;
     }
 </style>
@@ -457,11 +460,10 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
   }
 </script>
 
-<div class=tic-tac-toe>
-  <!-- Caption -->
-  <div style="grid-column: 1/3; text-align: center;">
+<main>
+  <header>
     <b>Tic-Tac-Toe</b>
-  </div>
+  </header>
 
   <!-- Show the board -->
   <table. reacton=board>
@@ -493,7 +495,7 @@ const sampleTicTacToe = `<!-- Styles are global; we must use a class to restrict
     </p>
     <button onclick="ClearAll()">Clear</button>
   </div>
-</div>`;
+</main>`;
 const sampleRHTML = `<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>

@@ -122,10 +122,6 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
     </tr></thead>
     <tbody>
         <tr>
-            <td>bTiming</td><td>false</td>
-            <td>When true, OtoReact will write timing information to the JavaScript console for each compile, build or update action.</td>
-        </tr>
-        <tr>
             <td>bAbortOnError</td><td>false</td>
             <td>
                 When true, building or updating the DOM will be aborted when any error occurs.
@@ -144,10 +140,25 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
             <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler and is not disabled.</td>
         </tr>
         <tr>
+            <td>bAutoReroute</td><td>false</td>
+            <td>When true, OtoReact will add <code>#onclick=reroute</code> to any <elm>A</elm> element that has no <code>onclick</code> handler and no <code>download</code> attribute and that refers to a relative or absolute internal URL.</td>
+        </tr>
         <tr>
             <td>bDollarRequired</td><td>false</td>
             <td>
                 When true, a dollar sign is required before <a href="#StringInterpolation">string interpolation</a> braces, and no backslash is needed before other braces within interpolated text.
+            </td>
+        </tr>
+        <tr>
+            <td>bKeepComments</td><td>false</td>
+            <td>
+                When true, comments in the RHTML code will be included in the DOM output.
+            </td>
+        </tr>
+        <tr>
+            <td>bKeepWhiteSpace</td><td>false</td>
+            <td>
+                When true, <i>all</i> white space will be preserved in the DOM output.
             </td>
         </tr>
         <tr>
@@ -156,6 +167,11 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
                 When true, errors while building or updating the DOM will be included in the DOM output, besides being written to the console.
             </td>
         </tr>
+        <tr>
+            <td>bTiming</td><td>false</td>
+            <td>When true, OtoReact will write timing information to the JavaScript console for each compile, build or update action.</td>
+        </tr>
+        <tr>
             <td>basePattern</td><td>"/"</td>
             <td>
                 Regular expression to identify the part of the URL that constitutes the <a href=#BasePath><i>base path</i></a>, see <a href="#basePattern">basePattern</a>.
@@ -169,18 +185,6 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
                 <br>Only within the preformatted <elm>pre</elm> element, and within elements with an explicit in-line <code>style="white-space: pre..."</code> style setting, all white space is preserved.
                 <br>With the 'preformatted' option, you can set an array of other (case insensitive) element names that should have all white space preserved in the DOM.
                 <p>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
-            </td>
-        </tr>
-        <tr>
-            <td>bKeepWhiteSpace</td><td>false</td>
-            <td>
-                When true, <i>all</i> white space will be preserved in the DOM output.
-            </td>
-        </tr>
-        <tr>
-            <td>bKeepComments</td><td>false</td>
-            <td>
-                When true, comments in the RHTML code will be included in the DOM output.
             </td>
         </tr>
         <tr>

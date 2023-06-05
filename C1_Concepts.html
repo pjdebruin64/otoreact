@@ -316,14 +316,18 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <a 
 
 
 <h2>Style sheets</h2>
-Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
+Internal or external <elm>STYLE</elm> style sheets can be included anywhere and you can choose whether they are effective in local or global scope.
 <p>
-    Styles sheets have global effect, except inside an 'isolated' <a href=#COMPONENT>component</a> or inside <elm>RHTML</elm> text.
-    <br>There is no provision yet for style sheets with local scope. To use local styling, just add local class names to each styling rule.
+    With <elm>RSTYLE</elm>, one can dynamically <i>generate</i> style sheets, using all RHTML constructs and embedded expressions.
+    One can for example:
+    <ul>
+        <li>Define a style based on variable data and use this style on multiple places in one or more stylesheets,</li>
+        <li>Use a FOR loop to define styles for all columns in a table, based on column specs fetched from a database,</li>
+        <li>Create style sheets that react on events.</li>
+    </ul>
 </p>
 <p>
-    Style sheets inserted with <elm>STYLE</elm> <u>cannot contain interpolated strings</u>, because the HTML parser does not allow that.
-    <br>To build up dynamic style sheets using string interpolation and other OtoReact features, you can use <a href=#RSTYLE><elm>RSTYLE</elm></a>.
+    See <a href=#RSTYLE><{}STYLE> and <{}RSTYLE></a> for details.
 </p>
 
 
