@@ -567,8 +567,10 @@ const sampleRHTML =
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
 <textarea @value="sourcecode.V" rows=3 cols=50></textarea>
-<br>
-<RHTML #srctext=sourcecode.V></RHTML>`;
+<p>
+<RHTML #srctext=sourcecode.V></RHTML>
+<p>
+<RHTML>{srctext.V}</RHTML>`;
 
 const sampleStyleTemplate =
 `<def rvar=Hue #value="0"></def>
@@ -738,8 +740,10 @@ const demoRendering=
 
 <h5>RHTML source:</h5>
 <def rvar=source store=sessionStorage value=
-"<def var=x value=A></def>
-<ul> <li> x = \\{x\\} </ul>"
+"<!-- Source code -->
+<def var=x value=A></def>
+<ul> <li> x = \\{x\\} </ul>
+<comment> x = \\{x\\} </comment>"
 ></def>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
@@ -752,9 +756,8 @@ const demoRendering=
 
 <h5>RHTML rendering:</h5>
 <def rvar=RenderedHTML></def>
-<rhtml #srctext=source.V
-  oncreateupdate= "RenderedHTML.V = this.shadowRoot.innerHTML"
-></rhtml>
+<rhtml oncreateupdate= "RenderedHTML.V = this.shadowRoot.innerHTML"
+>{source.V}</rhtml>
 
 <h5>Rendered HTML:</h5>
 <pre>{RenderedHTML.V}</pre>`;

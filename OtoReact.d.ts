@@ -3,7 +3,7 @@ declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bSubfile: boolean;
+    bSubf: boolean;
     basePattern: string;
     bAutoSubscribe: boolean;
     bAutoPointer: boolean;
@@ -20,10 +20,6 @@ declare type Settings = Partial<{
 declare type hHTMLElement = HTMLElement & {
     b?: booly;
 };
-declare type DOMBuilder<RT = unknown> = ((ar: Area, bR?: boolean) => Promise<RT>) & {
-    auto?: string;
-    nm?: string;
-};
 declare type Area<VT = unknown> = {
     r?: Range<ChildNode, VT> | true;
     parN: ParentNode;
@@ -38,7 +34,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     ch: Range;
     nx: Range;
     parR?: Range;
-    parN?: Node;
+    parN?: false | Node;
     constructor(ar: Area, node?: NodeType, text?: string);
     toString(): string;
     get Fst(): ChildNode;
@@ -53,7 +49,7 @@ declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     upd?: number;
     subs?: Subscriber;
     rvars?: RVAR[];
-    erase(par: Node): void;
+    erase(par: false | Node): void;
 }
 export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
@@ -96,7 +92,6 @@ export declare type RVAR_Light<T> = T & {
     readonly U?: T;
     readonly V?: T;
 };
-declare function Subscriber({ parN, parR }: Area, b: DOMBuilder, r: Range, bR?: boolean): Subscriber;
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;

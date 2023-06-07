@@ -21,11 +21,14 @@ DirectoryIndex index.shtml index.html
     RewriteRule ^cgi-bin/ - [L,R=403]
 
     ####
-    # Redirect any non existing file/directory to /index.html
+    # Redirect any non existing directory request (without a dot) to /index.html
     ####
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule "(^|/)([^/.]*)$" index.shtml    [L]
 
+    ####
+    # Redirect any non existing file request (with a dot) to the base directory
+    ####
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule "(^|/)([^/]*\.[^/]*)$" "$2"            [L]
 
