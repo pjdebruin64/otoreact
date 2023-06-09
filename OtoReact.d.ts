@@ -1,4 +1,4 @@
-declare type booly = boolean | string | number | object;
+declare type booly = boolean | string | number | object | null | undefined;
 declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;

@@ -84,10 +84,10 @@ class Context {
     }
     getV(k) {
         if (k) {
-            let d = this.d;
+            let D = this.d;
             return (e = env) => {
-                let { f, i } = k;
-                for (; f < d; f++)
+                let { d, i } = k;
+                for (; d < D; d++)
                     e = e[0];
                 return e[i];
             };
@@ -529,19 +529,18 @@ class RComp {
                 rActs.pop()();
         };
     }
-    LVar(nm, f) {
-        if ((nm = (nm ?? Q).trim()) || f) {
-            if (nm)
-                try {
-                    if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
-                        throw N;
-                    Ev(`let ${nm}=0`);
-                }
-                catch {
-                    throw `Invalid identifier '${nm}'`;
-                }
+    LVar(nm) {
+        if (nm = nm?.trim()) {
+            try {
+                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
+                    throw N;
+                Ev(`let ${nm}=0`);
+            }
+            catch {
+                throw `Invalid identifier '${nm}'`;
+            }
             let { CT } = this, i = ++CT.L, vM = CT.lvMap, p = vM.get(nm);
-            vM.set(nm, { f: CT.d, i });
+            vM.set(nm, { d: CT.d, i });
             this.rActs.push(() => mapSet(vM, nm, p));
             CT.ct = CT.ct.replace(new RegExp(`\\b${nm}\\b`), Q)
                 + ',' + nm;
@@ -556,11 +555,11 @@ class RComp {
         return Array.from(split(varlist), nm => this.LVar(nm));
     }
     LCons(listS) {
-        let { CT } = this, { csMap: cM, M } = CT;
+        let { CT } = this, { csMap: cM, M, d } = CT;
         for (let S of listS) {
-            let p = cM.get(S.nm);
-            cM.set(S.nm, { S, k: { f: CT.d, i: --CT.M } });
-            this.rActs.push(() => mapSet(cM, S.nm, p));
+            let m = S.nm, p = cM.get(m);
+            cM.set(m, { S, k: { d, i: --CT.M } });
+            this.rActs.push(() => mapSet(cM, m, p));
         }
         return (CDefs) => {
             let i = M;
@@ -851,6 +850,7 @@ class RComp {
                                     vDoc({
                                         async render(w, cr, args) {
                                             let s = env, Cdoc = RC.doc = w.document;
+                                            RC.head = Cdoc.head;
                                             env = docEnv;
                                             SetLVars(vParams, args);
                                             vWin(w);
@@ -861,8 +861,7 @@ class RComp {
                                                     for (let S of H.childNodes)
                                                         Cdoc.head.append(S.cloneNode(T));
                                                 }
-                                                RC.head = Cdoc.head;
-                                                await b({ parN: Cdoc.body, r: w.r });
+                                                await b({ parN: Cdoc.body });
                                             }
                                             finally {
                                                 env = s;
@@ -877,8 +876,7 @@ class RComp {
                                                 chWins.add(w);
                                                 wins.add(w);
                                             }
-                                            else
-                                                w.document.body.innerHTML = Q;
+                                            w.document.body.innerHTML = Q;
                                             this.render(w, cr, args);
                                             return w;
                                         },
@@ -1710,8 +1708,8 @@ class RComp {
         let { ct, lvMap, d } = this.CT, n = d + 1;
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = lvMap.get(m[0]);
-            if (k?.f < n)
-                n = k.f;
+            if (k?.d < n)
+                n = k.d;
         }
         if (n > d)
             ct = Q;

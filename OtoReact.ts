@@ -37,7 +37,7 @@ const
 //if (G.R$) {alert(`OtoReact is loaded both from:\n  ${G.R$}\nand from:\n  ${import.meta.url}\nYour application may not function correctly.`); throw Q;}
 
 // Type used for truthy / falsy values
-type booly = boolean|string|number|object;
+type booly = boolean|string|number|object|null|undefined;
 
 type Settings = Partial<{
     bTiming: boolean,
@@ -243,7 +243,7 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 type Environment =  [Environment?, ...unknown[] ];
 
 // An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
-type EnvKey = {f: number, i: number};
+type EnvKey = {d: number, i: number};
 
 // A CONTEXT keeps track at runtime of all visible local variables and constructs, and were thet are s
 class Context {
@@ -277,10 +277,10 @@ class Context {
     // Return a routines that, given an environment matching the current context returns the value pointed to by 'k'
     getV<T>(k: EnvKey): DepE<T> {
         if (k) {
-            let d = this.d;
+            let D = this.d;
             return (e:Environment = env) => {
-                let {f,i} = k;
-                for(;f < d; f++)
+                let {d,i} = k;
+                for(;d < D; d++)
                     e = e[0];
                 return e[i] as T;
             }
@@ -993,10 +993,11 @@ class Hndlr {
     }
 }
 
-let iNum = 0, iStyle = 0;
+let iNum = 0        // Numbering of RComp instances
+    , iStyle = 0;   // Numbering of RSTYLE classnames
 class RComp {
 
-    public num = iNum++;  // Rcompiler instance number, just for identification dureing debugging
+    public num = iNum++;  // Rcompiler instance number, just for identification during debugging
 
     CT: Context         // Compile-time context
 
@@ -1004,8 +1005,13 @@ class RComp {
          = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
 
     private doc: Document;
-    public head: ParentNode;
+
+    public head: HTMLHeadElement|DocumentFragment|ShadowRoot;
+    // During compilation: node to which all static stylesheets are moved
+    // During execution: node to which al dynamic stylesheets are appended.
+
     public FilePath: string;
+
     lscl: {nm: string}[];     // Local stylesheet classlist
  
     constructor(
@@ -1095,11 +1101,9 @@ class RComp {
 
     // At compiletime, declare a single LVar.
     // Returns a routine to set the value of the LVar.
-    private LVar<T>(nm: string, f?: booly): LVar<T> {
-        if ((nm = (nm??Q).trim()) || f)
-        //if (nm = nm?.trim())
+    private LVar<T>(nm: string): LVar<T> {
+        if (nm = nm?.trim())
         {
-            if (nm)
                 try {
                     // Check valid JavaScript identifier
                     if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
@@ -1115,9 +1119,9 @@ class RComp {
                 , p = vM.get(nm);    // If another variable with the same name was visible, remember its key
 
             // Set the key for the new variable
-            vM.set(nm , {f:CT.d, i});
+            vM.set(nm , {d: CT.d, i});
 
-            // Register a routine to restore the previous key
+            // Register a routine to restore the previous key, at the end of the current scope
             this.rActs.push(() => mapSet(vM,nm,p));
 
             // Add the name to the context string, after removing a previous occurence of that name
@@ -1143,12 +1147,12 @@ class RComp {
     // Returns a single routine to set them all at once.
     private LCons(listS: Iterable<Signat>) {
         let {CT} = this
-            , {csMap: cM, M}= CT;
+            , {csMap: cM, M, d}= CT;
 
         for (let S of listS) {
-            let p = cM.get(S.nm);
-            cM.set(S.nm, {S, k: {f: CT.d, i: --CT.M}});
-            this.rActs.push(() => mapSet(cM,S.nm,p));
+            let m = S.nm, p = cM.get(m);
+            cM.set(m, {S, k: {d, i: --CT.M}});
+            this.rActs.push(() => mapSet(cM,m,p));
         }
 
         return (CDefs: Iterable<ConstructDef>) => {
@@ -1202,7 +1206,7 @@ class RComp {
 
     public async Build(ar: Area) {
         R = this;
-        env = [];   // = NewEnv()
+        env = [];
         try {
             await this.bldr(ar);
         }
@@ -1619,7 +1623,9 @@ class RComp {
                                     wins = new Set<Window>();
                                 vDoc({
                                     async render(w: Window, cr: boolean, args: unknown[]) {
-                                        let s = env, Cdoc = RC.doc = w.document;
+                                        let s = env
+                                            , Cdoc = RC.doc = w.document;
+                                        RC.head = Cdoc.head;
                                         env = docEnv;
                                         SetLVars(vParams, args);
                                         vWin(w);
@@ -1632,8 +1638,8 @@ class RComp {
                                                 for (let S of H.childNodes)
                                                     Cdoc.head.append(S.cloneNode(T));
                                             }
-                                            RC.head = Cdoc.head;
-                                            await b({parN: Cdoc.body, r: (w as any).r});
+                                            
+                                            await b({parN: Cdoc.body});
                                         }
                                         finally {env = s}
                                     },
@@ -1647,8 +1653,7 @@ class RComp {
                                             w.addEventListener('close', () => chWins.delete(w), wins.delete(w))
                                             chWins.add(w); wins.add(w);
                                         }
-                                        else
-                                            w.document.body.innerHTML=Q // Just in case an existing target was used
+                                        w.document.body.innerHTML=Q // Just in case an existing target was used
                                         this.render(w, cr, args);
                                         return w;
                                     },
@@ -3086,7 +3091,7 @@ class RComp {
         let {ct,lvMap, d} = this.CT, n=d+1
         for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k: EnvKey = lvMap.get(m[0]);
-            if (k?.f < n) n = k.f;
+            if (k?.d < n) n = k.d;
         }
         if (n>d)
             ct = Q;
