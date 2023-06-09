@@ -385,28 +385,28 @@ If  in JavaScript you want to refer to an HTMLElement object created by RHTML co
         To refer to the element anywhere <i>within the content</i> of the element, you can simply bind <code>this</code> to a local RHTML variable:
         <demo srctext=
 '<div>
-    <define var=topElm #value="this"></define>
-    <p>This is a \{this.tagName} element within a \{topElm.tagName} element.</p>
+    <define var=top #value="this"></define>
+    <p>This is a \{this.tagName} element within a \{top.tagName} element.</p>
 </div>'></demo>
     </dd>
     <dt>Assign to a global variable</dt>
     <dd>
         When there will be only a <i>single instance</i> of the RHTML element, then one can use <code class="sourcecode">*="<i>target</i>"</code> to assign the HTMLElement object to a global variable:
         <demo srctext=
-'<blockquote *="globalThis.myElm">
+'<blockquote *="globalThis.BQ">
     This is a \{this.tagName} element.
 </blockquote>
-The text content of the element above is "\{myElm.textContent}"'></demo>
+The text content of the element above is "\{BQ.textContent}"'></demo>
     </dd>
     <dt>Assign to an object property</dt>
     <dd>
         In all cases one can assign the HTMLElement object to a property of some object defined in RHTML or JavaScript:
         <demo srctext=
-'<define var=obj #value="\{}"></define>
-<blockquote *="obj.myElm">
+'<define var=elements #value="\{}"></define>
+<blockquote *="elements.BQ">
     This is a \{this.tagName} element.
 </blockquote>
-The text content of the element above is "\{obj.myElm.textContent}"'></demo>
+The text content of the element above is "\{elements.BQ.textContent}"'></demo>
         Unlike the previous construction, one can use this inside a loop or a component definition.
     </dd>
 </dl>

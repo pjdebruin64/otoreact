@@ -1,10 +1,10 @@
 <h1>RHTML Constructs</h1>
 
-N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
+N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may <i>optionally</i> be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
 <p>
-    Any attribute starting with an underscore "_" is ignored. So one can use this to insert a comment right between attributes (<code>_="Some comment"</code>) or to comment out some attribute.
+    Any attribute starting with an underscore "_" is ignored like comment. So one can use this to insert a comment right between attributes (<code>_="Some comment"</code>), or to comment out attributes.
 </p>
 
 <p>
@@ -1005,12 +1005,12 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
             ></demo>
             <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
             <p>
-                Note: <code>scope="local"</code> does not apply to all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
+                Note: <code>scope="local"</code> applies to some but not all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
             </p>
             <ul>
                 <li>It works with conditional group rules (<code>@media</code>, <code>@supports</code>, <code>@document</code>);</li>
                 <li>It does not apply to sheets imported with <code>@import</code>;</li>
-                <li>Styling features (like <code>@font-face</code>, <code>@keyframes</code>, and <code>@counter-style</code>) cannot be localized by means of class names and are left alone.</li>
+                <li>Styling features (like <code>@font-face</code>, <code>@keyframes</code>, and <code>@counter-style</code>) cannot be localized by means of class names, and are left alone.</li>
             </ul>
         </dd>
         <dt><code class="sourcecode">src="<i>URL</i>"</code></dt>
@@ -1025,10 +1025,16 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
         </dd>
     </dl>
 <h4><{}RSTYLE scope? src?></h4>
-While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build style sheets using string interpolation and RHTML constructs, including loops and conditionals.
-<p>
-    Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>$\{ \}</code>.
-</p>
+While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build <i>dynamic</i> style sheets using string interpolation and RHTML constructs, including loops, conditionals, and use of local variables.
+<ul>
+    <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is appended to the document head, and updated or removed when needed.</li>
+
+    <li>Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>$\{ \}</code>.</li>
+
+    <li><elm>RSTYLE</elm> supports <code>scope</code> and <code>src</code> just as <elm>STYLE</elm>.</li>
+
+    <li>Other attributes,like <a href="{MDN}Web/HTML/Element/style#attributes"><code>media</code></a>, are compiled as usual and applied to the created <elm>style</elm> element.</li>
+</ul>
 <p>
     Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue, without needing inline styles:
 </p>
@@ -1037,24 +1043,12 @@ While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build 
 <p>Some points of attention:</p>
 <ul>
     <li>
-        <elm>RSTYLE</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
-        <br>When they are placed inside a <elm>FOR</elm> loop, or inside a component template, then multiple, possibly different, instances of the same style sheet template may be created.
+        When <elm>RSTYLE</elm> style sheet templates are placed inside a <elm>FOR</elm> loop, or inside a component template, then multiple, possibly different, instances of the same style sheet template may be created.
         <br>For efficiency reasons you should avoid this, unless you really mean to have multiple distinct instances.
     </li>
     <li>
         <elm>RSTYLE</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
-        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code>.
-    </li>
-    <li>
-        <elm>RSTYLE</elm> supports <code>scope</code> and <code>src</code> just as <elm>STYLE</elm>.
-        <p><code><{}RSTYLE src="<i>URL</i>"><{}RSTYLE></code> is the same as:
-        <pre>
-<{}RSTYLE>
-    <{}INCLUDE src="<i>URL</i>"></{}INCLUDE>
-<{}/RSTYLE></pre>
-    </li>
-    <li>
-        <elm>RSTYLE</elm> does not yet support <code>scope="local"</code>. Add your own class name to attain local scoping.
+        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code> or <code>hash</code>.
     </li>
     <li>
         Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm>, except that literal braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ }</code>.
@@ -1100,16 +1094,19 @@ Choose attribute:
 </canvas>'></demo>
 
 
-<h2><{}COMMENT>*</h2>
+<h2 id="COMMENT"><{}COMMENT>*</h2>
 <code class=sourcecode><{}COMMENT><i>contents</i><{}/COMMENT></code>, where <i>contents</i> is any RHTML code, inserts a dynamically generated HTML Comment node in the DOM tree.
 
 <p>Comments are invisible in the rendered document, but one can see the generated content by inspecting the DOM tree. One could use this to inspect the value of variables without showing them.</p>
 
+<p>There is a demonstration of this in the <a href="#RHTML-demo">RHTML demo</a> below.</p>
+
+<p>Note that comments <code><{}!-- <i>comment text</i> --></code> in the source text won't be included in the created DOM tree, unless <a href="#options">option</a> <code>bKeepComments</code> is set.</p>
 
 <h2 id=RHTML><{}RHTML #srctext>*</h2>
-<code class=sourcecode><{}RHTML #srctext="<i>sourceExpr</i>"><{}/RHTML></code>
-or
 <code class=sourcecode><{}RHTML><i>sourceCode</i><{}/RHTML></code>
+or
+<code class=sourcecode><{}RHTML #srctext="<i>sourceExpr</i>"><{}/RHTML></code>
 allow you to interpret dynamically generated text as Reactive HTML.
 <p>After each build or update, when the text value of <i>sourceExpr</i> has changed, or when the text generated by <i>sourceCode</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
@@ -1121,15 +1118,15 @@ allow you to interpret dynamically generated text as Reactive HTML.
 ></define>
 <textarea @value="source.V" rows=3 cols=50></textarea>
 <p>
-<RHTML #srctext="source.V"></RHTML>
+<RHTML>\{source.V}</RHTML>
 <p>
-<RHTML>\{source.V}</RHTML>'></demo>
+<RHTML #srctext="source.V"></RHTML>'></demo>
 
 <h4>Caution</h4>
 When you use <elm>RHTML</elm> on your site, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
-<h3>Demo HTML vs RHTML</h3>
+<h3 id="RHTML-demo">Demo HTML vs RHTML</h3>
 In the following demo you can enter a piece of (R)HTML and compare how it is parsed and rendered by the browser before and after OtoReact processing.
 <br>Note how OtoReact removes irrelevant white space.
 
@@ -1158,8 +1155,15 @@ Any scripts within <i>content</i> are executed within the same browsing context 
     When <code class=sourcecode>params</code> is specified, then the given parameter names are available within <i>content</i> as local variables.
 </p>
 <p>
-    When <code class=sourcecode>window</code> is specified, then the given <i>windowVar</i> is available within <i>content</i> as a local variable, and will be bound to the created window.
-    <br>Note that global variable <code>window</code> refers to the main application window, but may be hidden by the local variable by specifying <code>window="window"</code>.
+    When <code class=sourcecode>window=<i>windowVar</i></code> is specified, then the given <i>windowVar</i> is available within <i>content</i> as a local variable, and will be bound to the created window.
+    <br>When <code>window</code> is specified without value, then <i>windowVar</i> is assumed to be "<code>window</code>", hiding the global variable <code>window</code> that  refers to the main application window.
+</p>
+<p>
+    When <code class=sourcecode>encapsulate</code> is specified, then the documentcreated by the methods below will be styled independent of the main document.
+    <br>When not specified then all style sheets attached to the parent document are copied to the new document. (They won't be updated though.)
+</p>
+<p>
+    Any <elm>style</elm> sheets within the <elm>DOCUMENT</elm> content are excluded from the parent document, and attached to each new child window.
 </p>
 <p>
     The available methods are:
@@ -1185,9 +1189,5 @@ Any scripts within <i>content</i> are executed within the same browsing context 
         </p>
     </dd>
 </dl>
-
-By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
-<br>Any <elm>style</elm> sheets within the <elm>DOCUMENT</elm> content are excluded from the parent document, and attached to each new child window. 
-<br>Or you can use <elm>RHEAD</elm><elm>LINK &hellip;</elm><elm>/RHEAD</elm> to link an external style sheet.
 
 <demo #srctext=sampleDocument></demo>

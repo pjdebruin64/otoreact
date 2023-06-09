@@ -60,7 +60,7 @@ function Indent(text: string, n: number) {
 
 
 const sampleGreeting=
-`<!-- Create a local reactive variable (RVAR) to receive the entered name -->
+`<!-- Create a local reactive state variable (RVAR) to receive the entered name -->
 <DEFINE rvar='yourName'></DEFINE>
 
 <p>
@@ -654,33 +654,44 @@ const sampleFormatting =
 
     <dt>Standard Date methods</dt>
     <dd>
-      Today is {today.toString().replace(/\\w+ (\\w+ \\w+) .*/, '$1')}.
+      Today is {today.toString().replace(/\\w+ (\\w+) 0*(\\d+) .*/, '$1 $2')}.
     </dd>
 </dl>`
 
 const sampleDocument = 
-`<def rvar=check #value="false"></def>
+`<style>
+h3 {color: green}
+</style>
+<def rvar=check #value="false"></def>
 
-<document name=showCheck>
-    <h4>This is a separate document.</h4>
-    <label reacton=check style="display: block; margin: 30px">
+<document name=demoDoc ondestroy="demoDoc.closeAll()">
+    <style> 
+        label { display: block; margin: 30px }
+    </style>
+    <h3>This is a separate document.</h3>
+    <label reacton=check>
         <input type=checkbox @checked=check.V> Check me!
     </label>
 </document>
 
+Please click
 <button onclick="
-    showCheck.open(''
-        ,\`screenX=\${window.screenX + event.clientX - 100},
+    demoDoc.open(''
+        ,\`screenX=\${window.screenX + event.clientX},
         screenY=\${window.screenY + event.clientY + 200},
         width=250,height=120\`
         )"
 >Pop up</button>
+and note how the checkbox in the popup browser window is synchronized with the checkbox below.
+
 <p>
 <label reacton=check>
     <input type=checkbox @checked=check.V> Checked.
 </label>
 <p>
-<button onclick="showCheck.print()">Print</button>`
+
+Click <button onclick="demoDoc.print()">Print</button>
+to open a print dialog for a document without showing it in a browser window`
 
 const sampleRadioGroup=
 `<component>
@@ -738,7 +749,7 @@ const demoRendering=
   }
 </style>
 
-<h5>RHTML source:</h5>
+<h5>Editable RHTML source:</h5>
 <def rvar=source store=sessionStorage value=
 "<!-- Source code -->
 <def var=x value=A></def>
@@ -747,20 +758,20 @@ const demoRendering=
 ></def>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
-<h5>Parsed HTML:</h5>
-<def rvar=ParsedHTML></def>
+<h5>Source DOM tree:</h5>
+<def rvar=SourceDOM></def>
 <div hidden #innerhtml=source.V 
-    *+innerhtml= "ParsedHTML.V"
+    *+innerhtml= "SourceDOM.V"
 ></div>
-<pre>{ParsedHTML.V}</pre>
+<pre>{SourceDOM.V}</pre>
 
-<h5>RHTML rendering:</h5>
-<def rvar=RenderedHTML></def>
-<rhtml oncreateupdate= "RenderedHTML.V = this.shadowRoot.innerHTML"
+<h5>RHTML rendered output:</h5>
+<def rvar=Result></def>
+<rhtml oncreateupdate= "Result.V = this.shadowRoot.innerHTML"
 >{source.V}</rhtml>
 
-<h5>Rendered HTML:</h5>
-<pre>{RenderedHTML.V}</pre>`;
+<h5>Created DOM tree:</h5>
+<pre>{Result.V}</pre>`;
 
 const demoScoping=
 `(Look at the source code please)

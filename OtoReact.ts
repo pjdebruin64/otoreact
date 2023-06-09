@@ -373,8 +373,8 @@ const PrepRng = <VT = unknown, NT extends ChildNode = ChildNode>(
 {
     let {parN, r} = ar as AreaR,
         sub: Area = {parN }
-        , cr = !r;
-    if (cr) {
+        , cr: boolean;
+    if (cr = !r) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
         
@@ -400,7 +400,7 @@ const PrepRng = <VT = unknown, NT extends ChildNode = ChildNode>(
 /*  When creating, build a new range containing a new HTMLElement.
     When updating, return the the range created before.
     Also returns a subarea to build or update the elements childnodes. */
-, PrepElm = <T={}>(
+, PrepElm = <T = {val: Hndlr[]}>(
     ar: Area, 
     tag: string
 ): {
@@ -424,7 +424,7 @@ const PrepRng = <VT = unknown, NT extends ChildNode = ChildNode>(
     return { 
         r, 
         sub: {
-            parN: r.node, 
+            parN: pn = r.node, 
             r: r.ch, 
             bfor: N,
             parR: r
@@ -1003,7 +1003,7 @@ class RComp {
          = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
 
     private doc: Document;
-    private head: Node;
+    public head: ParentNode;
     public FilePath: string;
     lscl: {nm: string}[];     // Local stylesheet classlist
  
@@ -1026,7 +1026,7 @@ class RComp {
     and receives a parameter 'SF' to be used in the builder routine created by 'Comp' to
     convert the environment 'env' into a new frame, and that returns a routine 'EndFrame' to restore the precious environment
 */  
-    private  Framed<T>(
+    private Framed<T>(
         Comp: (
             StartScope: (sub: Area, r?:Range) => {sub: Area, EF: () => void }
         )=>Promise<T>
@@ -1157,6 +1157,22 @@ class RComp {
         }
     }
 
+    // Routine to execute any DOMBuilder with the document head as parent node
+    private InHead<T>(b: DOMBuilder<T>) {
+        return async(ar: Area) => {
+            let {parN, bfor} = ar
+                , p: Range;
+            ass(ar, {parN: this.head, bfor: N});
+            try {
+                return await b(ar);
+            }
+            finally {
+                if (p = ar.prvR) p.parN = ar.parN;  // Allow the created range to be erased when needed
+                ass(ar, {parN, bfor});
+            }
+        }
+    }
+
     // Compile a source tree into an ElmBuilder
     public async Compile(
         elm: ParentNode, 
@@ -1165,6 +1181,7 @@ class RComp {
         for (let tag of this.setts.preformatted)
             this.setPRE.add(tag.toUpperCase());
         this.srcNodeCnt = 0;
+        //this.log('Compile');
         let t0 = now(),
             b =
             ( nodes
@@ -1320,9 +1337,9 @@ class RComp {
                 // Global attributes (this)react(s)on / hash / if / renew handlers
                 glAtts: Array<{att: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = [],
 
-                // Generic pseudo-events to be handled BEFORE and AFTER building
-                bf: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
-                af: Array<{att: string, txt: string, hndlr?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
+                // Generic pseudo-event handlers to be handled BEFORE and AFTER building
+                bf: Array<{att: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
+                af: Array<{att: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = [],
                                 
                 // The intermediate builder will be put here
                 bl: DOMBuilder,
@@ -1360,7 +1377,7 @@ class RComp {
                                 });
                     else { 
                         let txt = atts.g(att);
-                        if (m[10])  // #?(before|after|on)(compile|create|update|destroy)+
+                        if (m[10])  // #?(before|after|on)(create|update|destroy)+
                             // We have a pseudo-event
                             (m[9] ? bf : af)    // Is it before or after
                             .push({
@@ -1370,7 +1387,7 @@ class RComp {
                                 U:/u/.test(att),    // 'att' contains 'update'
                                 D:/y/.test(att),    // 'att' contains 'destroy'
                                 // 'before' events are compiled now, before the element is compiled
-                                hndlr: m[9] && this.CHandlr(att,txt)
+                                h: m[9] && this.CHandlr(att,txt)
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
@@ -1472,10 +1489,12 @@ class RComp {
                             let C = new RComp(this, this.GetPath(src), {bSubf: T}, new Context());
                             C.log(src);
                             OMods.set(src
-                                , cTask = C.CIter(await this.fetchM(src))
-                                            .then(b => [b, C.CT]
-                                                , e => {alert(e); throw e}
-                                            )
+                                , cTask = 
+                                    this.fetchM(src)
+                                    .then(iter => C.CIter(iter))
+                                    .then(b => [b, C.CT]
+                                        , e => {alert(e); throw e}
+                                    )
                             );
                         }
 
@@ -1536,16 +1555,17 @@ class RComp {
                         let 
                             {ws,rt, FilePath: f} = this
                             , b = await this.CUncN(srcE)
-                            , dSrc = !b && this.CParam<string>(atts, 'srctext', T)
+                            , dSrc = !b && this.CParam<string>(atts, 'srctext')
                             , s: Settings = {bSubf: T, bTiming: this.setts.bTiming}
                             ;
                        
                         bl = async function RHTML(ar) {
-                            let src = dSrc ? dSrc() : (await b(ar)).innerText
-                                , {r} = PrepElm(ar, 'r-html');
+                            let 
+                                {r, sub} = PrepElm<{val: Range}>(ar, 'r-html')
+                                , src = b ? (await b(sub)).innerText : dSrc?.()
+                                ;
 
                             if (src != r.res) {
-                                r.res = src;
                                 let 
                                     sv = env,
                                     C = ass(new RComp(N, f, s), {ws,rt, CT: new Context()}),
@@ -1553,13 +1573,13 @@ class RComp {
                                     tmp = D.createElement('rhtml'),
                                     sAr = {
                                         parN: sRoot,
-                                        parR: r.ch ||= new Range(N, N, 'Shadow')
+                                        parR: r.val ||= new Range(N, N, 'Shadow')
                                     };
 
-                                r.ch.erase(sRoot); sRoot.innerHTML=Q;
+                                r.val.erase(sRoot); sRoot.innerHTML=Q;
                                 try {
                                     // Parsing
-                                    tmp.innerHTML = src;
+                                    tmp.innerHTML = r.res = src;
                                     // Compiling
                                     await C.Compile(tmp, tmp.childNodes);
                                     // Building
@@ -1570,6 +1590,7 @@ class RComp {
                                 }
                                 finally { env = sv; }
                             }
+                            pn = ar.parN;
                         };
                     } break;
 
@@ -1581,34 +1602,37 @@ class RComp {
                         bl = await this.CComponent(srcE, atts);
                         break;
 
-                    case 'DOCUMENT':
+                    case 'DOCUMENT': {
                         let vDoc = this.LVar(atts.g('name', T)),
                             bEncaps = atts.gB('encapsulate'),
+                            PC = this,
                             RC = new RComp(this),
                             vParams = RC.LVars(atts.g('params')),
-                            vWin = RC.LVar(atts.g('window')),
-                            docBldr = ((RC.head = D.createDocumentFragment()), await RC.CChilds(srcE));
+                            vWin = RC.LVar(atts.g('window',F,F,T)),
+                            H = RC.head = D.createDocumentFragment(),   //To store static stylesheets
+                            b = await RC.CChilds(srcE);
                         bl = async function DOCUMENT(ar: Area) {
                             if (!ar.r) {
-                                let doc = ar.parN.ownerDocument,
+                                let {doc, head} = PC,
                                     docEnv = env,
                                     wins = new Set<Window>();
                                 vDoc({
                                     async render(w: Window, cr: boolean, args: unknown[]) {
-                                        let s = env, d = w.document;
+                                        let s = env, Cdoc = RC.doc = w.document;
                                         env = docEnv;
                                         SetLVars(vParams, args);
                                         vWin(w);
                                         try {
                                             if (cr) {
-                                                // Copy all style sheet rules
                                                 if (!bEncaps)
-                                                    copySSheets(doc, d);
-                                                for (let S of RC.head.childNodes)
-                                                    d.head.append(S.cloneNode(T));
+                                                    // Copy all style sheet rules of parent document
+                                                    copySSheets((head as ShadowRoot).styleSheets || doc.styleSheets, Cdoc);
+                                                // Copy static style sheets of document template
+                                                for (let S of H.childNodes)
+                                                    Cdoc.head.append(S.cloneNode(T));
                                             }
-                                            let ar: Area = {parN: d.body, r: (w as any).r};
-                                            await docBldr(ar);
+                                            RC.head = Cdoc.head;
+                                            await b({parN: Cdoc.body, r: (w as any).r});
                                         }
                                         finally {env = s}
                                     },
@@ -1623,7 +1647,7 @@ class RComp {
                                             chWins.add(w); wins.add(w);
                                         }
                                         else
-                                            w.document.body.innerHTML=Q
+                                            w.document.body.innerHTML=Q // Just in case an existing target was used
                                         this.render(w, cr, args);
                                         return w;
                                     },
@@ -1642,7 +1666,7 @@ class RComp {
                                 });
                             }
                         }
-                    break;
+                     } break;
 
                     case 'RHEAD':
                         let {ws} = this;
@@ -1650,14 +1674,7 @@ class RComp {
                         b = await this.CChilds(srcE);
                         this.ws = ws;
                         
-                        bl = b && async function RHEAD(ar: Area) {
-                            let {sub} = PrepRng(ar, srcE);
-                            sub.parN = ar.parN.ownerDocument.head;
-                            sub.bfor = N;
-                            await b(sub);
-                            if (sub.prvR)
-                                sub.prvR.parN = sub.parN;
-                        }
+                        bl = b && this.InHead(b);
                     break;
 
                     case 'STYLE': {
@@ -1682,9 +1699,8 @@ class RComp {
                                 head.appendChild(srcE);
                             });
                             
-                        atts.clear();
-                        break;
-                    }
+                        atts.clear();                        
+                    } break;
                     case 'RSTYLE': {
                         let s: [boolean, RegExp, WSpc] = [this.setts.bDollarRequired, this.rIS, this.ws]
                             , l = this.lscl
@@ -1692,8 +1708,9 @@ class RComp {
                             , sc = atts.g('scope')
                             , mods = this.CAtts(atts)
                         try {
-                            this.setts.bDollarRequired = T; this.rIS = N;
-                            this.ws = WSpc.preserve;
+                            this.setts.bDollarRequired = T;
+                            this.rIS = N;
+                            this.ws = WSpc.block;
 
                             if (sc != N) {
                                 /^local$/i.test(sc) || thro('Invalid scope');
@@ -1704,15 +1721,23 @@ class RComp {
                                 // At the end of scope, restore
                                 this.rActs.push(() => this.lscl = l);
                             }
+                            let
+                                b = await this.CUncN(srcE, atts)
+                                , PrepS = this.InHead(async ar => PrepElm(ar, 'STYLE'));
 
-                            b = await this.CUncN(srcE, atts);
                             bl = b && async function RSTYLE(ar: Area) {
-                                let {r,cr} = PrepElm<{val: Hndlr[]}>(ar, 'STYLE')
-                                    , nm = sc && (oNm.nm = r.res ||= `\uFFFE${iStyle++}`);
-                                r.node.innerText = AddClass(
-                                    (await b(ar) as HTMLElement).innerText
-                                    , nm);
+                                let 
+                                    txt = (await b(ar) as HTMLElement).innerText
+                                    , {r,cr} = await PrepS(ar);
+                                if (txt != r.res)
+                                    // Set the style text
+                                    // Would we set '.innerText', then <br> would be inserted
+                                    r.node.innerHTML = AddClass(
+                                        r.res = txt
+                                        , sc && (oNm.nm = r.res ||= `\uFFFE${iStyle++}`)
+                                        );
                                 ApplyMods(r, mods, cr);
+                                pn = ar.parN;
                             }
                         }
                         finally {
@@ -1743,15 +1768,19 @@ class RComp {
                         };
                         break;
 
-                    case 'COMMENT':
-                        let c = await this.CUncN(srcE);
+                    case 'COMMENT': {
+                        let {ws} = this,
+                             b = (this.rt = F, this.ws = WSpc.preserve,
+                                    await this.CUncN(srcE)
+                             );
                         bl = async function COMMENT(ar:Area) {
-                            PrepData(ar, 
-                                (await c(ar)).innerText
-                                , T);
-                        };
-                        break;
-
+                                PrepData(ar, 
+                                    (await b(ar)).innerText
+                                    , T);
+                            };
+                        this.ws = ws;
+                    } break;
+                    
                     default:             
                         /* It's a regular element that should be included in the runtime output */
                         bl = await this.CHTML(srcE, atts);
@@ -1770,34 +1799,43 @@ class RComp {
 
             // Add pseudo-event handling
             if (bf.length + af.length) {
+                // Compile after-handlers now
                 for (let g of af)
-                    g.hndlr = this.CHandlr(g.att, g.txt);
+                    g.h = this.CHandlr(g.att, g.txt);
+
                 let b = bl;
                 bl = async function Pseudo(ar: AreaR, bR) {
-                    let {r,prvR} = ar, bfD: Handler;
+                    let {r,prvR} = ar
+                        , bfD: Handler;
+                    
+                    // Call or save before-handlers
                     for (let g of bf) {
                         if (g.D)
-                            bfD = g.hndlr();
+                            bfD = g.h();    // Save a before-destroy handler, so we can assign it when a range has been created
                         if (r ? g.U : g.C)
-                            g.hndlr().call(
-                                r?.node || ar.parN
-                            );
+                            g.h().call(r?.node || pn);
                     }
+
                     await b(ar, bR);
-                    // When b has not created its own range, then we create one
-                    let prev = 
-                        (r ? ar.r != r && r
-                            : ar.prvR!=prvR && ar.prvR
-                            ) || PrepRng(ar).r;
-                    prev.bfD = bfD;
-                    pn = ar.parN;
+
+                    // We need the range created or updated by 'b'
+                    let rng = (r ? 
+                            // When we are updating, then 'b' has a range when the current ar.r is different from r, and r is that range.
+                            ar.r != r && r
+                            // When we are building, then 'b' has a range when the current ar.prvR is different from prvR, and ar.prvR is that range
+                            : ar.prvR != prvR && ar.prvR
+                        ) // When b doesn't have its own range, then we create one
+                        || PrepRng(ar).r;
+                    
+                    // Assign a beforedestroy handler
+                    rng.bfD = bfD;
+
+                    // Call or assign after-handlers
                     for (let g of af) {
                         if (g.D)
-                            prev.afD = g.hndlr();
+                            rng.afD = g.h();
                         if (r ? g.U : g.C)
-                            g.hndlr().call(
-                                prev.node || pn
-                            );
+                            g.h().call(rng.node || pn);
                     }
                 }
             }
@@ -1917,7 +1955,7 @@ class RComp {
             return bl != dB && ass(
                 this.rActs.length == CTL
                 ? this.ErrH(bl, srcE)
-                : (ar: Area) => (pn = ar.parN, bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);}))
+                : (ar: Area) => bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
                 , {auto,nm});
         }
         catch (e) { throw ErrMsg(srcE, e); }
@@ -1928,7 +1966,6 @@ class RComp {
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
         return b && (async (ar: AreaR, bR) => {
             let r = ar.r;
-            pn = ar.parN as ParentNode;
             if (r?.errN) {
                 // Remove an earlier error message in the DOM tree at this point
                 pn.removeChild(r.errN);
@@ -1960,29 +1997,30 @@ class RComp {
         // Compile the contents of a node that may contain a 'src' attribute to include external source code
         let src = atts?.g('src', bReq);
         // When no atts were passed, or no src is present, or the node contains (server-side included) non-blank content,
-        return !src || srcE.children.length || srcE.textContent.trim() ?
+        if (!src || srcE.children.length || srcE.textContent.trim())
             // then we compile just the child contents:
-            this.CChilds(srcE)
-            // Otherwise we use a separate RComp object to asynchronously fetch and compile the external source code
-            // We need a separate frame for local variables in this file, so that compilation of the main file can continue
-        : this.Framed(async SF => {
-            let  task = 
-                (new RComp(this, this.GetPath(src), {bSubf: T}))
-                // Parse the contents of the file, and compile the parsed contents of the file in the original context
-                .Compile(N, await this.fetchM(src))
-                .catch(e => {alert(e); throw e})
-            ;
+            return this.CChilds(srcE);
+        // Otherwise we use a separate RComp object to asynchronously fetch and compile the external source code
+        // We need a separate frame for local variables in this file, so that compilation of the main file can continue
+        return this.Framed(async SF => {
+            let C = new RComp(this, this.GetPath(src), {bSubf: T})
+                , task = 
+                    this.fetchM(src)
+                    // Parse the contents of the file, and compile the parsed contents of the file in the original context
+                    .then(txt => C.Compile(N, txt))
+                    .catch(e => {alert(e); throw e});
+
             return async function INCLUDE(ar) {
                     let {sub,EF} = SF(ar);
                     await (await NoTime(task))(sub).finally(EF);
                 };
-        });
+        }
+        );
     }
 
     private async CUncN(srcE: HTMLElement, atts?: Atts): Promise<DOMBuilder<HTMLElement>> {
         // Compile the children of an "unconnected node", that won't be included in the output DOM tree, but that yields data for some other purpose (Comment, RSTYLE).
         // When 'atts' is provided, then a 'src' attribute is accepted.
-        this.rt = F; this.ws = WSpc.preserve;
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar:Area) => {
             let {r, sub} = PrepRng<never, HTMLElement>(ar, srcE);
@@ -2212,6 +2250,7 @@ class RComp {
                         )
                             await alt.b(sub);
                     }
+                    pn = ar.parN;
                 }
                 else {
                     // This is the regular CASE  
@@ -2276,7 +2315,7 @@ class RComp {
                     b = await this.CIter(srcE.childNodes);
 
                 // Dit wordt de runtime routine voor het updaten:
-                return b && async function FOR(this: RComp, ar: Area, bR) {
+                return b && async function FOR(ar: Area, bR) {
                     let {r, sub} = PrepRng<Map<Key, ForRange>>(ar, srcE, Q),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Nxt,
@@ -2616,7 +2655,7 @@ class RComp {
                 
                 ro = F;
                 
-                // Start scope
+                // Start frame
                 let {sub, EF} = SF(ar);
                 // Set parameter values
                 for (let [nm,lv] of lvars)
@@ -2644,6 +2683,7 @@ class RComp {
                     sub = s;
                 }
                 await b(sub).finally(EF);
+                pn = ar.parN;
             }
         }).catch(e => { throw ErrMsg(srcE, `<${S.nm}> template: `+e); });
     }
@@ -2783,7 +2823,7 @@ class RComp {
         // Now the runtime action
         return async function ELM(ar: Area, bR) {
                 let {r, sub, cr} = 
-                    PrepElm<{val: Hndlr[]}>(
+                    PrepElm(
                         ar,
                         nm || dTag()
                     );
@@ -2792,10 +2832,10 @@ class RComp {
                     // Build / update childnodes
                     await b?.(sub);
                 
-                pn = ar.parN;
                 ApplyMods(r, mods, cr);
                 // Add local scoping classes
                 for (let {nm} of lscl) r.node.classList.add(nm);
+                pn = ar.parN;
             };
     }
 
@@ -3057,8 +3097,8 @@ class RComp {
         }
 
         try {
-            var f = Ev(US+
-                    `(function(${ct}){${body}\n})`  // Expression evaluator
+            var f = Ev(
+                    `${US}(function(${ct}){${body}\n})`  // Expression evaluator
             ) as (e:Environment) => T;
             return () => {
                     try { 
@@ -3228,8 +3268,8 @@ const
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
 
-, copySSheets = (S: Document, D: Document) => {
-    for (let SSheet of S.styleSheets) {
+, copySSheets = (S: StyleSheetList, D: Document) => {
+    for (let SSheet of S) {
         let DSheet = D.head.appendChild(D.createElement('style')).sheet;
         for (let rule of SSheet.cssRules) 
             DSheet.insertRule(rule.cssText);

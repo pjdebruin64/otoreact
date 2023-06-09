@@ -9,7 +9,6 @@
     <meta name="viewport" content="width=device-width">
     <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications">
     <link rel=preload href="OtoReact.js"            as=script crossorigin>
-    <link rel=preload href="KoninklijkeOtolift.png" as=image>
     <!--
         <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
         <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
@@ -18,10 +17,6 @@
         <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
     -->
     <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
-    <link rel="stylesheet"      href="index.css">
-    <link rel=preload href="webColors.json"         as=fetch crossorigin>
-    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
-
     <script>
         const 
             wiki = "https://en.wikipedia.org/wiki/",
@@ -29,9 +24,6 @@
             src="./",
             locationExternal = !/masterlist\/(test\/)?otoreact/i.test(location.href);
     
-    </script>
-    <script src="samples.js?" defer></script>
-    <script>
         var myIP = '<!--#echo var="REMOTE_ADDR"-->'
 
         window.dataLayer = window.dataLayer || [];
@@ -66,7 +58,6 @@
 
         let mMobile = window.matchMedia("@media screen and (min-resolution: 150dpi)")
         let isMobile = RVAR('isMobile', mMobile.matches);
-        //mMobile.addListener(m => {isMobile.V = m.matches});
 
         // Auto-check for updates
         /*
@@ -91,10 +82,16 @@
         })();
         */
     </script>
+    <script src="samples.js?"></script>
+    <link rel=preload href="OtoLib.html"           as=fetch crossorigin>
+    <link rel="stylesheet"      href="index.css">
+    <link rel=preload href="KoninklijkeOtolift.png" as=image>
+    <link rel=preload href="webColors.json"         as=fetch crossorigin>
+    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
     
 </head>
-<body onclick="popup.V=null" style.cursor=default rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']]" hidden>
-    <script>//document.body.hidden=true</script>
+<body onclick="popup.V=null" style.cursor=default hidden
+    rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']]">
 
     <import src="Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -108,6 +105,7 @@
 
         <RHTML #srctext ...rest></RHTML>
     </import>
+
     <case hiding #value="docLocation.subpath" thisreactson=docLocation>
         <when regmatch="^(index.shtml)?$">
             <pageLayout subpath="">
@@ -178,6 +176,6 @@
         <br>and on my <a href="http://www.peterdebruin.net">personal homepage</a> in Dutch
     </div>
 
-    <!--#include file="Lib_Components.html"-->
+    <!--include file="Lib_Components.html"-->
   </body>
 </html>

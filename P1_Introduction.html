@@ -182,7 +182,7 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
         <pre><{}body rhtml></pre>
         , then OtoReact will implicitly compile and render the document body at the first event cycle.
     </li>
-    <li>Optionally, add an <a href="docu#Options">option list</a> to the <code>rhtml</code> attribute</li>
+    <li>Optionally, add an <a href="docu#Options">option list</a> to the <code>rhtml</code> attribute.</li>
     <li>
         You may also want to hide all or part of your application until it has been built, e.g. by using:
     <code><{}body rhtml hidden></code>.
@@ -204,11 +204,11 @@ Some advantages of using OtoReact above other frameworks:
     </li>
     <li>
         State variables (RVAR's) can be defined in <i>any local HTML scope</i>, while in other frameworks state variables are only available at the component level.
-        <br>So if you need a state variable within a <elm>FOR</elm> iteration, then you can simply define a <i>single</i> RVAR within that <elm>FOR</elm> block, and OtoReact will repeatedly instantiate the RVAR.
-        <br>In other frameworks you would either have to define a whole <i>array</i> of state variables, or define a separate component just for the body of this iteration.
+        <br>So if, for example, you need a state variable within a <elm>FOR</elm> iteration, then you can simply define a <i>single</i> RVAR within that <elm>FOR</elm> block, and OtoReact will repeatedly instantiate the RVAR.
+        <br>In other frameworks you would either have to define a whole <i>array</i> of state variables, or define a separate component just for the purpose of having a local state variable.
     </li>
     <li>
-        <i>Components</i> can be defined in any local HTML scope, meaning you can easily use them to avoid local code repetitions.
+        <i>Components</i> can be defined in any local HTML scope too, meaning you can easily use them to avoid local code repetitions.
         <br>Local component definitions can refer to local variables visible at the point of definition, without needing these to be passed as parameters.
     </li>
     <li>
@@ -275,7 +275,7 @@ items.map( item => (
 <p>Some drawbacks are:</p>
 <ol>
     <li>
-        OtoReact does not yet do dependency analysis. Depending on the size and complexity of your application, it may be desirable or required to insert hints (attributes <code>reacton</code> and <code>hash</code>) that indicate which RHTML parts should react on which state variables.
+        OtoReact does not yet do dependency analysis. Depending on the size and complexity of your application, it may be desirable or required to insert hints (attributes <code>reacton</code> and <code>hash</code>) that tell OtoReact which RHTML parts should react on which state variables.
     </li>
     <li>
         The HTML parser does not allow OtoReacts control structures inside <elm>table</elm>, <elm>select</elm>, and <elm>datalist</elm> (see <a href="docu#Limitations">Parser limitations</a>), so one has to use alternative element names <elm>table.</elm>, <elm>select.</elm>, etc. instead.

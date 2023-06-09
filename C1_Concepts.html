@@ -36,7 +36,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     <li>
         Literal (normal) braces can be shown by preceeding them with a backslash: <idemo src="\\{ 1 + 1 }"></idemo>
         <p>
-            In all other cases, backslashes stand for themselves: <idemo src="\ \n \\ \\\{"></idemo>
+            In all other cases, backslashes stand for themselves: <idemo src="\ \n \\ \\\{ 1 + 1 \}"></idemo>
         </p>
     </li>
     <li>
@@ -95,6 +95,9 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     </li>
     <li>
         <a href="#ATTRIBUTE"><elm>ATTRIBUTE</elm></a> adds a variably named attribute to its parent HTML element.
+    </li>
+    <li>
+        <a href="#COMMENT"><elm>COMMENT</elm></a> inserts a comment containing variable text.
     </li>
 </ul>
 Note: We write construct names in uppercase and attribute names in lowercase here, but as in HTML, both are case independent.
@@ -323,7 +326,7 @@ Internal or external <elm>STYLE</elm> style sheets can be included anywhere and 
     <ul>
         <li>Define a style based on variable data and use this style on multiple places in one or more stylesheets,</li>
         <li>Use a FOR loop to define styles for all columns in a table, based on column specs fetched from a database,</li>
-        <li>Create style sheets that react on events.</li>
+        <li>Create style sheets that react on state changes.</li>
     </ul>
 </p>
 <p>
@@ -357,7 +360,7 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
         <br>It will do so again anytime the DOM tree changes.
     </li>
     <li>
-        Whenever some RVAR is marked dirty, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all reacting DOM tree parts to get updated by their registered builder routine in its registered environment.
+        Whenever some RVAR is being marked dirty by a user event or otherwise, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all reacting DOM tree parts to be updated by their registered builder routine in its registered environment.
         <br>The updating takes place at the next 'event cycle'.
         <br>While updating, all present HTML elements will remain in place as much as possible, so that any elements that had received focus or input data will keep that.
     </li>
@@ -437,7 +440,7 @@ Using the browser HTML parser inflicts on us some limitations, as the parser isn
     When you get weird errors, you may have forgotten to add dots where needed.
     <br>Otherwise, you may want to check how the browser has parsed your document:
     <ol>
-        <li>Outcomment or remove your compiler invocation: <code>// RCompile(&hellip;)</code></li>
+        <li>Outcomment or remove your compiler invocation, like <code>_RHTML</code> or <code>// RCompile(&hellip;)</code></li>
         <li>Reload your application</li>
         <li>Inspect the parsed DOM-tree using your browsers development tools. Either:
             <ul>

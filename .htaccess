@@ -23,7 +23,7 @@ DirectoryIndex index.shtml index.html
     ####
     # Redirect any non existing directory request (without a dot) to /index.html
     ####
-    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule "(^|/)([^/.]*)$" index.shtml    [L]
 
     ####
