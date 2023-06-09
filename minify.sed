@@ -44,7 +44,7 @@ s/(\.done;\))|[,;]+([]})])/\1\2/g
 # Check next line
 N
 # If it starts with one of these chars, then merge
-/\n\s*[\}\?:]/{ s/\n\s*// ; b start }
+/\n\s*[\}\?:&|]/{ s/\n\s*// ; b start }
 
 # If it starts with ( or [, then merge and (re-)insert semicolon, to prevent unintentional function calls
 /\n\s*([[(])/{ s/\n\s*/;/ ; b start }

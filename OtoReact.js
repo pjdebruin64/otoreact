@@ -1262,10 +1262,10 @@ class RComp {
         };
     }
     CFor(srcE, atts) {
-        let letNm = atts.g('let'), ixNm = atts.g('index', U, U, T);
+        let letNm = atts.g('let'), ixNm = atts.g('index', F, F, T);
         this.rt = F;
         if (letNm != N) {
-            let dOf = this.CAttExp(atts, 'of', T), pvNm = atts.g('previous', U, U, T), nxNm = atts.g('next', U, U, T), dUpd = this.CAttExp(atts, 'updates'), bRe = atts.gB('reacting') || atts.gB('reactive') || dUpd;
+            let dOf = this.CAttExp(atts, 'of', T), pvNm = atts.g('previous', F, F, T), nxNm = atts.g('next', F, F, T), dUpd = this.CAttExp(atts, 'updates'), bRe = atts.gB('reacting') || atts.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
                 let vLet = this.LVar(letNm), vIx = this.LVar(ixNm), vPv = this.LVar(pvNm), vNx = this.LVar(nxNm), dKey = this.CAttExp(atts, 'key'), dHash = this.CAttExpList(atts, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar, bR) {

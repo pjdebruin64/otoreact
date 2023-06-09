@@ -202,7 +202,8 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 
 
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
-    // The range itself remains a child of its parent.
+    // The range itself remains a child of its parent range.
+    // The parent node must be specified, or a falsy value when nodes need not be removed.
     erase(par: false | Node) {
         let {node, ch} = this;
         if (node && par) {
@@ -2287,14 +2288,14 @@ class RComp {
         }
 
         let letNm = atts.g('let')
-            , ixNm = atts.g('index',U,U,T);
+            , ixNm = atts.g('index',F,F,T);
         this.rt = F;
 
         if (letNm != N) { /* A regular iteration */
             let dOf =
                 this.CAttExp<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', T)
-                , pvNm = atts.g('previous',U,U,T)
-                , nxNm = atts.g('next',U,U,T)
+                , pvNm = atts.g('previous',F,F,T)
+                , nxNm = atts.g('next',F,F,T)
                 , dUpd = this.CAttExp<RVAR>(atts, 'updates')
                 , bRe: booly = atts.gB('reacting') || atts.gB('reactive') || dUpd;
 
@@ -2508,7 +2509,7 @@ class RComp {
         }
         else { 
             /* Iterate over multiple slot instances */
-            let nm = atts.g('of', T, T).toUpperCase()
+            let nm = atts.g('of',T,T).toUpperCase()
                 , {S,dC} = this.CT.getCS(nm) ||
                     // Slot doesn't exist; it's probably a missing 'let'
                     thro(`Missing attribute [let]`);

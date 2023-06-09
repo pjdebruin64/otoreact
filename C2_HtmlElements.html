@@ -119,7 +119,7 @@ RHTML recognizes the following global attributes on every element and construct.
     </dd>
     <dt><code class=sourcecode>thisreactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-        This tells OtoReact that <i>only the attributes</i> of the current node itself should react on the listed RVAR's. Not its contents, unless specified otherwise.
+        This tells OtoReact that <i>only the current node itself</i> should react on the listed RVAR's. Not its contents, unless specified otherwise.
     </dd>
     <dt><code class=sourcecode>#if="<i>condition</i>"</code></dt>
     <dd>
@@ -129,13 +129,13 @@ RHTML recognizes the following global attributes on every element and construct.
     <dt><code class=sourcecode>hash="<i>hashExpressionList</i>"</code></dt>
     <dd>
         This attribute exists in order to speed up processing. <br>
-        Whenever the element or construct is to be updated, all expressions in the list are evaluated, and when they all have the same value as before, the update will not take place.
-        <p>
-            Note: With the <elm>FOR</elm> construct, the <code>hash</code> attribute applies to individual repetitions of the <elm>FOR</elm> body part, not to the whole construct.
-        </p>
-        <p>
-            Note 2: <code>reacton</code>, <code>thisreactson</code>, and <code>#if</code> have priority over <code>hash</code>.
-        </p>
+        Whenever the element or construct is to be updated, all expressions in <i>hashExpressionList</i> are evaluated, and when they all have the same value as before, the update will not take place.
+        <ul>
+            <li><i>hashExpressionList</i> may be empty. In that case "all expressions" have always the same value as before, so an update will never take place.</li>
+            <li>
+                With the <elm>FOR</elm> construct, the <code>hash</code> attribute applies to individual repetitions of the <elm>FOR</elm> body part, not to the whole construct.
+            </li>
+        </ul>
     </dd>
     <dt><code class=sourcecode>renew</code></dt>
     <dd>
@@ -145,13 +145,21 @@ RHTML recognizes the following global attributes on every element and construct.
 
 When you want to apply these attributes to a <i>range</i> of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
 <p>
-    When multiple global attributes are applied to the same node, then these are handled in order of appearance: global attributes appearing on the right are treated as "inner to" global attributes appearing on the left.
+    When multiple global attributes are applied to the same node, then these are handled in order of appearance: global attributes appearing on the LEFT are treated as "inner to" global attributes appearing on the RIGHT.
     <br>For example:
     <ul>
-        <li>In <elm>elm reacton="<i>rvar</i>" #if="<i>condition</i>"</elm>, <i>condition</i> will be reevaluated every time <i>rvar</i> is set dirty</li>
-        <li>In <elm>elm #if="<i>condition</i>" reacton="<i>rvar</i>"</elm>, <i>condition</i> is not necessarily reevaluated when <i>rvar</i> is set dirty</li>
-        <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed</li>
-        <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty, but <i>hash</i> has not changed</li>
+        <li>
+            In <elm>elm #if="<i>condition</i>" reacton="<i>rvar</i>"</elm>, <i>condition</i> will be reevaluated every time <i>rvar</i> is set dirty.
+            <br>It is equivalent to:
+            <pre>
+<{}react reacton="<i>rvar</i>">
+    <{}elm #if="<i>condition</i>"> ... <{}/elm>
+<{}/react>
+</pre>
+        </li>
+        <li>In <elm>elm reacton="<i>rvar</i>" #if="<i>condition</i>"</elm>, <i>condition</i> is not necessarily reevaluated when <i>rvar</i> is set dirty;</li>
+        <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed;</li>
+        <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty but <i>hash</i> has not changed.</li>
     </ul>
 </p>
 
