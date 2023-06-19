@@ -1116,10 +1116,9 @@ class RComp {
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar) => {
             let { r, sub } = PrepRng(ar, srcE);
-            sub.parN = r.node || (r.node = D.createElement(srcE.tagName));
-            r.parN = F;
+            sub.parN = r.val || (r.val = D.createElement(srcE.tagName));
             await b(sub);
-            return r.node;
+            return r.val;
         });
     }
     async CScript(srcE, atts) {

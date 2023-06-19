@@ -2029,13 +2029,11 @@ class RComp {
         // When 'atts' is provided, then a 'src' attribute is accepted.
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar:Area) => {
-            let {r, sub} = PrepRng<never, HTMLElement>(ar, srcE);
-            sub.parN = r.node ||= D.createElement(srcE.tagName);
+            let {r, sub} = PrepRng<HTMLElement, never>(ar, srcE);
+            sub.parN = r.val ||= D.createElement(srcE.tagName);
 
-            // When erasing, don't try to remove r.node from r.parN 
-            r.parN = F;
             await b(sub);
-            return r.node;
+            return r.val;
         });
     }
 
