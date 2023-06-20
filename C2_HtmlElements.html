@@ -12,7 +12,7 @@
     Attributes starting withan underscore <code>_</code> are ignored. You can use this to insert comments within HTML tags, or to outcomment any attribute.
 </p>
 <p>
-    Trailing dots are removed, so you can use <code>error.="..."</code> to set an HTML <code>onerror</code> handler, whereas <code>onerror="..."</code> would set the <a href="#onerror">RHTML</a> onerror handler.
+    Trailing dots are removed, so you can use <code>onerror.="..."</code> to set an HTML <code>onerror</code> handler, whereas <code>onerror="..."</code> would set the <a href="#onerror">RHTML</a> onerror handler.
 </p>
 
 
@@ -36,16 +36,17 @@
     * OtoReact will discover the proper casing of <i>propertyName</i> the first time it is being set.
 </p>
 <p>
-    * There are two special cases:
+    * There are some special cases:
 </p>
 <ul>
     <li>
-        HTML attribute <code>class</code> corresponds not to DOM property <code>class</code> (because that's a reserved word in JavaScript), but rather to property <code>className</code>.
-        <br>RHTML however allows you to simply set <code>#class</code>, which translates to <code>#classname</code>.
+        Both <code>#class</code> and <code>#classname</code> accept arrays and objects as values, to specify multiple and conditional classnames; see <a href="#classnames">Class names</a>.
     </li>
     <li>
         DOM property <code>valueAsNumber</code> returns the numeric value of an <elm>input type=number</elm> element, but <a href="{MDN}Web/API/HTMLInputElement">cannot be set</a> in some browsers, which would make it unusable for two-way binding.
         <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code> for this element, so one can use two-way binding on this property.
+    </li>
+    <li>HTML attribute <code>for</code> corresponds to DOM property <code>htmlFor</code>; RHTML recognizes both <code>#for</code> and <code>HTMLFor</code>
     </li>
 </ul>
 Notes:
@@ -251,7 +252,7 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
     If you want to handle the <i>DOM</i> event <code>onerror</code> of e.g. an <elm>img</elm> or <elm>audio</elm> element, then you must add a dot: <elm>img src="&hellip;" onerror.="&hellip;"</elm>
 </p>
 
-<h2>Class names</h2>
+<h2 id="classnames">Class names</h2>
 <p>
     "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <code>class</code> attribute or the <a href="{MDN}Web/API/Element/className"><code>#className</code> DOM property</a>.
 </p>
