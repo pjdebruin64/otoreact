@@ -23,12 +23,14 @@ class Range {
     }
     toString() { return this.text || this.node?.nodeName; }
     get Fst() {
-        let { node: f, ch: c } = this;
-        while (!f && c) {
-            f = c.Fst;
-            c = c.nx;
+        if (this.parN == N) {
+            let { node: cn, ch } = this;
+            while (!cn && ch) {
+                cn = ch.Fst;
+                ch = ch.nx;
+            }
+            return cn;
         }
-        return f;
     }
     get Nxt() {
         let r = this, n, p;
@@ -61,12 +63,10 @@ class Range {
         }
         this.ch = N;
         while (ch) {
-            if (ch.bfD)
-                ch.bfD.call(ch.node || par);
+            ch.bfD?.call(ch.node || par);
             ch.rvars?.forEach(rv => rv._Subs.delete(ch.subs));
             ch.erase(ch.parN ?? par);
-            if (ch.afD)
-                ch.afD.call(ch.node || par);
+            ch.afD?.call(ch.node || par);
             ch = ch.nx;
         }
     }
@@ -275,7 +275,7 @@ export class _RVAR {
     }
     get Set() {
         return t => t instanceof Promise ?
-            ((this.V = U), t.then(v => this.V = v, oes.e))
+            t.then(v => this.V = v, oes.e)
             : (this.V = t);
     }
     get Clear() {
@@ -298,7 +298,7 @@ export class _RVAR {
         for (let subs of this._Subs)
             try {
                 let P = subs(this.V);
-                if (subs.ar)
+                if (subs.T)
                     await P;
             }
             catch (e) {
@@ -311,9 +311,9 @@ export class _RVAR {
     }
 }
 function Subs({ parN, parR }, b, r, bR = false) {
-    let ar = { parN, parR, r: r || T }, eon = { env, oes };
-    return ass(() => (({ env, oes } = eon),
-        b({ ...ar }, bR)), { ar });
+    let eon = { env, oes, pn };
+    return ass(() => (({ env, oes, pn } = eon),
+        b({ parN, parR, r: r || T }, bR)), { T });
 }
 let env, pn, oes = { e: N, s: N }, Jobs = new Set(), hUpdate, ro = F, upd = 0, nodeCnt = 0, start, NoTime = (prom) => {
     let t = now();
@@ -371,108 +371,102 @@ function RVAR_Light(t, updTo) {
     }
     return t;
 }
-function ApplyMods(r, mods, cr) {
-    let e = r.node;
+function ApplyMods(r, cr, mods, xs) {
     ro = T;
     try {
-        for (let M of mods)
-            ApplyMod(M, M.depV());
+        let e = r.node, i = 0;
+        for (let M of mods) {
+            let nm = M.nm, x = xs ? xs[i++] : M.dV();
+            switch (M.mt) {
+                case 0:
+                    e.setAttribute(nm, x);
+                    break;
+                case 1:
+                    cr && e.setAttribute(nm, x);
+                    break;
+                case 2:
+                    if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'valueasnumber' && e.type == 'number'
+                        ? 'value' : nm)] == 'string'))
+                        x = x == N ? Q : x.toString();
+                    if (x !== e[nm = M.c])
+                        e[nm] = x;
+                    break;
+                case 8:
+                    let rv = r.val || (r.val = NO()), H = rv[nm] || (rv[nm] = new Hndlr());
+                    if (cr) {
+                        H.oes = oes;
+                        e.addEventListener(nm, H.hndl.bind(H));
+                    }
+                    H.h = x;
+                    break;
+                case 3:
+                    e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : N;
+                    break;
+                case 5:
+                    if (x)
+                        if (typeof x == 'string')
+                            e.setAttribute(nm, x);
+                        else
+                            ass(e.style, x);
+                    break;
+                case 7:
+                    e.setAttribute('src', new URL(x, nm).href);
+                    break;
+                case 6:
+                    ass(e, x);
+                    break;
+                case 4:
+                    let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
+                    (function CN(v) {
+                        if (v)
+                            switch (typeof v) {
+                                case 'string':
+                                    if (/\s/.test(v))
+                                        CN(v.split(/\s/));
+                                    else {
+                                        p?.delete(v)
+                                            || e.classList.add(v);
+                                        n.add(v);
+                                    }
+                                    break;
+                                case 'object':
+                                    if (Array.isArray(v))
+                                        v.forEach(CN);
+                                    else
+                                        for (let [nm, b] of Object.entries(v))
+                                            b && CN(nm);
+                                    break;
+                                default: throw `Invalid value`;
+                            }
+                    })(x);
+                    for (let v of p || E)
+                        e.classList.remove(v);
+                    break;
+                case 9:
+                    if (x)
+                        ApplyMods(r, cr, ...x);
+                    break;
+                case 10:
+                    cr && x.call(e);
+                    break;
+                case 11:
+                    !cr && x.call(e);
+                    break;
+                case 12:
+                    if (cr
+                        && !(r.val?.click?.h)
+                        && !e.download
+                        && !e.target
+                        && e.href.startsWith(L.origin + DL.basepath))
+                        e.addEventListener('click', reroute);
+                    break;
+                case 13:
+                    e.style.cursor = r.val.click.h && !e.disabled ? 'pointer' : N;
+            }
+        }
     }
     finally {
         ro = F;
-    }
-    function ApplyMod(M, x) {
-        let { nm } = M;
-        switch (M.mt) {
-            case 0:
-                if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'valueasnumber' && e.type == 'number'
-                    ? 'value' : nm)] == 'string'))
-                    if (x == N)
-                        x = Q;
-                    else
-                        x = x.toString();
-                if (x !== e[nm = M.c])
-                    e[nm] = x;
-                break;
-            case 1:
-                e.setAttribute(nm, x);
-                break;
-            case 2:
-                cr && e.setAttribute(nm, x);
-                break;
-            case 9:
-                let rv = r.val || (r.val = NO()), H = rv[nm] || (rv[nm] = new Hndlr()), c = nm == 'click';
-                if (cr) {
-                    H.oes = oes;
-                    e.addEventListener(nm, H.hndl.bind(H));
-                }
-                H.h = x;
-                if (c && R.setts.bAutoPointer)
-                    e.style.cursor = x && !e.disabled ? 'pointer' : N;
-                break;
-            case 12:
-                if (cr
-                    && !(r.val?.click?.h)
-                    && !e.download
-                    && !e.target
-                    && e.href.startsWith(L.origin + DL.basepath))
-                    e.addEventListener('click', reroute);
-                break;
-            case 3:
-                e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : N;
-                break;
-            case 5:
-                if (x)
-                    if (typeof x == 'string')
-                        e.setAttribute(nm, x);
-                    else
-                        for (let [nm, s] of Object.entries(x))
-                            e.style[nm] = s || s === 0 ? s : N;
-                break;
-            case 4:
-                let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
-                (function CN(v) {
-                    if (v)
-                        switch (typeof v) {
-                            case 'string':
-                                if (/\s/.test(v))
-                                    CN(v.split(/\s/));
-                                else {
-                                    p?.delete(v) || e.classList.add(v);
-                                    n.add(v);
-                                }
-                                break;
-                            case 'object':
-                                if (Array.isArray(v))
-                                    v.forEach(CN);
-                                else
-                                    for (let [nm, b] of Object.entries(v))
-                                        b && CN(nm);
-                                break;
-                            default: throw `Invalid value`;
-                        }
-                })(x);
-                for (let v of p || E)
-                    e.classList.remove(v);
-                break;
-            case 8:
-                if (x)
-                    for (let { M, v } of x)
-                        ApplyMod(M, v);
-                break;
-            case 10:
-                cr && x.call(e);
-                break;
-            case 11:
-                !cr && x.call(e);
-                break;
-            case 7:
-                e.setAttribute('src', new URL(x, nm).href);
-                break;
-            case 6:
-                ass(e, x);
-                break;
-        }
     }
 }
 class Hndlr {
@@ -938,10 +932,10 @@ class RComp {
                             let b = await this.CUncN(srcE, atts), PrepS = this.InHead(async (ar) => PrepElm(ar, 'STYLE'));
                             bl = b && async function RSTYLE(ar) {
                                 let txt = (await b(ar)).innerText, { r, cr } = await PrepS(ar);
-                                ApplyMods(r, bf, cr);
+                                ApplyMods(r, cr, bf);
                                 if (txt != r.res)
                                     r.node.innerHTML = AddClass(r.res = txt, sc && (oNm.nm = r.res || (r.res = `\uFFFE${iStyle++}`)));
-                                ApplyMods(r, af, cr);
+                                ApplyMods(r, cr, af);
                                 pn = ar.parN;
                             };
                         }
@@ -958,11 +952,11 @@ class RComp {
                         NoChilds(srcE);
                         let dNm = this.CParam(atts, 'name', T), dVal = this.CParam(atts, 'value', T);
                         bl = async function ATTRIB(ar) {
-                            let r = PrepRng(ar, srcE).r, nm = dNm(), p = ar.parN;
-                            if (r.val && nm != r.val)
-                                p.removeAttribute(r.val);
-                            if (r.val = nm)
-                                p.setAttribute(nm, dVal());
+                            let r = PrepRng(ar, srcE).r, n0 = r.val, nm = r.val = dNm();
+                            if (n0 && nm != n0)
+                                pn.removeAttribute(n0);
+                            if (nm)
+                                pn.setAttribute(nm, dVal());
                         };
                         break;
                     case 'COMMENT':
@@ -1118,10 +1112,10 @@ class RComp {
     async CUncN(srcE, atts) {
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar) => {
-            let { r, sub } = PrepRng(ar, srcE);
-            sub.parN = r.val || (r.val = D.createElement(srcE.tagName));
+            let { r, sub } = PrepRng(ar, srcE), e = sub.parN = r.val || (r.val = D.createElement(srcE.tagName));
+            r.parN = F;
             await b(sub);
-            return r.val;
+            return e;
         });
     }
     async CScript(srcE, atts) {
@@ -1208,7 +1202,7 @@ class RComp {
                     case 'ELSE':
                         caseList.push({
                             cond, not, patt,
-                            b: this.ErrH(await this.CChilds(node, body) || dB, node),
+                            b: await this.CChilds(node, body) || dB,
                             node
                         });
                         atts.NoneLeft();
@@ -1510,9 +1504,10 @@ class RComp {
             SBldrs.get(CSlot.nm).push(await this.CTempl(CSlot, srcE, T, atts));
         if (RP) {
             let { bf, af } = this.CAtts(atts);
+            bf.concat(af);
             gArgs.push({
                 nm: RP,
-                dG: () => bf.concat(af).map(M => ({ M, v: M.depV() }))
+                dG: () => [bf, bf.map(M => M.dV())]
             });
         }
         atts.NoneLeft();
@@ -1557,38 +1552,39 @@ class RComp {
         let { bf, af } = this.CAtts(atts), b = await this.CChilds(srcE), { lscl } = this;
         if (postWs)
             this.ws = postWs;
-        if (bUH)
-            af.push({ mt: 0, nm: 'hidden', depV: dU });
         if (nm == 'A' && this.setts.bAutoReroute)
             af.push({
                 mt: 12,
-                depV: dU
+                dV: dU
             });
+        if (bUH)
+            af.push({ mt: 2, nm: 'hidden', dV: dU });
         bf.length || (bf = U);
         af.length || (af = U);
         return async function ELM(ar, bR) {
             let { r, sub, cr } = PrepElm(ar, nm || dTag());
-            bf && ApplyMods(r, bf, cr);
+            bf && ApplyMods(r, cr, bf);
             if (cr)
                 for (let { nm } of lscl)
                     r.node.classList.add(nm);
             if (cr || !bR)
                 await b?.(sub);
-            af && ApplyMods(r, af, cr);
+            af && ApplyMods(r, cr, af);
             pn = ar.parN;
         };
     }
     CAtts(atts) {
-        let bf = [], af = [], m;
-        function addM(mt, nm, depV) {
-            (mt < 9 ? bf : af)
-                .push({ mt, nm, depV });
-        }
+        let bf = [], af = [], m, addM = (mt, nm, dV) => {
+            (mt < 9 && nm != 'value' ? bf : af)
+                .push({ mt, nm, dV });
+            if (mt == 8 && nm == 'click' && this.setts.bAutoPointer)
+                af.push({ mt: 13, nm, dV: dU });
+        };
         for (let [nm, V] of atts)
             if (m = /(.*?)\.+$/.exec(nm))
-                addM(1, m[1], this.CText(V, nm));
+                addM(0, m[1], this.CText(V, nm));
             else if (m = /^on(.*?)\.*$/i.exec(nm))
-                addM(9, m[1], this.CHandlr(nm, V));
+                addM(8, m[1], this.CHandlr(nm, V));
             else if (m = /^[#+]class(|name|[:.](.*))$/.exec(nm)) {
                 let b = this.CExpr(V, nm);
                 addM(4, U, (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b);
@@ -1601,7 +1597,7 @@ class RComp {
                 let p = m[1], nm = m[2] == 'for' ? 'htmlFor' : m[2], dSet;
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr(V, nm);
-                    addM((m = /^on(.*)/.exec(nm)) ? 9 : 0, m ? m[1] : nm, dV);
+                    addM((m = /^on(.*)/.exec(nm)) ? 8 : 2, m ? m[1] : nm, dV);
                 }
                 if (p != '#') {
                     let dS = this.CTarget(V), cnm;
@@ -1619,20 +1615,20 @@ class RComp {
                     if (/\+/.test(p))
                         addM(11, nm, dSet);
                     if (/[@!]/.test(p))
-                        addM(9, /!!|@@/.test(p) ? 'change' : 'input', dSet);
+                        addM(8, /!!|@@/.test(p) ? 'change' : 'input', dSet);
                 }
             }
             else if (m = /^\.\.\.(.*)/.exec(nm))
                 V ? thro('A rest parameter cannot have a value')
-                    : addM(8, nm, this.CT.getLV(m[1]));
+                    : addM(9, nm, this.CT.getLV(m[1]));
             else {
                 let dV = this.CText(V, nm);
                 if (nm == 'src')
                     addM(7, this.FilePath, dV);
                 else
-                    addM(dV.fx != N ? 2
-                        : nm == 'class' ? 4
-                            : 1, nm, dV);
+                    addM(nm == 'class' ? 4
+                        : dV.fx != N ? 1
+                            : 0, nm, dV);
             }
         atts.clear();
         return { bf, af };

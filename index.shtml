@@ -90,7 +90,8 @@
     <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
     
 </head>
-<body onclick="popup.V=null" style.cursor=default hidden
+<body onclick="popup.V=null" style.cursor=default 
+    hidden
     rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']]">
 
     <import src="Lib_Components.html">

@@ -20,45 +20,12 @@ declare type Settings = Partial<{
 declare type hHTMLElement = HTMLElement & {
     b?: booly;
 };
-declare type Area<VT = unknown> = {
-    r?: Range<ChildNode, VT> | true;
-    parN: ParentNode;
-    bfor?: ChildNode;
-    srcN?: HTMLElement;
-    parR?: Range;
-    prvR?: Range;
-};
-declare class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
-    text?: string;
-    node: NodeType;
-    ch: Range;
-    nx: Range;
-    parR?: Range;
-    parN?: false | Node;
-    constructor(ar: Area, node?: NodeType, text?: string);
-    toString(): string;
-    get Fst(): ChildNode;
-    get Nxt(): ChildNode;
-    get FstOrNxt(): ChildNode;
-    Nodes(): Generator<ChildNode>;
-    res?: any;
-    val?: VT;
-    errN?: ChildNode;
-    bfD?: Handler;
-    afD?: Handler;
-    upd?: number;
-    subs?: Subscriber;
-    rvars?: RVAR[];
-    erase(par: false | Node): void;
-}
 export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
-    ar?: never;
+    T?: never;
 }) | (((t: T) => Promise<unknown>) & {
-    ar: Area;
+    T: true;
 });
-declare type ParentNode = HTMLElement | DocumentFragment;
-declare type Handler = (ev: Event) => any;
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
