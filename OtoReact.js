@@ -374,95 +374,91 @@ function RVAR_Light(t, updTo) {
 function ApplyMods(r, cr, mods, xs) {
     ro = T;
     try {
-        let e = r.node, i = 0;
+        let e = r.node, i = 0, cu = cr ? 1 : 2;
         for (let M of mods) {
-            let nm = M.nm, x = xs ? xs[i++] : M.dV();
-            switch (M.mt) {
-                case 0:
-                    e.setAttribute(nm, x);
-                    break;
-                case 1:
-                    cr && e.setAttribute(nm, x);
-                    break;
-                case 2:
-                    if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'valueasnumber' && e.type == 'number'
-                        ? 'value' : nm)] == 'string'))
-                        x = x == N ? Q : x.toString();
-                    if (x !== e[nm = M.c])
-                        e[nm] = x;
-                    break;
-                case 8:
-                    let rv = r.val || (r.val = NO()), H = rv[nm] || (rv[nm] = new Hndlr());
-                    if (cr) {
-                        H.oes = oes;
-                        e.addEventListener(nm, H.hndl.bind(H));
-                    }
-                    H.h = x;
-                    break;
-                case 3:
-                    e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : N;
-                    break;
-                case 5:
-                    if (x)
-                        if (typeof x == 'string')
-                            e.setAttribute(nm, x);
-                        else
-                            ass(e.style, x);
-                    break;
-                case 7:
-                    e.setAttribute('src', new URL(x, nm).href);
-                    break;
-                case 6:
-                    ass(e, x);
-                    break;
-                case 4:
-                    let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
-                    (function CN(v) {
-                        if (v)
-                            switch (typeof v) {
-                                case 'string':
-                                    if (/\s/.test(v))
-                                        CN(v.split(/\s/));
-                                    else {
-                                        p?.delete(v)
-                                            || e.classList.add(v);
-                                        n.add(v);
-                                    }
-                                    break;
-                                case 'object':
-                                    if (Array.isArray(v))
-                                        v.forEach(CN);
-                                    else
-                                        for (let [nm, b] of Object.entries(v))
-                                            b && CN(nm);
-                                    break;
-                                default: throw `Invalid value`;
-                            }
-                    })(x);
-                    for (let v of p || E)
-                        e.classList.remove(v);
-                    break;
-                case 9:
-                    if (x)
-                        ApplyMods(r, cr, ...x);
-                    break;
-                case 10:
-                    cr && x.call(e);
-                    break;
-                case 11:
-                    !cr && x.call(e);
-                    break;
-                case 12:
-                    if (cr
-                        && !(r.val?.click?.h)
-                        && !e.download
-                        && !e.target
-                        && e.href.startsWith(L.origin + DL.basepath))
-                        e.addEventListener('click', reroute);
-                    break;
-                case 13:
-                    e.style.cursor = r.val.click.h && !e.disabled ? 'pointer' : N;
+            if (M.cu & cu) {
+                let nm = M.nm, x = xs ? xs[i] : M.dV();
+                switch (M.mt) {
+                    case 0:
+                        e.setAttribute(nm, x);
+                        break;
+                    case 1:
+                        if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'valueasnumber' && e.type == 'number'
+                            ? 'value' : nm)] == 'string'))
+                            x = x == N ? Q : x.toString();
+                        if (x !== e[nm = M.c])
+                            e[nm] = x;
+                        break;
+                    case 7:
+                        let rv = r.val || (r.val = NO()), H = rv[nm] || (rv[nm] = new Hndlr());
+                        if (cr) {
+                            H.oes = oes;
+                            e.addEventListener(nm, H.hndl.bind(H));
+                        }
+                        H.h = x;
+                        break;
+                    case 2:
+                        e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
+                        break;
+                    case 4:
+                        if (x)
+                            if (typeof x == 'string')
+                                e.setAttribute(nm, x);
+                            else
+                                ass(e.style, x);
+                        break;
+                    case 6:
+                        e.setAttribute('src', new URL(x, nm).href);
+                        break;
+                    case 5:
+                        ass(e, x);
+                        break;
+                    case 3:
+                        let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
+                        (function CN(v) {
+                            if (v)
+                                switch (typeof v) {
+                                    case 'string':
+                                        if (/\s/.test(v))
+                                            CN(v.split(/\s/));
+                                        else {
+                                            p?.delete(v)
+                                                || e.classList.add(v);
+                                            n.add(v);
+                                        }
+                                        break;
+                                    case 'object':
+                                        if (Array.isArray(v))
+                                            v.forEach(CN);
+                                        else
+                                            for (let [nm, b] of Object.entries(v))
+                                                b && CN(nm);
+                                        break;
+                                    default: throw `Invalid value`;
+                                }
+                        })(x);
+                        for (let v of p || E)
+                            e.classList.remove(v);
+                        break;
+                    case 8:
+                        if (x)
+                            ApplyMods(r, cr, ...x);
+                        break;
+                    case 9:
+                        x.call(e);
+                        break;
+                    case 10:
+                        if (!(r.val?.click?.h)
+                            && !e.download
+                            && !e.target
+                            && e.href.startsWith(L.origin + DL.basepath))
+                            e.addEventListener('click', reroute);
+                        break;
+                    case 11:
+                        e.style.cursor = r.val.click.h && !e.disabled ? 'pointer' : N;
+                }
             }
+            i++;
         }
     }
     finally {
@@ -1114,6 +1110,7 @@ class RComp {
         return b && (async (ar) => {
             let { r, sub } = PrepRng(ar, srcE), e = sub.parN = r.val || (r.val = D.createElement(srcE.tagName));
             r.parN = F;
+            sub.bfor = N;
             await b(sub);
             return e;
         });
@@ -1554,11 +1551,12 @@ class RComp {
             this.ws = postWs;
         if (nm == 'A' && this.setts.bAutoReroute)
             af.push({
-                mt: 12,
-                dV: dU
+                mt: 10,
+                dV: dU,
+                cu: 1
             });
         if (bUH)
-            af.push({ mt: 2, nm: 'hidden', dV: dU });
+            af.push({ mt: 1, nm: 'hidden', dV: dU, cu: 1 });
         bf.length || (bf = U);
         af.length || (af = U);
         return async function ELM(ar, bR) {
@@ -1574,33 +1572,33 @@ class RComp {
         };
     }
     CAtts(atts) {
-        let bf = [], af = [], m, addM = (mt, nm, dV) => {
-            (mt < 9 && nm != 'value' ? bf : af)
-                .push({ mt, nm, dV });
-            if (mt == 8 && nm == 'click' && this.setts.bAutoPointer)
-                af.push({ mt: 13, nm, dV: dU });
+        let bf = [], af = [], m, addM = (mt, nm, dV, cu) => {
+            (mt < 8 && nm != 'value' ? bf : af)
+                .push({ mt, nm, dV, cu: cu ?? dV.fx == N ? 3 : 1 });
+            if (mt == 7 && nm == 'click' && this.setts.bAutoPointer)
+                af.push({ mt: 11, nm, dV: dU, cu: 3 });
         };
         for (let [nm, V] of atts)
             if (m = /(.*?)\.+$/.exec(nm))
                 addM(0, m[1], this.CText(V, nm));
-            else if (m = /^on(.*?)\.*$/i.exec(nm))
-                addM(8, m[1], this.CHandlr(nm, V));
-            else if (m = /^[#+]class(|name|[:.](.*))$/.exec(nm)) {
+            else if (m = /^on(.*)/i.exec(nm))
+                addM(7, m[1], this.CHandlr(nm, V));
+            else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {
                 let b = this.CExpr(V, nm);
-                addM(4, U, (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b);
+                addM(3, U, (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b);
             }
-            else if (m = /^(#)?style\.(.*)$/.exec(nm))
-                addM(3, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
+            else if (m = /^(#)?style[.:](.*)/.exec(nm))
+                addM(2, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
             else if (m = /^[#+](style)?$/.exec(nm))
-                addM(m[1] ? 5 : 6, nm, this.CExpr(V, nm));
-            else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) {
+                addM(m[1] ? 4 : 5, nm, this.CExpr(V, nm));
+            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(nm)) {
                 let p = m[1], nm = m[2] == 'for' ? 'htmlFor' : m[2], dSet;
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr(V, nm);
-                    addM((m = /^on(.*)/.exec(nm)) ? 8 : 2, m ? m[1] : nm, dV);
+                    addM((m = /^on(.*)/.exec(nm)) ? 7 : 1, m ? m[1] : nm, dV);
                 }
                 if (p != '#') {
-                    let dS = this.CTarget(V), cnm;
+                    let dS = this.CTarget(V), cnm, cu = /\*/.test(p) + /\+/.test(p) * 2;
                     dSet = () => {
                         let S = dS();
                         return nm ? function () {
@@ -1610,25 +1608,21 @@ class RComp {
                                 S(this);
                             };
                     };
-                    if (/\*/.test(p))
-                        addM(10, nm, dSet);
-                    if (/\+/.test(p))
-                        addM(11, nm, dSet);
+                    if (cu)
+                        addM(9, nm, dSet, cu);
                     if (/[@!]/.test(p))
-                        addM(8, /!!|@@/.test(p) ? 'change' : 'input', dSet);
+                        addM(7, /!!|@@/.test(p) ? 'change' : 'input', dSet);
                 }
             }
             else if (m = /^\.\.\.(.*)/.exec(nm))
                 V ? thro('A rest parameter cannot have a value')
-                    : addM(9, nm, this.CT.getLV(m[1]));
+                    : addM(8, nm, this.CT.getLV(m[1]));
             else {
                 let dV = this.CText(V, nm);
                 if (nm == 'src')
-                    addM(7, this.FilePath, dV);
+                    addM(6, this.FilePath, dV);
                 else
-                    addM(nm == 'class' ? 4
-                        : dV.fx != N ? 1
-                            : 0, nm, dV);
+                    addM(nm == 'class' ? 3 : 0, nm, dV);
             }
         atts.clear();
         return { bf, af };

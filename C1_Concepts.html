@@ -7,15 +7,16 @@
 </component>
 
 <h1>RHTML Concepts</h1>
-This chapter introduces a number of basic RHTML concepts, and gives full documentation of these features.
-<p>Sections marked with a '*' are advanced and should be skipped on first reading.
+This chapter introduces and documents a number of basic RHTML concepts.
+<p>Sections and paragraphs marked with a '*' are advanced and may be skipped on first reading.
 <p>Notation</p>
+<def var="idemo" value="This is <{}b>bold<{}/b>"></def>
 <blockquote>
-    <idemo src="This is <{}b>bold<{}/b>"></idemo>
+    <idemo #src="idemo"></idemo>
 </blockquote>
 means:
 <blockquote>
-    Source text "This is <{}b>bold<{}/b>" produces output "This is <b>bold</b>".
+    Source text "{idemo}" produces output "<rhtml #srctext="idemo"></rhtml>".
 </blockquote>
 
 
@@ -253,18 +254,18 @@ Global variables are visible in RHTML inline scripts, of course.
     <dd>
         The RVAR can be explicitly set dirty by calling <code>x.SetDirty()</code>.
     </dd>
-    <dt id=Subscribe><code class=sourcecode>x.Subscribe(subs, bImmediate?, bInit?)</code> *</dt>
+    <dt id=Subscribe><code class=sourcecode>x.Subscribe(<i>subs</i>, <i>bImmediate</i>?, <i>bInit</i>?)</code> *</dt>
     <dd>
-        Routine <code>subs</code>, when not null, is registered as a subscriber to <code>x</code>, so it will be called whenever <code>x</code> has been set dirty.
-        <br>When <code>bImmediate</code> is truthy, <code>subs</code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
-        <br>When <code>bInit</code> is truthy, then <code>subs</code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+        Routine <code><i>subs</i></code>, when not null, is registered as a subscriber to <code>x</code>, so <code><i>subs</i>(x.V)</code> will be executed whenever <code>x</code> has been set dirty.
+        <p>When <code><i>bImmediate</i></code> is truthy, <code><i>subs</i></code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
+        <p>When <code><i>bInit</i></code> is truthy, then <code><i>subs</i></code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
         <p>
             The return value is <code>x</code>, so calls to <code>Subscribe</code> can be chained.
         </p>
     </dd>
-    <dt><code class=sourcecode>x.UnSubscribe(subs)</code> *</dt>
+    <dt><code class=sourcecode>x.UnSubscribe(<i>subs</i>)</code> *</dt>
     <dd>
-        Unregisters a routine <code>subs</code> previously registered as a subscriber to <code>x</code>.
+        Unregisters a routine <code><i>subs</i></code> previously registered as a subscriber to <code>x</code>.
     </dd>
     <dt><code class=sourcecode>x.Set(value)</code> *</dt>
     <dd>

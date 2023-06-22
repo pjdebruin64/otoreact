@@ -828,11 +828,11 @@ type Modifier = {
     dV: Dep<unknown>,   // Routine to compute the value
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
+    cu: 0|1|2|3         // on create/update
 }
 // Modifier Types
 const enum MType {
     Attr          // Set/update an attribute
-    , SAttr         // Static attribute
     , Prop            // Set/update a property
     , Style         // Set/update a style property
     , ClassNames       // Set/update multiple class names
@@ -843,8 +843,7 @@ const enum MType {
     
     // The following modifier types are set áfter element contents has been created/updated.
     , RestParam  // Apply multiple modifiers
-    , oncreate      // Set an oncreate handler
-    , onupdate      // Set an onupdate handler
+    , exec      // Set an oncreate handler
     , AutoReroute
     , AutoPointer
 }
@@ -858,132 +857,131 @@ function ApplyMods(
     // Apply all modifiers: adding attributes, classes, styles, events
     ro= T;
     try {
-        let e = r.node, i = 0;
+        let e = r.node, i = 0, cu = cr ? 1 : 2;
         for (let M of mods) {
-            let nm = M.nm, x = xs ? xs[i++] : M.dV();
-            /* Apply modifier 'M' with actual value 'x' to element 'e'. */
-            switch (M.mt) {
-                case MType.Attr:
-                    e.setAttribute(nm, x as string); 
-                    break;
-                case MType.SAttr:
-                    // For static (class) attributes: set only at creation time
-                    cr && e.setAttribute(nm, x as string);
-                    break;
-                case MType.Prop:
-                    // For string properties, make sure val is a string
-                    if (M.isS ??= typeof e[
-                        // And (in any case) determine properly cased name
-                        M.c = ChkNm(e, 
-                            nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
-                            ? 'value' : nm)
-                    ]=='string')
-                        // replace null and undefined by the empty string
-                        x = x==N ? Q : x.toString();
-                    // Avoid unnecessary property assignments; they may have side effects
-                    if (x !== e[nm=M.c])
-                        e[nm] = x;
-                    break;
-                case MType.Event:
-                    let
-                        rv = r.val ||= NO()
-                        , H = (rv[nm] as Hndlr) ||= new Hndlr()
-                        ;
-                    // Set and remember new handler
-                    if (cr) {
-                        H.oes = oes;
-                        e.addEventListener(nm, H.hndl.bind(H));
-                    }
-
-                    H.h = x as Handler;
-                    break;
-
-                case MType.Style:
-                    // Set a specific style property.
-                    // ChkNm finds the proper capitalization, and this is remembered in M.c,
-                    // so that it needs to be done only once for each source line
-                    e.style[
-                        M.c ||= ChkNm(e.style, nm)
-                    ] = x || x === 0 ? x : N;
-                    break;
-                case MType.AddToStyle:
-                    // Set #style, which may either be a string value for be set as attribute,
-                    // or an object whose entries are to be set as style properties
-                    if (x)
-                        if (typeof x == 'string')
-                            e.setAttribute(nm, x);
-                        else
-                            ass(e.style, x);
-                            //for (let [nm,v] of Object.entries(x as Object))
-                            //    e.style[nm] = v || v === 0 ? v : N;
-                    break
-                case MType.Src:
-                    e.setAttribute('src',  new URL(x as string, nm).href);
-                    break;
-                case MType.AddToProps:
-                    ass(e, x);
-                    break;
-                case MType.ClassNames:
-                    // Set or update a collection of class names, without disturbing classnames added by other routines
-                    let 
-                        rw = r.val ||= NO(),        // Data store for this element
-                        p = rw[nm] as Set<string>,  // Previous set of classnames, possibly to be removed
-                        n = rw[nm] = new Set<string>(); // New set of classnames
-                    (function CN(v: any) {
-                        if (v)
-                            switch (typeof v) {
-                                case 'string':
-                                    if (/\s/.test(v))
-                                        // Whitespace: split into multiple names
-                                        CN(v.split(/\s/));
-                                    else {
-                                        // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
-                                        p?.delete(v)
-                                            //Otherwise add it to the element
-                                            || e.classList.add(v);
-                                        // And in both cases, add it to the new set
-                                        n.add(v);
-                                    }
-                                    break;
-                                case 'object':
-                                    if (Array.isArray(v)) 
-                                        v.forEach(CN);
-                                    else
-                                        for (let [nm, b] of Object.entries(v))
-                                            b && CN(nm);
-                                    break;
-                                default: throw `Invalid value`;
+            if (M.cu & cu)
+            {
+                let nm = M.nm, x = xs ? xs[i] : M.dV();
+                /* Apply modifier 'M' with actual value 'x' to element 'e'. */
+                switch (M.mt) {
+                    case MType.Attr:
+                        e.setAttribute(nm, x as string); 
+                        break;
+                    case MType.Prop:
+                        // For string properties, make sure val is a string
+                        if (M.isS ??= typeof e[
+                            // And (in any case) determine properly cased name
+                            M.c = ChkNm(e, 
+                                nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
+                                ? 'value' : nm)
+                        ]=='string')
+                            // replace null and undefined by the empty string
+                            x = x==N ? Q : x.toString();
+                        // Avoid unnecessary property assignments; they may have side effects
+                        if (x !== e[nm=M.c])
+                            e[nm] = x;
+                        break;
+                    case MType.Event:
+                        let
+                            rv = r.val ||= NO()
+                            , H = (rv[nm] as Hndlr) ||= new Hndlr()
+                            ;
+                        // Set and remember new handler
+                        if (cr) {
+                            H.oes = oes;
+                            e.addEventListener(nm, H.hndl.bind(H));
                         }
-                    })(x);
-                    for (let v of p||E)
-                        e.classList.remove(v);
-                    break;
-                case MType.RestParam:
-                    if (x) 
-                        ApplyMods(r, cr, ...(x as RestArg));
-                    break;
 
-                case MType.oncreate:
-                    cr && (x as Handler).call(e);
-                    break;
-                case MType.onupdate:
-                    !cr && (x as Handler).call(e);
-                    break;
-                case MType.AutoReroute:
-                    if (cr 
-                        // When the A-element has no 'onclick' handler or 'download' or 'target' attribute
-                        && !(r.val?.click?.h) 
-                        && !(e as HTMLAnchorElement).download
-                        && !(e as HTMLAnchorElement).target
-                        // and the (initial) href starts with the current basepath
-                        && (e as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
-                    )
-                        // Then we add the 'reroute' onclick-handler
-                        e.addEventListener('click', reroute);
-                    break;
-                case MType.AutoPointer:
-                    e.style.cursor = r.val.click.h && !(e as HTMLButtonElement).disabled ? 'pointer' : N;                    
+                        H.h = x as Handler;
+                        break;
+
+                    case MType.Style:
+                        // Set a specific style property.
+                        // ChkNm finds the proper capitalization, and this is remembered in M.c,
+                        // so that it needs to be done only once for each source line
+                        e.style[
+                            M.c ||= ChkNm(e.style, nm)
+                        ] = x || x === 0 ? x : Q;
+                            // Replaces false and undefined by the empty string (or by null),
+                            // otherwise the browser would ignore the assignment without clearing a previous value
+                        break;
+                    case MType.AddToStyle:
+                        // Set #style, which may either be a string value to be set as attribute,
+                        // or an object whose entries are to be set as style properties
+                        if (x)
+                            if (typeof x == 'string')
+                                e.setAttribute(nm, x);
+                            else
+                                ass(e.style, x);
+                                //for (let [nm,v] of Object.entries(x as Object))
+                                //    e.style[nm] = v || v === 0 ? v : N;
+                        break
+                    case MType.Src:
+                        e.setAttribute('src',  new URL(x as string, nm).href);
+                        break;
+                    case MType.AddToProps:
+                        ass(e, x);
+                        break;
+                    case MType.ClassNames:
+                        // Set or update a collection of class names, without disturbing classnames added by other routines
+                        let 
+                            rw = r.val ||= NO(),        // Data store for this element
+                            p = rw[nm] as Set<string>,  // Previous set of classnames, possibly to be removed
+                            n = rw[nm] = new Set<string>(); // New set of classnames
+                        (function CN(v: any) {
+                            if (v)
+                                switch (typeof v) {
+                                    case 'string':
+                                        if (/\s/.test(v))
+                                            // Whitespace: split into multiple names
+                                            CN(v.split(/\s/));
+                                        else {
+                                            // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
+                                            p?.delete(v)
+                                                //Otherwise add it to the element
+                                                || e.classList.add(v);
+                                            // And in both cases, add it to the new set
+                                            n.add(v);
+                                        }
+                                        break;
+                                    case 'object':
+                                        if (Array.isArray(v)) 
+                                            v.forEach(CN);
+                                        else
+                                            for (let [nm, b] of Object.entries(v))
+                                                b && CN(nm);
+                                        break;
+                                    default: throw `Invalid value`;
+                            }
+                        })(x);
+                        for (let v of p||E)
+                            e.classList.remove(v);
+                        break;
+                    case MType.RestParam:
+                        if (x) 
+                            ApplyMods(r, cr, ...(x as RestArg));
+                        break;
+
+                    case MType.exec:
+                        (x as Handler).call(e);
+                        break;
+                    case MType.AutoReroute:
+                        if ( 
+                            // When the A-element has no 'onclick' handler or 'download' or 'target' attribute
+                            !(r.val?.click?.h) 
+                            && !(e as HTMLAnchorElement).download
+                            && !(e as HTMLAnchorElement).target
+                            // and the (initial) href starts with the current basepath
+                            && (e as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
+                        )
+                            // Then we add the 'reroute' onclick-handler
+                            e.addEventListener('click', reroute);
+                        break;
+                    case MType.AutoPointer:
+                        e.style.cursor = r.val.click.h && !(e as HTMLButtonElement).disabled ? 'pointer' : N;                    
+                }
             }
+            i++;
         }
     }
     finally { ro = F; }
@@ -2058,7 +2056,7 @@ class RComp {
         return b && (async (ar:Area) => {
             let {r, sub} = PrepRng<HTMLElement, never>(ar, srcE)
                 , e = sub.parN = r.val ||= D.createElement(srcE.tagName);
-            r.parN = F;
+            r.parN = F; sub.bfor = N;
             await b(sub);
             return e;
         });
@@ -2850,11 +2848,12 @@ class RComp {
         if (nm=='A' && this.setts.bAutoReroute) // Handle bAutoReroute
             af.push({
                 mt: MType.AutoReroute,
-                dV: dU
+                dV: dU,
+                cu : 1
             });
 
         if (bUH)
-            af.push({mt: MType.Prop, nm: 'hidden', dV: dU});
+            af.push({mt: MType.Prop, nm: 'hidden', dV: dU, cu: 1});
 
         bf.length || (bf=U);
         af.length || (af=U);
@@ -2890,31 +2889,32 @@ class RComp {
             , af: Modifier[] = []
             , m: RegExpExecArray
 
-            , addM = (mt: MType, nm: string, dV: Dep<unknown>) => {
-
+            , addM = (mt: MType, nm: string, dV: Dep<unknown> & {fx?: string}
+                , cu?: 1|2|3  // Has this modifier to be executed on create / update / both
+                ) => {
+                
                 (mt < MType.RestParam && nm!='value' ? bf : af)
-                //af
-                    .push({mt, nm, dV});
+                    .push({mt, nm, dV, cu: cu ?? dV.fx == N ? 3 : 1});
 
                 if (mt==MType.Event && nm == 'click' && this.setts.bAutoPointer)
-                    af.push({mt: MType.AutoPointer, nm, dV: dU})
+                    af.push({mt: MType.AutoPointer, nm, dV: dU, cu:3})
             }
 
         for (let [nm, V] of atts)
             if (m = /(.*?)\.+$/.exec(nm))                       // Literal attributes
                 addM(MType.Attr, m[1], this.CText(V, nm));
 
-            else if (m = /^on(.*?)\.*$/i.exec(nm))              // Event handlers
+            else if (m = /^on(.*)/i.exec(nm))              // Event handlers
                 addM(MType.Event, m[1], this.CHandlr(nm, V) );
 
-            else if (m = /^[#+]class(|name|[:.](.*))$/.exec(nm)) {          
+            else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {          
                 // #class, #classname, #class.xxx
                 let b = this.CExpr<boolean>(V, nm);
                 addM(MType.ClassNames, U,
                     (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b
                 );
             }
-            else if (m = /^(#)?style\.(.*)$/.exec(nm))          // Style properties
+            else if (m = /^(#)?style[.:](.*)/.exec(nm))          // Style properties
                 addM(MType.Style, m[2],
                     m[1] ? this.CExpr<unknown>(V, nm) : this.CText(V, nm)
                 );
@@ -2924,7 +2924,7 @@ class RComp {
                     nm,
                     this.CExpr<object>(V, nm)
                 );
-            else if (m = /^([\*\+#!]+|@@?)(.*?)\.*$/.exec(nm)) { // Two-way attributes
+            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(nm)) { // Other one- and two-way properties
                 // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                 let p = m[1]
                     , nm = m[2]=='for' ? 'htmlFor' : m[2]
@@ -2940,7 +2940,8 @@ class RComp {
 
                 if (p != '#') {
                     let dS = this.CTarget(V), 
-                        cnm: string;    // Stores the properly capitalized version of 'nm'
+                        cnm: string,    // Stores the properly capitalized version of 'nm'
+                        cu = <number><any>/\*/.test(p) + <number><any>/\+/.test(p) * 2 as 0|1|2|3;
                     dSet = () => {
                         let S = dS();
                         return nm ? function(this: HTMLElement) {
@@ -2952,10 +2953,8 @@ class RComp {
                         }
                     }
 
-                    if (/\*/.test(p))
-                        addM(MType.oncreate, nm, dSet);
-                    if (/\+/.test(p))
-                        addM(MType.onupdate, nm, dSet);
+                    if (cu)
+                        addM(MType.exec, nm, dSet, cu);
                     if (/[@!]/.test(p))
                         addM(MType.Event, /!!|@@/.test(p) ? 'change' : 'input', 
                             dSet);
@@ -2972,9 +2971,7 @@ class RComp {
                     addM(MType.Src, this.FilePath, dV );
                 else
                     addM(
-                        nm == 'class' ? MType.ClassNames  // Dynamic class names
-                        : dV.fx != N ? MType.SAttr        // Static attributes
-                        : MType.Attr                      // Other dynamic attributes
+                        nm == 'class' ? MType.ClassNames : MType.Attr
                         , nm, dV );
             }
         

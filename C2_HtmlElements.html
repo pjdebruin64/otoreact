@@ -266,8 +266,6 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
         The expression may yield a list of class names, separated by spaces.
     </dd>
 
-    <dt><code class=sourcecode>#class:<i>name</i>="<i>booleanExpression</i>"</code></dt>
-    <dd>or</dd>
     <dt><code class=sourcecode>#class.<i>name</i>="<i>booleanExpression</i>"</code></dt>
     <dd>
         Class name <i>name</i> will be added in lowercase to the element if and only if the expression evaluates to true (or another <a href="{MDN}Glossary/Truthy">truthy</a> value).
@@ -300,10 +298,10 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
         <p>When the value is <code>false</code>, then the style property will also be reset.
             <br>This allows you to abbreviate a conditional style setting like <code>#style.<i>name</i>="<i>cond</i> ? <i>expr</i> : null"</code> to <code>#style.<i>name</i>="<i>cond</i> &amp;&amp; <i>expr</i>"</code>
     </dd>
-    <dt><code class=sourcecode>+style="<i>objectExpression</i>"</code></dt>
+    <dt><code class=sourcecode>#style="<i>expression</i>"</code></dt>
     <dd>
-        The expression should evaluate to an object.
-        <br>Every property <i>name</i> in the object will be set or reset in the inline style object.
+        If <i>expression</i> evaluates to a string, then attribute <code>style</code> is set to that string.
+        <p>If it evaluates to an object, then every property <i>name</i> in the object will be set or reset in the inline style object.
     </dd>
 </dl>
 <demo #srctext=sampleInlineStyles></demo>
