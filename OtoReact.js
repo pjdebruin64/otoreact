@@ -1501,7 +1501,7 @@ class RComp {
             SBldrs.get(CSlot.nm).push(await this.CTempl(CSlot, srcE, T, atts));
         if (RP) {
             let { bf, af } = this.CAtts(atts);
-            bf.concat(af);
+            bf.push(...af);
             gArgs.push({
                 nm: RP,
                 dG: () => [bf, bf.map(M => M.dV())]

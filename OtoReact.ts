@@ -2772,7 +2772,7 @@ class RComp {
         if (RP) {
             // Compile all remaining attributes into a getter for the rest parameter
             let {bf,af} = this.CAtts(atts);
-            bf.concat(af);
+            bf.push(...af);
             gArgs.push({
                 nm: RP, 
                 dG: () => <RestArg>[bf, bf.map(M => M.dV())]
