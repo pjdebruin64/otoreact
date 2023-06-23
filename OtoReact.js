@@ -415,30 +415,30 @@ function ApplyMods(r, cr, mods, xs) {
                         break;
                     case 3:
                         let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
-                        (function CN(v) {
-                            if (v)
-                                switch (typeof v) {
-                                    case 'string':
-                                        if (/\s/.test(v))
-                                            CN(v.split(/\s/));
-                                        else {
-                                            p?.delete(v)
-                                                || e.classList.add(v);
-                                            n.add(v);
-                                        }
-                                        break;
-                                    case 'object':
-                                        if (Array.isArray(v))
-                                            v.forEach(CN);
-                                        else
-                                            for (let [nm, b] of Object.entries(v))
-                                                b && CN(nm);
-                                        break;
-                                    default: throw `Invalid value`;
-                                }
-                        })(x);
-                        for (let v of p || E)
-                            e.classList.remove(v);
+                        function AC(C) {
+                            if (C) {
+                                p?.delete(C)
+                                    || e.classList.add(C);
+                                n.add(C);
+                            }
+                        }
+                        if (x)
+                            switch (typeof x) {
+                                case 'string':
+                                    x.split(/ +/).forEach(AC);
+                                    break;
+                                case 'object':
+                                    if (Array.isArray(x))
+                                        x.forEach(AC);
+                                    else
+                                        for (let [nm, b] of Object.entries(x))
+                                            b && AC(nm);
+                                    break;
+                                default: throw `Invalid value`;
+                            }
+                        if (p)
+                            for (let v of p)
+                                e.classList.remove(v);
                         break;
                     case 8:
                         if (x)
@@ -1585,7 +1585,9 @@ class RComp {
                 addM(7, m[1], this.CHandlr(nm, V));
             else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {
                 let b = this.CExpr(V, nm);
-                addM(3, U, (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b);
+                addM(3, nm, (nm = m[2])
+                    ? () => Object.fromEntries([[nm, b()]])
+                    : b);
             }
             else if (m = /^(#)?style[.:](.*)/.exec(nm))
                 addM(2, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));

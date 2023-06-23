@@ -914,7 +914,7 @@ function ApplyMods(
                             else
                                 ass(e.style, x);
                                 //for (let [nm,v] of Object.entries(x as Object))
-                                //    e.style[nm] = v || v === 0 ? v : N;
+                                //    e.style[nm] = v || v === 0 ? v : Q;
                         break
                     case MType.Src:
                         e.setAttribute('src',  new URL(x as string, nm).href);
@@ -926,36 +926,37 @@ function ApplyMods(
                         // Set or update a collection of class names, without disturbing classnames added by other routines
                         let 
                             rw = r.val ||= NO(),        // Data store for this element
-                            p = rw[nm] as Set<string>,  // Previous set of classnames, possibly to be removed
-                            n = rw[nm] = new Set<string>(); // New set of classnames
-                        (function CN(v: any) {
-                            if (v)
-                                switch (typeof v) {
-                                    case 'string':
-                                        if (/\s/.test(v))
-                                            // Whitespace: split into multiple names
-                                            CN(v.split(/\s/));
-                                        else {
-                                            // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
-                                            p?.delete(v)
-                                                //Otherwise add it to the element
-                                                || e.classList.add(v);
-                                            // And in both cases, add it to the new set
-                                            n.add(v);
-                                        }
-                                        break;
-                                    case 'object':
-                                        if (Array.isArray(v)) 
-                                            v.forEach(CN);
-                                        else
-                                            for (let [nm, b] of Object.entries(v))
-                                                b && CN(nm);
-                                        break;
-                                    default: throw `Invalid value`;
+                            p = rw[nm] as Set<string>|undefined,  // Previous set of classnames, possibly to be removed
+                            n = rw[nm] = new Set<string>(); // New set of classnames to remember
+                        function AC(C: string) {
+                            // Add a class name
+                            if (C) {
+                                // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
+                                p?.delete(C)
+                                    //Otherwise add it to the element
+                                    || e.classList.add(C);
+                                // And in both cases, add it to the new set
+                                n.add(C);
                             }
-                        })(x);
-                        for (let v of p||E)
-                            e.classList.remove(v);
+                        }
+                        if (x)
+                            switch (typeof x) {
+                                case 'string':
+                                    // Might be multiple names
+                                    x.split(/ +/).forEach(AC);
+                                    break;
+                                case 'object':
+                                    if (Array.isArray(x)) 
+                                        x.forEach(AC);
+                                    else
+                                        for (let [nm, b] of Object.entries(x))
+                                            b && AC(nm);
+                                    break;
+                                default: throw `Invalid value`;
+                            }
+                        if (p)
+                            for (let v of p)
+                                e.classList.remove(v);
                         break;
                     case MType.RestParam:
                         if (x) 
@@ -2772,7 +2773,7 @@ class RComp {
         if (RP) {
             // Compile all remaining attributes into a getter for the rest parameter
             let {bf,af} = this.CAtts(atts);
-            bf.push(...af);
+            bf.push(...af); // Don't distinguish between before and after; everything goes after
             gArgs.push({
                 nm: RP, 
                 dG: () => <RestArg>[bf, bf.map(M => M.dV())]
@@ -2910,8 +2911,10 @@ class RComp {
             else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {          
                 // #class, #classname, #class.xxx
                 let b = this.CExpr<boolean>(V, nm);
-                addM(MType.ClassNames, U,
-                    (nm = m[2]) ? () => Object.fromEntries([[nm, b()]]) : b
+                addM(MType.ClassNames, nm,
+                    (nm = m[2]) 
+                    ? () => Object.fromEntries([[nm, b()]]) 
+                    : b
                 );
             }
             else if (m = /^(#)?style[.:](.*)/.exec(nm))          // Style properties
