@@ -237,10 +237,9 @@ const sampleInlineStyles=
 <define var=color value="red"></define>
 <p #style.backgroundColor="color"> Colored </p>
 
-<define var=myStyle 
-  #value="{color: 'blue',fontStyle: 'italic'}"
+<define var=myStyle #value="{color: 'orange',fontStyle: 'italic'}"
 ></define>
-<p +style="myStyle">My style</p>`;
+<p #style="myStyle">My style</p>`;
 
 const sampleParticipants=
 `<!-- Here we use a local RVAR -->

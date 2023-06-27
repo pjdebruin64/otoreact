@@ -191,7 +191,9 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
     // The following properties may contain different types of meta-information about the created DOM, to be used by the builder.
 
     res?: any;  // Some result value to be kept by a builder
-    val?: VT;  // Some other value to be kept by a builder
+    v?: VT;  // Some other value to be kept by a builder
+
+    [i: number]: Set<string>|Hndlr; // Used to keep html classnames and event handlers
 
     errN?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
 
@@ -621,9 +623,9 @@ export class _RVAR<T = unknown>{
     // The value of the variable
     v: T;
     // Immediate subscribers
-    _Imm: Set<Subscriber<T>> = new Set();
+    _Imm = new Set<Subscriber<T>>();
     // Deferred subscribers
-    _Subs: Set<Subscriber<T>> = new Set();
+    _Subs = new Set<Subscriber<T>>();
 
     // Add a subscriber 's', when it is not null.
     // When 'bImm' is truthy, the subscriber will be called immediately when the RVAR is set dirty;
@@ -654,9 +656,9 @@ export class _RVAR<T = unknown>{
     {
         return t =>
             t instanceof Promise ?
-                //(this.v = U, 
+                (this.v = U, 
                     t.then(v => this.V = v, oes.e)
-                //)
+                )
                 : (this.V = t);
     }
     get Clear() {
@@ -828,15 +830,16 @@ type Modifier = {
     dV: Dep<unknown>,   // Routine to compute the value
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
-    cu: 0|1|2|3         // on create/update
+    cu: 0|1|2|3,         // on create/update
+    ap?: booly, 
 }
 // Modifier Types
 const enum MType {
     Attr          // Set/update an attribute
     , Prop            // Set/update a property
-    , Style         // Set/update a style property
+    , StyleProp         // Set/update a style property
     , ClassNames       // Set/update multiple class names
-    , AddToStyle       // Set/update multiple style propertues
+    , Style       // Set/update multiple style propertues
     , AddToProps    // Set/update multiple props
     , Src           // Set the src attribute, relative to the current source document, which need not be the current HTML document
     , Event         // Set/update an event handler
@@ -853,11 +856,16 @@ function ApplyMods(
         , cr: boolean
         , mods: Modifier[]
         , xs?: unknown[]        // Optional modifier values (in case of a Rest argument)
-        ) {
+        , i = 0
+        ): number {
     // Apply all modifiers: adding attributes, classes, styles, events
     ro= T;
+    let 
+        e = r.node
+        , cu = cr ? 1 : 2
+        , hc: booly = F;
+        ;
     try {
-        let e = r.node, i = 0, cu = cr ? 1 : 2;
         for (let M of mods) {
             if (M.cu & cu)
             {
@@ -883,8 +891,7 @@ function ApplyMods(
                         break;
                     case MType.Event:
                         let
-                            rv = r.val ||= NO()
-                            , H = (rv[nm] as Hndlr) ||= new Hndlr()
+                            H = (r[i] as Hndlr) ||= new Hndlr()
                             ;
                         // Set and remember new handler
                         if (cr) {
@@ -893,19 +900,13 @@ function ApplyMods(
                         }
 
                         H.h = x as Handler;
+
+                        if (M.ap)
+                            // Handle bAutoPointer
+                            e.style.cursor = (hc ||= x && !(e as HTMLButtonElement).disabled) ? 'pointer' : Q;   
                         break;
 
                     case MType.Style:
-                        // Set a specific style property.
-                        // ChkNm finds the proper capitalization, and this is remembered in M.c,
-                        // so that it needs to be done only once for each source line
-                        e.style[
-                            M.c ||= ChkNm(e.style, nm)
-                        ] = x || x === 0 ? x : Q;
-                            // Replaces false and undefined by the empty string (or by null),
-                            // otherwise the browser would ignore the assignment without clearing a previous value
-                        break;
-                    case MType.AddToStyle:
                         // Set #style, which may either be a string value to be set as attribute,
                         // or an object whose entries are to be set as style properties
                         if (x)
@@ -915,7 +916,18 @@ function ApplyMods(
                                 ass(e.style, x);
                                 //for (let [nm,v] of Object.entries(x as Object))
                                 //    e.style[nm] = v || v === 0 ? v : Q;
-                        break
+                        break;
+                    case MType.StyleProp:
+                        // Set a specific style property.
+                        // ChkNm finds the proper capitalization, and this is remembered in M.c,
+                        // so that it needs to be done only once for each source line
+                        e.style[
+                            M.c ||= ChkNm(e.style, nm)
+                        ] = x || x === 0 ? x : Q;
+                            // Replaces false and undefined by the empty string (or by null),
+                            // otherwise the browser would ignore the assignment without clearing a previous value
+                        break;
+
                     case MType.Src:
                         e.setAttribute('src',  new URL(x as string, nm).href);
                         break;
@@ -925,9 +937,8 @@ function ApplyMods(
                     case MType.ClassNames:
                         // Set or update a collection of class names, without disturbing classnames added by other routines
                         let 
-                            rw = r.val ||= NO(),        // Data store for this element
-                            p = rw[nm] as Set<string>|undefined,  // Previous set of classnames, possibly to be removed
-                            n = rw[nm] = new Set<string>(); // New set of classnames to remember
+                            p = r[i] as Set<string>|undefined,  // Previous set of classnames, possibly to be removed
+                            n = r[i] = new Set<string>(); // New set of classnames to remember
                         function AC(C: string) {
                             // Add a class name
                             if (C) {
@@ -943,7 +954,7 @@ function ApplyMods(
                             switch (typeof x) {
                                 case 'string':
                                     // Might be multiple names
-                                    x.split(/ +/).forEach(AC);
+                                    x.split(/\s+/).forEach(AC);
                                     break;
                                 case 'object':
                                     if (Array.isArray(x)) 
@@ -960,7 +971,7 @@ function ApplyMods(
                         break;
                     case MType.RestParam:
                         if (x) 
-                            ApplyMods(r, cr, ...(x as RestArg));
+                            i = ApplyMods(r, cr, ...(x as RestArg), i);
                         break;
 
                     case MType.exec:
@@ -969,7 +980,7 @@ function ApplyMods(
                     case MType.AutoReroute:
                         if ( 
                             // When the A-element has no 'onclick' handler or 'download' or 'target' attribute
-                            !(r.val?.click?.h) 
+                            !(r.v?.click?.h) 
                             && !(e as HTMLAnchorElement).download
                             && !(e as HTMLAnchorElement).target
                             // and the (initial) href starts with the current basepath
@@ -977,15 +988,13 @@ function ApplyMods(
                         )
                             // Then we add the 'reroute' onclick-handler
                             e.addEventListener('click', reroute);
-                        break;
-                    case MType.AutoPointer:
-                        e.style.cursor = r.val.click.h && !(e as HTMLButtonElement).disabled ? 'pointer' : N;                    
                 }
             }
             i++;
         }
     }
     finally { ro = F; }
+    return i;
 }
 
 // Object to supply DOM event handlers with error handling and 'this' binding.
@@ -1080,7 +1089,7 @@ class RComp {
                 // We can use a range provided by the caller, or prepare a new one
                 r || ({r,sub} = PrepRng(sub));
                 let e = env;
-                env = (r.val as Environment) ||= [nf ? e : e[0]]; 
+                env = (r.v as Environment) ||= [nf ? e : e[0]]; 
                 return {sub, EF: () => {env = e;} }; // 'EndFrame' routine
             }
         ).finally(() =>        
@@ -1559,7 +1568,7 @@ class RComp {
                                 try {
                                     var b = await NoTime(task)
                                         , s = env
-                                        , MEnv = env = r.val ||= []; // = NewEnv()
+                                        , MEnv = env = r.v ||= []; // = NewEnv()
                                     await b(bIncl ? sub : {parN: D.createDocumentFragment()});
                                 }
                                 finally { env = s; }
@@ -1588,7 +1597,7 @@ class RComp {
                        
                         bl = async function RHTML(ar) {
                             let 
-                                {r, sub} = PrepElm<{val: Range}>(ar, 'r-html')
+                                {r, sub} = PrepElm<{v: Range}>(ar, 'r-html')
                                 , src = b ? (await b(sub)).innerText : dSrc?.()
                                 ;
 
@@ -1600,10 +1609,10 @@ class RComp {
                                     tmp = D.createElement('rhtml'),
                                     sAr = {
                                         parN: sRoot,
-                                        parR: r.val ||= new Range(N, N, 'Shadow')
+                                        parR: r.v ||= new Range(N, N, 'Shadow')
                                     };
 
-                                r.val.erase(sRoot); sRoot.innerHTML=Q;
+                                r.v.erase(sRoot); sRoot.innerHTML=Q;
                                 try {
                                     // Parsing
                                     tmp.innerHTML = r.res = src;
@@ -1756,9 +1765,8 @@ class RComp {
                             bl = b && async function RSTYLE(ar: Area) {
                                 let 
                                     txt = (await b(ar) as HTMLElement).innerText
-                                    , {r,cr} = await PrepS(ar);
-                                
-                                ApplyMods(r, cr, bf);
+                                    , {r,cr} = await PrepS(ar)
+                                    , i = ApplyMods(r, cr, bf);
                                 
                                 if (txt != r.res)
                                     // Set the style text
@@ -1768,7 +1776,7 @@ class RComp {
                                         , sc && (oNm.nm = r.res ||= `\uFFFE${iStyle++}`)
                                         );
                                 
-                                ApplyMods(r, cr, af);
+                                ApplyMods(r, cr, af, U, i);
                                 pn = ar.parN;
                             }
                         }
@@ -1791,8 +1799,8 @@ class RComp {
                             dVal= this.CParam<string>(atts, 'value', T);
                         bl = async function ATTRIB(ar: Area){
                             let r = PrepRng<string>(ar, srcE).r
-                                , n0 = r.val
-                                , nm = r.val = dNm();
+                                , n0 = r.v
+                                , nm = r.v = dNm();
                             if (n0 && nm != n0)
                                 (pn as HTMLElement).removeAttribute(n0);
                             if (nm)
@@ -1952,7 +1960,7 @@ class RComp {
                         let s = oes,    // Remember current setting
                             {sub, r} = PrepRng(ar, srcE, att);
                         // Create a copy. On updates, assign current values to the copy created before.
-                        oes = Object.assign(r.val ||= {}, oes);
+                        oes = Object.assign(r.v ||= {}, oes);
                         try {
                             oes[es] = dV();     // Now set the new value
                             await b(sub, bR);   // Run the builder
@@ -1962,10 +1970,10 @@ class RComp {
                     : m[7]   // hash
                     ? function HASH(ar: Area, bR) {
                         let {sub, r,cr} = PrepRng<unknown[]>(ar, srcE, att)
-                            , ph  = r.val;
-                        r.val = <unknown[]>dV();
+                            , ph  = r.v;
+                        r.v = <unknown[]>dV();
     
-                        if (cr || r.val.some((hash, i) => hash !== ph[i]))
+                        if (cr || r.v.some((hash, i) => hash !== ph[i]))
                             return b(sub, bR);
                     }
                     : m[8]  // #if
@@ -2056,7 +2064,7 @@ class RComp {
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar:Area) => {
             let {r, sub} = PrepRng<HTMLElement, never>(ar, srcE)
-                , e = sub.parN = r.val ||= D.createElement(srcE.tagName);
+                , e = sub.parN = r.v ||= D.createElement(srcE.tagName);
             r.parN = F; sub.bfor = N;
             await b(sub);
             return e;
@@ -2360,7 +2368,7 @@ class RComp {
                                 throw `[of] Value (${iter}) is not iterable`
 
                             // Map of the current set of child ranges
-                            let keyMap: Map<Key, ForRange> = r.val ||= new Map(),
+                            let keyMap: Map<Key, ForRange> = r.v ||= new Map(),
 
                             // Map of the newly obtained data
                                 nwMap: Map<Key, {item:Item, hash:Hash[], ix: number}> = new Map(),
@@ -2787,7 +2795,7 @@ class RComp {
             let {r, sub, cr} = PrepRng<ArgSet>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
-                args = r.val ||= NO();
+                args = r.v ||= NO();
             
             if (cdef) {  //Just in case of an async imported component where the client signature has less slots than the real signature
                 ro = T;
@@ -2865,9 +2873,8 @@ class RComp {
                     PrepElm(
                         ar,
                         nm || dTag()
-                    );
-                
-                bf && ApplyMods(r, cr, bf);
+                    )
+                    , i = bf && ApplyMods(r, cr, bf);
 
                 if (cr)
                     // Add local scoping classes
@@ -2877,7 +2884,7 @@ class RComp {
                     // Build / update childnodes
                     await b?.(sub);
                 
-                af && ApplyMods(r, cr, af);
+                af && ApplyMods(r, cr, af, U, i);
 
                 pn = ar.parN;
             };
@@ -2889,62 +2896,73 @@ class RComp {
         let bf: Modifier[] = []
             , af: Modifier[] = []
             , m: RegExpExecArray
+            , ap = this.setts.bAutoPointer
+            ;
 
-            , addM = (mt: MType, nm: string, dV: Dep<unknown> & {fx?: string}
+        for (let [a, V] of atts) {
+            // Adding a modifier to the appropriate list
+            function addM(mt: MType, nm: string, dV: Dep<unknown> & {fx?: string}
                 , cu?: 1|2|3  // Has this modifier to be executed on create / update / both
-                ) => {
-                
+            ) {
+                // Either the 'before' or 'after' lis
                 (mt < MType.RestParam && nm!='value' ? bf : af)
-                    .push({mt, nm, dV, cu: cu ?? dV.fx == N ? 3 : 1});
-
-                if (mt==MType.Event && nm == 'click' && this.setts.bAutoPointer)
-                    af.push({mt: MType.AutoPointer, nm, dV: dU, cu:3})
+                    .push({mt, nm, dV
+                        , ap: ap && mt==MType.Event && nm == 'click'
+                        , cu: cu ?? (
+                            // When the attribute value is a string constant, then it need only be set on create
+                            dV.fx != N 
+                            // Undocumented feature: when the souce attribute contains a DOUBLE hash,
+                            // then the modifier is executed only on create too
+                            || /##/.test(nm)
+                            ? 1 : 3)
+                    });
             }
 
-        for (let [nm, V] of atts)
-            if (m = /(.*?)\.+$/.exec(nm))                       // Literal attributes
-                addM(MType.Attr, m[1], this.CText(V, nm));
+            if (m = /(.*?)\.+$/.exec(a))                       // Literal attributes
+                addM(MType.Attr, m[1], this.CText(V, a));
 
-            else if (m = /^on(.*)/i.exec(nm))              // Event handlers
-                addM(MType.Event, m[1], this.CHandlr(nm, V) );
+            else if (m = /^on(.*)/.exec(a))              // Event handlers
+                addM(MType.Event, m[1], this.CHandlr(a, V) );
 
-            else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {          
+            else if (m = /^[#+]#?class(|name|[.:](.*))$/.exec(a)) {          
                 // #class, #classname, #class.xxx
-                let b = this.CExpr<boolean>(V, nm);
-                addM(MType.ClassNames, nm,
-                    (nm = m[2]) 
-                    ? () => Object.fromEntries([[nm, b()]]) 
+                let b = this.CExpr<boolean>(V, a);
+                addM(MType.ClassNames, a,
+                    (a = m[2]) 
+                    ? () => Object.fromEntries([[a, b()]]) 
                     : b
                 );
             }
-            else if (m = /^(#)?style[.:](.*)/.exec(nm))          // Style properties
-                addM(MType.Style, m[2],
-                    m[1] ? this.CExpr<unknown>(V, nm) : this.CText(V, nm)
+            else if (m = /^(##?)?style[.:](.*)/.exec(a))          // Style properties
+                addM(MType.StyleProp, m[2],
+                    m[1] ? this.CExpr<unknown>(V, a) : this.CText(V, a)
                 );
-            else if (m = /^[#+](style)?$/.exec(nm))       // Add to style or classlist or element properties
+            else if (m = /^[#+]#?(style)?$/.exec(a))       // Add to style or classlist or element properties
                 addM( 
-                    m[1] ? MType.AddToStyle : MType.AddToProps,
-                    nm,
-                    this.CExpr<object>(V, nm)
+                    m[1] ? MType.Style : MType.AddToProps,
+                    a,
+                    this.CExpr<object>(V, a)
                 );
-            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(nm)) { // Other one- and two-way properties
+            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(a)) { // Other one- and two-way properties
                 // #, *, !, !!, combinations of these, @ = #!, @@ = #!!
                 let p = m[1]
-                    , nm = m[2]=='for' ? 'htmlFor' : m[2]
-                    , dSet: Dep<Handler>;
-                
+                , nm = m[2]=='for' ? 'htmlFor' : m[2]
+                , cu = <number><any>/\*/.test(p) + <number><any>/\+/.test(p) * 2 as 0|1|2|3
+                , se = /[@!]/.test(p)
+                , dSet: Dep<Handler>;
+            
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr<Handler>(V, nm);
                     addM(
                         (m = /^on(.*)/.exec(nm)) ? MType.Event : MType.Prop
                         , m ? m[1] : nm
-                        , dV);
+                        , dV
+                        );
                 }
 
-                if (p != '#') {
+                if (cu || se) {
                     let dS = this.CTarget(V), 
-                        cnm: string,    // Stores the properly capitalized version of 'nm'
-                        cu = <number><any>/\*/.test(p) + <number><any>/\+/.test(p) * 2 as 0|1|2|3;
+                        cnm: string    // Stores the properly capitalized version of 'nm'
                     dSet = () => {
                         let S = dS();
                         return nm ? function(this: HTMLElement) {
@@ -2958,25 +2976,26 @@ class RComp {
 
                     if (cu)
                         addM(MType.exec, nm, dSet, cu);
-                    if (/[@!]/.test(p))
+                    if (se)
                         addM(MType.Event, /!!|@@/.test(p) ? 'change' : 'input', 
                             dSet);
                 } 
             }
-            else if (m = /^\.\.\.(.*)/.exec(nm))      // Rest parameter
+            else if (m = /^\.\.\.(.*)/.exec(a))      // Rest parameter
                 V ? thro('A rest parameter cannot have a value')
-                : addM(MType.RestParam, nm, this.CT.getLV(m[1]) );
+                : addM(MType.RestParam, a, this.CT.getLV(m[1]) );
             
             else {           // Other attributes
-                let dV = this.CText(V, nm);
-                if (nm == 'src')                      
+                let dV = this.CText(V, a);
+                if (a == 'src')                      
                     // Src attribute gets special treatment, to handle relative pathnames
                     addM(MType.Src, this.FilePath, dV );
                 else
                     addM(
-                        nm == 'class' ? MType.ClassNames : MType.Attr
-                        , nm, dV );
+                        a == 'class' ? MType.ClassNames : MType.Attr
+                        , a, dV );
             }
+        }
         
         atts.clear();
         return {bf, af};

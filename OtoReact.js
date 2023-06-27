@@ -275,7 +275,8 @@ export class _RVAR {
     }
     get Set() {
         return t => t instanceof Promise ?
-            t.then(v => this.V = v, oes.e)
+            (this.v = U,
+                t.then(v => this.V = v, oes.e))
             : (this.V = t);
     }
     get Clear() {
@@ -371,10 +372,11 @@ function RVAR_Light(t, updTo) {
     }
     return t;
 }
-function ApplyMods(r, cr, mods, xs) {
+function ApplyMods(r, cr, mods, xs, i = 0) {
     ro = T;
+    let e = r.node, cu = cr ? 1 : 2, hc = F;
+    ;
     try {
-        let e = r.node, i = 0, cu = cr ? 1 : 2;
         for (let M of mods) {
             if (M.cu & cu) {
                 let nm = M.nm, x = xs ? xs[i] : M.dV();
@@ -390,15 +392,14 @@ function ApplyMods(r, cr, mods, xs) {
                             e[nm] = x;
                         break;
                     case 7:
-                        let rv = r.val || (r.val = NO()), H = rv[nm] || (rv[nm] = new Hndlr());
+                        let H = r[i] || (r[i] = new Hndlr());
                         if (cr) {
                             H.oes = oes;
                             e.addEventListener(nm, H.hndl.bind(H));
                         }
                         H.h = x;
-                        break;
-                    case 2:
-                        e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
+                        if (M.ap)
+                            e.style.cursor = (hc || (hc = x && !e.disabled)) ? 'pointer' : Q;
                         break;
                     case 4:
                         if (x)
@@ -407,6 +408,9 @@ function ApplyMods(r, cr, mods, xs) {
                             else
                                 ass(e.style, x);
                         break;
+                    case 2:
+                        e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
+                        break;
                     case 6:
                         e.setAttribute('src', new URL(x, nm).href);
                         break;
@@ -414,7 +418,7 @@ function ApplyMods(r, cr, mods, xs) {
                         ass(e, x);
                         break;
                     case 3:
-                        let rw = r.val || (r.val = NO()), p = rw[nm], n = rw[nm] = new Set();
+                        let p = r[i], n = r[i] = new Set();
                         function AC(C) {
                             if (C) {
                                 p?.delete(C)
@@ -425,7 +429,7 @@ function ApplyMods(r, cr, mods, xs) {
                         if (x)
                             switch (typeof x) {
                                 case 'string':
-                                    x.split(/ +/).forEach(AC);
+                                    x.split(/\s+/).forEach(AC);
                                     break;
                                 case 'object':
                                     if (Array.isArray(x))
@@ -442,20 +446,17 @@ function ApplyMods(r, cr, mods, xs) {
                         break;
                     case 8:
                         if (x)
-                            ApplyMods(r, cr, ...x);
+                            i = ApplyMods(r, cr, ...x, i);
                         break;
                     case 9:
                         x.call(e);
                         break;
                     case 10:
-                        if (!(r.val?.click?.h)
+                        if (!(r.v?.click?.h)
                             && !e.download
                             && !e.target
                             && e.href.startsWith(L.origin + DL.basepath))
                             e.addEventListener('click', reroute);
-                        break;
-                    case 11:
-                        e.style.cursor = r.val.click.h && !e.disabled ? 'pointer' : N;
                 }
             }
             i++;
@@ -464,6 +465,7 @@ function ApplyMods(r, cr, mods, xs) {
     finally {
         ro = F;
     }
+    return i;
 }
 class Hndlr {
     hndl(ev, ...r) {
@@ -506,7 +508,7 @@ class RComp {
         return Comp((sub, r) => {
             r || ({ r, sub } = PrepRng(sub));
             let e = env;
-            env = r.val || (r.val = [nf ? e : e[0]]);
+            env = r.v || (r.v = [nf ? e : e[0]]);
             return { sub, EF: () => { env = e; } };
         }).finally(() => {
             ass(this.CT = CT, { ct, d, L, M });
@@ -783,7 +785,7 @@ class RComp {
                                 let { sub, cr, r } = PrepRng(ar, srcE);
                                 if (cr || bIncl) {
                                     try {
-                                        var b = await NoTime(task), s = env, MEnv = env = r.val || (r.val = []);
+                                        var b = await NoTime(task), s = env, MEnv = env = r.v || (r.v = []);
                                         await b(bIncl ? sub : { parN: D.createDocumentFragment() });
                                     }
                                     finally {
@@ -807,9 +809,9 @@ class RComp {
                                 if (src != r.res) {
                                     let sv = env, C = ass(new RComp(N, f, s), { ws, rt, CT: new Context() }), sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({ mode: 'open' }), tmp = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
-                                        parR: r.val || (r.val = new Range(N, N, 'Shadow'))
+                                        parR: r.v || (r.v = new Range(N, N, 'Shadow'))
                                     };
-                                    r.val.erase(sRoot);
+                                    r.v.erase(sRoot);
                                     sRoot.innerHTML = Q;
                                     try {
                                         tmp.innerHTML = r.res = src;
@@ -927,11 +929,10 @@ class RComp {
                             }
                             let b = await this.CUncN(srcE, atts), PrepS = this.InHead(async (ar) => PrepElm(ar, 'STYLE'));
                             bl = b && async function RSTYLE(ar) {
-                                let txt = (await b(ar)).innerText, { r, cr } = await PrepS(ar);
-                                ApplyMods(r, cr, bf);
+                                let txt = (await b(ar)).innerText, { r, cr } = await PrepS(ar), i = ApplyMods(r, cr, bf);
                                 if (txt != r.res)
                                     r.node.innerHTML = AddClass(r.res = txt, sc && (oNm.nm = r.res || (r.res = `\uFFFE${iStyle++}`)));
-                                ApplyMods(r, cr, af);
+                                ApplyMods(r, cr, af, U, i);
                                 pn = ar.parN;
                             };
                         }
@@ -948,7 +949,7 @@ class RComp {
                         NoChilds(srcE);
                         let dNm = this.CParam(atts, 'name', T), dVal = this.CParam(atts, 'value', T);
                         bl = async function ATTRIB(ar) {
-                            let r = PrepRng(ar, srcE).r, n0 = r.val, nm = r.val = dNm();
+                            let r = PrepRng(ar, srcE).r, n0 = r.v, nm = r.v = dNm();
                             if (n0 && nm != n0)
                                 pn.removeAttribute(n0);
                             if (nm)
@@ -1031,7 +1032,7 @@ class RComp {
                         m[5]
                             ? async function SetOnES(ar, bR) {
                                 let s = oes, { sub, r } = PrepRng(ar, srcE, att);
-                                oes = Object.assign(r.val || (r.val = {}), oes);
+                                oes = Object.assign(r.v || (r.v = {}), oes);
                                 try {
                                     oes[es] = dV();
                                     await b(sub, bR);
@@ -1042,9 +1043,9 @@ class RComp {
                             }
                             : m[7]
                                 ? function HASH(ar, bR) {
-                                    let { sub, r, cr } = PrepRng(ar, srcE, att), ph = r.val;
-                                    r.val = dV();
-                                    if (cr || r.val.some((hash, i) => hash !== ph[i]))
+                                    let { sub, r, cr } = PrepRng(ar, srcE, att), ph = r.v;
+                                    r.v = dV();
+                                    if (cr || r.v.some((hash, i) => hash !== ph[i]))
                                         return b(sub, bR);
                                 }
                                 : m[8]
@@ -1108,7 +1109,7 @@ class RComp {
     async CUncN(srcE, atts) {
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar) => {
-            let { r, sub } = PrepRng(ar, srcE), e = sub.parN = r.val || (r.val = D.createElement(srcE.tagName));
+            let { r, sub } = PrepRng(ar, srcE), e = sub.parN = r.v || (r.v = D.createElement(srcE.tagName));
             r.parN = F;
             sub.bfor = N;
             await b(sub);
@@ -1263,7 +1264,7 @@ class RComp {
                     let { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, iter = dOf() || E, pIter = async (iter) => {
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                             throw `[of] Value (${iter}) is not iterable`;
-                        let keyMap = r.val || (r.val = new Map()), nwMap = new Map(), ix = 0, { EF } = SF(N, {});
+                        let keyMap = r.v || (r.v = new Map()), nwMap = new Map(), ix = 0, { EF } = SF(N, {});
                         try {
                             for await (let item of iter) {
                                 vLet(item);
@@ -1510,7 +1511,7 @@ class RComp {
         atts.NoneLeft();
         this.ws = 3;
         return async function INST(ar) {
-            let { r, sub, cr } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.val || (r.val = NO());
+            let { r, sub, cr } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.v || (r.v = NO());
             if (cdef) {
                 ro = T;
                 try {
@@ -1560,47 +1561,50 @@ class RComp {
         bf.length || (bf = U);
         af.length || (af = U);
         return async function ELM(ar, bR) {
-            let { r, sub, cr } = PrepElm(ar, nm || dTag());
-            bf && ApplyMods(r, cr, bf);
+            let { r, sub, cr } = PrepElm(ar, nm || dTag()), i = bf && ApplyMods(r, cr, bf);
             if (cr)
                 for (let { nm } of lscl)
                     r.node.classList.add(nm);
             if (cr || !bR)
                 await b?.(sub);
-            af && ApplyMods(r, cr, af);
+            af && ApplyMods(r, cr, af, U, i);
             pn = ar.parN;
         };
     }
     CAtts(atts) {
-        let bf = [], af = [], m, addM = (mt, nm, dV, cu) => {
-            (mt < 8 && nm != 'value' ? bf : af)
-                .push({ mt, nm, dV, cu: cu ?? dV.fx == N ? 3 : 1 });
-            if (mt == 7 && nm == 'click' && this.setts.bAutoPointer)
-                af.push({ mt: 11, nm, dV: dU, cu: 3 });
-        };
-        for (let [nm, V] of atts)
-            if (m = /(.*?)\.+$/.exec(nm))
-                addM(0, m[1], this.CText(V, nm));
-            else if (m = /^on(.*)/i.exec(nm))
-                addM(7, m[1], this.CHandlr(nm, V));
-            else if (m = /^[#+]class(|name|[.:](.*))$/.exec(nm)) {
-                let b = this.CExpr(V, nm);
-                addM(3, nm, (nm = m[2])
-                    ? () => Object.fromEntries([[nm, b()]])
+        let bf = [], af = [], m, ap = this.setts.bAutoPointer;
+        for (let [a, V] of atts) {
+            function addM(mt, nm, dV, cu) {
+                (mt < 8 && nm != 'value' ? bf : af)
+                    .push({ mt, nm, dV,
+                    ap: ap && mt == 7 && nm == 'click',
+                    cu: cu ?? (dV.fx != N
+                        || /##/.test(nm)
+                        ? 1 : 3)
+                });
+            }
+            if (m = /(.*?)\.+$/.exec(a))
+                addM(0, m[1], this.CText(V, a));
+            else if (m = /^on(.*)/.exec(a))
+                addM(7, m[1], this.CHandlr(a, V));
+            else if (m = /^[#+]#?class(|name|[.:](.*))$/.exec(a)) {
+                let b = this.CExpr(V, a);
+                addM(3, a, (a = m[2])
+                    ? () => Object.fromEntries([[a, b()]])
                     : b);
             }
-            else if (m = /^(#)?style[.:](.*)/.exec(nm))
-                addM(2, m[2], m[1] ? this.CExpr(V, nm) : this.CText(V, nm));
-            else if (m = /^[#+](style)?$/.exec(nm))
-                addM(m[1] ? 4 : 5, nm, this.CExpr(V, nm));
-            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(nm)) {
-                let p = m[1], nm = m[2] == 'for' ? 'htmlFor' : m[2], dSet;
+            else if (m = /^(##?)?style[.:](.*)/.exec(a))
+                addM(2, m[2], m[1] ? this.CExpr(V, a) : this.CText(V, a));
+            else if (m = /^[#+]#?(style)?$/.exec(a))
+                addM(m[1] ? 4 : 5, a, this.CExpr(V, a));
+            else if (m = /^([\*\+#!]+|@@?)(.*)/.exec(a)) {
+                let p = m[1], nm = m[2] == 'for' ? 'htmlFor' : m[2], cu = /\*/.test(p) + /\+/.test(p) * 2, se = /[@!]/.test(p), dSet;
                 if (/[@#]/.test(p)) {
                     let dV = this.CExpr(V, nm);
                     addM((m = /^on(.*)/.exec(nm)) ? 7 : 1, m ? m[1] : nm, dV);
                 }
-                if (p != '#') {
-                    let dS = this.CTarget(V), cnm, cu = /\*/.test(p) + /\+/.test(p) * 2;
+                if (cu || se) {
+                    let dS = this.CTarget(V), cnm;
                     dSet = () => {
                         let S = dS();
                         return nm ? function () {
@@ -1612,20 +1616,21 @@ class RComp {
                     };
                     if (cu)
                         addM(9, nm, dSet, cu);
-                    if (/[@!]/.test(p))
+                    if (se)
                         addM(7, /!!|@@/.test(p) ? 'change' : 'input', dSet);
                 }
             }
-            else if (m = /^\.\.\.(.*)/.exec(nm))
+            else if (m = /^\.\.\.(.*)/.exec(a))
                 V ? thro('A rest parameter cannot have a value')
-                    : addM(8, nm, this.CT.getLV(m[1]));
+                    : addM(8, a, this.CT.getLV(m[1]));
             else {
-                let dV = this.CText(V, nm);
-                if (nm == 'src')
+                let dV = this.CText(V, a);
+                if (a == 'src')
                     addM(6, this.FilePath, dV);
                 else
-                    addM(nm == 'class' ? 3 : 0, nm, dV);
+                    addM(a == 'class' ? 3 : 0, a, dV);
             }
+        }
         atts.clear();
         return { bf, af };
     }
