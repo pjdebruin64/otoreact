@@ -232,13 +232,13 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "4a499c5b55ad01c67c61f8eb4b57f2a9233973b147280c10f586df21594b5228",
+        "version": "cc42e6761626c49142197574c5958a086838fa7c286483a2161065cf9ebb8bb0",
         "signature": "a0522babe7f0edf26538b14a42fbefb6f00924cfe888c6dbd569b319b52c00c8",
         "affectsGlobalScope": false
       },
       "./samples.ts": {
-        "version": "518453050bd92d70a5856a8fc66cfc1e7a78ef747e8ba9382ff8b7b8b1c6df9f",
-        "signature": "7d8b4c36cc00fb2996c5b209ab6bc65ef4510ba18a98d7abb91f1133b3130f21",
+        "version": "97352d12bc038862e4443f94338b545832559b2f40011dc2d87cb49f83390553",
+        "signature": "f9101209c071de264ce632bcad487cdcdf987430b61f7fcda36d96c9f97baa34",
         "affectsGlobalScope": true
       }
     },

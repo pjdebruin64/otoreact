@@ -232,14 +232,18 @@ const sampleSqrt=
 <button onclick="x.V += 1">Increment</button>`;
 
 const sampleInlineStyles=
-`<p style.backgroundColor=lightgrey> Light grey </p>
+`<p style.backgroundColor="lightgrey"> Light grey </p>
 
 <define var=color value="red"></define>
 <p #style.backgroundColor="color"> Colored </p>
 
-<define var=myStyle #value="{color: 'orange',fontStyle: 'italic'}"
+<define var=stringStyle value="color: orange; font-style: italic"
 ></define>
-<p #style="myStyle">My style</p>`;
+<p #style="stringStyle">String style</p>
+
+<define var=objectStyle #value="{color: 'green', fontWeight: 'bold'}"
+></define>
+<p #style="objectStyle">Object style</p>`;
 
 const sampleParticipants=
 `<!-- Here we use a local RVAR -->
