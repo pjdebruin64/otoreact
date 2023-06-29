@@ -8,12 +8,21 @@
     <br>They may use <a href="#StringInterpolation">string interpolation</a>, and trailing dots are removed.
 </p>
 <demo #srctext=sampleSqrt></demo>
-<p>
-    Attributes starting withan underscore <code>_</code> are ignored. You can use this to insert comments within HTML tags, or to outcomment any attribute.
-</p>
-<p>
-    Trailing dots are removed, so you can use <code>onerror.="..."</code> to set an HTML <code>onerror</code> handler, whereas <code>onerror="..."</code> would set the <a href="#onerror">RHTML</a> onerror handler.
-</p>
+<ul>
+    <li>
+        Attributes starting with an underscore <code>_</code> are ignored. You can use this to insert comments within HTML tags, or to outcomment any attribute.
+    </li>
+
+    <li>
+        Trailing dots are removed, so you can e.g. use <code>onerror.="..."</code> to set an HTML <code>onerror</code> handler, whereas <code>onerror="..."</code> would set the <a href="#onerror">RHTML onerror handler</a>.
+    </li>
+    
+    <li>
+        * Attributes and properties <code class="sourcecode">src</code> and <code class="sourcecode"><a href="{MDN}Web/HTML/Element/img#srcset">srcset</a></code> (of i.a. the <elm>IMG</elm> element) get special treatment.
+        <br>They may contain relative URLs, but when they occur in an RHTML module or include file, then the pathname of the RHTML source file in which they occur may be different from the path name of the target DOM document, causing ambiguity.
+        <br>To solve this, OtoReact interprets all URLs in these attributes and properties as relative to the pathname of their <u>source file</u>, and inserts the resulting disambiguated absolute URLs into the target document.
+    </li>
+</ul>
 
 
 <h2>DOM properties: #</h2>
@@ -46,7 +55,15 @@
         DOM property <code>valueAsNumber</code> returns the numeric value of an <elm>input type=number</elm> element, but <a href="{MDN}Web/API/HTMLInputElement">cannot be set</a> in some browsers, which would make it unusable for two-way binding.
         <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code> for this element, so one can use two-way binding on this property.
     </li>
-    <li>HTML attribute <code>for</code> corresponds to DOM property <code>htmlFor</code>; RHTML recognizes both <code>#for</code> and <code>HTMLFor</code>
+    <li>HTML attribute <code>for</code> corresponds to DOM property <code>htmlFor</code>; RHTML recognizes both <code>#for</code> and <code>#htmlfor</code>
+    </li>
+    <li>
+        <i>propertyName</i> may be empty; in that case <i>expression</i> should evaluate to an object, and <i>all</i> enumerable properties of that object will be set on the DOM object:
+        <demo srcText=
+"<def var=props 
+    #value=&quot;\{height: 50, width: 250, style: 'background-color: lightblue'}&quot;>
+</def>
+<canvas #=props></canvas>"></demo>
     </li>
 </ul>
 Notes:
@@ -270,7 +287,7 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
                 When it evaluates to an array, then each non-empty array element is added to the list of class names;
             </li>
             <li>
-                Otherwise, when it evaluates to an object, then each own enumerable property <i>name</i> of the object is added to the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
+                Otherwise, when it evaluates to an object, then each (enumerable) property <i>name</i> of the object is added to the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
             </li>
         </ul>
     </dd>
@@ -295,8 +312,8 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
 <dl>
     <dt><code class=sourcecode>#style="<i>expression</i>"</code></dt>
     <dd>
-        If <i>expression</i> evaluates to a string, then attribute <code>style</code> is set to that string.
-        <p>If it evaluates to an object, then every property <i>name</i> in the object will be copied to the inline style object.
+        If <i>expression</i> evaluates to a string, then DOM property <code>style</code> is set to that string.
+        <p>If it evaluates to an object, then every (enumerable) property <i>name</i> in the object will be copied to the inline style object.
     </dd>
     <dt><code class=sourcecode>style.<i>name</i>="<i>string</i>"</code></dt>
     <dd>

@@ -110,7 +110,7 @@ export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
             srcN.b = T;
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? (new URL(m[0])).pathname.replace(/[^/]*$/, Q) : Q), setts);
+            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             Jobs.add({ Exec: async () => {
                     srcN.innerHTML = Q;
@@ -146,13 +146,12 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
     r.res = res;
     return { r, sub, cr };
 }, PrepElm = (ar, tag) => {
-    let r = ar.r, cr = !r;
-    if (cr)
+    let r = ar.r, cr;
+    if (cr = !r)
         r = new Range(ar, ar.srcN
             || ar.parN.insertBefore(D.createElement(tag), ar.bfor));
     else
-        ar.r = r.nx
-            || T;
+        ar.r = r.nx || T;
     nodeCnt++;
     return {
         r,
@@ -413,18 +412,18 @@ function ApplyMods(r, cr, mods, xs, k = 0) {
                         e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
                         break;
                     case 6:
-                        e.setAttribute('src', new URL(x, nm).href);
+                        e[nm] = x.replace(/([^, \t\f\r\n]+)((\s.*?)?(,|$))/g, (_, u, r) => new URL(u, M.fp).href + r);
                         break;
                     case 5:
                         ass(e, x);
                         break;
                     case 3:
-                        let p = r[k], n = r[k] = new Set();
+                        let p = r[k], n = M.cu & 2 ? (r[k] = new Set()) : N;
                         function AC(C) {
                             if (C) {
                                 p?.delete(C)
                                     || e.classList.add(C);
-                                n.add(C);
+                                n?.add(C);
                             }
                         }
                         if (x)
@@ -676,7 +675,7 @@ class RComp {
     }
     async CElm(srcE, bUH) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, glAtts = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
+            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, ga = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:(create|update|destroy)+|compile))$/
@@ -684,7 +683,7 @@ class RComp {
                     if (m[1])
                         m[4] && tag != 'REACT'
                             || m[7] && tag == 'FOR'
-                            || glAtts.push({
+                            || ga.push({
                                 att,
                                 m,
                                 dV: m[5]
@@ -801,7 +800,8 @@ class RComp {
                         }
                         break;
                     case 'REACT':
-                        bl = await this.CChilds(srcE);
+                        b = await this.CChilds(srcE);
+                        bl = b && function REACT(sub) { return b(PrepRng(sub, srcE).sub); };
                         break;
                     case 'RHTML':
                         {
@@ -1001,7 +1001,7 @@ class RComp {
                     }
                 };
             }
-            for (let { att, m, dV } of this.setts.version ? glAtts : glAtts.reverse()) {
+            for (let { att, m, dV } of this.setts.version ? ga : ga.reverse()) {
                 let b = bl, es = m[6] ? 'e' : 's';
                 if (m[2]) {
                     let R = async (ar, bR) => {
@@ -1574,60 +1574,54 @@ class RComp {
         };
     }
     CAtts(atts) {
-        let bf = [], af = [], m, ap = this.setts.bAutoPointer;
-        function addM(mt, nm, d, cu) {
-            (mt < 8 && nm != 'value' ? bf : af)
-                .push({ mt, nm, d,
-                ap: ap && mt == 7 && nm == 'click',
+        let bf = [], af = [], m, ap = this.setts.bAutoPointer, addM = (mt, nm, d, cu) => {
+            let M = { mt, nm, d,
                 cu: cu ??
                     (d.fx != N ? 1 : 3)
-            });
-        }
-        for (let [a, V] of atts) {
-            if (m = /^_|^(([#+.](#)?)?((class(?:name)?)|(style)|on(\w+)|(src)|\w*)(?:[.:](\w+))?\.*)$|^\.\.\.(\w+)$/.exec(a)) {
-                if (m[1]) {
-                    let s = m[9], d = m[2] ? this.CExpr(V, a)
-                        : m[7] ? this.CHandlr(a, V)
-                            : this.CText(V, a), e = d;
-                    if (s)
-                        if (m[5])
-                            d = () => Object.fromEntries([[s, e()]]);
-                        else if (!m[6])
-                            continue;
-                    addM(m[5] ? 3
-                        : m[6] ? s ? 2 : 4
-                            : m[7] ? 7
-                                : m[8] ? 6
-                                    : m[2] ? m[4] ? 1 : 5
-                                        : 0, m[8] ? this.FilePath : s || m[7] || m[4], d, m[3] && 1);
+            };
+            if (ap && mt == 7)
+                M.ap = nm == 'click';
+            if (mt == 6)
+                M.fp = this.FilePath;
+            (mt < 8 && nm != 'value' ? bf : af).push(M);
+        };
+        for (let [A, V] of atts)
+            if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) {
+                let [, o, p, h, d, y, c, i, e, s, a, t, k, r] = m;
+                if (o) {
+                    let dV = p ? this.CExpr(V, A)
+                        : e ? this.CHandlr(A, V)
+                            : this.CText(V, A);
+                    addM(c ? 3
+                        : y ? i ? 2 : 4
+                            : e ? 7
+                                : s ? 6
+                                    : p ? d ? 1 : 5
+                                        : 0, a || e || i || d, i && c
+                        ? () => Object.fromEntries([[i, dV()]])
+                        : dV, h && 1);
                 }
-                else if (m[10]) {
+                else if (t) {
+                    let cu, dS = this.CTarget(V), cnm, dSet = () => {
+                        let S = dS();
+                        return k ?
+                            function () { S(this[cnm || (cnm = ChkNm(this, k))]); }
+                            : function () { S(this); };
+                    };
+                    if (m = /[@#](#)?/.exec(t))
+                        addM(1, k, this.CExpr(V, k), m[1] && 1);
+                    if (cu = /\*/.test(t) + /\+/.test(t) * 2)
+                        addM(9, k, dSet, cu);
+                    if (m = /([@!])(\1)?/.exec(t))
+                        addM(7, m[2] ? 'change' : 'input', dSet);
+                }
+                else {
                     if (V)
                         throw 'A rest parameter cannot have a value';
-                    addM(8, a, this.CT.getLV(m[10]));
+                    addM(8, A, this.CT.getLV(r));
                 }
+                atts.delete(A);
             }
-            else if (m = /^([\*\+#!]+|@@?)(\w+)$/.exec(a)) {
-                let [, p, nm] = m, cu, dS = this.CTarget(V), cnm, dSet = () => {
-                    let S = dS();
-                    return nm ? function () {
-                        S(this[cnm || (cnm = ChkNm(this, nm))]);
-                    }
-                        : function () {
-                            S(this);
-                        };
-                };
-                if (m = /[@#](#)?/.exec(p))
-                    addM(1, nm, this.CExpr(V, nm), m[1] && 1);
-                if (cu = /\*/.test(p) + /\+/.test(p) * 2)
-                    addM(9, nm, dSet, cu);
-                if (/[@!]/.test(p))
-                    addM(7, /!!|@@/.test(p) ? 'change' : 'input', dSet);
-            }
-            else
-                continue;
-            atts.delete(a);
-        }
         return { bf, af };
     }
     CText(text, nm) {
