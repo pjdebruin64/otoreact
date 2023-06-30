@@ -89,8 +89,8 @@ type DOMBuilder<RT = unknown> = ((ar: Area, bR?: boolean) => Promise<RT>)
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
 */
-type Area<VT = unknown> = {
-    r?: Range<ChildNode, VT> | true,          // Existing piece of DOM
+type Area<RT = object> = {
+    r?: Range<ChildNode> & RT | true,          // Existing piece of DOM
     // When falsy (undefined or null), the DOM has to be CREATED
     // When truthy (defined or true), the DOM has to be UPDATED
 
@@ -104,14 +104,14 @@ type Area<VT = unknown> = {
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
-type AreaR<VT = unknown> = Area<VT> & {r?: Range<ChildNode, VT>};
+type AreaR<RT = object> = Area<RT> & {r?: Range<ChildNode> & RT};
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
     It can either be a single DOM node, with child nodes described by a linked list of child-ranges,
     OR just a linked list of subranges.
     It is created by a builder, and contains all metadata needed for updating or destroying the DOM.
 */
-class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
+class Range<NodeType extends ChildNode = ChildNode> {
     node: NodeType;     // Optional DOM node, in case this range corresponds to a single node
     
     ch: Range;         // Linked list of child ranges (null=empty)
@@ -188,20 +188,12 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
         })(this)
     }
 
-    // The following properties may contain different types of meta-information about the created DOM, to be used by the builder.
-
-    res?: any;  // Some result value to be kept by a builder
-    v?: VT;  // Some other value to be kept by a builder
-
     [i: number]: Set<string>|Hndlr; // Used to keep html classnames and event handlers
-
-    errN?: ChildNode;  // When an error description node has been inserted, it is saved here, so it can be removed on the next update
 
     bfD?: Handler;   // Before destroy handler
     afD?: Handler;   // After destroy handler
 
     // For reactive elements
-    upd?: number;       // last DoUpdate iteration number, so the range is not updated again in the same iteration
     subs?: Subscriber;      // Subscriber object created for this element instance
     rvars?: RVAR[];         // RVARs on which the element reacts
 
@@ -245,12 +237,12 @@ class Range<NodeType extends ChildNode = ChildNode, VT = unknown> {
 // Furthermore, because construct definitions can vary and can contain references to local variables outside the definition,
 // they must be stored in the environment as well.
 // We use negative indices for this, like { [k: number]: ConstructDef} for k<0
-type Environment =  [Environment?, ...unknown[] ];
+type Environment =  [Environment?, ...unknown[] ] & {cl?: string[]};
 
 // An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
 type EnvKey = {d: number, i: number};
 
-// A CONTEXT keeps track at runtime of all visible local variables and constructs, and were thet are s
+// A CONTEXT keeps track at runtime of all visible local variables and constructs, and where they are stored
 class Context {
     d: number;          // Depth = number of parent frames
     L: number;          // Length = number of positive (local variable) array elements
@@ -365,19 +357,19 @@ type DepE<T> = ((e?:Environment) => T);
     It can assign some custom result value to the range,
     and on updating it can optionally erase the range, either when the result value has changed or always.
 */
-const PrepRng = <VT = unknown, NT extends ChildNode = ChildNode>(
+const PrepRng = <RT>(
     ar: Area,         // Given area
     srcE?: HTMLElement,  // Source element, just for error messages
     text: string = Q,  // Optional text for error messages
     nWipe?: 1|2,    // 1=erase 'ar.r' when 'res' has changed; 2=erase always
     res?: any,      // Some result value to be remembered
 ) : {
-    r: Range<NT, VT>,     // The newly created or updated child range
+    r: Range & Partial<RT>,     // The newly created or updated child range
     sub: Area,       // The new sub area
     cr: booly    // True when the sub-range has to be created
 } =>
 {
-    let {parN, r} = ar as AreaR,
+    let {parN, r} = ar as AreaR<{res?: unknown}>,
         sub: Area = {parN }
         , cr: boolean;
     if (cr = !r) {
@@ -400,27 +392,27 @@ const PrepRng = <VT = unknown, NT extends ChildNode = ChildNode>(
     }
     r.res=res;
     
-    return {r, sub, cr} as {r: Range<NT, VT>, sub: Area, cr: booly};
+    return {r, sub, cr} as {r: Range & RT, sub: Area, cr: booly};
 }
 
 /*  When creating, build a new range containing a new HTMLElement.
     When updating, return the the range created before.
     Also returns a subarea to build or update the elements childnodes. */
-, PrepElm = <T = {val: object}>(
+, PrepElm = <RT>(
     ar: Area, 
     tag: string
 ): {
-    r: Range<HTMLElement> & T    // Sub-range
+    r: Range<HTMLElement> & RT    // Sub-range
     , sub: Area                    // Sub-area
     , cr: boolean                  // True when the sub-range is being created
 } => {
-    let r = ar.r as Range<HTMLElement> & T,
+    let r = ar.r as Range<HTMLElement> & RT,
         cr: boolean;
     if (cr = !r)
         r = new Range(ar,
                 ar.srcN
                 || ar.parN.insertBefore<HTMLElement>(D.createElement(tag), ar.bfor)
-            ) as Range<HTMLElement> & T;
+            ) as Range<HTMLElement> & RT;
     else
         ar.r = r.nx || T;
 
@@ -727,11 +719,12 @@ function Subs({parN, parR}: Area, b: DOMBuilder, r: Range, bR:boolean = false): 
         , {T});
 }
 
+type OES = {e: Handler, s: Handler};    // onerror and onsuccess handlers
 let    
 /* Runtime data */
     env: Environment,       // Current runtime environment
     pn: ParentNode,         // Current html node
-    oes = {e: N, s: N} as {e: Handler, s: Handler},    // Current onerror and onsuccess handlers
+    oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
     Jobs = new Set< {Exec: () => Promise<void> } //| (() => Promise<void>) 
@@ -853,7 +846,7 @@ const enum MType {
 }
 type RestArg = [Modifier[], unknown[]];
 function ApplyMods(
-        r: Range<HTMLElement,{click?: Hndlr}>
+        r: Range<HTMLElement>
         , cr: boolean
         , mods: Modifier[]
         , xs?: unknown[]        // Optional modifier values (in case of a Rest argument)
@@ -997,8 +990,7 @@ function ApplyMods(
                     case MType.AutoReroute:
                         if ( 
                             // When the A-element has no 'onclick' handler or 'download' or 'target' attribute
-                            !(r.v?.click?.h) 
-                            && !(e as HTMLAnchorElement).download
+                            !(e as HTMLAnchorElement).download
                             && !(e as HTMLAnchorElement).target
                             // and the (initial) href starts with the current basepath
                             && (e as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
@@ -1043,7 +1035,7 @@ class Hndlr {
 }
 
 let iNum = 0        // Numbering of RComp instances
-    , iStyle = 0;   // Numbering of RSTYLE classnames
+    , iStyle = 0;   // Numbering of local stylesheet classnames
 class RComp {
 
     public num = iNum++;  // Rcompiler instance number, just for identification during debugging
@@ -1061,7 +1053,8 @@ class RComp {
 
     public FilePath: string;
 
-    lscl: {nm: string}[];     // Local stylesheet classlist
+    lscl: string[];     // Local static stylesheet classlist
+    ndcl: number;       // Number of dynamic local classnames
  
     constructor(
         RC?: RComp,
@@ -1075,6 +1068,7 @@ class RComp {
         this.head  = RC?.head || this.doc.head;
         this.CT    = new Context(CT, T);
         this.lscl= RC?.lscl || E;
+        this.ndcl = RC?.ndcl || 0;
     }
 /*
     'Framed' compiles a range of RHTML within a new variable-frame.
@@ -1084,7 +1078,7 @@ class RComp {
 */  
     private Framed<T>(
         Comp: (
-            StartScope: (sub: Area, r?:Range) => {sub: Area, EF: () => void }
+            StartScope: (sub: Area, r?:Range & {env?:Environment}) => {sub: Area, EF: () => void }
         )=>Promise<T>
     ): Promise<T> {
         let {CT, rActs} = this
@@ -1104,9 +1098,10 @@ class RComp {
             (sub, r?) => {
                 // A new frame requires a range object, so that on updates we can restore the frame created earlier.
                 // We can use a range provided by the caller, or prepare a new one
-                r || ({r,sub} = PrepRng(sub));
                 let e = env;
-                env = (r.v as Environment) ||= [nf ? e : e[0]]; 
+                r || ({r,sub} = PrepRng<{v:Environment}>(sub));
+                (env = r.env) || ((env = r.env = <Environment>[nf ? e : e[0]]).cl = e.cl);
+                
                 return {sub, EF: () => {env = e;} }; // 'EndFrame' routine
             }
         ).finally(() =>        
@@ -1327,7 +1322,7 @@ class RComp {
                             // Were there no compile-time reacts for this rvar?
                             bl = bs.length && this.cRvars[rv]
                                 ? async function Auto(ar: Area) {
-                                        let {r, sub, cr} = PrepRng(ar);
+                                        let {r, sub, cr} = PrepRng<{upd: number}>(ar);
                                         if (cr) {
                                             let rvar = gv(), s = rvar._Subs.size;
                                             for (let b of bs)
@@ -1425,7 +1420,7 @@ class RComp {
                                     m, 
                                     dV: 
                                         m[5]  // on((error)|success)
-                                            ? this.CHandlr(att, atts.g(att))
+                                            ? this.CHandlr(atts.g(att), att)
                                         : m[8] // if
                                             ? this.CAttExp(atts, att)
                                         :   // reacton, hash
@@ -1443,7 +1438,7 @@ class RComp {
                                 U:/u/.test(att),    // 'att' contains 'update'
                                 D:/y/.test(att),    // 'att' contains 'destroy'
                                 // 'before' events are compiled now, before the element is compiled
-                                h: m[9] && this.CHandlr(att,txt)
+                                h: m[9] && this.CHandlr(txt, att)
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
@@ -1582,7 +1577,7 @@ class RComp {
                         }
                         
                         bl = async function IMPORT(ar: Area) {
-                            let {sub,cr,r} = PrepRng<Environment>(ar, srcE)
+                            let {sub,cr,r} = PrepRng<{v:Environment}>(ar, srcE)
                             if (cr || bIncl) {
                                 try {
                                     var b = await NoTime(task)
@@ -1617,11 +1612,11 @@ class RComp {
                        
                         bl = async function RHTML(ar) {
                             let 
-                                {r, sub} = PrepElm<{v: Range}>(ar, 'r-html')
+                                {r, sub} = PrepElm<{v: Range, src:string}>(ar, 'r-html')
                                 , src = b ? (await b(sub)).innerText : dSrc?.()
                                 ;
 
-                            if (src != r.res) {
+                            if (src != r.src) {
                                 let 
                                     sv = env,
                                     C = ass(new RComp(N, f, s), {ws,rt, CT: new Context()}),
@@ -1635,7 +1630,7 @@ class RComp {
                                 r.v.erase(sRoot); sRoot.innerHTML=Q;
                                 try {
                                     // Parsing
-                                    tmp.innerHTML = r.res = src;
+                                    tmp.innerHTML = r.src = src;
                                     // Compiling
                                     await C.Compile(tmp, tmp.childNodes);
                                     // Building
@@ -1738,13 +1733,13 @@ class RComp {
                         let src = atts.g('src'), sc = atts.g('scope')
                             , nm: string, {lscl: l, head} = this;
 
-                        if (sc != N) {
+                        if (sc) {
                             /^local$/i.test(sc) || thro('Invalid scope');
                             // Local scope
                             // Get a unique classname for this stylesheet
                             nm = `\uFFFE${iStyle++}`; // or e.g. \u0212
                             // Let all HTML elements in the current scope get this classname
-                            this.lscl = [...l, {nm}];
+                            this.lscl = [...l, nm];
                             // At the end of scope, restore
                             this.rActs.push(() => this.lscl = l);
                         }
@@ -1760,8 +1755,6 @@ class RComp {
                     } break;
                     case 'RSTYLE': {
                         let s: [boolean, RegExp, WSpc] = [this.setts.bDollarRequired, this.rIS, this.ws]
-                            , l = this.lscl
-                            , oNm: {nm?: string}    // Placeholder for a classname, to be filled in at run time
                             , sc = atts.g('scope')
                             , {bf,af} = this.CAtts(atts)
                         try {
@@ -1769,33 +1762,34 @@ class RComp {
                             this.rIS = N;
                             this.ws = WSpc.block;
 
-                            if (sc != N) {
-                                /^local$/i.test(sc) || thro('Invalid scope');
-
-                                // Let all HTML elements in the current scope get the classname
-                                this.lscl = [... l||E, oNm = {}];
-
-                                // At the end of scope, restore
-                                this.rActs.push(() => this.lscl = l);
-                            }
-                            let
-                                b = await this.CUncN(srcE, atts)
-                                , PrepS = this.InHead(async ar => PrepElm(ar, 'STYLE'));
+                            let b = await (sc ?
+                                ( /^local$/i.test(sc) || thro('Invalid scope')
+                                , this.ndcl++
+                                , this.rActs.push(() => this.ndcl--)
+                                , this.CUncN(srcE, atts)
+                                ) 
+                                : this.CIncl(srcE, atts)
+                            );
 
                             bl = b && async function RSTYLE(ar: Area) {
                                 let 
-                                    txt = (await b(ar) as HTMLElement).innerText
-                                    , {r,cr} = await PrepS(ar)
+                                    {r,cr,sub} = PrepElm<{cn: string, cl: string[], t:string}>(ar, 'STYLE')
                                     , k = ApplyMods(r, cr, bf);
+
+                                if (sc) {
+                                    let txt = (await b(ar) as HTMLElement).innerText
+                                        , nm =  r.cn ||= `\uFFFE${iStyle++}`;
                                 
-                                if (txt != r.res)
-                                    // Set the style text
-                                    // Would we set '.innerText', then <br> would be inserted
-                                    r.node.innerHTML = AddClass(
-                                        r.res = txt
-                                        , sc && (oNm.nm = r.res ||= `\uFFFE${iStyle++}`)
-                                        );
-                                
+                                    if (txt != r.t)
+                                        // Set the style text
+                                        // Would we set '.innerText', then <br> would be inserted
+                                        r.node.innerHTML = AddClass(r.t = txt, nm);
+
+                                    env.cl = r.cl ||= [... env.cl||E, nm];
+                                }
+                                else
+                                    await b(sub);
+
                                 ApplyMods(r, cr, af, U, k);
                                 pn = ar.parN;
                             }
@@ -1818,7 +1812,7 @@ class RComp {
                         let dNm = this.CParam<string>(atts, 'name', T),
                             dVal= this.CParam<string>(atts, 'value', T);
                         bl = async function ATTRIB(ar: Area){
-                            let r = PrepRng<string>(ar, srcE).r
+                            let r = PrepRng<{v:string}>(ar, srcE).r
                                 , n0 = r.v
                                 , nm = r.v = dNm();
                             if (n0 && nm != n0)
@@ -1861,7 +1855,7 @@ class RComp {
             if (bf.length || af.length) {
                 // Compile after-handlers now
                 for (let g of af)
-                    g.h = this.CHandlr(g.att, g.txt);
+                    g.h = this.CHandlr(g.txt, g.att);
 
                 let b = bl;
                 bl = async function Pseudo(ar: AreaR, bR) {
@@ -1908,7 +1902,7 @@ class RComp {
                 if (m[2]) { // (this)?reacts?on|(on)
                     let R =
                         async (ar: Area, bR?: boolean) => {
-                            let {r, sub} = PrepRng(ar, srcE, att);
+                            let {r, sub} = PrepRng<{upd: number}>(ar, srcE, att);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
                                 await b(sub, bR);
@@ -1946,18 +1940,19 @@ class RComp {
                     m[5]  // set onerror or onsuccess
                     ? async function SetOnES(ar: Area, bR) {
                         let s = oes,    // Remember current setting
-                            {sub, r} = PrepRng(ar, srcE, att);
+                            {sub, r} = PrepRng<{oes: object}>(ar, srcE, att);
                         // Create a copy. On updates, assign current values to the copy created before.
-                        oes = Object.assign(r.v ||= {}, oes);
+                        oes = Object.assign(r.oes ||= {}, oes);
                         try {
                             oes[es] = dV();     // Now set the new value
                             await b(sub, bR);   // Run the builder
                         }
                         finally { oes = s; }    // Restore current setting
                     }
+
                     : m[7]   // hash
                     ? function HASH(ar: Area, bR) {
-                        let {sub, r,cr} = PrepRng<unknown[]>(ar, srcE, att)
+                        let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, att)
                             , ph  = r.v;
                         r.v = <unknown[]>dV();
     
@@ -1992,12 +1987,12 @@ class RComp {
     private ErrH(b: DOMBuilder, srcN: ChildNode): DOMBuilder{
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
-        return b && (async (ar: AreaR, bR) => {
+        return b && (async (ar: AreaR<{eN?: ChildNode}>, bR) => {
             let r = ar.r;
-            if (r?.errN) {
+            if (r?.eN) {
                 // Remove an earlier error message in the DOM tree at this point
-                pn.removeChild(r.errN);
-                r.errN = U;
+                pn.removeChild(r.eN);
+                r.eN = U;
             }
             try {
                 await b(ar, bR);
@@ -2011,12 +2006,9 @@ class RComp {
                 this.log(msg);
                 if (oes.e)
                     oes.e(e);
-                else if (this.setts.bShowErrors) {
-                    let errN =
+                else if (this.setts.bShowErrors)
+                    (r||{} as {eN?: ChildNode}).eN =
                         ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
-                    if (r)
-                        r.errN = errN;    /*  */
-                }
             }
         });
     }
@@ -2051,11 +2043,11 @@ class RComp {
         // When 'atts' is provided, then a 'src' attribute is accepted.
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar:Area) => {
-            let {r, sub} = PrepRng<HTMLElement, never>(ar, srcE)
-                , e = sub.parN = r.v ||= D.createElement(srcE.tagName);
+            let {r, sub} = PrepRng<{p: HTMLElement}>(ar, srcE)
+                , p = sub.parN = r.p ||= D.createElement(srcE.tagName);
             r.parN = F; sub.bfor = N;
             await b(sub);
-            return e;
+            return p;
         });
     }
 
@@ -2344,7 +2336,7 @@ class RComp {
 
                 // Dit wordt de runtime routine voor het updaten:
                 return b && async function FOR(ar: Area, bR) {
-                    let {r, sub} = PrepRng<Map<Key, ForRange>>(ar, srcE, Q),
+                    let {r, sub} = PrepRng<{v:Map<Key, ForRange>}>(ar, srcE, Q),
                         {parN} = sub,
                         bfor = sub.bfor !== U ? sub.bfor : r.Nxt,
                         iter: Iterable<Item> | Promise<Iterable<Item>>
@@ -2780,7 +2772,7 @@ class RComp {
         this.ws = WSpc.inline;
 
         return async function INST(this: RComp, ar: Area) {
-            let {r, sub, cr} = PrepRng<ArgSet>(ar, srcE),
+            let {r, sub, cr} = PrepRng<{v: ArgSet}>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
                 args = r.v ||= NO();
@@ -2837,12 +2829,12 @@ class RComp {
 
         // Compile the given childnodes into a routine that builds the actual childnodes
             , b = await this.CChilds(srcE)
-            , {lscl}= this  // List of scoping-classnames to be added to all instances of this source element
+            , {lscl,ndcl}= this  // List of scoping-classnames to be added to all instances of this source element
 
         if (postWs)
             this.ws = postWs;
 
-        if (nm=='A' && this.setts.bAutoReroute) // Handle bAutoReroute
+        if (nm=='A' && this.setts.bAutoReroute && bf.every(({nm}) => nm != 'click')) // Handle bAutoReroute
             af.push({
                 mt: MType.AutoReroute,
                 d: dU,
@@ -2864,9 +2856,12 @@ class RComp {
                     )
                     , k = bf && ApplyMods(r, cr, bf);
 
-                if (cr)
+                if (cr) {
                     // Add local scoping classnames
-                    for (let {nm} of lscl) r.node.classList.add(nm);
+                    for (let nm of lscl) r.node.classList.add(nm);
+                    for (let i=0; i<ndcl; i++)
+                        r.node.classList.add(env.cl[i]);
+                }
                 
                 if (cr || !bR)
                     // Build / update childnodes
@@ -2911,7 +2906,7 @@ class RComp {
                 if (o) {
                     let 
                         dV = p ? this.CExpr(V,A)
-                            : e ? this.CHandlr(A,V)
+                            : e ? this.CHandlr(V,A)
                             : this.CText(V, A)
                     ;
                     
@@ -3064,13 +3059,13 @@ class RComp {
         let txt = atts.g(att);
         return (
             txt == N ? this.CAttExp<T>(atts, att, bReq)
-            : /^on/.test(att) ? this.CHandlr(att, txt) as Dep<any>
+            : /^on/.test(att) ? this.CHandlr(txt, att) as Dep<any>
             : this.CText(txt, att) as Dep<any>
         );
     }
     private CAttExp<T>(atts: Atts, att: string, bReq?: booly
         ) {
-        return this.CExpr<T>(atts.g(att, bReq, T),att, U);
+        return this.CExpr<T>(atts.g(att, bReq, T), att, U);
     }
 
     private CTarget<T = unknown>(expr: string): Dep<(t:T) => void>
@@ -3082,34 +3077,12 @@ class RComp {
             );
     }
 
-    private CHandlr(nm: string, text: string): DepE<Handler> {
+    private CHandlr(txt: string, nm: string): DepE<Handler> {
         return this.CExpr<Handler>(
-            /^#/.test(nm) ? text : `function(event){${text}\n}`
-            , nm, text)
+            /^#/.test(nm) ? txt : `function(event){${txt}\n}`
+            , nm, txt)
     }
-/*
-    private CHandlr1(nm: string, text: string) {
-        if(/^#/.test(nm))
-            return this.CExpr<Handler>(text, nm)
-        else 
-            try {
-                var ES = this.SS(),
-                 lEvent = this.LVar('event'),
-                    dh = this.CExpr(text, nm),
-                    hh = () => {
 
-                        (ev: Event) => {
-                            lEvent(ev);
-                            let a = dh()
-                        }
-
-                    }
-
-                return hh
-            }
-            finally { ES(); }            
-    }
-*/
     CExpr<T>(
         expr: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
@@ -3415,7 +3388,7 @@ export {DL as docLocation, reroute}
 
 // Define global constants
 ass(
-    G, {RVAR, range, reroute, RFetch
+    G, {RVAR, range, reroute, RFetch, DoUpdate
         //, R$: import.meta.url
     }
 );

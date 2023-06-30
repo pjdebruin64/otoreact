@@ -978,7 +978,7 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
 
 
 <h2 id="RSTYLE"><{}STYLE> and <{}RSTYLE>: Scoped and dynamic style sheets</h2>
-<h4><{}STYLE scope? src?></h4>
+<h3><{}STYLE scope? src?></h3>
     All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the document header at compile time, so they won't get lost or duplicated.
     <p>It is not possible to use any OtoReact constructs or interpolated text inside <elm>STYLE</elm>, because the browser HTML parser allows only contents that conforms to the CSS specification.</p>
     <p>OtoReact recognizes, however, two extra attributes:</p>
@@ -1024,7 +1024,7 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
             </p>
         </dd>
     </dl>
-<h4><{}RSTYLE scope? src?></h4>
+<h3><{}RSTYLE scope? src?></h3>
 While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build <i>dynamic</i> style sheets using string interpolation and RHTML constructs, including loops, conditionals, and use of local variables.
 <ul>
     <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is appended to the document head, and updated or removed when needed.</li>
@@ -1051,9 +1051,11 @@ While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build 
         <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code> or <code>hash</code>.
     </li>
     <li>
-        Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm>, except that literal braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ }</code>.
+        Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm> without scope, except that literal braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ }</code>.
     </li>
 </ul>
+Here is a sample component where each instance has its own local stylesheet:
+<demo #srctext="demoLocalRstyles" #tab="-1"></demo>
 
 
 <h2 id="ELEMENT"><{}ELEMENT #tagname>*</h2>

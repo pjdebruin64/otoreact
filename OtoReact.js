@@ -452,8 +452,7 @@ function ApplyMods(r, cr, mods, xs, k = 0) {
                         x.call(e);
                         break;
                     case 10:
-                        if (!(r.v?.click?.h)
-                            && !e.download
+                        if (!e.download
                             && !e.target
                             && e.href.startsWith(L.origin + DL.basepath))
                             e.addEventListener('click', reroute);
@@ -498,6 +497,7 @@ class RComp {
         this.head = RC?.head || this.doc.head;
         this.CT = new Context(CT, T);
         this.lscl = RC?.lscl || E;
+        this.ndcl = RC?.ndcl || 0;
     }
     Framed(Comp) {
         let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M;
@@ -507,9 +507,9 @@ class RComp {
             CT.L = CT.M = 0;
         }
         return Comp((sub, r) => {
-            r || ({ r, sub } = PrepRng(sub));
             let e = env;
-            env = r.v || (r.v = [nf ? e : e[0]]);
+            r || ({ r, sub } = PrepRng(sub));
+            (env = r.env) || ((env = r.env = [nf ? e : e[0]]).cl = e.cl);
             return { sub, EF: () => { env = e; } };
         }).finally(() => {
             ass(this.CT = CT, { ct, d, L, M });
@@ -687,7 +687,7 @@ class RComp {
                                 att,
                                 m,
                                 dV: m[5]
-                                    ? this.CHandlr(att, atts.g(att))
+                                    ? this.CHandlr(atts.g(att), att)
                                     : m[8]
                                         ? this.CAttExp(atts, att)
                                         :
@@ -703,7 +703,7 @@ class RComp {
                                 C: /c/.test(att),
                                 U: /u/.test(att),
                                 D: /y/.test(att),
-                                h: m[9] && this.CHandlr(att, txt)
+                                h: m[9] && this.CHandlr(txt, att)
                             });
                         else
                             Ev(`(function(){${txt}\n})`).call(srcE);
@@ -808,7 +808,7 @@ class RComp {
                             let { ws, rt, FilePath: f } = this, b = await this.CUncN(srcE), dSrc = !b && this.CParam(atts, 'srctext'), s = { bSubf: T, bTiming: this.setts.bTiming };
                             bl = async function RHTML(ar) {
                                 let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : dSrc?.();
-                                if (src != r.res) {
+                                if (src != r.src) {
                                     let sv = env, C = ass(new RComp(N, f, s), { ws, rt, CT: new Context() }), sRoot = C.head = r.node.shadowRoot || r.node.attachShadow({ mode: 'open' }), tmp = D.createElement('rhtml'), sAr = {
                                         parN: sRoot,
                                         parR: r.v || (r.v = new Range(N, N, 'Shadow'))
@@ -816,7 +816,7 @@ class RComp {
                                     r.v.erase(sRoot);
                                     sRoot.innerHTML = Q;
                                     try {
-                                        tmp.innerHTML = r.res = src;
+                                        tmp.innerHTML = r.src = src;
                                         await C.Compile(tmp, tmp.childNodes);
                                         await C.Build(sAr);
                                     }
@@ -903,10 +903,10 @@ class RComp {
                     case 'STYLE':
                         {
                             let src = atts.g('src'), sc = atts.g('scope'), nm, { lscl: l, head } = this;
-                            if (sc != N) {
+                            if (sc) {
                                 /^local$/i.test(sc) || thro('Invalid scope');
                                 nm = `\uFFFE${iStyle++}`;
-                                this.lscl = [...l, { nm }];
+                                this.lscl = [...l, nm];
                                 this.rActs.push(() => this.lscl = l);
                             }
                             (src ? this.FetchText(src) : Promise.resolve(srcE.innerText))
@@ -919,21 +919,27 @@ class RComp {
                         }
                         break;
                     case 'RSTYLE': {
-                        let s = [this.setts.bDollarRequired, this.rIS, this.ws], l = this.lscl, oNm, sc = atts.g('scope'), { bf, af } = this.CAtts(atts);
+                        let s = [this.setts.bDollarRequired, this.rIS, this.ws], sc = atts.g('scope'), { bf, af } = this.CAtts(atts);
                         try {
                             this.setts.bDollarRequired = T;
                             this.rIS = N;
                             this.ws = 1;
-                            if (sc != N) {
-                                /^local$/i.test(sc) || thro('Invalid scope');
-                                this.lscl = [...l || E, oNm = {}];
-                                this.rActs.push(() => this.lscl = l);
-                            }
-                            let b = await this.CUncN(srcE, atts), PrepS = this.InHead(async (ar) => PrepElm(ar, 'STYLE'));
+                            let b = await (sc ?
+                                (/^local$/i.test(sc) || thro('Invalid scope')
+                                    , this.ndcl++
+                                    , this.rActs.push(() => this.ndcl--)
+                                    , this.CUncN(srcE, atts))
+                                : this.CIncl(srcE, atts));
                             bl = b && async function RSTYLE(ar) {
-                                let txt = (await b(ar)).innerText, { r, cr } = await PrepS(ar), k = ApplyMods(r, cr, bf);
-                                if (txt != r.res)
-                                    r.node.innerHTML = AddClass(r.res = txt, sc && (oNm.nm = r.res || (r.res = `\uFFFE${iStyle++}`)));
+                                let { r, cr, sub } = PrepElm(ar, 'STYLE'), k = ApplyMods(r, cr, bf);
+                                if (sc) {
+                                    let txt = (await b(ar)).innerText, nm = r.cn || (r.cn = `\uFFFE${iStyle++}`);
+                                    if (txt != r.t)
+                                        r.node.innerHTML = AddClass(r.t = txt, nm);
+                                    env.cl = r.cl || (r.cl = [...env.cl || E, nm]);
+                                }
+                                else
+                                    await b(sub);
                                 ApplyMods(r, cr, af, U, k);
                                 pn = ar.parN;
                             };
@@ -977,7 +983,7 @@ class RComp {
             nm = (bl || (bl = dB)).name;
             if (bf.length || af.length) {
                 for (let g of af)
-                    g.h = this.CHandlr(g.att, g.txt);
+                    g.h = this.CHandlr(g.txt, g.att);
                 let b = bl;
                 bl = async function Pseudo(ar, bR) {
                     let { r, prvR } = ar, bfD;
@@ -1034,7 +1040,7 @@ class RComp {
                         m[5]
                             ? async function SetOnES(ar, bR) {
                                 let s = oes, { sub, r } = PrepRng(ar, srcE, att);
-                                oes = Object.assign(r.v || (r.v = {}), oes);
+                                oes = Object.assign(r.oes || (r.oes = {}), oes);
                                 try {
                                     oes[es] = dV();
                                     await b(sub, bR);
@@ -1072,9 +1078,9 @@ class RComp {
     ErrH(b, srcN) {
         return b && (async (ar, bR) => {
             let r = ar.r;
-            if (r?.errN) {
-                pn.removeChild(r.errN);
-                r.errN = U;
+            if (r?.eN) {
+                pn.removeChild(r.eN);
+                r.eN = U;
             }
             try {
                 await b(ar, bR);
@@ -1086,11 +1092,9 @@ class RComp {
                 this.log(msg);
                 if (oes.e)
                     oes.e(e);
-                else if (this.setts.bShowErrors) {
-                    let errN = ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
-                    if (r)
-                        r.errN = errN;
-                }
+                else if (this.setts.bShowErrors)
+                    (r || {}).eN =
+                        ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
             }
         });
     }
@@ -1111,11 +1115,11 @@ class RComp {
     async CUncN(srcE, atts) {
         let b = await this.CIncl(srcE, atts);
         return b && (async (ar) => {
-            let { r, sub } = PrepRng(ar, srcE), e = sub.parN = r.v || (r.v = D.createElement(srcE.tagName));
+            let { r, sub } = PrepRng(ar, srcE), p = sub.parN = r.p || (r.p = D.createElement(srcE.tagName));
             r.parN = F;
             sub.bfor = N;
             await b(sub);
-            return e;
+            return p;
         });
     }
     async CScript(srcE, atts) {
@@ -1549,10 +1553,10 @@ class RComp {
         }
         if (preWs == 4)
             postWs = preWs;
-        let { bf, af } = this.CAtts(atts), b = await this.CChilds(srcE), { lscl } = this;
+        let { bf, af } = this.CAtts(atts), b = await this.CChilds(srcE), { lscl, ndcl } = this;
         if (postWs)
             this.ws = postWs;
-        if (nm == 'A' && this.setts.bAutoReroute)
+        if (nm == 'A' && this.setts.bAutoReroute && bf.every(({ nm }) => nm != 'click'))
             af.push({
                 mt: 10,
                 d: dU,
@@ -1564,9 +1568,12 @@ class RComp {
         af.length || (af = U);
         return async function ELM(ar, bR) {
             let { r, sub, cr } = PrepElm(ar, nm || dTag()), k = bf && ApplyMods(r, cr, bf);
-            if (cr)
-                for (let { nm } of lscl)
+            if (cr) {
+                for (let nm of lscl)
                     r.node.classList.add(nm);
+                for (let i = 0; i < ndcl; i++)
+                    r.node.classList.add(env.cl[i]);
+            }
             if (cr || !bR)
                 await b?.(sub);
             af && ApplyMods(r, cr, af, U, k);
@@ -1590,7 +1597,7 @@ class RComp {
                 let [, o, p, h, d, y, c, i, e, s, a, t, k, r] = m;
                 if (o) {
                     let dV = p ? this.CExpr(V, A)
-                        : e ? this.CHandlr(A, V)
+                        : e ? this.CHandlr(V, A)
                             : this.CText(V, A);
                     addM(c ? 3
                         : y ? i ? 2 : 4
@@ -1676,7 +1683,7 @@ class RComp {
     CParam(atts, att, bReq) {
         let txt = atts.g(att);
         return (txt == N ? this.CAttExp(atts, att, bReq)
-            : /^on/.test(att) ? this.CHandlr(att, txt)
+            : /^on/.test(att) ? this.CHandlr(txt, att)
                 : this.CText(txt, att));
     }
     CAttExp(atts, att, bReq) {
@@ -1685,8 +1692,8 @@ class RComp {
     CTarget(expr) {
         return expr == N ? dU : this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
     }
-    CHandlr(nm, text) {
-        return this.CExpr(/^#/.test(nm) ? text : `function(event){${text}\n}`, nm, text);
+    CHandlr(txt, nm) {
+        return this.CExpr(/^#/.test(nm) ? txt : `function(event){${txt}\n}`, nm, txt);
     }
     CExpr(expr, nm, src = expr, dlms = '""') {
         return (expr == N ? expr
@@ -1890,7 +1897,7 @@ let R, DL = new DocLoc(), reroute = arg => {
     DL.U = new URL(arg, DL.V).href;
 };
 export { DL as docLocation, reroute };
-ass(G, { RVAR, range, reroute, RFetch
+ass(G, { RVAR, range, reroute, RFetch, DoUpdate
 });
 W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
 setTimeout(() => {

@@ -922,3 +922,26 @@ const demoAutoSubscribtion = `
 	<button onclick="b.V++">{b}</button>
 	<span reacton=b>b = {b}</span>
 </p>`
+
+const demoLocalRstyles = 
+`<component>
+  <T color></T>
+
+  <template>
+    <RSTYLE scope=local>
+      span { color: \${color} }
+    </RSTYLE>
+
+    <def rvar=n #value=2></def>
+    <p>
+      <button onclick="n.V++"> + </button>
+      <for let=i of="range(1, n.V)">
+        <span>{i}</span>
+      </for>
+    </p>
+  </template>
+</component>
+
+<T color=red></T>
+<T color=green></T>
+<T color=blue></T>`
