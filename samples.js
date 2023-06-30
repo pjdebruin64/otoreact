@@ -64,14 +64,6 @@ const sampleGreeting = `<!-- Create a local reactive state variable (RVAR) to re
     overflow:hidden;
     font-size: small;
   }
-
-  @keyframes Disappearing {
-    from {line-height: 80%}
-    to   {line-height: 0%}
-  }  
-  table.animate > tbody > tr:first-child {
-    animation: Disappearing 280ms linear 70ms forwards
-  }
 </style>
 
 <!-- We tell OtoReact to define these names in global scope. -->
@@ -109,8 +101,7 @@ function StartStop() {
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table.
-        #class:animate="handle.V" thisreactson=handle>
+<table.>
 
   <!-- Table caption -->
   <caption.>Web Colors 
@@ -507,21 +498,18 @@ const sampleRHTML = `<define rvar=sourcecode
 <RHTML #srctext=sourcecode.V></RHTML>
 <p>
 <RHTML>{srctext.V}</RHTML>`;
-const sampleStyleTemplate = `<def rvar=Hue #value="0"></def>
-Current hue is: {Hue.V.toFixed()}
-
+const sampleStyleTemplate = `<def rvar=Hue value="0.0"></def>
 <RSTYLE>
   h2 {
-    color: hsl( \${Hue}, 100%, 50%);
+    color: hsl( \${Hue}deg 100% 50% );
   }
 </RSTYLE>
 
 <h2>Section head</h2>
 Section contents
 <h2>Another section head</h2>
-
-Click here:
-  <button onclick="Hue.V = Math.random() * 360">Random hue</button>`;
+<button onclick="Hue.V = (Math.random() * 360).toFixed(1)">Change hue</button>
+Current hue is: {Hue.V}.`;
 const C1 = `<!-- Component signature with parameter -->
 <Repeat #count>
     <!-- Slot signature with parameter -->
@@ -825,7 +813,14 @@ const demoAutoSubscribtion = `
 const demoLocalRstyles = `<component>
   <T color></T>
 
-  <template>
+  <!-- This style sheet is local to the component but shared by all component instances -->
+  <STYLE scope=local>
+    span {background-color: azure; padding: 4px}
+  </STYLE>
+
+  <template color>
+    <!-- Each component instance gets its own copy of this sheet.
+    So it can refer to component parameter 'color'.  -->
     <RSTYLE scope=local>
       span { color: \${color} }
     </RSTYLE>
@@ -842,4 +837,7 @@ const demoLocalRstyles = `<component>
 
 <T color=red></T>
 <T color=green></T>
-<T color=blue></T>`;
+<T color=blue></T>
+<p>
+  <span>The style sheets above do not apply to this <{}span>.</span>
+<p>`;

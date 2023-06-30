@@ -208,7 +208,7 @@ RHTML implements some additional event-like properties that are not triggered by
 The name <code>event</code> is not available in handlers for these pseudo-events, but <code>this</code> is available and will be bound to the HTMLElement the handler is attached to.
 
 <p>
-    These pseudo-events may be attached to RHTML constructs too. In that case <code>this</code> will be bound to the nearest parent HTMLElement.
+    These pseudo-events may be attached to RHTML constructs too. In that case <code>this</code> will be bound to the nearest <i>parent</i> HTMLElement.
 </p>
 
 <p>
@@ -218,7 +218,7 @@ The name <code>event</code> is not available in handlers for these pseudo-events
 <dl>
     <dt><code class=sourcecode>oncompile</code></dt>
     <dd>
-        Executed at compile-time before its HTMLElement is compiled. It cannot refer to run-time variables, of course.
+        Executed <i>at compile-time</i> before its HTMLElement is compiled. It cannot refer to run-time variables, of course.
         <br><code>this</code> is available and is bound to the source HTMLElement the attribute is attached to.
         <p>You could use it to write log data, or insert a compile-time breakpoint.</p>
     </dd>
@@ -284,10 +284,10 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
                 When <i>expression</i> evaluates to a string, then this is equivalent to setting the <a href="{MDN}Web/API/Element/className"><code>#className</code> property</a>: the string is split into words, and each word is added to the list of class names;
             </li>
             <li>
-                When it evaluates to an array, then each non-empty array element is added to the list of class names;
+                When it evaluates to an array, then each non-empty array element is included in the list of class names;
             </li>
             <li>
-                Otherwise, when it evaluates to an object, then each (enumerable) property <i>name</i> of the object is added to the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
+                Otherwise, when it evaluates to an object, then each (enumerable) property <i>name</i> of the object is included in the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
             </li>
         </ul>
     </dd>
@@ -296,7 +296,11 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
     <dd>
         Class name <i>name</i> will be added in lowercase if and only if the expression evaluates to a truthy value.
         <br>Note that the HTML parser transforms <i>name</i> into lowercase, so you cannot use this for class names containing uppercase characters.
-        <br>And note that <code>#class="\{<i>name</i>: <i>booleanExpression</i>\}"</code> is the same as <code>#class.<i>name</i>="<i>booleanExpression</i>"</code>, but works for names containing uppercase as well.
+        <br>Also note that:
+        <pre>#class.<i>name</i>="<i>booleanExpression</i>"</pre>
+        is the same as:
+        <pre>#class="\{<i>name</i>: <i>booleanExpression</i>\}"</pre>
+        , but the latter works for names containing uppercase characters as well.
     </dd>
 </dl>
 Just like other DOM properties, these attributes are recomputed at every update of the element, and the class list is updated accordingly.
@@ -348,7 +352,7 @@ DOM properties are not static but can change. RHTML allows four variants of outp
 <dl>
     <dt><code class=sourcecode>*<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        The assignment target receives the value of the property immediately after the element and its children have been <i>created</i>.
+        The assignment target receives the value of the property immediately after the element and its children have been <em>created</em>.
         <br>This is the same as setting a handler:
         <pre>oncreate="<i>target</i> = this.<i>propertyName</i>"</pre>
 
@@ -359,7 +363,7 @@ DOM properties are not static but can change. RHTML allows four variants of outp
     </dd>
     <dt><code class=sourcecode>+<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        The assignment target receives the value of the property immediately after the element and its children have been <i>updated</i>.
+        The assignment target receives the value of the property immediately after the element and its children have been <em>updated</em>.
         <br>This is the same as setting a handler:
         <pre>onupdate="<i>target</i> = this.<i>propertyName</i>"</pre>
     </dd>
@@ -368,7 +372,7 @@ DOM properties are not static but can change. RHTML allows four variants of outp
         The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
         <br>This is the same as setting a handler:
         <pre>oninput="<i>target</i> = this.<i>propertyName</i>"</pre>
-        <p>For elements which allow text input, an input event happens at every keystroke. You see the effect in several samples on this page.
+        <p>For elements which allow text input, an input event happens at <em>every keystroke</em>. You see the effect in several samples on this page.
     </dd>
     <dt><code class=sourcecode>!!<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
@@ -388,13 +392,16 @@ is the same as <code>#<i>propertyName</i>="<i>target</i>" !<i>propertyName</i>="
 <dl>
     <dt><code class=sourcecode>@<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        This is the same as <code>#!<i>propertyName</i>="<i>target</i>"</code>.
-        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>input</i> event.
+        This is the same as <code>#!<i>propertyName</i>="<i>target</i>"</code>. So:
+        <ul>
+            <li>The property receives the value of <i>target</i> at element creation and update,</li>
+            <li>and <i>target</i> receives the value of the property at every <i>input</i> event.</li>
+        </ul>
     </dd>
     <dt><code class=sourcecode>@@<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
         This is the same as <code>#!!<i>propertyName</i>="<i>target</i>"</code>.
-        <br>So the property receives the value of the assignment target at element creation and update, <i>and</i> the assignment target receives the value of the property at every <i>change</i> event.
+        <br>So the property receives the value of <i>target</i> at element creation and update, and <i>target</i> receives the value of the property at every <i>change</i> event.
     </dd>
 </dl>
 <p>

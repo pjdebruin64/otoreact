@@ -977,19 +977,18 @@ Furthermore:
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
 
-<h2 id="RSTYLE"><{}STYLE> and <{}RSTYLE>: Scoped and dynamic style sheets</h2>
-<h3><{}STYLE scope? src?></h3>
-    All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the document header at compile time, so they won't get lost or duplicated.
-    <p>It is not possible to use any OtoReact constructs or interpolated text inside <elm>STYLE</elm>, because the browser HTML parser allows only contents that conforms to the CSS specification.</p>
-    <p>OtoReact recognizes, however, two extra attributes:</p>
-    <dl>
-        <dt><code class="sourcecode">scope="local"</code></dt>
-        <dd>
-            With <code>scope="local"</code>, the style sheet and the RHTML code that follows it are modified so that the sheet is effective in local scope only: all its <a href="{MDN}Web/CSS/CSS_Selectors">CSS selectors</a> will match only with HTML elements that are created by the subsequent RHTML code till the closing tag of its parent element.
-            <p>
-                In particular, if you place such a sheet within a component definition, then it will apply to the HTML content created by the component template, and by components defined locally within that component, but not to HTML content created by components called from that template but defined elsewhere.
-            </p>
-            <demo #tab="-1" srctext=
+<h2 id="STYLE"><{}STYLE scope? src?> Static style sheets</h2>
+All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the document header at compile time, so they won't get lost or duplicated.
+<p>It is not possible to use any OtoReact constructs or interpolated text inside <elm>STYLE</elm>, because the browser HTML parser allows only contents that conforms to the CSS specification.</p>
+<p>OtoReact recognizes, however, two extra attributes:</p>
+<dl>
+    <dt><code class="sourcecode">scope="local"</code></dt>
+    <dd>
+        With <code>scope="local"</code>, the style sheet and the RHTML code that follows it are modified so that the sheet is effective in local scope only: all its <a href="{MDN}Web/CSS/CSS_Selectors">CSS selectors</a> will match only with HTML elements that are created by the subsequent RHTML code till the closing tag of its parent element.
+        <p>
+            In particular, if you place such a sheet within a component definition, then it will apply to the HTML content created by the component template, and by components defined locally within that component, but not to HTML content created by components called from that template but defined elsewhere.
+        </p>
+        <demo #tab="-1" srctext=
 '<component>
     <marked><content></content></marked>
     <STYLE scope=local>
@@ -1002,32 +1001,34 @@ Again, to speed things up, you can insert a <code>preload</code> link in the mai
 
 <marked>This <\{}div> is marked.</marked>
 <div>This <\{}div> is not.</div>'
-            ></demo>
-            <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
-            <p>
-                Note: <code>scope="local"</code> applies to some but not all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
-            </p>
-            <ul>
-                <li>It works with conditional group rules (<code>@media</code>, <code>@supports</code>, <code>@document</code>);</li>
-                <li>It does not apply to sheets imported with <code>@import</code>;</li>
-                <li>Styling features (like <code>@font-face</code>, <code>@keyframes</code>, and <code>@counter-style</code>) cannot be localized by means of class names, and are left alone.</li>
-            </ul>
-        </dd>
-        <dt><code class="sourcecode">src="<i>URL</i>"</code></dt>
-        <dd>
-            With <code>src="<i>URL</i>"</code>, OtoReact inserts the content of the external style sheet fetched from <i>URL</i>. This can be combined with <code>scope</code>.
-            <p>
-                Without <code>scope</code>, the result is the same as using <code><{}rhead><{}link rel="stylesheet" href="<i>URL</i>"><{}/rhead></code> or as <code><{}style>@import <i>URL</i><{}/style></code>.
-            </p>
-            <p>
-                When <elm>STYLE</elm> has both non-trivial content and a <code>src</code> attribute, then <code>src</code> is ignored, just like <a href="#INCLUDE"><elm>INCLUDE</elm></a>, so that one can use server-side-includes to optionally insert the contents of the external file.
-            </p>
-        </dd>
-    </dl>
-<h3><{}RSTYLE scope? src?></h3>
+        ></demo>
+        <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
+        <p>
+            Note: <code>scope="local"</code> applies to some but not all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
+        </p>
+        <ul>
+            <li>It works with conditional group rules (<code>@media</code>, <code>@supports</code>, <code>@document</code>);</li>
+            <li>It does not apply to sheets imported with <code>@import</code>;</li>
+            <li>Styling features (like <code>@font-face</code>, <code>@keyframes</code>, and <code>@counter-style</code>) cannot be localized by means of class names, and are left alone.</li>
+        </ul>
+    </dd>
+    <dt><code class="sourcecode">src="<i>URL</i>"</code></dt>
+    <dd>
+        With <code>src="<i>URL</i>"</code>, OtoReact inserts the content of the external style sheet fetched from <i>URL</i>. This can be combined with <code>scope</code>.
+        <p>
+            Without <code>scope</code>, the result is the same as using <code><{}rhead><{}link rel="stylesheet" href="<i>URL</i>"><{}/rhead></code> or as <code><{}style>@import <i>URL</i><{}/style></code>.
+        </p>
+        <p>
+            When <elm>STYLE</elm> has both non-trivial content and a <code>src</code> attribute, then <code>src</code> is ignored, just like <a href="#INCLUDE"><elm>INCLUDE</elm></a>, so that one can use server-side-includes to optionally insert the contents of the external file.
+        </p>
+    </dd>
+</dl>
+
+
+<h2 id="RSTYLE"><{}RSTYLE scope? src?> Dynamic style sheets</h2>
 While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build <i>dynamic</i> style sheets using string interpolation and RHTML constructs, including loops, conditionals, and use of local variables.
 <ul>
-    <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is appended to the document head, and updated or removed when needed.</li>
+    <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is inserted in the document, and updated or removed when needed.</li>
 
     <li>Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>$\{ \}</code>.</li>
 
