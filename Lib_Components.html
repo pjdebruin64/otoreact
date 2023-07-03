@@ -15,10 +15,10 @@
 
     <!-- This component gives all <RHTML> constructs some default styling. -->
     <component>
-        <RHTML srctext></RHTML>
+        <RHTML srctext onç?></RHTML>
         <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
-        <template>
-<RHTML>{prefix}
+        <template onç="oc">
+<RHTML #onç="oc">{prefix}
 {srctext}</RHTML>
         </template>
     </component>
@@ -29,32 +29,38 @@
         <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
-        <style>
-            table.demo   { 
+        <style scope="local">
+            table   { 
                 margin: 2ex auto; 
                 max-width:100%;
             }
-            table.demo > tr > * {
+            tr > * {
                 vertical-align: top;
                 min-width:350px;
                 max-width:700px;
                 padding: 8px;
                 border-radius: .5em;
             }
-            table.demo th:nth-child(1), button.demo {
+            th:nth-child(1), button.demo {
                 color: rgb(26, 97, 90);
             }            
-            table.demo th:nth-child(2) {
+            th:nth-child(2) {
                 color: rgb(104, 122, 1);
             }
 
-            table.demo > tr > *:nth-child(1) {
+            tr > *:nth-child(1) {
                 background-color: rgb(245, 245, 245);
             }
-            table.demo > tr > *:nth-child(2) {
+            tr > *:nth-child(2) {
                 background-color: rgb(240, 255, 160);
             }
-            table.demo td.pre { 
+            tr:nth-child(3) > *{
+                text-align: right;
+                font-size: 66%;
+                padding: 0px 8px;
+            }
+
+            td.pre { 
                 font-size: 80%;
                 min-height: 4em;
                 border: 3px solid rgb(200,200,200);
@@ -65,7 +71,7 @@
 
             .pre .nodisplay {display: none }
 
-            .demo button:disabled {
+            button:disabled {
                 border: solid 2px turquoise;
                 background-color: white;
                 color: inherit;
@@ -93,7 +99,10 @@
             <define rvar=rShow  #value="tab || 4"
                 onmodified="texts.V = regDemo.exec(srcText.V);"
                 ></define>
-            <table. class=demo>
+            <define rvar="tsStart"></define>
+            <define rvar="tsCompiled"></define>
+            <define rvar="tsBuilt"></define>
+            <table.>
                 <tr.><th. reacton="rShow">
                     <if cond=editable>Editable</if> Source Code&nbsp;
                     <div style="float:right">
@@ -144,9 +153,16 @@
                         </else>
                     </case>
                     <td. class=sample>           
-                        <RHTML reacton=srcText #srctext="srcText.V"></RHTML>
+                        <RHTML reacton=srcText #srctext="srcText.V"
+                            beforecreateupdate="tsStart.V = performance.now()"
+                            onç="tsCompiled.V = performance.now()"
+                            aftercreateupdate="tsBuilt.V = performance.now()"
+                        ></RHTML>
                     </td.>
                 </tr.>
+                <tr.><td. colspan="2" reacton="tsStart,tsCompiled,tsBuilt">
+                    Compiled in {(tsCompiled.V - tsStart.V).toFixed(1)}ms + built in {(tsBuilt.V - tsCompiled.V).toFixed(1)}ms = {(tsBuilt.V - tsStart.V).toFixed(1)}ms
+                </td.></tr.>
             </table.>
         </template>
     </component>

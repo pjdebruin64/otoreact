@@ -1440,7 +1440,7 @@ class RComp {
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
-                        else    // oncompile
+                        else    // beforecompile
                             // Execute now, with 'srcE' as 'this'
                             Ev(`(function(){${txt}\n})`).call(srcE);
                     }
@@ -1605,6 +1605,7 @@ class RComp {
                             {ws,rt, FP} = this
                             , b = await this.CUncN(srcE)
                             , dSrc = !b && this.CParam<string>(atts, 'srctext')
+                            , dO = this.CParam<Handler>(atts, "onç") // Undocumented feature
                             , s: Settings = {bSubf: T, bTiming: this.setts.bTiming}
                             ;
                        
@@ -1632,6 +1633,7 @@ class RComp {
                                     tmp.innerHTML = r.src = src;
                                     // Compiling
                                     await C.Compile(tmp, tmp.childNodes);
+                                    dO && dO()(U);
                                     // Building
                                     await C.Build({ parN, parR });
                                 }
@@ -2351,14 +2353,15 @@ class RComp {
                                 throw `[of] Value (${iter}) is not iterable`
 
                             // Map of the current set of child ranges
-                            let keyMap: Map<Key, ForRange> = r.v ||= new Map(),
+                            let keyMap: Map<Key, ForRange> = r.v ||= new Map()
 
                             // Map of the newly obtained data
-                                nwMap: Map<Key, {item:Item, hash:Hash[], ix: number}> = new Map(),
+                                , nwMap = new Map<Key, {item:Item, hash:Hash[], ix: number}>()
 
                             // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
                             // Note that a Map remembers the order in which items are added.
-                                ix=0, {EF} = SF(N, <Range>{});
+                                , ix=0, {EF} = SF(N, <Range>{});
+
                             try {
                                 for await (let item of iter) {
                                     // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
@@ -2373,23 +2376,19 @@ class RComp {
                                     nwMap.set(key ?? {}, {item, hash, ix: ix++});
                                 }
                             }
-                            finally { EF() }
+                                finally { EF() }
 
                             // Now we will either create or re-order and update the DOM
                             let
-                                nxChR = r.ch as ForRange    // This is a pointer into the created list of child ranges
-                                , entries = nwMap.entries()
-                                , nxIter = nxNm && nwMap.values()
-
-                                , prItem: Item, nxItem: Item
+                                nxChR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
+                                , entries =  nwMap.entries()
+                                , nx = entries.next()
+                                , prItem: Item
                                 , prvR: Range
-                                , chAr: Area;
+                                , k: Key;
                             sub.parR = r;
 
-                            nxIter?.next();
                             while(T) {
-                                let k: Key, nx = entries.next();
-
                                 // Remove childranges at the current point with a key that is not in 'nwMap'
                                 while (nxChR && !nwMap.has(k = nxChR.key)) {
                                     if (k != N)
@@ -2407,10 +2406,8 @@ class RComp {
                                 let [key, {item, hash, ix}] = nx.value as [Key , {item:Item, hash:Hash[], ix: number}]
                                     // See if it already occured in the previous iteration
                                     , chR = keyMap.get(key)
-                                    , cr = !chR;
-
-                                if (nxIter)
-                                    nxItem = nxIter.next().value?.item;
+                                    , cr = !chR
+                                    , chAr: Area;
 
                                 if (cr) {
                                     // Item has to be newly created
@@ -2471,6 +2468,7 @@ class RComp {
                                 }
                                 chR.pv = prvR;
                                 prvR = chR;
+                                nx = entries.next();
 
                                 // Does this range need building or updating?
                                 if (cr ||
@@ -2497,7 +2495,7 @@ class RComp {
                                         vLet(item);
                                         vIx(ix);
                                         vPv(prItem);
-                                        vNx(nxItem);
+                                        vNx(nx.value?.item);
 
                                         // Build
                                         await b(sub);

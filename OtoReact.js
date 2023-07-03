@@ -805,7 +805,7 @@ class RComp {
                         break;
                     case 'RHTML':
                         {
-                            let { ws, rt, FP } = this, b = await this.CUncN(srcE), dSrc = !b && this.CParam(atts, 'srctext'), s = { bSubf: T, bTiming: this.setts.bTiming };
+                            let { ws, rt, FP } = this, b = await this.CUncN(srcE), dSrc = !b && this.CParam(atts, 'srctext'), dO = this.CParam(atts, "onç"), s = { bSubf: T, bTiming: this.setts.bTiming };
                             bl = async function RHTML(ar) {
                                 let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : dSrc?.();
                                 if (src != r.src) {
@@ -815,6 +815,7 @@ class RComp {
                                     try {
                                         tmp.innerHTML = r.src = src;
                                         await C.Compile(tmp, tmp.childNodes);
+                                        dO && dO()(U);
                                         await C.Build({ parN, parR });
                                     }
                                     catch (e) {
@@ -1281,11 +1282,9 @@ class RComp {
                         finally {
                             EF();
                         }
-                        let nxChR = r.ch, entries = nwMap.entries(), nxIter = nxNm && nwMap.values(), prItem, nxItem, prvR, chAr;
+                        let nxChR = r.ch, entries = nwMap.entries(), nx = entries.next(), prItem, prvR, k;
                         sub.parR = r;
-                        nxIter?.next();
                         while (T) {
-                            let k, nx = entries.next();
                             while (nxChR && !nwMap.has(k = nxChR.key)) {
                                 if (k != N)
                                     keyMap.delete(k);
@@ -1297,9 +1296,7 @@ class RComp {
                             }
                             if (nx.done)
                                 break;
-                            let [key, { item, hash, ix }] = nx.value, chR = keyMap.get(key), cr = !chR;
-                            if (nxIter)
-                                nxItem = nxIter.next().value?.item;
+                            let [key, { item, hash, ix }] = nx.value, chR = keyMap.get(key), cr = !chR, chAr;
                             if (cr) {
                                 sub.r = N;
                                 sub.prvR = prvR;
@@ -1345,6 +1342,7 @@ class RComp {
                             }
                             chR.pv = prvR;
                             prvR = chR;
+                            nx = entries.next();
                             if (cr ||
                                 !bR && (!hash || hash.some((h, i) => h != chR.hash[i]))) {
                                 chR.hash = hash;
@@ -1359,7 +1357,7 @@ class RComp {
                                     vLet(item);
                                     vIx(ix);
                                     vPv(prItem);
-                                    vNx(nxItem);
+                                    vNx(nx.value?.item);
                                     await b(sub);
                                     if (bRe && !chR.subs)
                                         item.Subscribe(chR.subs = Subs(sub, b, chR.ch));
