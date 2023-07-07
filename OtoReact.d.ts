@@ -3,7 +3,7 @@ declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bSubf: boolean;
+    bSubf: boolean | 2;
     basePattern: string;
     bAutoSubscribe: boolean;
     bAutoPointer: boolean;

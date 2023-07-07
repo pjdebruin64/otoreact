@@ -310,7 +310,7 @@ const sampleRedefineA = `<component>
 
 This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
-const sampleA = `<import src=" OtoLib.html"><a></a></import>
+const sampleA = `<import src="OtoLib.html"><a></a></import>
 
 <p>This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>
@@ -841,3 +841,21 @@ const demoLocalRstyles = `<component>
 <p>
   <span>The style sheets above do not apply to this <{}span>.</span>
 <p>`;
+const demoModule = `<import async src="/hi" defines="pi">
+  <hi mark="?"></hi>
+</import>
+
+<hi></hi>
+
+pi = {pi}
+
+<module id="/hi">
+  <component>
+    <hi mark="!"></hi>
+    <template>
+      <p>Hi {mark}</p>
+    </template>
+  </component>
+
+  <def var=pi #value="3.14"></def>
+</module>`;

@@ -65,10 +65,6 @@
                 min-height: 4em;
                 border: 3px solid rgb(200,200,200);
             }
-            span.demoGreen  { color: green; } /* This is for comments */
-            span.mTag       { color: blue; }
-            span.otored     { color: var(--OtoRed); }
-
             .pre .nodisplay {display: none }
 
             button:disabled {
@@ -78,6 +74,11 @@
                 font-weight: bold;
             }
 
+        </style>
+        <style>
+            span.demoGreen  { color: green; } /* This is for comments */
+            span.mTag       { color: blue; }
+            span.otored     { color: var(--OtoRed); }
         </style>
 
         <script defines="regDemo">
@@ -103,27 +104,29 @@
             <define rvar="tsCompiled"></define>
             <define rvar="tsBuilt"></define>
             <table.>
-                <tr.><th. reacton="rShow">
-                    <if cond=editable>Editable</if> Source Code&nbsp;
-                    <div style="float:right">
-                        <component><but #value><content></content></but>
-                            <template value=v >
-                                <button #if="v<=0 || v==4 || texts.V[v]"
-                                     #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
-                            </template>
-                        </component>
+                <tr.>
+                    <th. reacton="rShow">
+                        <if cond=editable>Editable</if> Source Code&nbsp;
+                        <div style="float:right">
+                            <component><but #value><content></content></but>
+                                <template value=v >
+                                    <button #if="v<=0 || v==4 || texts.V[v]"
+                                        #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
+                                </template>
+                            </component>
 
-                        <but #value=1>Style</but>
-                        <but #value=2>Script</but>
-                        <but #value=3>Component</but>
-                        <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
-                        <but 
-                            #if="texts.V[1] || texts.V[2] || texts.V[3]"
-                            #value=-1>All</but>
-                        <but #value=0>Hide</but>
-                    </div>
-                </th.>
-                <th.><if cond=editable>Live</if> Result</th.></tr.>
+                            <but #value=1>Style</but>
+                            <but #value=2>Script</but>
+                            <but #value=3>Component</but>
+                            <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
+                            <but 
+                                #if="texts.V[1] || texts.V[2] || texts.V[3]"
+                                #value=-1>All</but>
+                            <but #value=0>Hide</but>
+                        </div>
+                    </th.>
+                    <th.><if cond=editable>Live</if> Result</th.>
+                </tr.>
                 <tr.>
                     <case reactOn=rShow>
                         <when cond="rShow.V > 0">

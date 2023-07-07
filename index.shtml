@@ -100,7 +100,7 @@
         <a href? #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo #srctext?="''" #bshow=true #editable?=true rvar?></demo>
+        <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout></pageLayout>
@@ -129,7 +129,9 @@
                 </pageHead>
 
                 <section>
-                    <include src="C1_Concepts.html"><!--#include file="C1_Concepts.html"--></include>
+                    <include src="C1_Concepts.html">
+                        <!--#include file="C1_Concepts.html"-->
+                    </include>
                 </section>
                 <section>
                     <include src="C2_HtmlElements.html"></include>

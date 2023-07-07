@@ -15,7 +15,7 @@ const
             bRSTYLE = !bRSTYLE;
         return `<span class=mTag>&lt;${
                 mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])([^]*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{[^]*?\}|[^])*?\})|./gi
-                //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
+                //               (a1                                                                                             )   (a2  )(a3   )   (a4          )      (mExpr                  )            
                     , (m,a1,a2,a3,a4,mExpr) => 
                         ( mExpr ? `<span class=otored>${mExpr}</span>`
                         : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
@@ -384,7 +384,7 @@ This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
 
 const sampleA =
-`<import src=" OtoLib.html"><a></a></import>
+`<import src="OtoLib.html"><a></a></import>
 
 <p>This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>
@@ -956,3 +956,23 @@ const demoLocalRstyles =
 <p>
   <span>The style sheets above do not apply to this <{}span>.</span>
 <p>`
+
+const demoModule =
+`<import async src="/hi" defines="pi">
+  <hi mark="?"></hi>
+</import>
+
+<hi></hi>
+
+pi = {pi}
+
+<module id="/hi">
+  <component>
+    <hi mark="!"></hi>
+    <template>
+      <p>Hi {mark}</p>
+    </template>
+  </component>
+
+  <def var=pi #value="3.14"></def>
+</module>`

@@ -45,7 +45,7 @@ type Settings = Partial<{
     bAbortOnError:  boolean,      // Abort processing on runtime errors,
                             // When false, only the element producing the error will be skipped
     bShowErrors:    boolean,      // Show runtime errors as text in the DOM output
-    bSubf:       boolean,
+    bSubf:          boolean|2,      // Subfile. 2 is used for RHTML.
     basePattern:    string,
     bAutoSubscribe: boolean,
     bAutoPointer:   boolean,
@@ -89,8 +89,8 @@ type DOMBuilder<RT = unknown> = ((ar: Area, bR?: boolean) => Promise<RT>)
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
 */
-type Area<RT = {}> = {
-    r?: Range & RT | true,          // Existing piece of DOM
+type Area<RT = {}, T = true> = {
+    r?: Range & RT | T,          // Existing piece of DOM
     // When falsy (undefined or null), the DOM has to be CREATED
     // When truthy (defined or true), the DOM has to be UPDATED
 
@@ -104,7 +104,7 @@ type Area<RT = {}> = {
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
-type AreaR<RT = object> = Area<RT> & {r?: Range<ChildNode> & RT};
+type AreaR<RT = object> = Area<RT, never>;
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
     It can either be a single DOM node, with child nodes described by a linked list of child-ranges,
@@ -717,7 +717,9 @@ function Subs({parN, parR}: Area, b: DOMBuilder, r: Range, bR:boolean = false): 
         , {T});
 }
 
-type OES = {e: Handler, s: Handler};    // onerror and onsuccess handlers
+type OES = {
+    e: Handler, s: Handler // onerror and onsuccess handlers
+};
 let    
 /* Runtime data */
     env: Environment,       // Current runtime environment
@@ -1060,7 +1062,7 @@ class RComp {
         settings?: Settings,
         CT = RC?.CT,
     ) { 
-        this.setts   = {... RC ? RC.setts : dflts, ...settings};
+        this.S   = {... RC ? RC.S : dflts, ...settings};
         this.FP  = FP || RC?.FP;
         this.doc = RC?.doc || D
         this.hd  = RC?.hd || this.doc.head;
@@ -1225,8 +1227,8 @@ class RComp {
         elm: ParentNode, 
         nodes?: Iterable<ChildNode>,  // Compile the element itself, or just its childnodes
     ) {
-        for (let tag of this.setts.preformatted)
-            this.setPRE.add(tag.toUpperCase());
+        for (let tag of this.S.preformatted)
+            this.sPRE.add(tag.toUpperCase());
         this.srcNodeCnt = 0;
         //this.log('Compile');
         let t0 = now(),
@@ -1240,11 +1242,11 @@ class RComp {
     }
 
     log(msg: string) {
-        if (this.setts.bTiming)
+        if (this.S.bTiming)
             console.log(new Date().toISOString().substring(11)+` ${this.num}: `+msg);
     }
 
-    private setPRE = new Set(['PRE']);
+    private sPRE = new Set(['PRE']);        // Elements needing whitespace to be preserved
 
     public async Build(ar: Area) {
         R = this;
@@ -1258,7 +1260,7 @@ class RComp {
         await DoUpdate();
     }
 
-    public setts: Settings;
+    public S: Settings;
     public bldr: DOMBuilder;
 
     private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
@@ -1357,7 +1359,7 @@ class RComp {
                     break;
 
                 case 8:         //Node.COMMENT_NODE:
-                    if (this.setts.bKeepComments) {
+                    if (this.S.bKeepComments) {
                         let getText = this.CText(srcN.nodeValue, 'Comment');
                         bl = async (ar:Area)=> PrepData(ar, getText(), T);
                     }
@@ -1379,7 +1381,7 @@ class RComp {
                 tag = srcE.tagName
                 // List of source attributes, to check for unrecognized attributes
                 , atts =  new Atts(srcE)
-                , CTL = this.rActs.length
+                , AL = this.rActs.length
 
                 // Global attributes (this)react(s)on / hash / if / renew handlers,
                 // to be compiled after the the element itself has been compiled
@@ -1467,7 +1469,7 @@ class RComp {
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
 
-                        auto = rv && atts.gB('auto', this.setts.bAutoSubscribe) && !onMod && rv; 
+                        auto = rv && atts.gB('auto', this.S.bAutoSubscribe) && !onMod && rv; 
                         bl = async function DEF(ar, bR?) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
@@ -1536,14 +1538,12 @@ class RComp {
                             // When the same module is imported at multiple places, it needs to be compiled only once
                             let C = new RComp(this, this.GetPath(src), {bSubf: T}, new Context());
                             C.log(src);
-                            OMods.set(src
-                                , cTask = 
-                                    this.fetchM(src)
-                                    .then(iter => C.Compile(N,iter))
-                                    .then(b => [b, C.CT]
-                                        , e => {alert(e); throw e}
-                                    )
-                            );
+                            cTask = 
+                                this.fetchM(src)
+                                .then(iter => C.Compile(N,iter))
+                                .then(b => [b, C.CT]);
+                            if (this.S.bSubf != 2)
+                                OMods.set(src, cTask);
                         }
 
                         // Converting the module into getters for each imported objects needs to be done
@@ -1568,11 +1568,10 @@ class RComp {
                                 return b;
                             });
                         
-                        if (!bAsync) {
+                        if (!bAsync)
                             // Before an instance is compiled, the compiler should wait for the module
                             for (let sig of imps)
                                 sig.task = task;
-                        }
                         
                         bl = async function IMPORT(ar: Area) {
                             let {sub,cr,r} = PrepRng<{v:Environment}>(ar, srcE)
@@ -1606,7 +1605,7 @@ class RComp {
                             , b = await this.CUncN(srcE)
                             , dSrc = !b && this.CParam<string>(atts, 'srctext')
                             , dO = this.CParam<Handler>(atts, "onç") // Undocumented feature
-                            , s: Settings = {bSubf: T, bTiming: this.setts.bTiming}
+                            , s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                        
                         bl = async function RHTML(ar) {
@@ -1625,6 +1624,10 @@ class RComp {
                                     , tmp = D.createElement(tag)
                                     ;
 
+                                // This is just to allow imports from a module that is included in 'src'
+                                // Modules are saved in OMod so they don't react on updates, though
+                                (C.doc = D.createDocumentFragment() as Document).appendChild(tmp)
+
                                 parR.erase(parN); 
                                 parN.innerHTML = Q;
 
@@ -1638,7 +1641,7 @@ class RComp {
                                     await C.Build({ parN, parR });
                                 }
                                 catch(e) { 
-                                    parN.appendChild(createErrNode(`Compile error: `+e))
+                                    parN.appendChild(crErrN(`Compile error: `+e))
                                 }
                                 finally { env = sv; }
                             }
@@ -1713,8 +1716,7 @@ class RComp {
                                         iframe.remove();
                                     },
                                     closeAll: () => {
-                                        for (let w of wins)
-                                            w.close();
+                                        wins.forEach(w => w.close());
                                     }
                                 });
                             }
@@ -1756,12 +1758,12 @@ class RComp {
                     } break;
 
                     case 'RSTYLE': {
-                        let s: [boolean, RegExp, WSpc] = [this.setts.bDollarRequired, this.rIS, this.ws]
+                        let s: [boolean, RegExp, WSpc] = [this.S.bDollarRequired, this.rIS, this.ws]
                             , sc = atts.g('scope')
                             , {bf,af} = this.CAtts(atts)
                             , i: number
                         try {
-                            this.setts.bDollarRequired = T;
+                            this.S.bDollarRequired = T;
                             this.rIS = N;
                             this.ws = WSpc.block;
 
@@ -1798,7 +1800,7 @@ class RComp {
                             }
                         }
                         finally {
-                            [this.setts.bDollarRequired, this.rIS, this.ws] = s;
+                            [this.S.bDollarRequired, this.rIS, this.ws] = s;
                         }
                         break;
                     }
@@ -1899,7 +1901,7 @@ class RComp {
             }
 
             // Compile global attributes
-            for (let {att, m, dV} of this.setts.version ? ga : ga.reverse()) {
+            for (let {att, m, dV} of this.S.version ? ga : ga.reverse()) {
                 let b = bl
                     , es = m[6] ? 'e' : 's';  // onerror or onsuccess
                 if (m[2]) { // (this)?reacts?on|(on)
@@ -1924,18 +1926,18 @@ class RComp {
                             , i = 0;
 
                         // Consider the currently provided rvars
-                        for (let rvar of r.rvars = <RVAR[]>dV()) {
-                            if (pv) {
-                                // Check whether the current rvar(s) are the same as the previous one(s)
-                                let p = pv[i++];
-                                if (rvar==p)
-                                    continue;           // Yes, continue with next
-                                p._Subs.delete(s);   // No, unsubscribe from the previous one
-                            }
-                            // Subscribe current rvar
-                            try { rvar.Subscribe(s); }
+                        for (let rvar of r.rvars = <RVAR[]>dV()) 
+                            try {
+                                if (pv) {
+                                    // Check whether the current rvar(s) are the same as the previous one(s)
+                                    let p = pv[i++];
+                                    if (rvar==p)
+                                        continue;           // Yes, continue with next
+                                    p._Subs.delete(s);   // No, unsubscribe from the previous one
+                                }
+                                // Subscribe current rvar
+                                rvar.Subscribe(s); }
                             catch { ErrAtt('This is not an RVAR', att) }
-                        }
                     }
                 }
                 else
@@ -1947,7 +1949,7 @@ class RComp {
                             , {sub, r} = PrepRng<{oes: object}>(ar, srcE, att);
 
                         // Create a copy. On updates, assign current values to the copy created before.
-                        oes = Object.assign(r.oes ||= {}, oes);
+                        oes = ass(r.oes ||= <any>{}, oes);
                         try {
                             oes[es] = dV();     // Now set the new value
                             await b(sub, bR);   // Run the builder
@@ -1981,18 +1983,17 @@ class RComp {
             }
 
             return bl != dB && ass(
-                this.rActs.length == CTL
-                ? this.ErrH(bl, srcE)
-                : (ar: Area) => bl(ar).catch(e => { throw ErrMsg(srcE, e, 39);})
-                , {auto,nm});
+                this.ErrH(bl, srcE, this.rActs.length > AL)
+                , {auto,nm}
+                );
         }
         catch (e) { throw ErrMsg(srcE, e); }
     }
 
-    private ErrH(b: DOMBuilder, srcN: ChildNode): DOMBuilder{
+    private ErrH(b: DOMBuilder, srcN: ChildNode, bA?: booly): DOMBuilder{
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
-        return b && (async (ar: AreaR<{eN?: ChildNode}>, bR) => {
+        return b && (async (ar: AreaR<{eN: ChildNode}>, bR) => {
             let r = ar.r;
             if (r?.eN) {
                 // Remove an earlier error message in the DOM tree at this point
@@ -2002,18 +2003,20 @@ class RComp {
             try {
                 await b(ar, bR);
             } 
-            catch (e) { 
+            catch (m) { 
                 let msg = 
-                    srcN instanceof HTMLElement ? ErrMsg(srcN, e, 39) : e;
+                    srcN instanceof HTMLElement ? ErrMsg(srcN, m, 39) : m
+                    , e = oes.e;
 
-                if (this.setts.bAbortOnError)
+                if (bA || this.S.bAbortOnError)
                     throw msg;
+
                 this.log(msg);
-                if (oes.e)
-                    oes.e(e);
-                else if (this.setts.bShowErrors)
-                    (r||{} as {eN?: ChildNode}).eN =
-                        ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
+                if (e)
+                    e(m);
+                else if (this.S.bShowErrors)
+                    (r||{} as typeof r).eN =
+                        ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt);
             }
         });
     }
@@ -2089,7 +2092,7 @@ class RComp {
         /* Script have to be handled by Otoreact in the following cases:
             * When it is a 'type=otoreact' script
             * Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
-        if (mOto || (bCls || bMod) && this.setts.bSubf) {
+        if (mOto || (bCls || bMod) && this.S.bSubf) {
             if (mOto?.[3]) {
                 // otoreact/local script
                 let prom = (async () => 
@@ -2360,8 +2363,8 @@ class RComp {
 
                             // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
                             // Note that a Map remembers the order in which items are added.
-                                , ix=0, {EF} = SF(N, <Range>{});
-
+                                , ix=0
+                                , {EF} = SF(N, <Range>{});
                             try {
                                 for await (let item of iter) {
                                     // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
@@ -2376,7 +2379,7 @@ class RComp {
                                     nwMap.set(key ?? {}, {item, hash, ix: ix++});
                                 }
                             }
-                                finally { EF() }
+                            finally { EF() }
 
                             // Now we will either create or re-order and update the DOM
                             let
@@ -2825,7 +2828,7 @@ class RComp {
             // Whitespace-mode after this element
             , postWs: WSpc;
 
-        if (this.setPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
+        if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = WSpc.preserve; postWs = WSpc.block;
         }
         else if (reBlock.test(nm))
@@ -2849,7 +2852,7 @@ class RComp {
         if (postWs)
             this.ws = postWs;
 
-        if (nm=='A' && this.setts.bAutoReroute && bf.every(({nm}) => nm != 'click')) // Handle bAutoReroute
+        if (nm=='A' && this.S.bAutoReroute && bf.every(({nm}) => nm != 'click')) // Handle bAutoReroute
             af.push({mt: MType.AutoReroute, d: dU, cu : 1 });
 
         if (bUH)
@@ -2868,8 +2871,9 @@ class RComp {
                     , k = bf && ApplyMods(r, cr, bf);
 
                 if (cr) {
-                    // Add local scoping classnames
+                    // Add static local scoping classnames
                     for (let nm of lscl) r.n.classList.add(nm);
+                    // Add dynamic local scoping classnames
                     for (let i=0; i<ndcl; i++)
                         r.n.classList.add(env.cl[i]);
                 }
@@ -2890,7 +2894,7 @@ class RComp {
         let bf: Modifier[] = []
             , af: Modifier[] = []
             , m: RegExpExecArray
-            , ap = this.setts.bAutoPointer
+            , ap = this.S.bAutoPointer
             , addM =
             (mt: MType, nm: string
                 , d: Dep<unknown> & {fx?: string}
@@ -2998,11 +3002,11 @@ class RComp {
 |[^])*?`
             , rIS = this.rIS ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.setts.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`
+                    `\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`
                     , 'g'
                 ),
             gens: Array< string | Dep<unknown> > = [],
-            ws: WSpc = nm || this.setts.bKeepWhiteSpace ? WSpc.preserve : this.ws
+            ws: WSpc = nm || this.S.bKeepWhiteSpace ? WSpc.preserve : this.ws
             , fx = Q
             , iT: booly = T         // truthy when the text contains no nonempty embedded expressions
             ;
@@ -3161,7 +3165,7 @@ class RComp {
     // Fetches text from an URL
     async FetchText(src: string): Promise<string> {
         return (
-            await RFetch(this.GetURL(src), {headers: this.setts.headers})
+            await RFetch(this.GetURL(src), {headers: this.S.headers})
         ).text();
     }
 
@@ -3286,12 +3290,10 @@ const
 , ErrAtt = (e: string, nm: string) =>
     thro(nm ? e + `\nat [${nm}]` : e)
 
-, createErrNode = (msg: string) => {
-    let e = D.createElement('div');
-    ass(e.style, {color: 'crimson', fontFamily: 'sans-serif', fontSize: '10pt'});
-    e.innerText = msg;
-    return e;
-}
+, crErrN = (msg: string) => 
+    ass(D.createElement('div')
+        , { style: 'color:crimson;font-family:sans-serif;font-size:10pt'
+            , innerText: msg})
 
 , NoChilds = (srcE: HTMLElement) => {
     for (let n of srcE.childNodes)
@@ -3303,10 +3305,10 @@ const
 }
 
 , copySSheets = (S: StyleSheetList, D: Document) => {
-    for (let SSheet of S) {
-        let DSheet = D.head.appendChild(D.createElement('style')).sheet;
-        for (let rule of SSheet.cssRules) 
-            DSheet.insertRule(rule.cssText);
+    for (let SSh of S) {
+        let DSh = D.head.appendChild(D.createElement('style')).sheet;
+        for (let rule of SSh.cssRules) 
+            DSh.insertRule(rule.cssText);
     }
 }
 
@@ -3325,7 +3327,7 @@ function* mapI<A, B>(I: Iterable<A>, f: (a:A)=>B, c?: (a:A)=>booly): Iterable<B>
         if (!c || c(x))
             yield f(x);
 }
-// Iterate through the trimmed non-empty members of a comma-separated list
+// Iterate through the trimmed members of a non-empty comma-separated list
 function* split(s: string) {
     if (s)
         for (let v of s.split(','))
@@ -3337,8 +3339,10 @@ export function* range(from: number, count?: number, step: number = 1) {
 		count = from;
 		from = 0;
 	}
-	for (let i=0;i<count;i++)
-		yield from + i * step;
+	for (let i=0;i<count;i++) {
+		yield from;
+        from += step;
+    }
 }
 
 export async function RFetch(input: RequestInfo, init?: RequestInit) {
@@ -3402,7 +3406,6 @@ export {DL as docLocation, reroute}
 // Define global constants
 ass(
     G, {RVAR, range, reroute, RFetch, DoUpdate
-        //, R$: import.meta.url
     }
 );
 

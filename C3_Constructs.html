@@ -912,8 +912,8 @@ allows you to include another RHTML file as if it were inserted into the main fi
 
 
 <h2 id=MODULE><{}MODULE id?></h2>
-<elm>MODULE</elm> encapsulates a series of components, definitions, and other content, that can be imported at other places using <elm>IMPORT</elm>.
-<p>A <elm>MODULE</elm> can either be saved in a separate file, or be included anywhere in the importing file.
+<elm>MODULE</elm> encapsulates a <em>module</em>: a series of components, definitions, and other content, that can be imported at other places using <elm>IMPORT</elm>.
+<p>A <elm>MODULE</elm> can either be saved in a separate file, or be included anywhere in the importing file, for example by using a server-side-include.
 <br>It may even be concatenated to the importing file; the HTML parser will insert it inside the document body.</p>
 
 
@@ -923,13 +923,14 @@ allows you to include another RHTML file as if it were inserted into the main fi
     <i>Signatures</i>
 <{}/IMPORT>
 </pre>
-imports a number of components defined in a <elm>module</elm>.
+imports a number of components and variables defined in a <a href="#MODULE">module</a>.
 <p>
     The module may reside either:
 </p>
 <ul>
     <li>Anywhere in the current file with an <code>id</code> being exactly equal to <i>src</i></li>
-    <li>Or in a separate file loaded from URL <i>src</i>.</li>
+    <li>Or in a separate file loaded from URL <i>src</i>. In this case, the <elm>MODULE</elm> tag is optional.
+    </li>
 </ul>
 There are two variants:
 <ul>
@@ -939,24 +940,22 @@ There are two variants:
         <br>Only when one of the components has to be instantiated, will OtoReact wait for the completion of the import.
         <p>The listed signature need not be identical to, but must be 'compatible' with the external signature:</p>
         <ul>
-            <li>All parameters and slots of the listed signature must be present in the external signature</li>
-            <li>Any optional parameter of the listed signature must be optional in the external signature too</li>
-            <li>Any missing parameter of the listed signature must be optional in the external signature</li>
-            <li>Slots of the external signature must be compatible with the corresponding slots of the listed signature, when present</li>
-            <li>Default values may be different; Otoreact will use the values provided in the external signature</li>
+            <li>All parameters and slots of the listed signature must be present in the external signature;</li>
+            <li>Any optional parameter of the listed signature must be optional in the external signature too;</li>
+            <li>Any missing parameter of the listed signature must be optional in the external signature;</li>
+            <li>Slots of the external signature must be compatible with the corresponding slots of the listed signature, when present;</li>
+            <li><u>Default values</u> need not be specified; Otoreact will always use the values provided in the <u>external</u> signature.</li>
         </ul>
     </li>
     <li>
         Without the <code>async</code> option, the <elm>IMPORT</elm> element needs only specify the names of the imported components.
-        <br>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of these components, it will wait for the external file and get the signatures from there.
+        <br>The import may specify a signature but it will be ignored.
+        <p>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of the imported components, it will wait for the external file and get the signatures from there.
         <br>So one can import from multiple modules one after another, and these will still be fetched in parallel.
     </li>
 </ul>
 Furthermore:
 <ul>
-    <li>
-        Components from the same module may be imported at multiple places and will be fetched and compiled only once, provided the URL is spelled exactly the same.
-    </li>
     <li>
         Local variables from the main file are not visible within the module.
     </li>
@@ -973,11 +972,16 @@ Furthermore:
             This is mainly useful for invisible content, like the definition of pop-up windows and datalists.
         </p>
     </li>
+    <li>
+        The same module may be imported at multiple places, and will be fetched and compiled only once, provided the URL is spelled exactly the same.
+    </li>
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
+<demo #srctext="demoModule"></demo>
 
-<h2 id="STYLE"><{}STYLE scope? src?> Static style sheets</h2>
+
+<h2 id="STYLE"><{}STYLE scope? src?>: Static style sheets</h2>
 All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the document header at compile time, so they won't get lost or duplicated.
 <p>It is not possible to use any OtoReact constructs or interpolated text inside <elm>STYLE</elm>, because the browser HTML parser allows only contents that conforms to the CSS specification.</p>
 <p>OtoReact recognizes, however, two extra attributes:</p>
@@ -1025,7 +1029,7 @@ All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the doc
 </dl>
 
 
-<h2 id="RSTYLE"><{}RSTYLE scope? src?> Dynamic style sheets</h2>
+<h2 id="RSTYLE"><{}RSTYLE scope? src?>: Dynamic style sheets</h2>
 While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build <i>dynamic</i> style sheets using string interpolation and RHTML constructs, including loops, conditionals, and use of local variables.
 <ul>
     <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is inserted in the document, and updated or removed when needed.</li>

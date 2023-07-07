@@ -488,10 +488,10 @@ class RComp {
         this.num = iRC++;
         this.cRvars = NO();
         this.rActs = [];
-        this.setPRE = new Set(['PRE']);
+        this.sPRE = new Set(['PRE']);
         this.ws = 1;
         this.rt = T;
-        this.setts = { ...RC ? RC.setts : dflts, ...settings };
+        this.S = { ...RC ? RC.S : dflts, ...settings };
         this.FP = FP || RC?.FP;
         this.doc = RC?.doc || D;
         this.hd = RC?.hd || this.doc.head;
@@ -579,8 +579,8 @@ class RComp {
         };
     }
     async Compile(elm, nodes) {
-        for (let tag of this.setts.preformatted)
-            this.setPRE.add(tag.toUpperCase());
+        for (let tag of this.S.preformatted)
+            this.sPRE.add(tag.toUpperCase());
         this.srcNodeCnt = 0;
         let t0 = now(), b = (nodes
             ? await this.CIter(nodes)
@@ -589,7 +589,7 @@ class RComp {
         return this.bldr = b;
     }
     log(msg) {
-        if (this.setts.bTiming)
+        if (this.S.bTiming)
             console.log(new Date().toISOString().substring(11) + ` ${this.num}: ` + msg);
     }
     async Build(ar) {
@@ -663,7 +663,7 @@ class RComp {
                     }
                     break;
                 case 8:
-                    if (this.setts.bKeepComments) {
+                    if (this.S.bKeepComments) {
                         let getText = this.CText(srcN.nodeValue, 'Comment');
                         bl = async (ar) => PrepData(ar, getText(), T);
                     }
@@ -675,7 +675,7 @@ class RComp {
     }
     async CElm(srcE, bUH) {
         try {
-            let tag = srcE.tagName, atts = new Atts(srcE), CTL = this.rActs.length, ga = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
+            let tag = srcE.tagName, atts = new Atts(srcE), AL = this.rActs.length, ga = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
             for (let [att] of atts)
                 if (m =
                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:(create|update|destroy)+|compile))$/
@@ -717,7 +717,7 @@ class RComp {
                         {
                             NoChilds(srcE);
                             let rv = atts.g('rvar'), t = '@value', twv = rv && atts.g(t), dGet = twv ? this.CExpr(twv, t) : this.CParam(atts, 'value'), bUpd = atts.gB('reacting') || atts.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(atts, 'updates'), dSto = rv && this.CAttExp(atts, 'store'), dSNm = dSto && this.CParam(atts, 'storename'), vLet = this.LVar(rv || atts.g('let') || atts.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CParam(atts, 'onmodified');
-                            auto = rv && atts.gB('auto', this.setts.bAutoSubscribe) && !onMod && rv;
+                            auto = rv && atts.gB('auto', this.S.bAutoSubscribe) && !onMod && rv;
                             bl = async function DEF(ar, bR) {
                                 let r = ar.r, v, upd;
                                 if (!r || bUpd || bR != N) {
@@ -760,10 +760,12 @@ class RComp {
                             if (!cTask) {
                                 let C = new RComp(this, this.GetPath(src), { bSubf: T }, new Context());
                                 C.log(src);
-                                OMods.set(src, cTask =
+                                cTask =
                                     this.fetchM(src)
                                         .then(iter => C.Compile(N, iter))
-                                        .then(b => [b, C.CT], e => { alert(e); throw e; }));
+                                        .then(b => [b, C.CT]);
+                                if (this.S.bSubf != 2)
+                                    OMods.set(src, cTask);
                             }
                             let task = cTask.then(([b, CT]) => {
                                 for (let sig of imps) {
@@ -778,10 +780,9 @@ class RComp {
                                     lv.g = CT.getLV(lv.nm);
                                 return b;
                             });
-                            if (!bAsync) {
+                            if (!bAsync)
                                 for (let sig of imps)
                                     sig.task = task;
-                            }
                             bl = async function IMPORT(ar) {
                                 let { sub, cr, r } = PrepRng(ar, srcE);
                                 if (cr || bIncl) {
@@ -805,11 +806,12 @@ class RComp {
                         break;
                     case 'RHTML':
                         {
-                            let { ws, rt, FP } = this, b = await this.CUncN(srcE), dSrc = !b && this.CParam(atts, 'srctext'), dO = this.CParam(atts, "onç"), s = { bSubf: T, bTiming: this.setts.bTiming };
+                            let { ws, rt, FP } = this, b = await this.CUncN(srcE), dSrc = !b && this.CParam(atts, 'srctext'), dO = this.CParam(atts, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
                             bl = async function RHTML(ar) {
                                 let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : dSrc?.();
                                 if (src != r.src) {
                                     let sv = env, C = ass(new RComp(N, FP, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                    (C.doc = D.createDocumentFragment()).appendChild(tmp);
                                     parR.erase(parN);
                                     parN.innerHTML = Q;
                                     try {
@@ -819,7 +821,7 @@ class RComp {
                                         await C.Build({ parN, parR });
                                     }
                                     catch (e) {
-                                        parN.appendChild(createErrNode(`Compile error: ` + e));
+                                        parN.appendChild(crErrN(`Compile error: ` + e));
                                     }
                                     finally {
                                         env = sv;
@@ -883,8 +885,7 @@ class RComp {
                                             iframe.remove();
                                         },
                                         closeAll: () => {
-                                            for (let w of wins)
-                                                w.close();
+                                            wins.forEach(w => w.close());
                                         }
                                     });
                                 }
@@ -917,9 +918,9 @@ class RComp {
                         }
                         break;
                     case 'RSTYLE': {
-                        let s = [this.setts.bDollarRequired, this.rIS, this.ws], sc = atts.g('scope'), { bf, af } = this.CAtts(atts), i;
+                        let s = [this.S.bDollarRequired, this.rIS, this.ws], sc = atts.g('scope'), { bf, af } = this.CAtts(atts), i;
                         try {
-                            this.setts.bDollarRequired = T;
+                            this.S.bDollarRequired = T;
                             this.rIS = N;
                             this.ws = 1;
                             let b = await (sc ?
@@ -943,7 +944,7 @@ class RComp {
                             };
                         }
                         finally {
-                            [this.setts.bDollarRequired, this.rIS, this.ws] = s;
+                            [this.S.bDollarRequired, this.rIS, this.ws] = s;
                         }
                         break;
                     }
@@ -1005,7 +1006,7 @@ class RComp {
                     }
                 };
             }
-            for (let { att, m, dV } of this.setts.version ? ga : ga.reverse()) {
+            for (let { att, m, dV } of this.S.version ? ga : ga.reverse()) {
                 let b = bl, es = m[6] ? 'e' : 's';
                 if (m[2]) {
                     let R = async (ar, bR) => {
@@ -1017,20 +1018,19 @@ class RComp {
                     }, RE = this.ErrH(R, srcE), bTR = !!m[3];
                     bl = async function REACT(ar, bR) {
                         let r = await R(ar, bR), s = r.subs || (r.subs = Subs(ar, RE, r, bTR)), pv = r.rvars, i = 0;
-                        for (let rvar of r.rvars = dV()) {
-                            if (pv) {
-                                let p = pv[i++];
-                                if (rvar == p)
-                                    continue;
-                                p._Subs.delete(s);
-                            }
+                        for (let rvar of r.rvars = dV())
                             try {
+                                if (pv) {
+                                    let p = pv[i++];
+                                    if (rvar == p)
+                                        continue;
+                                    p._Subs.delete(s);
+                                }
                                 rvar.Subscribe(s);
                             }
                             catch {
                                 ErrAtt('This is not an RVAR', att);
                             }
-                        }
                     };
                 }
                 else
@@ -1038,7 +1038,7 @@ class RComp {
                         m[5]
                             ? async function SetOnES(ar, bR) {
                                 let s = oes, { sub, r } = PrepRng(ar, srcE, att);
-                                oes = Object.assign(r.oes || (r.oes = {}), oes);
+                                oes = ass(r.oes || (r.oes = {}), oes);
                                 try {
                                     oes[es] = dV();
                                     await b(sub, bR);
@@ -1065,15 +1065,13 @@ class RComp {
                                             return b(PrepRng(sub, srcE, att, 2).sub, bR);
                                         };
             }
-            return bl != dB && ass(this.rActs.length == CTL
-                ? this.ErrH(bl, srcE)
-                : (ar) => bl(ar).catch(e => { throw ErrMsg(srcE, e, 39); }), { auto, nm });
+            return bl != dB && ass(this.ErrH(bl, srcE, this.rActs.length > AL), { auto, nm });
         }
         catch (e) {
             throw ErrMsg(srcE, e);
         }
     }
-    ErrH(b, srcN) {
+    ErrH(b, srcN, bA) {
         return b && (async (ar, bR) => {
             let r = ar.r;
             if (r?.eN) {
@@ -1083,16 +1081,16 @@ class RComp {
             try {
                 await b(ar, bR);
             }
-            catch (e) {
-                let msg = srcN instanceof HTMLElement ? ErrMsg(srcN, e, 39) : e;
-                if (this.setts.bAbortOnError)
+            catch (m) {
+                let msg = srcN instanceof HTMLElement ? ErrMsg(srcN, m, 39) : m, e = oes.e;
+                if (bA || this.S.bAbortOnError)
                     throw msg;
                 this.log(msg);
-                if (oes.e)
-                    oes.e(e);
-                else if (this.setts.bShowErrors)
+                if (e)
+                    e(m);
+                else if (this.S.bShowErrors)
                     (r || {}).eN =
-                        ar.parN.insertBefore(createErrNode(msg), ar.r?.FstOrNxt);
+                        ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt);
             }
         });
     }
@@ -1125,7 +1123,7 @@ class RComp {
             ? (e) => SetLVars(lvars, e)
             : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
         atts.clear();
-        if (mOto || (bCls || bMod) && this.setts.bSubf) {
+        if (mOto || (bCls || bMod) && this.S.bSubf) {
             if (mOto?.[3]) {
                 let prom = (async () => Ev(US +
                     `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
@@ -1536,7 +1534,7 @@ class RComp {
     }
     async CHTML(srcE, atts, dTag, bUH) {
         let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q), preWs = this.ws, postWs;
-        if (this.setPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
+        if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = 4;
             postWs = 1;
         }
@@ -1551,7 +1549,7 @@ class RComp {
         let { bf, af } = this.CAtts(atts), b = await this.CChilds(srcE), { lscl, ndcl } = this;
         if (postWs)
             this.ws = postWs;
-        if (nm == 'A' && this.setts.bAutoReroute && bf.every(({ nm }) => nm != 'click'))
+        if (nm == 'A' && this.S.bAutoReroute && bf.every(({ nm }) => nm != 'click'))
             af.push({ mt: 10, d: dU, cu: 1 });
         if (bUH)
             af.push({ mt: 1, nm: 'hidden', d: dU, cu: 1 });
@@ -1572,7 +1570,7 @@ class RComp {
         };
     }
     CAtts(atts) {
-        let bf = [], af = [], m, ap = this.setts.bAutoPointer, addM = (mt, nm, d, cu) => {
+        let bf = [], af = [], m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu) => {
             let M = { mt, nm, d,
                 cu: cu ??
                     (d.fx != N ? 1 : 3)
@@ -1628,7 +1626,7 @@ class RComp {
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
-|[^])*?`, rIS = this.rIS || (this.rIS = new RegExp(`\\\\([{}])|\\$${this.setts.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.setts.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+|[^])*?`, rIS = this.rIS || (this.rIS = new RegExp(`\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
             let lastIx = rIS.lastIndex, m = rIS.exec(text);
@@ -1737,7 +1735,7 @@ class RComp {
         return this.GetURL(src).replace(/[^/]*$/, Q);
     }
     async FetchText(src) {
-        return (await RFetch(this.GetURL(src), { headers: this.setts.headers })).text();
+        return (await RFetch(this.GetURL(src), { headers: this.S.headers })).text();
     }
     async fetchM(src) {
         let m = this.doc.getElementById(src);
@@ -1799,22 +1797,18 @@ const reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD
     return c;
 }, Abbr = (s, m = 60) => s.length > m ?
     s.slice(0, m - 3) + "..."
-    : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrMsg = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, ErrAtt = (e, nm) => thro(nm ? e + `\nat [${nm}]` : e), createErrNode = (msg) => {
-    let e = D.createElement('div');
-    ass(e.style, { color: 'crimson', fontFamily: 'sans-serif', fontSize: '10pt' });
-    e.innerText = msg;
-    return e;
-}, NoChilds = (srcE) => {
+    : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrMsg = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, ErrAtt = (e, nm) => thro(nm ? e + `\nat [${nm}]` : e), crErrN = (msg) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt',
+    innerText: msg }), NoChilds = (srcE) => {
     for (let n of srcE.childNodes)
         if (n.nodeType == 1
             || n.nodeType == 3
                 && !reWS.test(n.nodeValue))
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }, copySSheets = (S, D) => {
-    for (let SSheet of S) {
-        let DSheet = D.head.appendChild(D.createElement('style')).sheet;
-        for (let rule of SSheet.cssRules)
-            DSheet.insertRule(rule.cssText);
+    for (let SSh of S) {
+        let DSh = D.head.appendChild(D.createElement('style')).sheet;
+        for (let rule of SSh.cssRules)
+            DSh.insertRule(rule.cssText);
     }
 }, ScrollToHash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
 function* concI(R, S) {
@@ -1838,8 +1832,10 @@ export function* range(from, count, step = 1) {
         count = from;
         from = 0;
     }
-    for (let i = 0; i < count; i++)
-        yield from + i * step;
+    for (let i = 0; i < count; i++) {
+        yield from;
+        from += step;
+    }
 }
 export async function RFetch(input, init) {
     let rp = await fetch(input, init);
