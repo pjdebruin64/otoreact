@@ -892,7 +892,8 @@ allows you to include another RHTML file as if it were inserted into the main fi
     <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes">Server Side Includes</a> (SSI) to include your file, if your server supports it.
 </p>
 <p>
-    It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not:
+    It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not.
+    <br>Like this:
 </p>
 <pre #innerHTML='ColorCode(`<include src="includefile.html">
     <`+`!--#include file="includefile.html"-->

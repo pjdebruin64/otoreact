@@ -361,6 +361,7 @@
                     <def var=nr #value="getNr(level)"></def>
                     <def var=hash #value="id||`s${pNum}.${nr}`"></def>
                     <ELEMENT #tagname="tagname" #id="hash" 
+                        beforecreate="debugger"
                         onCreate="addContent(level, this)">
                         <a href="#{hash}">{nr}. &nbsp;<content></content></a>
                     </ELEMENT>

@@ -1517,10 +1517,14 @@ class RComp {
                     for (let { nm, dG, dS } of gArgs)
                         if (!dS)
                             args[nm] = dG();
-                        else if (cr)
-                            args[nm] = RVAR(Q, dG(), N, dS());
-                        else
-                            args[nm].V = dG();
+                        else {
+                            let r;
+                            if (cr)
+                                (r = args[nm] = RVAR())._Imm.add(dS());
+                            else
+                                r = args[nm];
+                            r.v = dG();
+                        }
                     env = cdef.env;
                     for (let tmpl of cdef.templs)
                         await tmpl?.(args, SBldrs, sEnv, sub);
@@ -1572,7 +1576,7 @@ class RComp {
     CAtts(atts) {
         let bf = [], af = [], m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu) => {
             let M = { mt, nm, d,
-                cu: cu ??
+                cu: cu ||
                     (d.fx != N ? 1 : 3)
             };
             if (ap && mt == 7)
@@ -1595,7 +1599,7 @@ class RComp {
                                     : p ? d ? 1 : 5
                                         : 0, a || e || i || d, i && c
                         ? () => Object.fromEntries([[i, dV()]])
-                        : dV, h && 1);
+                        : dV, (e && !p || h) && 1);
                 }
                 else if (t) {
                     let cu, dS = this.CTarget(V), cnm, dSet = () => {
@@ -1609,7 +1613,7 @@ class RComp {
                     if (cu = /\*/.test(t) + /\+/.test(t) * 2)
                         addM(9, k, dSet, cu);
                     if (m = /([@!])(\1)?/.exec(t))
-                        addM(7, m[2] ? 'change' : 'input', dSet);
+                        addM(7, m[2] ? 'change' : 'input', dSet, 1);
                 }
                 else {
                     if (V)
@@ -1678,16 +1682,34 @@ class RComp {
     CAttExp(atts, att, bReq) {
         return this.CExpr(atts.g(att, bReq, T), att, U);
     }
-    CTarget(expr) {
-        return expr == N ? dU : this.Closure(`return $=>(${expr})=$`, ` in assigment target "${expr}"`);
+    CTarget(LHS) {
+        return this.CHandlr(`(${LHS})=$`, N, '$', `\nin assigment target "${LHS}"`);
     }
-    CHandlr(txt, nm) {
-        return this.CExpr(/^#/.test(nm) ? txt : `function(event){${txt}\n}`, nm, txt);
+    CHandlr(txt, nm, ev = 'event', E = `\nat [${nm}]="${Abbr(txt)}"`) {
+        if (/^#/.test(nm))
+            return this.CExpr(txt, nm, txt);
+        try {
+            let C = Ev(`${US}(function(${this.gsc(txt)},${ev}){${txt}\n})`);
+            return () => {
+                let e = env;
+                return function ($) {
+                    try {
+                        C.call(this, e, $);
+                    }
+                    catch (x) {
+                        throw x + E;
+                    }
+                };
+            };
+        }
+        catch (x) {
+            throw x + E;
+        }
     }
-    CExpr(expr, nm, src = expr, dlms = '""') {
-        return (expr == N ? expr
-            : !/\S/.test(expr) ? thro(`[${nm}] Empty expression`)
-                : this.Closure(`return(\n${expr}\n)`, '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1]));
+    CExpr(e, nm, src = e, dlms = '""') {
+        return (e == N ? e
+            : !/\S/.test(e) ? thro(`[${nm}] Empty expression`)
+                : this.Closure(`return(\n${e}\n)`, '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1]));
     }
     CAttExpList(atts, attNm, bReacts) {
         let list = atts.g(attNm, F, T);
@@ -1699,22 +1721,8 @@ class RComp {
         return this.CExpr(`[${list}\n]`, attNm);
     }
     Closure(body, E = Q) {
-        let { ct, lvMap, d } = this.CT, n = d + 1;
-        for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k = lvMap.get(m[0]);
-            if (k?.d < n)
-                n = k.d;
-        }
-        if (n > d)
-            ct = Q;
-        else {
-            let p = d - n, q = p;
-            while (n--)
-                q = ct.indexOf(']', q) + 1;
-            ct = `[${ct.slice(0, p)}${ct.slice(q)}]`;
-        }
         try {
-            var f = Ev(`${US}(function(${ct}){${body}\n})`);
+            var f = Ev(`${US}(function(${this.gsc(body)}){${body}\n})`);
             return () => {
                 try {
                     return f.call(pn, env);
@@ -1727,6 +1735,20 @@ class RComp {
         catch (x) {
             throw x + E;
         }
+    }
+    gsc(exp) {
+        let { ct, lvMap, d } = this.CT, n = d + 1;
+        for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
+            let k = lvMap.get(m[0]);
+            if (k?.d < n)
+                n = k.d;
+        }
+        if (n > d)
+            return '_';
+        let p = d - n, q = p;
+        while (n--)
+            q = ct.indexOf(']', q) + 1;
+        return `[${ct.slice(0, p)}${ct.slice(q)}]`;
     }
     GetURL(src) {
         return new URL(src, this.FP).href;

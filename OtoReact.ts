@@ -2731,7 +2731,7 @@ class RComp {
         srcE: HTMLElement, atts: Atts,
         {S, dC}: {S: Signat, dC: DepE<ConstructDef>}
     ) {
-        await S.task;
+        await S.task;       // Wait for signature to be fetched (when sync imported)
         let 
             {RP, CSlot, Slots} = S,
 
@@ -2801,10 +2801,14 @@ class RComp {
                     for (let {nm, dG, dS} of gArgs)
                         if (!dS)
                             args[nm] = dG();
-                        else if (cr)
-                            args[nm] = RVAR(Q, dG(), N, dS());
-                        else
-                            (args[nm] as RVAR).V = dG();
+                        else {
+                            let r: RVAR;
+                            if (cr) 
+                                (r = args[nm] = RVAR())._Imm.add(dS());
+                            else
+                                r = args[nm];
+                            r.v = dG();
+                        }
                     
                     env = cdef.env;
 
@@ -2902,7 +2906,7 @@ class RComp {
             ) => {
                 let M: Modifier = 
                     {mt, nm, d
-                        , cu: cu ??
+                        , cu: cu ||
                             // When the attribute value is a string constant, then it need only be set on create
                             (d.fx != N ? 1 : 3)
                     };
@@ -2940,9 +2944,9 @@ class RComp {
                             ? () => Object.fromEntries([[i, dV()]]) // Treat '#class.name = V' like '#class = {name: V}'
                             : dV
 
-                        // Undocumented feature: when the souce attribute contains a DOUBLE hash,
+                        // Undocumented feature: when the source attribute contains a DOUBLE hash,
                         // then the modifier is executed only on create
-                        , h && 1
+                        , (e && !p || h) && 1
                         );
                 }
                 else if (t) {
@@ -2967,8 +2971,7 @@ class RComp {
                         addM(MType.exec, k, dSet, cu);
 
                     if (m=/([@!])(\1)?/.exec(t))
-                        addM(MType.Event, m[2] ? 'change' : 'input', 
-                            dSet);
+                        addM(MType.Event, m[2] ? 'change' : 'input', dSet, 1);
                 }
 
                 else //if (n) 
@@ -3083,7 +3086,7 @@ class RComp {
         ) {
         return this.CExpr<T>(atts.g(att, bReq, T), att, U);
     }
-
+/*
     private CTarget<T = unknown>(expr: string): Dep<(t:T) => void>
     // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
     {
@@ -3092,23 +3095,47 @@ class RComp {
             , ` in assigment target "${expr}"`
             );
     }
-
+*/
+    private CTarget<T = unknown>(LHS: string): Dep<(t:T) => void>
+    // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
+    {   
+        return this.CHandlr<T>(`(${LHS})=$`,N,'$',`\nin assigment target "${LHS}"`);
+    }
+/*
     private CHandlr(txt: string, nm: string): DepE<Handler> {
         return this.CExpr<Handler>(
             /^#/.test(nm) ? txt : `function(event){${txt}\n}`
             , nm, txt)
-    }
+    } // */
+//*
+    private CHandlr<EV = Event>(txt: string, nm: string, ev = 'event', E = `\nat [${nm}]="${Abbr(txt)}"`): DepE<(ev: EV) => any> {
+        if (/^#/.test(nm))
+            return this.CExpr<(ev: EV) => any>(txt, nm, txt);
 
+        try {
+            let C = Ev(`${US}(function(${this.gsc(txt)},${ev}){${txt}\n})`)
+            return () => {
+                let e = env;
+                return function($) {
+                    try { C.call(this,e,$); }
+                    catch(x) {throw x+E;}
+                };
+            }
+        }
+        catch (x) {throw x+E;}
+    }
+// */
     CExpr<T>(
-        expr: string           // Expression to transform into a function
+        e: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
-        , src: string = expr    // Source expression
+        , src: string = e    // Source expression
         , dlms: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dep<T> {
-        return (expr == N ? <null>expr  // when 'expr' is either null or undefined
-            : !/\S/.test(expr) ? thro(`[${nm}] Empty expression`)
+        return (
+            e == N          ? <null>e  // when 'e' is either null or undefined
+            : !/\S/.test(e) ? thro(`[${nm}] Empty expression`)
             : this.Closure(
-                `return(\n${expr}\n)`
+                `return(\n${e}\n)`
                 , '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1] // Error text
             )
         );
@@ -3122,25 +3149,13 @@ class RComp {
         return this.CExpr<T[]>(`[${list}\n]`, attNm);
     }
 
-    Closure<T>(body: string, E: string = Q): Dep<T> {
-        // See if the context can be abbreviated
-        let {ct,lvMap, d} = this.CT, n=d+1
-        for (let m of body.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k: EnvKey = lvMap.get(m[0]);
-            if (k?.d < n) n = k.d;
-        }
-        if (n>d)
-            ct = Q;
-        else {
-            let p = d-n, q = p
-            while (n--)
-                q = ct.indexOf(']', q) + 1;
-            ct = `[${ct.slice(0,p)}${ct.slice(q)}]`;
-        }
-
+    Closure<T>(
+        body: string, 
+        E: string = Q,   // Error info
+    ): Dep<T> {
         try {
             var f = Ev(
-                    `${US}(function(${ct}){${body}\n})`  // Expression evaluator
+                    `${US}(function(${this.gsc(body)}){${body}\n})`  // Expression evaluator
             ) as (e:Environment) => T;
             return () => {
                     try { 
@@ -3150,6 +3165,23 @@ class RComp {
                 };
         }
         catch (x) {throw x+E; } // Compiletime error
+    }
+
+    private gsc(exp: string) {
+        // Get Shaked Context string
+        // See if the context can be abbreviated
+        let {ct,lvMap, d} = this.CT, n=d+1
+        for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
+            let k: EnvKey = lvMap.get(m[0]);
+            if (k?.d < n) n = k.d;
+        }
+        if (n>d)
+            return '_';
+
+        let p = d-n, q = p
+        while (n--)
+            q = ct.indexOf(']', q) + 1;
+        return `[${ct.slice(0,p)}${ct.slice(q)}]`;
     }
 
     // Returns the normalized (absolute) form of URL 'src'.
