@@ -1145,7 +1145,7 @@ class RComp {
 
     // At compiletime, declare a single LVar.
     // Returns a routine to set the value of the LVar.
-    private LVar<T>(nm: string): LVar<T> {
+    private LV<T>(nm: string): LVar<T> {
         if (nm = nm?.trim())
         {
                 try {
@@ -1184,7 +1184,7 @@ class RComp {
     // Declare an number of LVar's, according to a comma-separated 'varList'.
     // Returns an array of LVar setters.
     private LVars(varlist: string): Array<LVar> {
-        return Array.from(split(varlist), nm => this.LVar(nm));
+        return Array.from(split(varlist), nm => this.LV(nm));
     }
 
     // At compiletime, declare a number of local constructs, according to the supplied signatures.
@@ -1465,7 +1465,7 @@ class RComp {
                             dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates'),
                             dSto    = rv   && this.CAttExp<Store>(ats, 'store'),
                             dSNm    = dSto && this.CPam<string>(ats, 'storename'),
-                            vLet    = this.LVar(rv || ats.g('let') || ats.g('var', T)),
+                            vLet    = this.LV(rv || ats.g('let') || ats.g('var', T)),
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
@@ -1658,12 +1658,12 @@ class RComp {
                         break;
 
                     case 'DOCUMENT': {
-                        let vDoc = this.LVar(ats.g('name', T)),
+                        let vDoc = this.LV(ats.g('name', T)),
                             bEncaps = ats.gB('encapsulate'),
                             PC = this,
                             RC = new RComp(this),
                             vPams = RC.LVars(ats.g('params')),
-                            vWin = RC.LVar(ats.g('window',F,F,T)),
+                            vWin = RC.LV(ats.g('window',F,F,T)),
                             H = RC.hd = D.createDocumentFragment(),   //To store static stylesheets
                             b = await RC.CChilds(srcE);
                         bl = async function DOCUMENT(ar: Area) {
@@ -2338,11 +2338,11 @@ class RComp {
                 
                 let             
                     // Add the loop-variable to the context, and keep a routine to set its value
-                    vLet = this.LVar(letNm),
+                    vLet = this.LV(letNm),
                     // The same for 'index', 'previous' and 'next' variables
-                    vIx = this.LVar(ixNm),
-                    vPv = this.LVar(pvNm),
-                    vNx = this.LVar(nxNm),
+                    vIx = this.LV(ixNm),
+                    vPv = this.LV(pvNm),
+                    vNx = this.LV(nxNm),
 
                     dKey = this.CAttExp<Key>(ats, 'key'),
                     dHash = this.CAttExpList<Hash>(ats, 'hash'),
@@ -2552,7 +2552,7 @@ class RComp {
             return this.Framed(
                 async SF => {
                     let 
-                        vIx = this.LVar(ixNm)
+                        vIx = this.LV(ixNm)
                         , DC = this.LCons([S])
                         , b = await this.CChilds(srcE)
                     
@@ -2677,7 +2677,7 @@ class RComp {
                     S.Pams.map(
                         ({mode,nm}) => {
                             let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
-                            return [nm, this.LVar(lnm || (lnm === Q || !bSlot ? nm : N) )];
+                            return [nm, this.LV(lnm || (lnm === Q || !bSlot ? nm : N) )];
                         }
                     ),
                 DC = ( !ats && myAtts.None(),
@@ -3063,7 +3063,7 @@ class RComp {
             reg += // Quote 'lits' such that it can be literally included in a RegExp
                     lits.replace(/\W/g, s => '\\'+s)
                 +   ( m[1]!=N       // A capturing group
-                                    ? (lvars.push(this.LVar(m[1])), '(.*?)')
+                                    ? (lvars.push(this.LV(m[1])), '(.*?)')
                     : m[0] == '?'   ? '.'
                     : m[0] == '*'   ? '.*'
                     : m[2]          ? m[2] // An escaped character

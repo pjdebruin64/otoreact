@@ -524,7 +524,7 @@ class RComp {
                 rActs.pop()();
         };
     }
-    LVar(nm) {
+    LV(nm) {
         if (nm = nm?.trim()) {
             try {
                 if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
@@ -547,7 +547,7 @@ class RComp {
         return lv;
     }
     LVars(varlist) {
-        return Array.from(split(varlist), nm => this.LVar(nm));
+        return Array.from(split(varlist), nm => this.LV(nm));
     }
     LCons(listS) {
         let { CT } = this, { csM: cM, M, d } = CT;
@@ -714,7 +714,7 @@ class RComp {
                     case 'DEFINE':
                         {
                             NoChilds(srcE);
-                            let rv = ats.g('rvar'), t = '@value', twv = rv && ats.g(t), dGet = twv ? this.CExpr(twv, t) : this.CPam(ats, 'value'), bUpd = ats.gB('reacting') || ats.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LVar(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
+                            let rv = ats.g('rvar'), t = '@value', twv = rv && ats.g(t), dGet = twv ? this.CExpr(twv, t) : this.CPam(ats, 'value'), bUpd = ats.gB('reacting') || ats.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
                             auto = rv && ats.gB('auto', this.S.bAutoSubscribe) && !onMod && rv;
                             bl = async function DEF(ar, bR) {
                                 let r = ar.r, v, upd;
@@ -837,7 +837,7 @@ class RComp {
                         break;
                     case 'DOCUMENT':
                         {
-                            let vDoc = this.LVar(ats.g('name', T)), bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LVar(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
+                            let vDoc = this.LV(ats.g('name', T)), bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LV(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
                             bl = async function DOCUMENT(ar) {
                                 if (!ar.r) {
                                     let { doc, hd } = PC, docEnv = env, wins = new Set();
@@ -1260,7 +1260,7 @@ class RComp {
         if (letNm != N) {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = ats.gB('reacting') || ats.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
-                let vLet = this.LVar(letNm), vIx = this.LVar(ixNm), vPv = this.LVar(pvNm), vNx = this.LVar(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExpList(ats, 'hash'), b = await this.CIter(srcE.childNodes);
+                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExpList(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar, bR) {
                     let { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, iter = dOf() || E, sEnv = { env, oes }, pIter = async (iter) => {
                         ({ env, oes } = sEnv);
@@ -1383,7 +1383,7 @@ class RComp {
             let nm = ats.g('of', T, T).toUpperCase(), { S, dC } = this.CT.getCS(nm) ||
                 thro(`Missing attribute [let]`);
             return this.Framed(async (SF) => {
-                let vIx = this.LVar(ixNm), DC = this.LCons([S]), b = await this.CChilds(srcE);
+                let vIx = this.LV(ixNm), DC = this.LCons([S]), b = await this.CChilds(srcE);
                 return b && async function FOREACH_Slot(ar) {
                     let { tmps, env } = dC(), { EF, sub } = SF(ar), i = 0;
                     try {
@@ -1440,7 +1440,7 @@ class RComp {
             this.ws = this.rt = 1;
             let myAtts = ats || new Atts(srcE), lvars = S.Pams.map(({ mode, nm }) => {
                 let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
-                return [nm, this.LVar(lnm || (lnm === Q || !bSlot ? nm : N))];
+                return [nm, this.LV(lnm || (lnm === Q || !bSlot ? nm : N))];
             }), DC = (!ats && myAtts.None(),
                 this.LCons(S.Slots.values())), b = await this.CIter(body.childNodes), tag = /^[A-Z].*-/.test(S.nm) ? S.nm : 'rhtml-' + S.nm;
             return b && async function TEMPL(args, mSlots, env, ar) {
@@ -1651,7 +1651,7 @@ class RComp {
             reg +=
                 lits.replace(/\W/g, s => '\\' + s)
                     + (m[1] != N
-                        ? (lvars.push(this.LVar(m[1])), '(.*?)')
+                        ? (lvars.push(this.LV(m[1])), '(.*?)')
                         : m[0] == '?' ? '.'
                             : m[0] == '*' ? '.*'
                                 : m[2] ? m[2]

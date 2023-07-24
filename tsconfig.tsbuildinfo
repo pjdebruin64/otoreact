@@ -221,24 +221,14 @@
         "signature": "1e61418f41d404e744b6536af9f8c6f6674dd4d54c12335cd0c4f7eded69cf3f",
         "affectsGlobalScope": true
       },
-      "./otoreact - modifierclosures.ts": {
-        "version": "b178ccacff9e2e509c5b0d96eb640a6be6512a1532976ded69e5427681dc9197",
-        "signature": "8e88ea50c5aca94e4f5126b5eae48860538aee11541053eb18fb600b3068dca4",
-        "affectsGlobalScope": false
-      },
-      "./otoreact - kopie.ts": {
-        "version": "627d5c74cc584e2efb522fa0f6474a8b8dabf8c30e75c5ef3c91f4f386039d92",
-        "signature": "550032bfaed03f490cc4cf4cb4584323e9420f3867e50d2b1992d1848526ad07",
-        "affectsGlobalScope": false
-      },
       "./otoreact.ts": {
-        "version": "0c4321999c2b9679227610823e8cf449c9a34651a865b57c30bcc4271718524a",
+        "version": "55a69e3dbf8bf5c2f2d4671c1c310235e128bfb93c16493a36cb5300135f98d8",
         "signature": "dfa027bb6a1fcb50878c27d7c474ce4b84e3f4c11cc2a592204089ae1484595a",
         "affectsGlobalScope": false
       },
       "./index_files/samples.ts": {
-        "version": "9d468a631280b9a4075b7731004690d80fadcd9db94f68fe8a6feecbc2042784",
-        "signature": "73be3809e8886c3c74e635e92f16a21977e05b1b80ad77a2edd40c6d6703e8cb",
+        "version": "e4840918c3972422d12d58eecdca48c0f7c9bd256f0f8b22e979e2fb4b445957",
+        "signature": "825edd871ed5877c595953fdb88729ad4cbd45b7834c8d43654b4c630b246546",
         "affectsGlobalScope": true
       }
     },
@@ -308,8 +298,6 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
       "./index_files/samples.ts",
-      "./otoreact - kopie.ts",
-      "./otoreact - modifierclosures.ts",
       "./otoreact.ts"
     ]
   },

@@ -798,6 +798,7 @@ const basicSetup =
 `<!DOCTYPE html>
 <html>
     <head>
+        <meta charset="utf-8">
         <script type=module src="./OtoReact.js"></script>
     </head>
     <body hidden RHTML>
