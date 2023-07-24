@@ -3,7 +3,7 @@
   <head>
     <style>
       main {
-        border: solid 2px green; padding: 12px; height: 400px;
+        border: solid 2px green; padding: 12px; height: 320px;
       }
       menu a {
         padding: 6px 12px; color: white; background-color: green;
@@ -32,9 +32,9 @@
     </script>
   </head>
 
-  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden reacton="docLocation">
+  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden>
 
-    <main>    
+    <main reacton="docLocation">    
       <menu>
         <a href="{docLocation.basepath}inventory">Inventory</a>
         <a href="{docLocation.basepath}customers">Customer list</a>
@@ -51,8 +51,9 @@
         <when urlmatch="customers">
           <title>Customer list</title>
           <h1>Customer list</h1>
+
           <table.>
-            <tr.><th.>No</th.><th.>Name</th.></tr.>
+            <tr.><th.>No.</th.><th.>Name</th.></tr.>
             <FOR let="cust" of="customers.V" reacton="customers">
               <tr.>
                 <td.><a href="customer/{cust.no}">{cust.no}</a></td.>
@@ -60,43 +61,50 @@
               </tr.>
             </FOR>
           </table.>
+
+          <p>Click a customer no. to see details.</p>
         </when>
   
         <when urlmatch="customer/{customerNo}">
           <title>Customer {customerNo}</title>
           <h1>Customer details</h1>
+
           <style scope="local">
             td:nth-child(1) { font-weight: bold; }
             td:nth-child(2) { min-width: 10em;   }
           </style>
+
           <def var="cust" #value="customers.V.find(cust => cust.no == customerNo)"></def>
           <table #if="cust">
-            <tr><td>No</td>     <td>{cust.no}</td></tr>
-            <tr><td>Name</td>   <td>{cust.name}</td></tr>
-            <tr><td>Address</td><td>{cust.address}</td></tr>
+            <tbody>
+              <tr><td>No</td>     <td>{cust.no}</td></tr>
+              <tr><td>Name</td>   <td>{cust.name}</td></tr>
+              <tr><td>Address</td><td>{cust.address}</td></tr>
+            </tbody>
           </table>
+
+          <p>You can click the 'back' button or select a menu item.</p>
         </when>
   
         <else>
           <h1>Routing demo</h1>
           <title>Routing demo</title>
+
           Please choose from the menu bar.
         </else>
   
       </case>
     </main>
 
-    <hr>
-    Current values of:
+    <p>Current values of:</p>
     <table>
-      <tbody>
+      <tbody reacton="docLocation">
         <tr> <th>location.origin</th>   <th>location.pathname</th>   <th>docLocation.basepath</th>   <th>docLocation.subpath</th>   </tr>
         <tr> <td>{location.origin}</td> <td>{location.pathname}</td> <td>{docLocation.basepath}</td> <td>{docLocation.subpath}</td> </tr>
       </tbody>
     </table>
 
-    <hr>
-    Full source code:
+    <p>Full source code of the current application:</p>
     <pre>
 &lt;!DOCTYPE html>
 {sourceCode.replaceAll('='+'""','')}

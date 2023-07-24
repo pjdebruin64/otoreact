@@ -100,7 +100,7 @@ type Area<RT = {}, T = true> = {
     /* When !r, i.e. when the DOM has to be created: */
     srcN?: HTMLElement;     // Optional source node to be replaced by the new DOM 
     parR?: Range;         // The new range shall either be the first child this parent range,
-    prvR?: Range;        // Or the next sibling of this previous range
+    prR?: Range;        // Or the next sibling of this previous range
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
@@ -127,7 +127,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
     ) {
         this.n = n;
         if (ar) {
-            let {parR: p, prvR: q} = ar;
+            let {parR: p, prR: q} = ar;
             if (p && !p.n)
                 // Set the parent range, only when that range isn't a DOM node
                 this.parR = p;
@@ -139,7 +139,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
                 p.ch = this;
         
             // Update the area, so the new range becomes its previous range
-            ar.prvR = this;
+            ar.prR = this;
         }
     }
 
@@ -248,9 +248,9 @@ class Context {
     ct: string;         // String of all visible variable names, to match against an environment
 
     // Mapping of visible lvar names to EnvKeys
-    lvMap: Map<string, EnvKey>
+    lvM: Map<string, EnvKey>
     // Mapping of visible construct names to their signature and EnvKey
-    csMap:  Map<string, {S:Signat, k: EnvKey}>;
+    csM:  Map<string, {S:Signat, k: EnvKey}>;
 
     // Construct a new context, optionally based on an existing context.
     // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the map is to be made.
@@ -260,16 +260,16 @@ class Context {
             this,
             C || {
                 d: 0, L: 0, M: 0, ct: Q,
-                lvMap: new Map(), csMap: new Map()
+                lvM: new Map(), csM: new Map()
             }
         );
         if (a && C) {
-            this.lvMap = new Map(this.lvMap);
-            this.csMap = new Map(this.csMap);
+            this.lvM = new Map(this.lvM);
+            this.csM = new Map(this.csM);
         }
     }
 
-    // Return a routines that, given an environment matching the current context returns the value pointed to by 'k'
+    // Return a routines that, given an environment matching the current context returns the value pointed to by EnvKey 'k'
     getV<T>(k: EnvKey): DepE<T> {
         if (k) {
             let D = this.d;
@@ -286,7 +286,7 @@ class Context {
     // Throws an error when unknown
     getLV(nm: string): DepE<unknown>
     {
-        return this.getV(this.lvMap.get(nm) || thro(`Unknown name '${nm}'`));
+        return this.getV(this.lvM.get(nm) || thro(`Unknown name '${nm}'`));
     }
     // For a construct name 'nm', return a routines that,
     // given an environment matching the current context,
@@ -294,7 +294,7 @@ class Context {
     // Returns 'null' when unknown
     getCS(nm: string): {S: Signat, dC: DepE<ConstructDef>}
     {
-        let SK = this.csMap.get(nm);
+        let SK = this.csM.get(nm);
         return SK && {S: SK.S, dC: this.getV<ConstructDef>(SK.k)};
     }
     
@@ -478,7 +478,7 @@ function SetLVars(vars: Array<LVar>, data: Array<unknown>) {
 
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {
-    mode: ''|'#'|'@'| '...'            // Mode: ''|'#'|'@'| '...'
+    mode: ''|'#'|'@'|'...' 
     , nm: string            // Name
     , rq: booly             // Truthy when required (= not optional)
     , pDf: Dep<unknown>     // Default value expression
@@ -504,7 +504,7 @@ class Signat {
                         : on && (() => dU)
                 this.Params.push(
                     { 
-                        mode: (m as ''|'#'|'@'| '...'),
+                        mode: (m as ''|'#'|'@'|'...'),
                         nm,
                         rq: !(q || pDf || rp),
                         pDf: m=='@' ? () => RVAR(Q, pDf?.()) : pDf
@@ -568,7 +568,7 @@ class Signat {
 // A CONSTRUCTDEF is a concrete instance of a signature
 type ConstructDef = {
     nm: string,         // Name of the construct
-    templs: Template[], // Template, or in case of a slot construct, possibly multiple templates
+    tmps: Template[], // Template, or in case of a slot construct, possibly multiple templates
     env?: Environment,  // Environment at the point the template was defined
 };
 /*
@@ -611,7 +611,7 @@ export class _RVAR<T = unknown>{
     // The value of the variable
     v: T;
     // Immediate subscribers
-    _Imm = new Set<Subscriber<T>>();
+    private _Imm: Set<Subscriber<T>>;
     // Deferred subscribers
     _Subs = new Set<Subscriber<T>>();
 
@@ -623,12 +623,13 @@ export class _RVAR<T = unknown>{
         if (s) {
             if (cr)
                 s(this.v);
-            (bImm ? this._Imm : this._Subs).add(s);
+            (bImm ? this._Imm ||= new Set<Subscriber<T>>()
+                : this._Subs).add(s);
         }
         return this;
     }
     Unsubscribe(s: Subscriber<T>) {
-        this._Imm.delete(s);
+        this._Imm?.delete(s);
         this._Subs.delete(s);
     }
     // Use var.V to get or set its value
@@ -663,8 +664,8 @@ export class _RVAR<T = unknown>{
     set U(t: T) { this.v = t; this.SetDirty(); }
 
     public SetDirty() {
-        for (let sub of this._Imm)
-            sub(this.v);
+        this._Imm?.forEach(s => s(this.v));
+
         if (this._Subs.size) {
             Jobs.add(this);
             RUpd();
@@ -727,8 +728,7 @@ let
     oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
-    Jobs = new Set< {Exec: () => Promise<void> } //| (() => Promise<void>) 
-        >(),
+    Jobs = new Set< {Exec: () => Promise<void> } >(),
 
     hUpdate: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
@@ -1159,7 +1159,7 @@ class RComp {
             
             let {CT} = this
                 , i = ++CT.L        // Reserve a place in the environment
-                , vM = CT.lvMap
+                , vM = CT.lvM
                 , p = vM.get(nm);    // If another variable with the same name was visible, remember its key
 
             // Set the key for the new variable
@@ -1191,7 +1191,7 @@ class RComp {
     // Returns a single routine to set them all at once.
     private LCons(listS: Iterable<Signat>) {
         let {CT} = this
-            , {csMap: cM, M, d}= CT;
+            , {csM: cM, M, d}= CT;
 
         for (let S of listS) {
             let m = S.nm, p = cM.get(m);
@@ -1216,7 +1216,7 @@ class RComp {
                 return await b(ar);
             }
             finally {
-                if (p = ar.prvR) p.parN = ar.parN;  // Allow the created range to be erased when needed
+                if (p = ar.prR) p.parN = ar.parN;  // Allow the created range to be erased when needed
                 ass(ar, {parN, bfor});
             }
         }
@@ -1407,8 +1407,8 @@ class RComp {
                 // Check for generic attributes
             for (let [att] of atts)
                 if (m = 
-/^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:(create|update|destroy)+|compile))$/
-//     123                4       56                7      8              9                    A
+/^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
+//     123                4       56                7      8              9          
                      .exec(att))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
@@ -1428,28 +1428,28 @@ class RComp {
                                 });
                     else { 
                         let txt = atts.g(att);
-                        if (m[10])  // #?(before|after|on)(create|update|destroy)+
+                        if (/cr|d/.test(att))  // #?(before|after|on)(create|update|destroy|compile)+
                             // We have a pseudo-event
                             (m[9] ? bf : af)    // Is it before or after
                             .push({
                                 att, 
                                 txt, 
-                                C:/c/.test(att),    // 'att' contains 'create'
-                                U:/u/.test(att),    // 'att' contains 'update'
-                                D:/y/.test(att),    // 'att' contains 'destroy'
+                                C: /cr/.test(att),    // 'att' contains 'create'
+                                U: /u/.test(att),    // 'att' contains 'update'
+                                D: /y/.test(att),    // 'att' contains 'destroy'
                                 // 'before' events are compiled now, before the element is compiled
                                 h: m[9] && this.CHandlr(txt, att)
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
-                        else    // beforecompile
+                        if (/m/.test(att))    // oncompile
                             // Execute now, with 'srcE' as 'this'
                             Ev(`(function(){${txt}\n})`).call(srcE);
                     }
 
             if (constr)
                 bl = await this.CInstance(srcE, atts, constr);
-            else {
+            else
                 switch (tag) {
                     case 'DEF':
                     case 'DEFINE': {
@@ -1654,7 +1654,7 @@ class RComp {
                         break;
 
                     case 'COMPONENT':
-                        bl = await this.CComponent(srcE, atts);
+                        bl = await this.CComp(srcE, atts);
                         break;
 
                     case 'DOCUMENT': {
@@ -1708,12 +1708,12 @@ class RComp {
                                         return w;
                                     },
                                     async print(...args: unknown[]) {
-                                        let iframe = doc.createElement('iframe');
-                                        iframe.hidden = T;
-                                        doc.body.appendChild(iframe);
-                                        await this.render(iframe.contentWindow, T, args);
-                                        iframe.contentWindow.print();
-                                        iframe.remove();
+                                        let f = doc.createElement('iframe');
+                                        f.hidden = T;
+                                        doc.body.appendChild(f);
+                                        await this.render(f.contentWindow, T, args);
+                                        f.contentWindow.print();
+                                        f.remove();
                                     },
                                     closeAll: () => {
                                         wins.forEach(w => w.close());
@@ -1814,16 +1814,16 @@ class RComp {
 
                     case 'ATTRIBUTE':
                         NoChilds(srcE);
-                        let dNm = this.CParam<string>(atts, 'name', T),
-                            dVal= this.CParam<string>(atts, 'value', T);
+                        let dN = this.CParam<string>(atts, 'name', T),
+                            dV = this.CParam<string>(atts, 'value', T);
                         bl = async function ATTRIB(ar: Area){
                             let r = PrepRng<{v:string}>(ar, srcE).r
                                 , n0 = r.v
-                                , nm = r.v = dNm();
+                                , nm = r.v = dN();
                             if (n0 && nm != n0)
                                 (pn as HTMLElement).removeAttribute(n0);
                             if (nm)
-                                (pn as HTMLElement).setAttribute(nm, dVal());
+                                (pn as HTMLElement).setAttribute(nm, dV());
                         };
                         break;
 
@@ -1844,10 +1844,10 @@ class RComp {
                         /* It's a regular element that should be included in the runtime output */
                         bl = await this.CHTML(srcE, atts, U, bUH);
                 }
-                if (!bUH)
-                    atts.NoneLeft();
-            }
-
+            
+            if (!bUH)
+                atts.NoneLeft();
+        
             // We are going to add pseudo-event and global attribute handling.
             // We keep the current builder function name, so we can attach it to the final builder.
             // And when the current builder 'bl' is empty, we replace it by the dummy builder, so the handler routines get
@@ -1863,53 +1863,46 @@ class RComp {
                     g.h = this.CHandlr(g.txt, g.att);
 
                 let b = bl;
-                bl = async function Pseudo(ar: AreaR, bR) {                   
+                bl = async function Pseu(ar: AreaR, bR) {                   
                     let {r, sub, cr} = PrepRng<{bU: Handler, aU: Handler}>(ar, srcE)
-                        , sr = sub.r
-                        , bD: Handler;
-                    
-                    // Call or save before-handlers
-                    if (cr)
-                        for (let g of bf) {
-                            let h = g.h();
-                            if (g.C)
-                                h.call(pn);
-                            if (g.U)
-                                r.bU = h;
-                            if (g.D)
-                                bD = h;    // Save a before-destroy handler, so we can assign it when a subrange has been created
-                        }
-                    else
-                        r.bU?.call(sr != T && sr.n || pn)
+                        , sr = sub.r || T
+
+                        , bD = ph(bf, 'bU', sr != T && sr.n || pn);
 
                     await b(sub, bR);
 
                     // We need the range created or updated by 'b'
                     // This is tricky. It requires that b creates at most one (peer) range
                     let rng = (cr
-                            // When we are building, then 'b' has range sub.prvR, if any
-                            ? sub.prvR
+                            // When we are building, then 'b' has range sub.prR, if any
+                            ? sub.prR
                             // When we are updating, then 'b' has a range when the current sub.r is different from sr, and sr is that range.
                             : sub.r != sr && <Range>sr
                         ) // When b doesn't have its own range, then we create one
-                        || PrepRng(sub).r;
+                        || PrepRng(sub).r
                     
-                    if (cr) {
-                        // Assign a beforedestroy handler
-                        rng.bD = bD;
-    
-                        for (let g of af) {
-                            let h = g.h();
-                            if (g.C)
-                                h.call(rng.n || pn);
-                            if (g.U)
-                                r.aU = h;
-                            if (g.D)
-                                rng.aD = h;    // Save a before-destroy handler, so we can assign it when a subrange has been created
+                        , aD = ph(af, 'aU', rng.n || pn);
+
+                    if (cr)
+                        ass(rng, {bD,aD});
+                    
+                    // Call or save before-handlers
+                    function ph(hh: typeof bf, U: 'bU'|'aU', elm: Node): Handler {
+                        if (cr) {
+                            for (let g of hh) {
+                                let h = g.h();
+                                if (g.C)
+                                    h.call(elm);
+                                if (g.U)
+                                    r[U] = h;
+                                if (g.D)
+                                    var D = h;    // Save a before-destroy handler, so we can assign it when a subrange has been created
+                            }
+                            return D;
                         }
+                        // else
+                        r[U]?.call(elm);
                     }
-                    else
-                        r.aU?.call(rng.n || pn)
                 }
             }
 
@@ -1950,49 +1943,49 @@ class RComp {
                                 }
                                 // Subscribe current rvar
                                 rvar.Subscribe(s); }
-                            catch { ErrAtt('This is not an RVAR', att) }
+                            catch { throw `This is not an RVAR\nat [${att}]`}
                     }
                 }
                 else
-                bl = 
-                    m[5]  // set onerror or onsuccess
-                    ? async function SetOnES(ar: Area, bR) {
-                        let 
-                            s = oes    // Remember current setting
-                            , {sub, r} = PrepRng<{oes: object}>(ar, srcE, att);
+                    bl = 
+                        m[5]  // set onerror or onsuccess
+                        ? async function SetOnES(ar: Area, bR) {
+                            let 
+                                s = oes    // Remember current setting
+                                , {sub, r} = PrepRng<{oes: object}>(ar, srcE, att);
 
-                        // Create a copy. On updates, assign current values to the copy created before.
-                        oes = ass(r.oes ||= <any>{}, oes);
-                        try {
-                            oes[es] = dV();     // Now set the new value
-                            await b(sub, bR);   // Run the builder
+                            // Create a copy. On updates, assign current values to the copy created before.
+                            oes = ass(r.oes ||= <any>{}, oes);
+                            try {
+                                oes[es] = dV();     // Now set the new value
+                                await b(sub, bR);   // Run the builder
+                            }
+                            finally { oes = s; }    // Restore current setting
                         }
-                        finally { oes = s; }    // Restore current setting
-                    }
 
-                    : m[7]   // hash
-                    ? function HASH(ar: Area, bR) {
-                        let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, att)
-                            , ph  = r.v;
-                        r.v = <unknown[]>dV();
-    
-                        if (cr || r.v.some((hash, i) => hash !== ph[i]))
-                            return b(sub, bR);
-                    }
-                    : m[8]  // #if
-                    ?   function hIf(ar: Area, bR) {
-                            let c = <booly>dV(),
-                                p = PrepRng(ar, srcE, att, 1, !c)
-                            if (c)
-                                return b(p.sub, bR)
+                        : m[7]   // hash
+                        ? function HASH(ar: Area, bR) {
+                            let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, att)
+                                , ph  = r.v;
+                            r.v = <unknown[]>dV();
+        
+                            if (cr || r.v.some((hash, i) => hash !== ph[i]))
+                                return b(sub, bR);
                         }
-                    :   // Renew
-                        function renew(sub: Area, bR) {
-                            return b(
-                                PrepRng(sub, srcE, att, 2).sub
-                                , bR
-                            );
-                        }
+                        : m[8]  // #if
+                        ?   function hIf(ar: Area, bR) {
+                                let c = <booly>dV(),
+                                    p = PrepRng(ar, srcE, att, 1, !c)
+                                if (c)
+                                    return b(p.sub, bR)
+                            }
+                        :   // Renew
+                            function renew(sub: Area, bR) {
+                                return b(
+                                    PrepRng(sub, srcE, att, 2).sub
+                                    , bR
+                                );
+                            }
             }
 
             return bl != dB && ass(
@@ -2025,11 +2018,10 @@ class RComp {
                     throw msg;
 
                 this.log(msg);
-                if (e)
-                    e(m);
-                else if (this.S.bShowErrors)
-                    (r||{} as typeof r).eN =
-                        ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt);
+                e ? e(m)
+                : this.S.bShowErrors ?
+                    (r||{} as typeof r).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
+                : U
             }
         });
     }
@@ -2172,8 +2164,8 @@ class RComp {
     }
 
     private async CCase(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
-        let bHiding = atts.gB('hiding'),
-            dVal = this.CAttExp<string>(atts, 'value'),
+        let bH = atts.gB('hiding'),
+            dV = this.CAttExp<string>(atts, 'value'),
             caseNodes: Array<{
                 n: HTMLElement,
                 atts: Atts,
@@ -2204,7 +2196,7 @@ class RComp {
 
         let 
             caseList: Array<{
-                cond?: Dep<unknown>,
+                cond?: Dep<booly>,
                 not: boolean,
                 patt?: {lvars: LVar[], RE: RegExp, url?: boolean},
                 b: DOMBuilder, 
@@ -2220,7 +2212,7 @@ class RComp {
                 ass(this, {ws, rt, CT: new Context(CT)})
                 .SS();
             try {
-                let cond: Dep<unknown>, 
+                let cond: Dep<booly>, 
                     not: boolean = F,
                     patt:  {lvars: LVar[], RE: RegExp, url?: boolean},
                     p: string;
@@ -2228,9 +2220,9 @@ class RComp {
                     case 'IF':
                     case 'THEN':
                     case 'WHEN':
-                        cond = this.CAttExp<unknown>(atts, 'cond');
+                        cond = this.CAttExp<booly>(atts, 'cond');
                         not = atts.gB('not');
-                        patt = dVal && (
+                        patt = dV && (
                             (p = atts.g('match') ?? atts.g('pattern')) != N
                                 ? this.CPatt(p)
                             : (p = atts.g('urlmatch')) != N
@@ -2242,7 +2234,7 @@ class RComp {
                             : N
                         );
 
-                        if (patt?.lvars.length && (bHiding || not))
+                        if (patt?.lvars.length && (bH || not))
                             throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
 
                         // Fall through!
@@ -2267,7 +2259,7 @@ class RComp {
         this.CT = postCT;
 
         return caseList.length && async function CASE(ar: Area, bR) {
-            let val = dVal?.()
+            let val = dV?.()
                 , RRE: RegExpExecArray
                 , cAlt: typeof caseList[0];
             try {
@@ -2281,7 +2273,7 @@ class RComp {
             }
             catch (e) { throw alt.n.tagName=='IF' ? e : ErrMsg(alt.n, e); }
             finally {
-                if (bHiding) {
+                if (bH) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
                     for (let alt of caseList) {
                         let {r, sub, cr} = PrepElm(ar, 'WHEN');
@@ -2323,8 +2315,9 @@ class RComp {
             nx: ForRange;
             key?: Key;
             hash?: Hash; 
-            fragm?: DocumentFragment;            
+            moving?: booly;            
         }
+        type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = atts.g('let')
             , ixNm = atts.g('index',F,F,T);
@@ -2362,17 +2355,19 @@ class RComp {
                         , bfor = sub.bfor !== U ? sub.bfor : r.Nxt
                         , iter: Iterable<Item> | Promise<Iterable<Item>>
                             = dOf() || E
-                    
+                        , sEnv = {env, oes}
                         , pIter = async (iter: Iterable<Item>) => {
+                            ({env, oes} = sEnv);
+
                             // Check for being iterable
                             if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
-                                throw `[of] Value (${iter}) is not iterable`
+                                throw `[of] Value (${iter}) is not iterable`;
 
                             // Map of the current set of child ranges
                             let keyMap: Map<Key, ForRange> = r.v ||= new Map()
 
                             // Map of the newly obtained data
-                                , nwMap = new Map<Key, {item:Item, hash:Hash[], ix: number}>()
+                                , nwMap = new Map<Key, ItemInfo>()
 
                             // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
                             // Note that a Map remembers the order in which items are added.
@@ -2389,37 +2384,39 @@ class RComp {
                                     if (key != N && nwMap.has(key))
                                         throw `Duplicate key '${key}'`;
 
-                                    nwMap.set(key ?? {}, {item, hash, ix: ix++});
+                                    nwMap.set(key ?? {}, {item, key, hash, ix: ix++});
                                 }
                             }
                             finally { EF() }
 
                             // Now we will either create or re-order and update the DOM
                             let
-                                nxChR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
-                                , entries =  nwMap.entries()
-                                , nx = entries.next()
-                                , prItem: Item
-                                , prvR: Range
-                                , k: Key;
-                            sub.parR = r;
-
-                            while(T) {
-                                // Remove childranges at the current point with a key that is not in 'nwMap'
-                                while (nxChR && !nwMap.has(k = nxChR.key)) {
-                                    if (k != N)
-                                        keyMap.delete(k);
-                                    nxChR.erase(parN);
-                                    if (nxChR.subs)
-                                        nxChR.rvars[0]._Subs.delete(nxChR.subs);
-                                    nxChR.pv = N;
-                                    nxChR = nxChR.nx;
+                                L = nwMap.size, x: number
+                                , nxR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
+                                , bf: ChildNode
+                                , iter2 =  nwMap.values()
+                                , nxIR = iter2.next()       // Next iteration result
+                                , prIt: Item
+                                , prR: Range
+                                , k: Key
+                                , E = ()=>{
+                                    // Erase childranges at the current point with a key that is not in 'nwMap'
+                                    while (nxR && !nwMap.has(k = nxR.key)) {
+                                        if (k != N)
+                                            keyMap.delete(k);
+                                        nxR.erase(parN);
+                                        if (nxR.subs)
+                                            nxR.rvars[0]._Subs.delete(nxR.subs);
+                                        nxR.pv = N;
+                                        nxR = nxR.nx;
+                                    }
+                                    bf = nxR?.FstOrNxt || bfor;
                                 }
-
-                                if (nx.done) break;
-
+                            sub.parR = r;
+                            while(!nxIR.done) {
+                                E();
                                 // Inspect the next item
-                                let [key, {item, hash, ix}] = nx.value as [Key , {item:Item, hash:Hash[], ix: number}]
+                                let {item, key, hash, ix} = <ItemInfo>nxIR.value
                                     // See if it already occured in the previous iteration
                                     , chR = keyMap.get(key)
                                     , cr = !chR
@@ -2428,53 +2425,42 @@ class RComp {
                                 if (cr) {
                                     // Item has to be newly created
                                     sub.r = N;
-                                    sub.prvR = prvR;
-                                    sub.bfor = nxChR?.FstOrNxt || bfor;
-                                    ({r: chR, sub: chAr} = PrepRng(sub, N, `${letNm}(${ix})`));
+                                    sub.prR = prR;
+                                    sub.bfor = bf;
+                                    ({r: chR, sub: chAr} = PrepRng(sub));
                                     if (key != N)
                                         keyMap.set(key, chR);
                                     chR.key = key;
                                 }
                                 else {
-                                    // Item already occurs in the series; chRng points to the respective child range
-                                    
-                                    if (chR.fragm) {
-                                        // We had set aside the nodes resulting from this item in a 'documentFragment', and now we only have to insert these nodes
-                                        parN.insertBefore(chR.fragm, nxChR?.FstOrNxt || bfor);
-                                        chR.fragm = N;
-                                    }
-                                    else
-                                        while (T) {
-                                            if (nxChR == chR)
-                                                // The child range is already in place, no need to move it
-                                                nxChR = nxChR.nx;
-                                            else {
-                                                // Item has to be moved; we use two methods
-                                                if (nwMap.get(nxChR.key)?.ix > ix + 3) {
-                                                    // Either move the range at the current point into a 'documentFragment', and continue looking
-                                                    (nxChR.fragm = D.createDocumentFragment()).append(...nxChR.Nodes());
-                                                    
-                                                    nxChR = nxChR.nx;
-                                                    continue;
-                                                }
-                                                // Or just move the nodes corresponding to the new next item to the current point
-                                                chR.pv.nx = chR.nx;
-                                                if (chR.nx)
-                                                    chR.nx.pv = chR.pv;
-                                                let nxNode = nxChR?.FstOrNxt || bfor;
-                                                for (let n of chR.Nodes())
-                                                    parN.insertBefore(n, nxNode);
+                                    // Item already occurs in the series; chR points to the respective child range
+                                    while (nxR != chR)
+                                    {
+                                        if (!chR.moving) {
+                                            // Item has to be moved; we use two methods
+                                            if ( (x = nwMap.get(nxR.key).ix - ix) * x > L) {
+                                                // Either mark the range at the current point to be moved later on, and continue looking
+                                                nxR.moving = T;
+                                                
+                                                nxR = nxR.nx;
+                                                E()
+                                                continue;
                                             }
-                                            break;
+                                            // Or move the nodes corresponding to the new next item to the current point
+                                            // First unlink:
+                                            chR.pv.nx = chR.nx;
+                                            if (chR.nx)
+                                                chR.nx.pv = chR.pv;
                                         }
+                                        // Move the range ofnodes
+                                        for (let n of chR.Nodes())
+                                            parN.insertBefore(n, bf);
+                                        chR.moving = F;
+                                        chR.nx = nxR;
+                                        break;
+                                    }
 
-                                    // Update pointers
-                                    chR.nx = nxChR;
-                                    chR.text = `${letNm}(${ix})`;
-                                    if (prvR) 
-                                        prvR.nx = chR;
-                                    else
-                                        r.ch = chR;
+                                    nxR = chR.nx;
                                     sub.r = chR;
 
                                     // Prepare child range
@@ -2482,14 +2468,22 @@ class RComp {
 
                                     sub.parR = N;
                                 }
-                                chR.pv = prvR;
-                                prvR = chR;
-                                nx = entries.next();
+                                chR.pv = prR;
+                                chR.text = `${letNm}(${ix})`;
 
-                                // Does this range need building or updating?
+                                // Update pointers
+                                if (prR) 
+                                    prR.nx = chR;
+                                else
+                                    r.ch = chR;
+                                prR = chR;
+
+                                // Look ahead to next iteration result
+                                nxIR = iter2.next();
+
+                                // Does current range need building or updating?
                                 if (cr ||
-                                    !bR && (!hash ||  hash.some((h,i) => h != chR.hash[i])
-                                )
+                                    !bR && (!hash || hash.some((h,i) => h != chR.hash[i]))
                                 ) {
                                     chR.hash = hash;
 
@@ -2510,8 +2504,8 @@ class RComp {
                                         // Set bound variables
                                         vLet(item);
                                         vIx(ix);
-                                        vPv(prItem);
-                                        vNx(nx.value?.item);
+                                        vPv(prIt);
+                                        vNx( (<ItemInfo>nxIR.value)?.item );
 
                                         // Build
                                         await b(sub);
@@ -2525,23 +2519,21 @@ class RComp {
                                     finally { EF() }
                                 }
 
-                                prItem = item;
+                                prIt = item;
                             }
-                            if (prvR) prvR.nx = N; else r.ch = N;
+                            E();
+                            if (prR) prR.nx = N; else r.ch = N;
                         };
 
-                    if (iter instanceof Promise) {
-                        let subEnv = {env, oes};
+                    if (iter instanceof Promise)
+                        // The iteration is a Promise, so we can't execute the FOR just now, and we don't want to wait for it.
+                        // So we create an RVAR that will receive the result of the promise, and that will execute the FOR.
                         r.rvars = [
                             RVAR(N, iter)
                             .Subscribe(r.subs = 
-                                ass(iter => (
-                                    ({env, oes} = subEnv),
-                                    pIter(iter as Iterable<Item>)
-                                ), {sAr: T})
+                                ass(pIter, {T} )       // Mark as a DOM subscriber
                             )
                         ];
-                    }
                     else
                         await pIter(iter);
                 };
@@ -2563,14 +2555,14 @@ class RComp {
                     
                     return b && async function FOREACH_Slot(ar: Area) {
                         let
-                            {templs: tmplts, env} = dC(),
+                            {tmps, env} = dC(),
                             {EF, sub} = SF(ar),
                             i = 0;
                         try {
-                            for (let slotBldr of tmplts) {
+                            for (let slotBldr of tmps) {
                                 vIx(i++);
                                 DC([
-                                    {nm, templs: [slotBldr], env} as ConstructDef
+                                    {nm, tmps: [slotBldr], env} as ConstructDef
                                 ]);
                                 await b(sub);
                             }
@@ -2584,7 +2576,7 @@ class RComp {
 
 
     // Compile a <COMPONENT> definition
-    private async CComponent(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+    private async CComp(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
 
         let bRec = atts.gB('recursive'),
             {hd, ws} = this
@@ -2600,7 +2592,7 @@ class RComp {
             // Check its tagName
             , t = /^TEMPLATE(S)?$/.exec(eTem?.tagName) || thro('Missing template(s)')
             // There may be multiple components, each having a signature and a definition
-            , signats: Array<Signat> = []
+            , sigs: Array<Signat> = []
             , CDefs: Array<ConstructDef> = [];
 
         for (let elm of
@@ -2611,15 +2603,15 @@ class RComp {
                 // Otherwise the element itself denotes the (single) component signature
                 : [eSig]
                 )
-            signats.push(new Signat(elm, this));
+            sigs.push(new Signat(elm, this));
 
         try {
-            var DC = bRec && this.LCons(signats)
+            var DC = bRec && this.LCons(sigs)
                 , ES = this.SS()
                 , b = this.ErrH(
                         await this.CIter(arr)
                         , srcE)
-                , mapS = new Map<string, Signat>(mapI(signats, S => [S.nm, S]));
+                , mapS = new Map<string, Signat>(mapI(sigs, S => [S.nm, S]));
 
             for (let [nm, elm, body] of 
                 t[1]
@@ -2627,12 +2619,12 @@ class RComp {
                         <[string, HTMLElement, ParentNode]>[elm.tagName, elm, elm]
                     )
                 :   [ 
-                        <[string, HTMLElement, ParentNode]>[signats[0].nm, eTem, (eTem as HTMLTemplateElement).content]
+                        <[string, HTMLElement, ParentNode]>[sigs[0].nm, eTem, (eTem as HTMLTemplateElement).content]
                     ]
             ) {
                 CDefs.push({
                     nm,
-                    templs: [ await this.CTempl(
+                    tmps: [ await this.CTempl(
                         mapS.get(nm) || thro(`Template <${nm}> has no signature`)
                         , elm, F, U, body, eStyles) ]
                 });
@@ -2648,7 +2640,7 @@ class RComp {
             ass(this, {head: hd, ws}); 
         }
 
-        DC ||= this.LCons(signats);
+        DC ||= this.LCons(sigs);
 
         return async function COMP(ar: Area) {
             // At run time, C must be cloned, as it receives its own environment
@@ -2718,7 +2710,7 @@ class RComp {
                 DC(mapI(S.Slots.keys()
                     , nm => (
                         {   nm
-                            , templs: mSlots.get(nm) || E
+                            , tmps: mSlots.get(nm) || E
                             , env
                         }
                     )
@@ -2799,37 +2791,29 @@ class RComp {
             });
         }
         
-        atts.NoneLeft();
         this.ws = WSpc.inline;
 
         return async function INST(this: RComp, ar: Area) {
-            let {r, sub, cr} = PrepRng<{args: ArgSet}>(ar, srcE),
+            let {r, sub} = PrepRng<{args: ArgSet}>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
                 args = r.args ||= NO();
             
-            if (cdef) {  //Just in case of an async imported component where the client signature has less slots than the real signature
-                ro = T;
+            if (cdef)  //Just in case of an async imported component where the client signature has less slots than the real signature
                 try {
+                    ro = T;
                     for (let {nm, dG, dS} of gArgs)
-                        if (!dS)
+                        if (dS)
+                            ( args[nm] ||= RVAR(U,U,U,dS()) ).v = dG();
+                        else
                             args[nm] = dG();
-                        else {
-                            let r: RVAR;
-                            if (cr) 
-                                (r = args[nm] = RVAR())._Imm.add(dS());
-                            else
-                                r = args[nm];
-                            r.v = dG();
-                        }
                     
                     env = cdef.env;
 
-                    for (let tmpl of cdef.templs) 
+                    for (let tmpl of cdef.tmps) 
                         await tmpl?.(args, SBldrs, sEnv, sub);
                 }
                 finally {env = sEnv; ro = F;}
-            }
         }
     }
 
@@ -3099,50 +3083,40 @@ class RComp {
         ) {
         return this.CExpr<T>(atts.g(att, bReq, T), att, U);
     }
-/*
-    private CTarget<T = unknown>(expr: string): Dep<(t:T) => void>
-    // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
-    {
-        return expr == N ? dU : this.Closure<(t:T) => void>(
-            `return $=>(${expr})=$`
-            , ` in assigment target "${expr}"`
-            );
-    }
-*/
+    
     private CTarget<T = unknown>(LHS: string): Dep<(t:T) => void>
     // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
     {   
-        return this.CHandlr<T>(`(${LHS})=$`,N,'$',`\nin assigment target "${LHS}"`);
+        return this.CHandlr<T>(
+            `(${LHS})=$`
+            ,N, '$', `\nin assigment target "${LHS}"`);
     }
-/*
-    private CHandlr(txt: string, nm: string): DepE<Handler> {
-        return this.CExpr<Handler>(
-            /^#/.test(nm) ? txt : `function(event){${txt}\n}`
-            , nm, txt)
-    } // */
-//*
-    private CHandlr<EV = Event>(txt: string, nm: string, ev = 'event', E = `\nat [${nm}]="${Abbr(txt)}"`): DepE<(ev: EV) => any> {
+    
+    private CHandlr<V = Event>(txt: string, nm: string, v = 'event', E = `\nat [${nm}]="${Abbr(txt)}"`): DepE<(v: V) => any> {
         if (/^#/.test(nm))
-            return this.CExpr<(ev: EV) => any>(txt, nm, txt);
+            return this.CExpr<(v: V) => any>(txt, nm, txt);
 
         try {
-            let C = Ev(`${US}(function(${this.gsc(txt)},${ev}){${txt}\n})`)
-            return () => {
-                let e = env;
-                return function($) {
-                    try { C.call(this,e,$); }
-                    catch(x) {throw x+E;}
-                };
-            }
+            let ct = this.gsc(txt)
+                , C = Ev(`${US}(function(${v},${ct}){${txt}\n})`)
+            return ct ? (e: Environment = env) =>
+                    function($) {
+                        try { C.call(this,$,e); }
+                        catch(x) {throw x+E;}
+                    }
+                : () => function($) {
+                        try { C.call(this,$); }
+                        catch(x) {throw x+E;}
+                    };
         }
         catch (x) {throw x+E;}
     }
-// */
-    CExpr<T>(
+
+    public CExpr<T>(
         e: string           // Expression to transform into a function
         , nm?: string             // To be inserted in an errormessage
         , src: string = e    // Source expression
-        , dlms: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
+        , dl: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dep<T> {
         if (e == N)
             return <null>e;  // when 'e' is either null or undefined
@@ -3154,7 +3128,7 @@ class RComp {
             var f = Ev(
                     `${US}(function(${this.gsc(e)}){return(${e}\n)})`  // Expression evaluator
                 ) as (e:Environment) => T
-                , E = '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1] // Error text
+                , E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
 
             return () => {
                     try { 
@@ -3178,13 +3152,13 @@ class RComp {
     private gsc(exp: string) {
         // Get Shaked Context string
         // See if the context can be abbreviated
-        let {ct,lvMap, d} = this.CT, n=d+1
+        let {ct,lvM, d} = this.CT, n=d+1
         for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k: EnvKey = lvMap.get(m[0]);
+            let k: EnvKey = lvM.get(m[0]);
             if (k?.d < n) n = k.d;
         }
         if (n>d)
-            return '_';
+            return Q;
 
         let p = d-n, q = p
         while (n--)
@@ -3326,9 +3300,6 @@ const
 
 , ErrMsg = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
     e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`
-
-, ErrAtt = (e: string, nm: string) =>
-    thro(nm ? e + `\nat [${nm}]` : e)
 
 , crErrN = (msg: string) => 
     ass(D.createElement('div')

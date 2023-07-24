@@ -34,7 +34,7 @@ export declare class _RVAR<T = unknown> {
     name?: string;
     constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     v: T;
-    _Imm: Set<Subscriber<T>>;
+    private _Imm;
     _Subs: Set<Subscriber<T>>;
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;

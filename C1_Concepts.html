@@ -220,7 +220,7 @@ Global variables are visible in RHTML inline scripts, of course.
     </dd>
     <dt><code>subscriber</code>*</dt>
     <dd>
-        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR, as by <code>x.Subscribe(subscriber)</code>.
+        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR for immediate execution, as by <code>x.Subscribe(subscriber, true)</code>.
     </dd>
     <dt><code>storename</code>*</dt>
     <dd>See <a href="#Persistence">Persistence</a>.</dd>
@@ -263,7 +263,7 @@ Global variables are visible in RHTML inline scripts, of course.
             The return value is <code>x</code>, so calls to <code>Subscribe</code> can be chained.
         </p>
     </dd>
-    <dt><code class=sourcecode>x.UnSubscribe(<i>subs</i>)</code> *</dt>
+    <dt><code class=sourcecode>x.Unsubscribe(<i>subs</i>)</code> *</dt>
     <dd>
         Unregisters a routine <code><i>subs</i></code> previously registered as a subscriber to <code>x</code>.
     </dd>

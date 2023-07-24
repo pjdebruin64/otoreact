@@ -67,7 +67,7 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like
         </p>
     </li>
     <li>
-        The optional '<b>hash</b>' or 'fragment' "<span class=h>#someHash</span>" could be used for routing too.
+        The optional '<b>hash</b>' or 'fragment' "<span class=h>#someHash</span>" is suited for routing too, and doesn't have the complications of pathname routing either.
         <p>A drawback is that one then cannot use the hash to create internal document links.</p>
         <p>An advantage is that web and browser document caching will be much better.</p>
     </li>
@@ -80,7 +80,7 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like
         <br>See "Complication 1" above.
     </li>
     <li>
-        When the application is opened with a specific URL, it has to "route" the URL to the correct page definition.
+        When the application is opened with a specific URL, the application has to "route" the URL to the correct page definition.
     </li>
     <li>
         When the user clicks on a link to a different internal page, then:
@@ -99,25 +99,40 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like
 </ol>
 
 <h2>How does OtoReact facilitate URL Routing</h2>
+An OtoReact application can implement routing by e.g. a simple <elm>CASE</elm> distinction on the current URL, as it is provided by a special RVAR <a href="docu#URLRouting"><code>docLocation</code></a>.
 
-OtoReact facilitates routing by providing a special RVAR <code>docLocation</code>
+<p><code>docLocation</code> provides a few additional features, including <code>docLocation.subpath</code>, yielding the current subpath.</p>
+
+<p>
+    The <elm>CASE</elm><elm>WHEN</elm> construct also has a feature targeted at URL routing, namely <code>urlmatch</code>.
+    It allows matching (part of) a URL to a pattern, and binding local variables to <i>URL-decoded</i> parts of that URL.
+</p>
+
+<p>
+    Internal links must either have a handler <code>#onclick=reroute</code> to intercept the internal page request, or one must set <a href=docu#Options>option <code>bAutoReroute</code></a>.
+</p>
+
+<p>The body of a simple application implementing the URLs listed above could be like:</p>
 
 <pre class="sourcecode" #innertext='
-`<case #value="docLocation.subpath" reacton="docLocation">
+`<body rhtml="bAutoReroute: true">
+    <case #value="docLocation.subpath" reacton="docLocation">
 
-    <when urlmatch="/inventory">
-        <include src="inventory.html"></include>
-    </when>
+        <when urlmatch="/inventory">
+            <include src="inventory.html"></include>
+        </when>
 
-    <when urlmatch="/customers">
-        <include src="customers.html"></include>
-    </when>
+        <when urlmatch="/customers">
+            <include src="customers.html"></include>
+        </when>
 
-    <when urlmatch="/customer/\{customerNo}">
-        <include src="customer.html"></include>
-    </when>
+        <when urlmatch="/customer/\{customerNo\}">
+            <!-- Now &apos;customerNo&apos; is a local variable bound to the url-decoded part of &apos;docLocation.subpath&apos; after "/customer/" -->
+            <include src="customer.html"></include>
+        </when>
 
-</case>`'></pre>
+    </case>
+</body>`'></pre>
 
 <p>
     For a basic working demo with full source code, see this <a href="routingdemo/" target="_blank">Routingdemo</a>.
