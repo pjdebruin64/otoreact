@@ -188,8 +188,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
         })(this)
     }
 
-    bfD?: Handler;   // Before destroy handler
-    afD?: Handler;   // After destroy handler
+    bD?: Handler;   // Before destroy handler
+    aD?: Handler;   // After destroy handler
 
     // For reactive elements
     subs?: Subscriber;      // Subscriber object created for this element instance
@@ -209,7 +209,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
         this.ch = N;
         while (ch) {
             // Call a 'beforedestroy' handler
-            ch.bfD?.call(ch.n || par);
+            ch.bD?.call(ch.n || par);
 
             // Remove range ch from any RVAR it is subscribed to
             ch.rvars?.forEach(rv =>
@@ -219,7 +219,7 @@ class Range<NodeType extends ChildNode = ChildNode> {
             ch.erase(ch.parN ?? par);
 
             // Call 'afterdestroy' handler
-            ch.afD?.call(ch.n || par);
+            ch.aD?.call(ch.n || par);
 
             ch = ch.nx;
         }
@@ -1863,40 +1863,53 @@ class RComp {
                     g.h = this.CHandlr(g.txt, g.att);
 
                 let b = bl;
-                bl = async function Pseudo(ar: AreaR, bR) {
-                    let {r,prvR} = ar
-                        , bfD: Handler;
+                bl = async function Pseudo(ar: AreaR, bR) {                   
+                    let {r, sub, cr} = PrepRng<{bU: Handler, aU: Handler}>(ar, srcE)
+                        , sr = sub.r
+                        , bD: Handler;
                     
                     // Call or save before-handlers
-                    for (let g of bf) {
-                        if (g.D)
-                            bfD = g.h();    // Save a before-destroy handler, so we can assign it when a range has been created
-                        if (r ? g.U : g.C)
-                            g.h().call(r?.n || pn);
-                    }
+                    if (cr)
+                        for (let g of bf) {
+                            let h = g.h();
+                            if (g.C)
+                                h.call(pn);
+                            if (g.U)
+                                r.bU = h;
+                            if (g.D)
+                                bD = h;    // Save a before-destroy handler, so we can assign it when a subrange has been created
+                        }
+                    else
+                        r.bU?.call(sr != T && sr.n || pn)
 
-                    await b(ar, bR);
+                    await b(sub, bR);
 
                     // We need the range created or updated by 'b'
                     // This is tricky. It requires that b creates at most one (peer) range
-                    let rng = (r ? 
-                            // When we are updating, then 'b' has a range when the current ar.r is different from r, and r is that range.
-                            ar.r != r && r
-                            // When we are building, then 'b' has a range when the current ar.prvR is different from prvR, and ar.prvR is that range
-                            : ar.prvR != prvR && ar.prvR
+                    let rng = (cr
+                            // When we are building, then 'b' has range sub.prvR, if any
+                            ? sub.prvR
+                            // When we are updating, then 'b' has a range when the current sub.r is different from sr, and sr is that range.
+                            : sub.r != sr && <Range>sr
                         ) // When b doesn't have its own range, then we create one
-                        || PrepRng(ar).r;
+                        || PrepRng(sub).r;
                     
-                    // Assign a beforedestroy handler
-                    rng.bfD = bfD;
-
-                    // Call or assign after-handlers
-                    for (let g of af) {
-                        if (g.D)
-                            rng.afD = g.h();
-                        if (r ? g.U : g.C)
-                            g.h().call(rng.n || pn);
+                    if (cr) {
+                        // Assign a beforedestroy handler
+                        rng.bD = bD;
+    
+                        for (let g of af) {
+                            let h = g.h();
+                            if (g.C)
+                                h.call(rng.n || pn);
+                            if (g.U)
+                                r.aU = h;
+                            if (g.D)
+                                rng.aD = h;    // Save a before-destroy handler, so we can assign it when a subrange has been created
+                        }
                     }
+                    else
+                        r.aU?.call(rng.n || pn)
                 }
             }
 
@@ -3131,32 +3144,18 @@ class RComp {
         , src: string = e    // Source expression
         , dlms: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dep<T> {
-        return (
-            e == N          ? <null>e  // when 'e' is either null or undefined
-            : !/\S/.test(e) ? thro(`[${nm}] Empty expression`)
-            : this.Closure(
-                `return(\n${e}\n)`
-                , '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1] // Error text
-            )
-        );
-    }
-    private CAttExpList<T>(atts: Atts, attNm: string, bReacts?: boolean): Dep<T[]> {
-        let list = atts.g(attNm, F, T);
-        if (list==N) return N;
-        if (bReacts)
-            for (let nm of split(list))
-                this.cRvars[nm] = N;
-        return this.CExpr<T[]>(`[${list}\n]`, attNm);
-    }
-
-    Closure<T>(
-        body: string, 
-        E: string = Q,   // Error info
-    ): Dep<T> {
+        if (e == N)
+            return <null>e;  // when 'e' is either null or undefined
+        
+        if (!/\S/.test(e)) 
+            throw `[${nm}] Empty expression`;
+        
         try {
             var f = Ev(
-                    `${US}(function(${this.gsc(body)}){${body}\n})`  // Expression evaluator
-            ) as (e:Environment) => T;
+                    `${US}(function(${this.gsc(e)}){return(${e}\n)})`  // Expression evaluator
+                ) as (e:Environment) => T
+                , E = '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1] // Error text
+
             return () => {
                     try { 
                         return f.call(pn, env);
@@ -3165,6 +3164,15 @@ class RComp {
                 };
         }
         catch (x) {throw x+E; } // Compiletime error
+    }
+
+    private CAttExpList<T>(atts: Atts, attNm: string, bReacts?: boolean): Dep<T[]> {
+        let L = atts.g(attNm, F, T);
+        if (L==N) return N;
+        if (bReacts)
+            for (let nm of split(L))
+                this.cRvars[nm] = N;
+        return this.CExpr<T[]>(`[${L}\n]`, attNm);
     }
 
     private gsc(exp: string) {

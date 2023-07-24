@@ -63,10 +63,10 @@ class Range {
         }
         this.ch = N;
         while (ch) {
-            ch.bfD?.call(ch.n || par);
+            ch.bD?.call(ch.n || par);
             ch.rvars?.forEach(rv => rv._Subs.delete(ch.subs));
             ch.erase(ch.parN ?? par);
-            ch.afD?.call(ch.n || par);
+            ch.aD?.call(ch.n || par);
             ch = ch.nx;
         }
     }
@@ -985,25 +985,38 @@ class RComp {
                     g.h = this.CHandlr(g.txt, g.att);
                 let b = bl;
                 bl = async function Pseudo(ar, bR) {
-                    let { r, prvR } = ar, bfD;
-                    for (let g of bf) {
-                        if (g.D)
-                            bfD = g.h();
-                        if (r ? g.U : g.C)
-                            g.h().call(r?.n || pn);
+                    let { r, sub } = PrepRng(ar, srcE), sr = sub.r, bD;
+                    if (!sr)
+                        for (let g of bf) {
+                            let h = g.h();
+                            if (g.C)
+                                h.call(pn);
+                            if (g.U)
+                                r.bU = h;
+                            if (g.D)
+                                bD = h;
+                        }
+                    else
+                        r.bU?.call(sr != T && sr.n || pn);
+                    await b(sub, bR);
+                    let rng = (sr ?
+                        sub.r != sr && sr
+                        : sub.prvR)
+                        || PrepRng(sub).r;
+                    if (!sr) {
+                        rng.bD = bD;
+                        for (let g of af) {
+                            let h = g.h();
+                            if (g.C)
+                                h.call(rng.n || pn);
+                            if (g.U)
+                                r.aU = h;
+                            if (g.D)
+                                rng.aD = h;
+                        }
                     }
-                    await b(ar, bR);
-                    let rng = (r ?
-                        ar.r != r && r
-                        : ar.prvR != prvR && ar.prvR)
-                        || PrepRng(ar).r;
-                    rng.bfD = bfD;
-                    for (let g of af) {
-                        if (g.D)
-                            rng.afD = g.h();
-                        if (r ? g.U : g.C)
-                            g.h().call(rng.n || pn);
-                    }
+                    else
+                        r.aU?.call(rng.n || pn);
                 };
             }
             for (let { att, m, dV } of this.S.version ? ga : ga.reverse()) {
@@ -1707,22 +1720,12 @@ class RComp {
         }
     }
     CExpr(e, nm, src = e, dlms = '""') {
-        return (e == N ? e
-            : !/\S/.test(e) ? thro(`[${nm}] Empty expression`)
-                : this.Closure(`return(\n${e}\n)`, '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1]));
-    }
-    CAttExpList(atts, attNm, bReacts) {
-        let list = atts.g(attNm, F, T);
-        if (list == N)
-            return N;
-        if (bReacts)
-            for (let nm of split(list))
-                this.cRvars[nm] = N;
-        return this.CExpr(`[${list}\n]`, attNm);
-    }
-    Closure(body, E = Q) {
+        if (e == N)
+            return e;
+        if (!/\S/.test(e))
+            throw `[${nm}] Empty expression`;
         try {
-            var f = Ev(`${US}(function(${this.gsc(body)}){${body}\n})`);
+            var f = Ev(`${US}(function(${this.gsc(e)}){return(${e}\n)})`), E = '\nat ' + (nm ? `[${nm}]=` : Q) + dlms[0] + Abbr(src) + dlms[1];
             return () => {
                 try {
                     return f.call(pn, env);
@@ -1735,6 +1738,15 @@ class RComp {
         catch (x) {
             throw x + E;
         }
+    }
+    CAttExpList(atts, attNm, bReacts) {
+        let L = atts.g(attNm, F, T);
+        if (L == N)
+            return N;
+        if (bReacts)
+            for (let nm of split(L))
+                this.cRvars[nm] = N;
+        return this.CExpr(`[${L}\n]`, attNm);
     }
     gsc(exp) {
         let { ct, lvMap, d } = this.CT, n = d + 1;
