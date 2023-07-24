@@ -472,7 +472,7 @@ type Handler = (ev:Event) => any;
 type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
 
 // Setting multiple LVars at once
-function SetLVars(vars: Array<LVar>, data: Array<unknown>) {
+function SetLVs(vars: Array<LVar>, data: Array<unknown>) {
     vars.forEach((v,i) => v(data[i]));
 }
 
@@ -502,7 +502,7 @@ class Signat {
                 let pDf =
                     v   ? m ? RC.CExpr(v, a) : RC.CText(v, a)
                         : on && (() => dU)
-                this.Params.push(
+                this.Pams.push(
                     { 
                         mode: (m as ''|'#'|'@'|'...'),
                         nm,
@@ -531,7 +531,7 @@ class Signat {
     }
 
     public nm: string;
-    public Params: Array<Parameter> = [];   // Parameters
+    public Pams: Array<Parameter> = [];   // Parameters
     public RP: string;            // Rest parameter (is also in Params)
     public Slots = new Map<string, Signat>();
     public CSlot: Signat;    // Content slot (is also in Slots)
@@ -543,10 +543,10 @@ class Signat {
     IsCompat(sig: Signat): booly {
         if (sig) {
             let c:booly = T
-                , mP = new Map(mapI(sig.Params,p => [p.nm, p]))
+                , mP = new Map(mapI(sig.Pams,p => [p.nm, p]))
                 , p: Parameter;
             // All parameters in the import must be present in the module
-            for (let {nm, rq} of this.Params)
+            for (let {nm, rq} of this.Pams)
                 if (c &&= p = mP.get(nm)) {
                     // When optional in the import, then also optional in the module
                     c &&= (rq || !p.rq);
@@ -730,7 +730,7 @@ let
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
     Jobs = new Set< {Exec: () => Promise<void> } >(),
 
-    hUpdate: number,        // Handle to a scheduled update
+    hUpd: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
 
     upd = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
@@ -743,13 +743,13 @@ let
         return prom.finally(() => { start += now()-t; })
     },
     RUpd = () => {
-        if (!env && !hUpdate)
-            hUpdate = setTimeout(DoUpdate, 1);
+        if (!env && !hUpd)
+            hUpd = setTimeout(DoUpdate, 1);
     }
 ;
 
 export async function DoUpdate() {
-    hUpdate = N;
+    hUpd = N;
     if (Jobs.size && !env) {
         env = E;
         nodeCnt = 0;
@@ -1380,7 +1380,7 @@ class RComp {
             let 
                 tag = srcE.tagName
                 // List of source attributes, to check for unrecognized attributes
-                , atts =  new Atts(srcE)
+                , ats =  new Atts(srcE)
                 , AL = this.rActs.length
 
                 // Global attributes (this)react(s)on / hash / if / renew handlers,
@@ -1405,7 +1405,7 @@ class RComp {
                 , nm: string;
 
                 // Check for generic attributes
-            for (let [att] of atts)
+            for (let [att] of ats)
                 if (m = 
 /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
 //     123                4       56                7      8              9          
@@ -1420,14 +1420,14 @@ class RComp {
                                     m, 
                                     dV: 
                                         m[5]  // on((error)|success)
-                                            ? this.CHandlr(atts.g(att), att)
+                                            ? this.CHandlr(ats.g(att), att)
                                         : m[8] // if
-                                            ? this.CAttExp(atts, att)
+                                            ? this.CAttExp(ats, att)
                                         :   // reacton, hash
-                                          this.CAttExpList<RVAR>(atts, att, T)
+                                          this.CAttExpList<RVAR>(ats, att, T)
                                 });
                     else { 
-                        let txt = atts.g(att);
+                        let txt = ats.g(att);
                         if (/cr|d/.test(att))  // #?(before|after|on)(create|update|destroy|compile)+
                             // We have a pseudo-event
                             (m[9] ? bf : af)    // Is it before or after
@@ -1448,28 +1448,28 @@ class RComp {
                     }
 
             if (constr)
-                bl = await this.CInstance(srcE, atts, constr);
+                bl = await this.CInstance(srcE, ats, constr);
             else
                 switch (tag) {
                     case 'DEF':
                     case 'DEFINE': {
                         NoChilds(srcE);
-                        let rv      = atts.g('rvar'), // An RVAR
+                        let rv      = ats.g('rvar'), // An RVAR
                             t = '@value', 
-                            twv     = rv && atts.g(t),
-                            dGet    = twv ? this.CExpr(twv,t) : this.CParam(atts, 'value'),
-                            bUpd    = atts.gB('reacting') || atts.gB('updating') || twv,
+                            twv     = rv && ats.g(t),
+                            dGet    = twv ? this.CExpr(twv,t) : this.CPam(ats, 'value'),
+                            bUpd    = ats.gB('reacting') || ats.gB('updating') || twv,
 
                             // When we want a two-way rvar, we need a routine to update the source expression
                             dSet    = twv && this.CTarget(twv),
-                            dUpd    = rv   && this.CAttExp<RVAR>(atts, 'updates'),
-                            dSto    = rv   && this.CAttExp<Store>(atts, 'store'),
-                            dSNm    = dSto && this.CParam<string>(atts, 'storename'),
-                            vLet    = this.LVar(rv || atts.g('let') || atts.g('var', T)),
+                            dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates'),
+                            dSto    = rv   && this.CAttExp<Store>(ats, 'store'),
+                            dSNm    = dSto && this.CPam<string>(ats, 'storename'),
+                            vLet    = this.LVar(rv || ats.g('let') || ats.g('var', T)),
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
-                            onMod   = rv && this.CParam<Handler>(atts, 'onmodified');
+                            onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
-                        auto = rv && atts.gB('auto', this.S.bAutoSubscribe) && !onMod && rv; 
+                        auto = rv && ats.gB('auto', this.S.bAutoSubscribe) && !onMod && rv; 
                         bl = async function DEF(ar, bR?) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
@@ -1506,27 +1506,27 @@ class RComp {
 
                     case 'IF':
                     case 'CASE': 
-                        bl = await this.CCase(srcE, atts);
+                        bl = await this.CCase(srcE, ats);
                     break;
 
                     case 'FOR':
-                        bl = await this.CFor(srcE, atts);
+                        bl = await this.CFor(srcE, ats);
                     break;
 
                     case 'MODULE': // Skip completely!
-                        atts.g('id');
+                        ats.g('id');
                         break;
                         
                     case 'INCLUDE':
-                        bl = await this.CIncl(srcE, atts, T);
+                        bl = await this.CIncl(srcE, ats, T);
                     break;
 
                     case 'IMPORT': {
-                        let src = atts.g('src', T)
-                            , bIncl = atts.gB('include')
-                            , bAsync = atts.gB('async')
+                        let src = ats.g('src', T)
+                            , bIncl = ats.gB('include')
+                            , bAsync = ats.gB('async')
                             , lvars: Array<LVar & {g?: DepE<unknown>}> 
-                                        = this.LVars(atts.g('defines'))
+                                        = this.LVars(ats.g('defines'))
                             , imps: Array<Signat & {g?: DepE<ConstructDef>}>
                                         = Array.from(mapI(srcE.children, ch => new Signat(ch, this)))
                             , DC = this.LCons(imps)
@@ -1536,7 +1536,7 @@ class RComp {
                             
                         if (!cTask) {
                             // When the same module is imported at multiple places, it needs to be compiled only once
-                            let C = new RComp(this, this.GetPath(src), {bSubf: T}, new Context());
+                            let C = new RComp(this, this.GetP(src), {bSubf: T}, new Context());
                             C.log(src);
                             cTask = 
                                 this.fetchM(src)
@@ -1603,8 +1603,8 @@ class RComp {
                         let 
                             {ws,rt, FP} = this
                             , b = await this.CUncN(srcE)
-                            , dSrc = !b && this.CParam<string>(atts, 'srctext')
-                            , dO = this.CParam<Handler>(atts, "onç") // Undocumented feature
+                            , dSrc = !b && this.CPam<string>(ats, 'srctext')
+                            , dO = this.CPam<Handler>(ats, "onç") // Undocumented feature
                             , s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                        
@@ -1650,20 +1650,20 @@ class RComp {
                     } break;
 
                     case 'SCRIPT': 
-                        bl = await this.CScript(srcE as HTMLScriptElement, atts); 
+                        bl = await this.CScript(srcE as HTMLScriptElement, ats); 
                         break;
 
                     case 'COMPONENT':
-                        bl = await this.CComp(srcE, atts);
+                        bl = await this.CComp(srcE, ats);
                         break;
 
                     case 'DOCUMENT': {
-                        let vDoc = this.LVar(atts.g('name', T)),
-                            bEncaps = atts.gB('encapsulate'),
+                        let vDoc = this.LVar(ats.g('name', T)),
+                            bEncaps = ats.gB('encapsulate'),
                             PC = this,
                             RC = new RComp(this),
-                            vParams = RC.LVars(atts.g('params')),
-                            vWin = RC.LVar(atts.g('window',F,F,T)),
+                            vPams = RC.LVars(ats.g('params')),
+                            vWin = RC.LVar(ats.g('window',F,F,T)),
                             H = RC.hd = D.createDocumentFragment(),   //To store static stylesheets
                             b = await RC.CChilds(srcE);
                         bl = async function DOCUMENT(ar: Area) {
@@ -1677,13 +1677,17 @@ class RComp {
                                             , Cdoc = RC.doc = w.document;
                                         RC.hd = Cdoc.head;
                                         env = docEnv;
-                                        SetLVars(vParams, args);
+                                        SetLVs(vPams, args);
                                         vWin(w);
                                         try {
                                             if (cr) {
                                                 if (!bEncaps)
                                                     // Copy all style sheet rules of parent document
-                                                    copySSheets((hd as ShadowRoot).styleSheets || doc.styleSheets, Cdoc);
+                                                    for (let SSh of (hd as ShadowRoot).styleSheets || doc.styleSheets) {
+                                                        let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
+                                                        for (let rule of SSh.cssRules) 
+                                                            DSh.insertRule(rule.cssText);
+                                                    }
                                                 // Copy static style sheets of document template
                                                 for (let S of H.childNodes)
                                                     Cdoc.head.append(S.cloneNode(T));
@@ -1715,9 +1719,8 @@ class RComp {
                                         f.contentWindow.print();
                                         f.remove();
                                     },
-                                    closeAll: () => {
-                                        wins.forEach(w => w.close());
-                                    }
+                                    closeAll: () =>
+                                        wins.forEach(w => w.close())
                                 });
                             }
                         }
@@ -1733,7 +1736,7 @@ class RComp {
                     break;
 
                     case 'STYLE': {
-                        let src = atts.g('src'), sc = atts.g('scope')
+                        let src = ats.g('src'), sc = ats.g('scope')
                             , nm: string, {lscl: l, hd} = this;
 
                         if (sc) {
@@ -1741,6 +1744,9 @@ class RComp {
                             // Local scope
                             // Get a unique classname for this stylesheet
                             nm = `\uFFFE${iStyle++}`; // or e.g. \u0212
+
+                            //bl = async function STYLE()
+
                             // Let all HTML elements in the current scope get this classname
                             this.lscl = [...l, nm];
                             // At the end of scope, restore
@@ -1750,17 +1756,17 @@ class RComp {
                         (src ? this.FetchText(src) : Promise.resolve(srcE.innerText))
                             .then(txt => {
                                 if (src || nm)
-                                    srcE.innerHTML = AddClass(txt, nm);
+                                    srcE.innerHTML = AddC(txt, nm);
                                 hd.appendChild(srcE);
                             });
                             
-                        atts.clear();                        
+                        ats.clear();                        
                     } break;
 
                     case 'RSTYLE': {
                         let s: [boolean, RegExp, WSpc] = [this.S.bDollarRequired, this.rIS, this.ws]
-                            , sc = atts.g('scope')
-                            , {bf,af} = this.CAtts(atts)
+                            , sc = ats.g('scope')
+                            , {bf,af} = this.CAtts(ats)
                             , i: number
                         try {
                             this.S.bDollarRequired = T;
@@ -1771,9 +1777,9 @@ class RComp {
                                 ( /^local$/i.test(sc) || thro('Invalid scope')
                                 , (i = this.ndcl++)
                                 , this.rActs.push(() => this.ndcl--)
-                                , this.CUncN(srcE, atts)
+                                , this.CUncN(srcE, ats)
                                 ) 
-                                : this.CIncl(srcE, atts)
+                                : this.CIncl(srcE, ats)
                             );
 
                             bl = b && async function RSTYLE(ar: Area) {
@@ -1788,7 +1794,7 @@ class RComp {
                                     if (txt != r.tx)
                                         // Set the style text
                                         // Would we set '.innerText', then <br> would be inserted
-                                        r.n.innerHTML = AddClass(r.tx = txt, nm);
+                                        r.n.innerHTML = AddC(r.tx = txt, nm);
 
                                     (env.cl = r.cl ||= [... env.cl||E])[i] = nm;
                                 }
@@ -1806,16 +1812,16 @@ class RComp {
                     }
                     case 'ELEMENT':                        
                         bl = await this.CHTML(
-                            srcE, atts
-                            , this.CParam(atts, 'tagname', T)
+                            srcE, ats
+                            , this.CPam(ats, 'tagname', T)
                         );
                         this.ws = WSpc.inline;
                         break;
 
                     case 'ATTRIBUTE':
                         NoChilds(srcE);
-                        let dN = this.CParam<string>(atts, 'name', T),
-                            dV = this.CParam<string>(atts, 'value', T);
+                        let dN = this.CPam<string>(ats, 'name', T),
+                            dV = this.CPam<string>(ats, 'value', T);
                         bl = async function ATTRIB(ar: Area){
                             let r = PrepRng<{v:string}>(ar, srcE).r
                                 , n0 = r.v
@@ -1842,11 +1848,11 @@ class RComp {
                     
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        bl = await this.CHTML(srcE, atts, U, bUH);
+                        bl = await this.CHTML(srcE, ats, U, bUH);
                 }
             
             if (!bUH)
-                atts.NoneLeft();
+                ats.None();
         
             // We are going to add pseudo-event and global attribute handling.
             // We keep the current builder function name, so we can attach it to the final builder.
@@ -1993,7 +1999,7 @@ class RComp {
                 , {auto,nm}
                 );
         }
-        catch (e) { throw ErrMsg(srcE, e); }
+        catch (m) { throw ErrM(srcE, m); }
     }
 
     private ErrH(b: DOMBuilder, srcN: ChildNode, bA?: booly): DOMBuilder{
@@ -2011,7 +2017,7 @@ class RComp {
             } 
             catch (m) { 
                 let msg = 
-                    srcN instanceof HTMLElement ? ErrMsg(srcN, m, 39) : m
+                    srcN instanceof HTMLElement ? ErrM(srcN, m, 39) : m
                     , e = oes.e;
 
                 if (bA || this.S.bAbortOnError)
@@ -2026,17 +2032,17 @@ class RComp {
         });
     }
 
-    private CIncl(srcE: HTMLElement, atts: Atts, bReq?: booly): Promise<DOMBuilder> {
+    private CIncl(srcE: HTMLElement, ats: Atts, bReq?: booly): Promise<DOMBuilder> {
         // Compile the contents of a node that may contain a 'src' attribute to include external source code
-        let src = atts?.g('src', bReq);
-        // When no atts were passed, or no src is present, or the node contains (server-side included) non-blank content,
+        let src = ats?.g('src', bReq);
+        // When no ats were passed, or no src is present, or the node contains (server-side included) non-blank content,
         if (!src || srcE.children.length || srcE.textContent.trim())
             // then we compile just the child contents:
             return this.CChilds(srcE);
         // Otherwise we use a separate RComp object to asynchronously fetch and compile the external source code
         // We need a separate frame for local variables in this file, so that compilation of the main file can continue
         return this.Framed(async SF => {
-            let C = new RComp(this, this.GetPath(src), {bSubf: T})
+            let C = new RComp(this, this.GetP(src), {bSubf: T})
                 , task = 
                     this.fetchM(src)
                     // Parse the contents of the file, and compile the parsed contents of the file in the original context
@@ -2051,10 +2057,10 @@ class RComp {
         );
     }
 
-    private async CUncN(srcE: HTMLElement, atts?: Atts): Promise<DOMBuilder<HTMLElement>> {
+    private async CUncN(srcE: HTMLElement, ats?: Atts): Promise<DOMBuilder<HTMLElement>> {
         // Compile the children of an "unconnected node", that won't be included in the output DOM tree, but that yields data for some other purpose (Comment, RSTYLE).
-        // When 'atts' is provided, then a 'src' attribute is accepted.
-        let b = await this.CIncl(srcE, atts);
+        // When 'ats' is provided, then a 'src' attribute is accepted.
+        let b = await this.CIncl(srcE, ats);
 
         return b && (async (ar:Area) => {
             let {r, sub} = PrepRng<{p: HTMLElement}>(ar, srcE)
@@ -2065,12 +2071,12 @@ class RComp {
         });
     }
 
-    private async CScript(srcE: HTMLScriptElement, atts: Atts) {
+    private async CScript(srcE: HTMLScriptElement, ats: Atts) {
         let {type, text, defer, async} = srcE
             // External source?
-            , src = atts.g('src')     // Niet srcE.src
+            , src = ats.g('src')     // Niet srcE.src
             // Any variables to define?
-            , defs = atts.g('defines')
+            , defs = ats.g('defines')
             , varlist = [...split(defs)]
             // Is this a 'module' script (type=module or e.g. type="otoreact;type=module")?
             , bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type)
@@ -2079,7 +2085,7 @@ class RComp {
             // Is this an ororeact script (local or static or global)
             , mOto = /^otoreact(\/((local)|static))?\b/.exec(type)
             // True if a local script shpuld be re-executed at every update
-            , bUpd = atts.gB('updating')
+            , bUpd = ats.gB('updating')
             // Current context string befóre NewVars
             , {ct} = this.CT
             // Local variables to be defined
@@ -2087,12 +2093,12 @@ class RComp {
             // Placeholder to remember the variable values when !bUpd
             , exp: Array<unknown>
             // Routine to actually define the either local or global variables
-            , SetVars = lvars
-                ? (e:unknown[]) => SetLVars(lvars, e)
+            , SetV = lvars
+                ? (e:unknown[]) => SetLVs(lvars, e)
                 : (e:unknown[]) => varlist.forEach((nm,i) => G[nm] = e[i])
             ;
         
-        atts.clear();   // No error on unknown attributes
+        ats.clear();   // No error on unknown attributes
 
         /* Script have to be handled by Otoreact in the following cases:
             * When it is a 'type=otoreact' script
@@ -2112,7 +2118,7 @@ class RComp {
                     )();
                 return async function LSCRIPT(ar: Area) {
                     if (!ar.r || bUpd)
-                        SetVars((await prom)(env));
+                        SetV((await prom)(env));
                 }
             } 
             else if (bMod) {
@@ -2136,7 +2142,7 @@ class RComp {
                     ).finally(() => URL.revokeObjectURL(src));
                 return async function MSCRIPT(ar: Area) {
                     !ar.r && 
-                        SetVars(
+                        SetV(
                             await prom.then(obj => 
                                 varlist.map(nm => 
                                     nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
@@ -2157,18 +2163,18 @@ class RComp {
 
                 return async function SCRIPT(ar: Area) {
                         !ar.r &&
-                            SetVars(exp ||= Ev(await prom));
+                            SetV(exp ||= Ev(await prom));
                     };
             }
         }
     }
 
-    private async CCase(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
-        let bH = atts.gB('hiding'),
-            dV = this.CAttExp<string>(atts, 'value'),
-            caseNodes: Array<{
+    private async CCase(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
+        let bH = ats.gB('hiding'),
+            dV = this.CAttExp<string>(ats, 'value'),
+            cases: Array<{
                 n: HTMLElement,
-                atts: Atts,
+                ats: Atts,
                 body?: Iterable<ChildNode>,
             }> = [],
             body: ChildNode[] = [];
@@ -2178,21 +2184,18 @@ class RComp {
                 switch (n.tagName) {
                     case 'THEN':
                         var bThen = T;
-                        new Atts(n as HTMLElement).NoneLeft();
-                        caseNodes.push({n, atts});
+                        new Atts(n as HTMLElement).None();
+                        cases.push({n, ats});
                         continue;
                     case 'ELSE':
                     case 'WHEN':
-                        caseNodes.push({n, atts: new Atts(n as HTMLElement)});
+                        cases.push({n, ats: new Atts(n as HTMLElement)});
                         continue;
                 }
             body.push(n);
         }
-        if (!bThen)
-            if (srcE.tagName == 'IF')
-                caseNodes.unshift({n: srcE, atts, body});
-            else
-                atts.NoneLeft();
+        if (srcE.tagName == 'IF' && !bThen)
+            cases.unshift({n: srcE, ats, body});
 
         let 
             caseList: Array<{
@@ -2207,7 +2210,7 @@ class RComp {
             postWs: WSpc = 0, // Highest whitespace mode to be reached after any alternative
             bE: booly;
         
-        for (let {n, atts, body} of caseNodes) {
+        for (let {n, ats, body} of cases) {
             let ES = 
                 ass(this, {ws, rt, CT: new Context(CT)})
                 .SS();
@@ -2220,16 +2223,16 @@ class RComp {
                     case 'IF':
                     case 'THEN':
                     case 'WHEN':
-                        cond = this.CAttExp<booly>(atts, 'cond');
-                        not = atts.gB('not');
+                        cond = this.CAttExp<booly>(ats, 'cond');
+                        not = ats.gB('not');
                         patt = dV && (
-                            (p = atts.g('match') ?? atts.g('pattern')) != N
+                            (p = ats.g('match') ?? ats.g('pattern')) != N
                                 ? this.CPatt(p)
-                            : (p = atts.g('urlmatch')) != N
+                            : (p = ats.g('urlmatch')) != N
                                 ? this.CPatt(p, T)
-                            : (p = atts.g('regmatch') || atts.g('regexp')) != N
+                            : (p = ats.g('regmatch') || ats.g('regexp')) != N
                                 ?  {RE: new RegExp(p, 'i'), 
-                                    lvars: this.LVars(atts.g('captures'))
+                                    lvars: this.LVars(ats.g('captures'))
                                 }
                             : N
                         );
@@ -2245,14 +2248,14 @@ class RComp {
                             , b: await this.CChilds(n, body) || dB
                             , n
                         });
-                        atts.NoneLeft();
+                        ats.None();
                         postWs = Math.max(postWs, this.ws);
                         postCT = postCT.max(this.CT);
 
                         bE ||= cond === U;  // Is there an ELSE
                 }
             } 
-            catch (e) { throw n.tagName=='IF' ? e : ErrMsg(n, e); }
+            catch (m) { throw n.tagName=='IF' ? m : ErrM(n, m); }
             finally { ES(); }
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
@@ -2271,7 +2274,7 @@ class RComp {
                         ) == alt.not)
                     { cAlt = alt; break }
             }
-            catch (e) { throw alt.n.tagName=='IF' ? e : ErrMsg(alt.n, e); }
+            catch (m) { throw alt.n.tagName=='IF' ? m : ErrM(alt.n, m); }
             finally {
                 if (bH) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
@@ -2290,7 +2293,7 @@ class RComp {
                     if (cAlt && (cr || !bR)) {
                         if (RRE)
                             RRE.shift(),
-                            SetLVars(
+                            SetLVs(
                                 cAlt.patt.lvars,
                                 cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE                                                
                             )
@@ -2303,7 +2306,7 @@ class RComp {
     }
 
 
-    private CFor(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+    private CFor(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
 
         // Three unknown but distinguished types, used by the <FOR> construct
         interface Item {}
@@ -2319,17 +2322,17 @@ class RComp {
         }
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
-        let letNm = atts.g('let')
-            , ixNm = atts.g('index',F,F,T);
+        let letNm = ats.g('let')
+            , ixNm = ats.g('index',F,F,T);
         this.rt = F;
 
         if (letNm != N) { /* A regular iteration */
             let dOf =
-                this.CAttExp<Iterable<Item> | Promise<Iterable<Item>>>(atts, 'of', T)
-                , pvNm = atts.g('previous',F,F,T)
-                , nxNm = atts.g('next',F,F,T)
-                , dUpd = this.CAttExp<RVAR>(atts, 'updates')
-                , bRe: booly = atts.gB('reacting') || atts.gB('reactive') || dUpd;
+                this.CAttExp<Iterable<Item> | Promise<Iterable<Item>>>(ats, 'of', T)
+                , pvNm = ats.g('previous',F,F,T)
+                , nxNm = ats.g('next',F,F,T)
+                , dUpd = this.CAttExp<RVAR>(ats, 'updates')
+                , bRe: booly = ats.gB('reacting') || ats.gB('reactive') || dUpd;
 
             return this.Framed(async SF => {
                 
@@ -2341,8 +2344,8 @@ class RComp {
                     vPv = this.LVar(pvNm),
                     vNx = this.LVar(nxNm),
 
-                    dKey = this.CAttExp<Key>(atts, 'key'),
-                    dHash = this.CAttExpList<Hash>(atts, 'hash'),
+                    dKey = this.CAttExp<Key>(ats, 'key'),
+                    dHash = this.CAttExpList<Hash>(ats, 'hash'),
 
                     // Compile all childNodes
                     b = await this.CIter(srcE.childNodes);
@@ -2541,7 +2544,7 @@ class RComp {
         }
         else { 
             /* Iterate over multiple slot instances */
-            let nm = atts.g('of',T,T).toUpperCase()
+            let nm = ats.g('of',T,T).toUpperCase()
                 , {S,dC} = this.CT.getCS(nm) ||
                     // Slot doesn't exist; it's probably a missing 'let'
                     thro(`Missing attribute [let]`);
@@ -2576,11 +2579,11 @@ class RComp {
 
 
     // Compile a <COMPONENT> definition
-    private async CComp(srcE: HTMLElement, atts: Atts): Promise<DOMBuilder> {
+    private async CComp(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
 
-        let bRec = atts.gB('recursive'),
+        let bRec = ats.gB('recursive'),
             {hd, ws} = this
-            , eStyles = atts.gB('encapsulate')
+            , eStyles = ats.gB('encapsulate')
                 // When encapsulation is requested, then eStyles becomes an HTMLCollection into which all static stylesheets are collected
                 && (this.hd = D.createDocumentFragment()).children
             // These are all child elements
@@ -2659,7 +2662,7 @@ class RComp {
         S: Signat                   // The construct signature
         , srcE: HTMLElement         // Source element, for error messages
         , bSlot?: boolean         // When true, naming bound variables is compulsory
-        , atts?: Atts
+        , ats?: Atts
         , body: ParentNode = srcE
         , eStyles?: Iterable<Node>   // When supplied, use shadow-dom to encapsulate the output and copy these style nodes
     ): Promise<Template>
@@ -2667,17 +2670,17 @@ class RComp {
         return this.Framed(async SF => {
             this.ws = this.rt = WSpc.block;
             let
-                myAtts = atts || new Atts(srcE),
+                myAtts = ats || new Atts(srcE),
                 // Local variables to contain the attribute values.
                 // Note that the attribute name 'nm' may be different from the variable name.
                 lvars: Array<[string, LVar]> =
-                    S.Params.map(
+                    S.Pams.map(
                         ({mode,nm}) => {
                             let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
                             return [nm, this.LVar(lnm || (lnm === Q || !bSlot ? nm : N) )];
                         }
                     ),
-                DC = ( !atts && myAtts.NoneLeft(),
+                DC = ( !ats && myAtts.None(),
                     this.LCons(S.Slots.values())
                     ),
                 b  = await this.CIter(body.childNodes),
@@ -2694,7 +2697,7 @@ class RComp {
                 // Handle defaults, in the constructdef environment,
                 // using the default 
                 if (!ar.r)
-                    for (let {nm, pDf} of S.Params)
+                    for (let {nm, pDf} of S.Pams)
                         if (pDf && args[nm] === U)
                             args[nm] =  pDf();
                 
@@ -2728,12 +2731,12 @@ class RComp {
                 await b(sub).finally(EF);
                 pn = ar.parN;
             }
-        }).catch(e => { throw ErrMsg(srcE, `<${S.nm}> template: `+e); });
+        }).catch(m => { throw ErrM(srcE, `<${S.nm}> template: `+m); });
     }
 
     // Compile a construct instance, given its signature and definition
     private async CInstance(
-        srcE: HTMLElement, atts: Atts,
+        srcE: HTMLElement, ats: Atts,
         {S, dC}: {S: Signat, dC: DepE<ConstructDef>}
     ) {
         await S.task;       // Wait for signature to be fetched (when sync imported)
@@ -2750,16 +2753,16 @@ class RComp {
                 mapI(Slots, ([nm]) => [nm, []])
             );
 
-        for (let {mode, nm, rq} of S.Params)
+        for (let {mode, nm, rq} of S.Pams)
             if (nm!=RP) {
                 let dG: Dep<unknown>, dS: Dep<Handler>
                 if (mode=='@') {
-                    let ex = atts.g(mode+nm, rq);
+                    let ex = ats.g(mode+nm, rq);
                     dG = this.CExpr<unknown>(ex, mode+nm);
                     dS = this.CTarget(ex);
                 }
                 else
-                    dG = this.CParam(atts, nm, rq);
+                    dG = this.CPam(ats, nm, rq);
                 if (dG)
                     gArgs.push( {nm,dG,dS} );
             }
@@ -2777,13 +2780,13 @@ class RComp {
             
         if (CSlot)  // Content slot?
             SBldrs.get(CSlot.nm).push(
-                await this.CTempl(CSlot, srcE, T, atts)
+                await this.CTempl(CSlot, srcE, T, ats)
             );
 
         // Rest parameter?
         if (RP) {
             // Compile all remaining attributes into a getter for the rest parameter
-            let {bf,af} = this.CAtts(atts);
+            let {bf,af} = this.CAtts(ats);
             bf.push(...af); // Don't distinguish between before and after; everything goes after
             gArgs.push({
                 nm: RP, 
@@ -2817,7 +2820,7 @@ class RComp {
         }
     }
 
-    private async CHTML(srcE: HTMLElement, atts: Atts
+    private async CHTML(srcE: HTMLElement, ats: Atts
             , dTag?: Dep<string>    // Optional routine to compute the tag name
             , bUH?: booly           // Unhide after creation
     ) {
@@ -2844,7 +2847,7 @@ class RComp {
             postWs = preWs;
 
         // We turn each given attribute into a modifier on created elements
-        let {bf,af} = this.CAtts(atts)
+        let {bf,af} = this.CAtts(ats)
 
         // Compile the given childnodes into a routine that builds the actual childnodes
             , b = await this.CChilds(srcE)
@@ -2889,7 +2892,7 @@ class RComp {
             };
     }
 
-    private CAtts(atts: Atts) {
+    private CAtts(ats: Atts) {
         // Compile attributes into an array of modifiers
 
         let bf: Modifier[] = []
@@ -2914,7 +2917,7 @@ class RComp {
                 (mt < MType.RestParam && nm!='value' ? bf : af).push(M);
             };
 
-        for (let [A, V] of atts)
+        for (let [A, V] of ats)
             if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) 
             //           op     h-h p dyc---------------c     -y       i---id    e---e    s            a---a   -o t-           -tk---k       r---r
             {
@@ -2977,7 +2980,7 @@ class RComp {
                     if (V) throw 'A rest parameter cannot have a value';
                     addM(MType.RestParam, A, this.CT.getLV(r) );
                 }
-                atts.delete(A);
+                ats.delete(A);
             }
 
         return {bf, af};
@@ -3071,45 +3074,56 @@ class RComp {
         return {lvars, RE: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
-    private CParam<T = unknown>(atts: Atts, att: string, bReq?: booly): Dep<T> {
-        let txt = atts.g(att);
+    private CPam<T = unknown>(ats: Atts, att: string, bReq?: booly): Dep<T> 
+    // Compile parameter (of some OtoReact construct) 
+    {
+        let txt = ats.g(att);
         return (
-            txt == N ? this.CAttExp<T>(atts, att, bReq)
+            txt == N ? this.CAttExp<T>(ats, att, bReq)
             : /^on/.test(att) ? this.CHandlr(txt, att) as Dep<any>
             : this.CText(txt, att) as Dep<any>
         );
     }
-    private CAttExp<T>(atts: Atts, att: string, bReq?: booly
+    private CAttExp<T>(ats: Atts, att: string, bReq?: booly
         ) {
-        return this.CExpr<T>(atts.g(att, bReq, T), att, U);
+        return this.CExpr<T>(ats.g(att, bReq, T), att, U);
     }
     
     private CTarget<T = unknown>(LHS: string): Dep<(t:T) => void>
     // Compiles an "assignment target" (or "LHS expression") into a routine that sets the value of this target
     {   
-        return this.CHandlr<T>(
-            `(${LHS})=$`
-            ,N, '$', `\nin assigment target "${LHS}"`);
+        return this.CRout<T>(`(${LHS})=$` , '$', `\nin assigment target "${LHS}"`);
     }
     
-    private CHandlr<V = Event>(txt: string, nm: string, v = 'event', E = `\nat [${nm}]="${Abbr(txt)}"`): DepE<(v: V) => any> {
-        if (/^#/.test(nm))
-            return this.CExpr<(v: V) => any>(txt, nm, txt);
+    private CHandlr(
+        txt: string
+        , nm: string
+    ): DepE<(v: Event) => any> {
+        return /^#/.test(nm) ?
+            this.CExpr(txt, nm, txt)
+            : this.CRout(txt, 'event', `\nat [${nm}]="${Abbr(txt)}"`);
 
-        try {
-            let ct = this.gsc(txt)
-                , C = Ev(`${US}(function(${v},${ct}){${txt}\n})`)
-            return ct ? (e: Environment = env) =>
-                    function($) {
-                        try { C.call(this,$,e); }
-                        catch(x) {throw x+E;}
-                    }
-                : () => function($) {
-                        try { C.call(this,$); }
-                        catch(x) {throw x+E;}
-                    };
-        }
-        catch (x) {throw x+E;}
+    }
+
+    private CRout<V>(
+        txt: string
+        , x: string
+        , E: string): DepE<(v: V) => any> {
+            try {
+                let ct = this.gsc(txt)
+                    , C = Ev(`${US}(function(${x},${ct}){${txt}\n})`)
+                return ct ? 
+                    (e: Environment = env) =>
+                        function($) {
+                            try { C.call(this,$,e); }
+                            catch(m) {throw m+E;}
+                        }
+                    : () => function($) {
+                            try { C.call(this,$); }
+                            catch(m) {throw m+E;}
+                        };
+            }
+            catch (m) {throw m+E;}
     }
 
     public CExpr<T>(
@@ -3134,14 +3148,14 @@ class RComp {
                     try { 
                         return f.call(pn, env);
                     } 
-                    catch (x) {throw x+E; } // Runtime error
+                    catch (m) {throw m+E; } // Runtime error
                 };
         }
-        catch (x) {throw x+E; } // Compiletime error
+        catch (m) {throw m+E; } // Compiletime error
     }
 
-    private CAttExpList<T>(atts: Atts, attNm: string, bReacts?: boolean): Dep<T[]> {
-        let L = atts.g(attNm, F, T);
+    private CAttExpList<T>(ats: Atts, attNm: string, bReacts?: boolean): Dep<T[]> {
+        let L = ats.g(attNm, F, T);
         if (L==N) return N;
         if (bReacts)
             for (let nm of split(L))
@@ -3151,7 +3165,7 @@ class RComp {
 
     private gsc(exp: string) {
         // Get Shaked Context string
-        // See if the context can be abbreviated
+        // See if the context string this.CT.ct can be abbreviated
         let {ct,lvM, d} = this.CT, n=d+1
         for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k: EnvKey = lvM.get(m[0]);
@@ -3172,7 +3186,7 @@ class RComp {
         return new URL(src, this.FP).href
     }
     // Returns the normalized form of URL 'src' without file name.
-    private GetPath(src: string) {
+    private GetP(src: string) {
         return this.GetURL(src).replace(/[^/]*$/, Q);
     }
 
@@ -3195,7 +3209,7 @@ class RComp {
             // If the file contains a <MODULE> element we will return its children.
             if (e?.tagName != 'MODULE')
                 // If not, we return everything: the document head and body concatenated
-                return concI(head.childNodes, body.childNodes);
+                return [...head.childNodes, ...body.childNodes];
 
             m = e;
         }
@@ -3242,7 +3256,7 @@ class Atts extends Map<string,string> {
     }
 
     // Check that there are no unrecognized attributes left!
-    public NoneLeft() {
+    public None() {
         super.delete('hidden'); // Hidden may be added to any construct, so it remains hidden until compiled
         if (this.size)
             throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
@@ -3257,7 +3271,7 @@ const
     , reWS = /^[ \t\n\r]*$/                 // Just whitespace, non-breaking space U+00A0 excluded!
 
     // Routine to add a class name to all selectors in a style sheet
-    , AddClass = (txt: string, nm: string) =>
+    , AddC = (txt: string, nm: string) =>
         nm ? txt.replaceAll(
 /{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(\w|[-.#:()\u00A0-\uFFFF]|\[(?:"(?:\\.|.)*?"|'(?:\\.|.)*?'|.)*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/gsi,
                 (m,p) => p ? `${m}.${nm}` : m
@@ -3298,13 +3312,13 @@ const
 , mapSet = <V>(m: Map<string, V>, nm: string, v:V) =>
     v!=N ? m.set(nm, v) : m.delete(nm)
 
-, ErrMsg = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
+, ErrM = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
     e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`
 
-, crErrN = (msg: string) => 
+, crErrN = (m: string) => 
     ass(D.createElement('div')
         , { style: 'color:crimson;font-family:sans-serif;font-size:10pt'
-            , innerText: msg})
+            , innerText: m})
 
 , NoChilds = (srcE: HTMLElement) => {
     for (let n of srcE.childNodes)
@@ -3315,23 +3329,10 @@ const
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
 
-, copySSheets = (S: StyleSheetList, D: Document) => {
-    for (let SSh of S) {
-        let DSh = D.head.appendChild(D.createElement('style')).sheet;
-        for (let rule of SSh.cssRules) 
-            DSh.insertRule(rule.cssText);
-    }
-}
-
 , ScrollToHash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 ;
 
-// Concatenate two iterables
-function* concI<T>(R: Iterable<T>, S:Iterable<T>)  {
-    for (let x of R) yield x;
-    for (let x of S) yield x;
-}
 // Map an iterable to another iterable
 function* mapI<A, B>(I: Iterable<A>, f: (a:A)=>B, c?: (a:A)=>booly): Iterable<B> {
     for (let x of I)

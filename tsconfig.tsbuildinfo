@@ -232,11 +232,11 @@
         "affectsGlobalScope": false
       },
       "./otoreact.ts": {
-        "version": "a82f3a3622be949dfeadee1988234e0f11c214343c7334546f3702fa237047ec",
+        "version": "0c4321999c2b9679227610823e8cf449c9a34651a865b57c30bcc4271718524a",
         "signature": "dfa027bb6a1fcb50878c27d7c474ce4b84e3f4c11cc2a592204089ae1484595a",
         "affectsGlobalScope": false
       },
-      "./samples.ts": {
+      "./index_files/samples.ts": {
         "version": "9d468a631280b9a4075b7731004690d80fadcd9db94f68fe8a6feecbc2042784",
         "signature": "73be3809e8886c3c74e635e92f16a21977e05b1b80ad77a2edd40c6d6703e8cb",
         "affectsGlobalScope": true
@@ -307,10 +307,10 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
+      "./index_files/samples.ts",
       "./otoreact - kopie.ts",
       "./otoreact - modifierclosures.ts",
-      "./otoreact.ts",
-      "./samples.ts"
+      "./otoreact.ts"
     ]
   },
   "version": "4.1.3"

@@ -16,7 +16,7 @@
         <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
         <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
     -->
-    <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
+    <link rel="shortcut icon"   href="index_files/otoreact.png" type="image/png"/>
     <script>
         const 
             wiki = "https://en.wikipedia.org/wiki/",
@@ -82,12 +82,12 @@
         })();
         */
     </script>
-    <script src="samples.js?"></script>
+    <script src="index_files/samples.js?"></script>
     <link rel=preload href="OtoLib.html"           as=fetch crossorigin>
-    <link rel="stylesheet"      href="index.css">
-    <link rel=preload href="KoninklijkeOtolift.png" as=image>
+    <link rel="stylesheet" href="index_files/index.css">
+    <link rel=preload href="index_files/KoninklijkeOtolift.png" as=image>
     <link rel=preload href="webColors.json"         as=fetch crossorigin>
-    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
+    <link rel=preload href="index_files/dayjs.min.js"           as=fetch crossorigin>
     
 </head>
 <body hidden
@@ -95,7 +95,7 @@
     oncreate="this.onclick = popup.Clear; // This avoids bAutoPointer"
     >
 
-    <import src="Lib_Components.html">
+    <import src="index_files/Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href? #target? ...rest><content></content></a>
         
@@ -116,8 +116,8 @@
                 </pageHead>
 
                 <section>
-                    <include src="P1_Introduction.html">
-                        <!--#include file="P1_Introduction.html"-->
+                    <include src="index_files/P1_Introduction.html">
+                        <!--#include file="index_files/P1_Introduction.html"-->
                     </include>                    
                 </section>
             </pageLayout>
@@ -129,30 +129,30 @@
                 </pageHead>
 
                 <section>
-                    <include src="C1_Concepts.html">
-                        <!--#include file="C1_Concepts.html"-->
+                    <include src="index_files/C1_Concepts.html">
+                        <!--#include file="index_files/C1_Concepts.html"-->
                     </include>
                 </section>
                 <section>
-                    <include src="C2_HtmlElements.html"></include>
+                    <include src="index_files/C2_HtmlElements.html"></include>
                 </section>
                 <section>
-                    <include src="C3_Constructs.html"></include>
+                    <include src="index_files/C3_Constructs.html"></include>
                 </section>
                 <section>
-                    <include src="C4_OtherSubjects.html"></include>
+                    <include src="index_files/C4_OtherSubjects.html"></include>
                 </section>
             </pageLayout>
 
         </when>
         <when match="routing">
-            <include src="P3_Routing.html"></include>
+            <include src="index_files/P3_Routing.html"></include>
         </when>
         <when match="otolib">
-            <include src="P4_OtoLib.html"></include>
+            <include src="index_files/P4_OtoLib.html"></include>
         </when> 
         <when match="download">
-            <include src="P5_Download.html"></include>
+            <include src="index_files/P5_Download.html"></include>
         </when>
         <else>
             Page '{docLocation.subpath}' not found
