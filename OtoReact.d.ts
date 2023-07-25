@@ -20,73 +20,12 @@ declare type Settings = Partial<{
 declare type hHTMLElement = HTMLElement & {
     b?: booly;
 };
-<<<<<<< HEAD
-declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
-    ws?: boolean;
-    auto?: boolean;
-};
-declare type Area = {
-    r?: Range;
-    parN: Node;
-    bfor?: ChildNode;
-    srcN?: ChildNode;
-    parR?: Range;
-    prevR?: Range;
-    bROnly?: boolean;
-};
-declare class Range<NodeType extends ChildNode = ChildNode> {
-    text?: string;
-    node: NodeType;
-    child: Range;
-    next: Range;
-    parR?: Range;
-    parN?: Node;
-    constructor(ar: Area, node: NodeType, text?: string);
-    toString(): string;
-    get First(): ChildNode;
-    get Next(): ChildNode;
-    get FirstOrNext(): ChildNode;
-    Nodes(): Generator<ChildNode>;
-    res?: any;
-    val?: any;
-    errN?: ChildNode;
-    bfDest?: Handler;
-    onDest?: Handler;
-    hash?: Hash;
-    key?: Key;
-    prev?: Range;
-    fragm?: DocumentFragment;
-    updated?: number;
-    subs?: Subscriber;
-    rvars?: RVAR[];
-    wins?: Set<Window>;
-    erase(par: Node): void;
-}
-declare type Environment = Array<unknown | ConstructDef>;
-declare type FullSettings = typeof defaults;
-declare type Settings = Partial<FullSettings>;
-export declare function RCompile(elm?: HTMLElement, settings?: Settings): Promise<void>;
-declare type Subscriber<T = unknown> = ((t?: T) => (unknown | Promise<unknown>)) & {
-    sArea?: Area;
-    bImm?: boolean;
-    sEnv?: Environment;
-};
-declare type Handler = (ev: Event) => any;
-declare type ConstructDef = {
-    nm: string;
-    tmplts: Template[];
-    CEnv?: Environment;
-    Cnm?: string;
-};
-declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, cdef: ConstructDef, slotEnv: Environment) => Promise<void>;
-=======
 export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
 declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
     T?: never;
 }) | (((t: T) => Promise<unknown>) & {
     T: true;
 });
->>>>>>> new-Context
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -120,10 +59,6 @@ export declare type RVAR_Light<T> = T & {
     readonly U?: T;
     readonly V?: T;
 };
-<<<<<<< HEAD
-declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, r: Range, arg?: any): Subscriber;
-=======
->>>>>>> new-Context
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;

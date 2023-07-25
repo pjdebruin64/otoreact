@@ -1,0 +1,107 @@
+<style>
+	table {border-spacing: 6px}
+</style>
+
+<component>
+	<coltab #data ...R>
+		<caption.></caption.>
+		<content>
+			<coldef hdstyle? ...rest>
+				<cth></cth>
+				<ctd #item #index></ctd>
+			</coldef>
+		</content>
+	</coltab>
+
+	<template>
+		<table. ...R>
+
+			<caption..><caption.></caption.></caption..>
+
+			<tr.>
+				<content>
+					<coldef hdstyle=S>
+						<th. #style=S>
+							<cth></cth>
+						</th.>
+					</coldef>
+				</content>
+			</tr.>
+
+			<for let=it of=data key=it index=i>
+				<tr.>
+					<content>
+						<coldef ...rest>
+							<td.  ...rest>
+								<ctd #item=it #index=i></ctd>
+							</td.>
+						</coldef>
+					</content>
+				</tr.>
+			</for>
+
+		</table.>
+	</template>
+</component>
+
+<script type=otoreact defines=tableData,thisYear>
+  const tableData = [
+      {name:'Piet',		year: 2004}, 
+      {name:'Tine',	year: 2003},
+	  {name: 'Alex',	year: 1960}
+  ];
+
+  const thisYear = new Date().getFullYear();
+</script>
+
+<p>This table has a conditional column, defined by a <i>single</i> condition:</p>
+
+<def rvar=showAge store=sessionStorage></def>
+<label>
+	<input type=checkbox @checked=showAge.V>
+	Show age
+</label>
+
+<style>
+	table.Age {border: solid; text-align: center}
+</style>
+
+<coltab #data=tableData class=Age beforecreate=debugger >
+	<coldef style="color: red">
+		<cth>Name</cth>
+		<ctd item=r>{r.name}</ctd>
+	</coldef>
+
+	<coldef>
+		<cth>Birth year</cth>
+		<ctd item=r>{r.year}</ctd>
+	</coldef>
+
+	<if cond="showAge.V">
+		<coldef hdstyle="font-style: italic">
+			<cth>Age</cth>
+			<ctd item=r>{thisYear -  r.year}</ctd>
+		</coldef></coltab>
+	</if>
+</coltab>
+
+
+<p>The table below is built using a <i>repeating column definition</i>, where both column header and column data are defined in a <i>single</i> repetition:
+</p>
+
+<coltab #data="range(1, 10)" style="text-align: right">
+
+	<caption.>Multiplication table</caption.>
+
+	<coldef style="font-weight: bold">
+		<ctd item=y>{y}</ctd>
+	</coldef>
+
+	<for let=x of="range(1,10)" key=x>
+		<coldef>
+			<cth>{x}</cth>
+			<ctd item=y>{x * y}</ctd>
+		</coldef>
+	</for>
+
+</coltab>
