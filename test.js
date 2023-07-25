@@ -1,1 +1,0 @@
-globalThis.ttt = 1;
