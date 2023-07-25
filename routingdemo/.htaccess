@@ -1,0 +1,14 @@
+
+<IfModule mod_rewrite.c>
+   DirectoryIndex index.html
+
+    ####
+    # Redirect any non existing file/directory to /index.html
+    ####
+    RewriteRule "(^|/)([^/.]*)$" "index.html" [L]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule "(^|/)([^/]*)$" "../$2"         [L]
+
+    # E=X_REWRITE:1,E=X_PATH_INFO:/$1,
+</IfModule>

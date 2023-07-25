@@ -34,7 +34,7 @@
     <signature>
       <RADIOGROUP name? @value? onclick? #disabled?>
         <content>
-          <RADIOBUTTON #value? #disabled? ...rest><content></content></RADIOBUTTON>
+          <RADIOBUTTON value? #disabled? ...rest><content></content></RADIOBUTTON>
         </content>
       </RADIOGROUP>
     </signature>
@@ -47,7 +47,7 @@
       <!-- A <RADIOGROUP> expands into its content: -->
       <content>
         <!-- But any occurence of <radiobutton> within its content should be expanded according to this template: -->
-        <radiobutton #value #disabled=buttonDisabled ...rest>
+        <radiobutton value #disabled=buttonDisabled ...rest>
           <label #class:checked="value === groupValue.V" ...rest>
             <input type=radio #name=groupName #value=value
               #checked="value === groupValue.V"

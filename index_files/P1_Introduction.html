@@ -27,10 +27,10 @@
         </p>
         <pre class=sourcecode #innerHTML="ColorCode(fileTemplate)" style.margion="auto"></pre>
         <p>
-            That's all you need to do.
+            That's all you need.
             <p>Full framework functionality, offered by a library.
-            <p>Nothing to install, nothing to compile, nothing to configure.
-            <p>Runs like a charm.
+            <p>Nothing to install, to configure, to build, and not a single line of required JavaScript code.
+            <p>Running like a charm.
         </p>
     </div>
 </div>
@@ -40,7 +40,10 @@
 <p>
     '<i>Reactive web applications</i>', or '<a href="{wiki}Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or the receival of server data requested by the application, instead of having the web server generate and send a new HTML page.
     <br>This results in both a much better user experience and much less server load.
-    <br>Two tiny examples you see above; please enter some data.
+</p>
+<p>
+    Two tiny examples you see above; please enter some data.
+    <br>This website as a whole is also a reactive web application, written in OtoReact.
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
@@ -70,10 +73,15 @@
     <li>OtoReact can be combined with other tooling: it can be used for fragments of a larger application, and does not modify any native objects (prototypes) which might cause conflicts. It defines a few global variables but does not depend on them.</li>
 </ul>
 
+See also <a href="#WhyOtoReact">Why OtoReact</a>.
+
+<p>Please note that you need at least a basic understanding of HTML and JavaScript to work with a framework like OtoReact.</p>
+
 <h2>Samples</h2>
 <h3>What's your name</h3>
 <p>
-    Let's return to the tiny example above left. You can modify the source code below and the modified application will be reloaded immediately.
+    Let's return to the tiny example above left.
+    <br>You can modify the source code below, and on every keystroke the modified application will be recompiled and re-executed.
 </p>
 <demo #srcText="sampleGreeting.replace('><', ` store='sessionStorage'><`)"></demo>
 <p>Explanation:</p>
@@ -115,7 +123,7 @@ You might increment the numbers, and see how fast the DOM is updated.
 <h3 id=TicTacToe>Tic-Tac-Toe</h3>
 
 Study the source code after you have read more of this documentation.
-<demo #bShow=false #srctext=sampleTicTacToe></demo>
+<demo #tab=false #srctext=sampleTicTacToe></demo>
 
 
 <h3>Working with server data</h3>
@@ -135,7 +143,7 @@ Study the source code after you have read more of this documentation.
         <br>The respective libraries can in some cases be loaded straight into the browser without compilation.
     </li>
     <li>
-        Others, like <a href="https://angular.io/">Angular</a> and <a href="https://svelte.dev/">Svelte</a>, make a clean separation between the programming code and presentation. The JavaScript you write contains the data model and data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
+        Others, like <a href="https://angular.io/">Angular</a>, <a href="https://svelte.dev/">Svelte</a>, and <a href="https://vuejs.org/">Vue</a> (with a build step), make a clean separation between the programming code and presentation. The JavaScript you write contains the data model and data manipulation you need; the actual web page is described by a template file containing HTML enriched with directives and other stuff.
         <br>You don't need to write code to manipulate the DOM at all anymore; this is done by the framework.
         <br>The source code files have to be compiled on you development machine. You need to install the compiler, and quite some modules for each application (which for Angular may take more than 1GB per application).
     </li>
@@ -146,7 +154,7 @@ Study the source code after you have read more of this documentation.
 
 <h4>Reactive !== Responsive</h4>
 <i>Reactive</i> is not the same thing as <i>responsive</i>, though there is some overlap.
-<br><a href="{wiki}Responsive_web_design">Resonsive web design</a> is a phrase used to indicate web pages that adapt themselves to the device they are viewed on.
+<br><a href="{wiki}Responsive_web_design">Responsive web design</a> is a phrase used to indicate web pages that adapt themselves to the device they are viewed on.
 <p>
     This document for example changes its layout when being printed or viewed on a narrow screen: the table of contents moves to the top, and on a mobile device font sizes are adapted.
 </p>
@@ -158,37 +166,185 @@ Study the source code after you have read more of this documentation.
 <h4>No server-side functionality</h4>
 OtoReact does not provide server-side functionality. You need other tooling for that, like Node.js (+ Express), Python, PHP, .Net, or perhaps you can use existing web API's.
 
+<!--
 <h4>Use file extension .html, not .rhtml</h4>
 By using file extension ".html" for RHTML files, file editors can provide HTML syntax features and servers can serve the files just like HTML files without needing additional configuration.
 <p>Using ".rhtml" might also cause confusion with <a href="https://guides.rubyonrails.org/getting_started.html">Ruby on Rails</a> HTML files, that are to be processed by the server-side Ruby on Rails engine.
+-->
 
 <h2 id="DocSetup">Document setup</h2>
 <ol>
     <li>
         Download OtoReact.js from the <a href="download" #onclick="reroute">download page</a> and place it somewhere on your server.
-        <br>It's less than 45 kilobyte, and has no dependencies at all.
+        <br>It's less than 40 kilobyte, and has no dependencies.
     </li>
     <li>
         Include the OtoReact compiler into your application:
-        <pre class=sourcecode><{}script type=module src="OtoReact.js"><{}/script></pre>
+        <pre class=sourcecode><{}script type=module src="<i>path/to/</i>OtoReact.js"><{}/script></pre>
     </li>
     <li>
-        Mark the body element of your document with <code class=sourcecode>type="rhtml"</code>:
-        <pre><{}body type="rhtml"></pre>
+        Mark the element(s) of your document you wish to compile with attribute
+        <code class=sourcecode>rhtml</code>:
+        <pre><{}body rhtml></pre>
         , then OtoReact will implicitly compile and render the document body at the first event cycle.
     </li>
+    <li>Optionally, add an <a href="docu#Options">option list</a> to the <code>rhtml</code> attribute.</li>
     <li>
         You may also want to hide all or part of your application until it has been built, e.g. by using:
-    <code><{}body type="rhtml" hidden></code>.
+    <code><{}body rhtml hidden></code>.
         <br>OtoReact will unhide its target after it has been built.
     </li>
 </ol>
-Or, instead of step 2 and 3, one can explicitly call the OtoReact compiler using the <a href="docu#Functions"><code>RCompile</code> function</a>:
-<pre>
-<{}script type=module>
-    import \{RCompile, RVAR} from './OtoReact.js';
-    RCompile(document.body);
-<{}/pre></pre>
-This allows one to compile one or more parts of your document, instead of the whole document body, and it allows one to specify additional options.
 
 <p>That's all!</p>
+
+
+<h2 id="WhyOtoReact">Why OtoReact?</h2>
+Some advantages of using OtoReact above other frameworks:
+<ol>
+    <li>
+        We think it is <i>conceptually simpler</i> to have the full document definitions in enriched HTML, rather than requiring JavaScript to invoke the framework, define components, link everything together, etc.
+    </li>
+    <li>
+        <i>Installation</i> (i.e. downloading a single file) is much simpler, and takes much less disk space, than with most other frameworks.
+    </li>
+    <li>
+        State variables (RVAR's) can be defined in <i>any local HTML scope</i>, while in other frameworks state variables are only available at the component level.
+        <br>So if, for example, you need a state variable within a <elm>FOR</elm> iteration, then you can simply define a <i>single</i> RVAR within that <elm>FOR</elm> block, and OtoReact will repeatedly instantiate the RVAR.
+        <br>In other frameworks you would either have to define a whole <i>array</i> of state variables, or define a separate component just for the purpose of having a local state variable.
+    </li>
+    <li>
+        <i>Components</i> can be defined in any local HTML scope too, meaning you can easily use them to avoid local code repetitions.
+        <br>Local component definitions can refer to local variables visible at the point of definition, without needing these to be passed as parameters.
+    </li>
+    <li>
+        Just as in any modern programming language, OtoReact (and Svelte) have control structures for conditional and repeated code that <i>surround</i> the code blocks they apply to.
+        <br>Angular and Vue depend on attributes to be inserted <i>inside</i> the element to be repeated or conditionally rendered.
+        <p>Compare:</p>
+        <style>
+            div.narrow {
+                column-count: auto;
+                column-width: 270px;
+            }
+            div.narrow > div {
+                page-break-inside: avoid;
+            }
+        </style>
+        <div class="narrow">
+            <div>
+                <b>Angular:</b>
+                <pre>
+<{}li *ngFor="let item of items">
+    \{\{ item.message }}
+<{}/li>
+</pre></div>
+    <div>
+        <b>Svelte:</b>
+        <pre>
+\{#each items as item}
+    <{}li>
+        \{ item.message }
+    <{}/li>
+\{/each}
+</pre></div>
+        <div>
+            <b>Vue:</b>
+            <pre>
+<{}li v-for="item in items">
+    \{\{ item.message }}
+<{}/li>
+</pre></div>
+<div>
+    <b>React:</b>
+    <pre>
+items.map( item => (
+    <{}li>
+        \{ item.message }
+    <{}/li>
+))
+</pre></div>
+    <div>
+        <b>OtoReact:</b>
+        <pre>
+<{}for let="item" of="items">
+    <{}li>
+        \{ item.message }
+    <{}/li>
+<{}/for>
+</pre></div>
+</div>
+    </li>
+    <li>
+        There are several small nifty features you won't find in other frameworks. E.g. the simple fact that <code>null</code> and <code>undefined</code> are not rendered simplifies many embedded expressions.
+    </li>
+</ol>
+<p>Some drawbacks are:</p>
+<ol>
+    <li>
+        OtoReact does not yet do dependency analysis. Depending on the size and complexity of your application, it may be desirable or required to insert hints (attributes <code>reacton</code> and <code>hash</code>) that tell OtoReact which RHTML parts should react on which state variables.
+    </li>
+    <li>
+        The HTML parser does not allow OtoReacts control structures inside <elm>table</elm>, <elm>select</elm>, and <elm>datalist</elm> (see <a href="docu#Limitations">Parser limitations</a>), so one has to use alternative element names <elm>table.</elm>, <elm>select.</elm>, etc. instead.
+    </li>
+    <li>
+        Runtime compilation is theoretically slower than serving a precompiled application. However:
+        <ul>
+            <li>
+                Compilation time, usually ranging from 5 - 100 milliseconds, is quite small in relation to the overall load time of a web application.
+            </li>
+            <li>
+                In many or most cases, compilation can be done while the application waits for other resources like images or data, so it doesn't increase the overall load time <i>at all</i>.
+            </li>
+        </ul>
+    </li>
+</ol>
+
+
+<h2>Search engine compatibility</h2>
+<p>
+    <i>Static</i> content in an OtoReact <i>main file</i> is just HTML and can be indexed by any search engine.
+    This is a great advantage over frameworks like Angular and Svelte, where all content is generated by JavaScript.
+</p>
+<p>
+    <i>Dynamic</i> content generated by any JavaScript framework including OtoReact, or just any client-side JavaScript code, can only be indexed by a search engine if that engine is able to execute the JavaScript.
+    <br>Now Google does a reasonably good job at executing JavaScript, and may be able to index your dynamic OtoReact site, provided each page has its own URL and is reachable through normal links.
+    <br>Most other engines, including Bing I think, won't do so.
+</p>
+
+<p>
+    Static content in <i>included files</i> can only be loaded through JavaScript, and can only be indexed by search engines executing JavaScript.
+    <br>If you want your static content be split over multiple files ánd want it to be indexable by any search engine, you could think of the following solutions:
+</p>
+<ul>
+    <li>
+        Use server-side technology, like Server Side Includes (SSI) or PHP, to include all included and imported RHTML files in your main file.
+    </li>
+    <li>
+        Use a tool to bundle multiple RHTML files into a single file before deployment. <!-- Like Webpack? -->
+        <br>Such a tool is not available yet, but it's not difficult to develop one.
+    </li>
+</ul>
+
+
+
+<h2 id="Playgrounds">Playground(s)</h2>
+Here you have a playground to enter your own Reactive HTML.
+<p>
+    All code you enter will be saved by your browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
+</p>
+
+<def rvar=playCount #value=1 store=localStorage></def>
+<react on=playCount>
+    <def var=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
+    <for let=rvar of="Playgrounds" index key=index>
+        <demo #rvar="rvar"></demo>
+    </for>
+    <button onclick="playCount.V++">
+        Add another playground
+    </button>
+    <if cond="playCount.V > 1">
+        <button onclick="playCount.V--; Playgrounds[playCount.V].V=''; Playgrounds.length = playCount.V">
+            Remove last playground
+        </button>
+    </if>
+</react>

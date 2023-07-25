@@ -7,70 +7,78 @@
         <template><a. #href="href"
             #target="!target && /^http/i.test(href) ? '_blank' : target"
             #style.fontWeight="href == (docLocation.subpath || '.') || href==location.hash ? 'bold' : null"
-            #onclick="/^(https?:|#)/i.test(href) ? null : reroute"
+            _#onclick="/^(https?:|#)/i.test(href) ? null : reroute"
             ...rest
             ><content></content></a.
         ></template>
     </component>
 
-
+    <!-- This component gives all <RHTML> constructs some default styling. -->
     <component>
-        <RHTML #srctext></RHTML>
+        <RHTML srctext onç?></RHTML>
         <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
-        <template>
-            <RHTML srctext="{prefix}{srctext}"></RHTML>
+        <template onç="oc">
+<RHTML #onç="oc">{prefix}
+{srctext}</RHTML>
         </template>
     </component>
 
         
     <!-- Component to demonstrate RHTML -->
     <component>
-        <demo #srctext?="''" #bshow=4 #editable=true rvar? #bDollarRequired?></demo>
+        <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
-        <style>
-            table.demo   { 
+        <style scope="local">
+            table   { 
                 margin: 2ex auto; 
                 max-width:100%;
             }
-            table.demo > tr > * {
+            tr > * {
                 vertical-align: top;
                 min-width:350px;
                 max-width:700px;
                 padding: 8px;
                 border-radius: .5em;
             }
-            table.demo th:nth-child(1), button.demo {
+            th:nth-child(1), button.demo {
                 color: rgb(26, 97, 90);
             }            
-            table.demo th:nth-child(2) {
+            th:nth-child(2) {
                 color: rgb(104, 122, 1);
             }
 
-            table.demo > tr > *:nth-child(1) {
+            tr > *:nth-child(1) {
                 background-color: rgb(245, 245, 245);
             }
-            table.demo > tr > *:nth-child(2) {
+            tr > *:nth-child(2) {
                 background-color: rgb(240, 255, 160);
             }
-            table.demo td.pre { 
+            tr:nth-child(3) > *{
+                text-align: right;
+                font-size: 66%;
+                padding: 0px 8px;
+            }
+
+            td.pre { 
                 font-size: 80%;
                 min-height: 4em;
                 border: 3px solid rgb(200,200,200);
             }
-            span.demoGreen  { color: green; } /* This is for comments */
-            span.mTag       { color: blue; }
-            span.otored     { color: var(--OtoRed); }
-
             .pre .nodisplay {display: none }
 
-            .demo button:disabled {
+            button:disabled {
                 border: solid 2px turquoise;
                 background-color: white;
                 color: inherit;
                 font-weight: bold;
             }
 
+        </style>
+        <style>
+            span.demoGreen  { color: green; } /* This is for comments */
+            span.mTag       { color: blue; }
+            span.otored     { color: var(--OtoRed); }
         </style>
 
         <script defines="regDemo">
@@ -81,7 +89,7 @@
                     new RegExp(`^\\s*${fRegElement('style')}?${fRegElement('script')}?${fRegElement('component')}?([^]*?)\\s*$`, 'i');
         </script>
 
-        <template #srctext=source #bDollarRequired="bDollarRequired">
+        <template srctext=source #bDollarRequired="bDollarRequired" #tab>
             <define var=srcText #value="rvar || RVAR('', source.trim())"></define>
             <define rvar="texts"></define>
             <script type="otoreact/local">
@@ -89,31 +97,36 @@
                 texts.Subscribe(([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')},false,true)
             </script>
 
-            <define rvar=rShow  #value="bshow || 4"
+            <define rvar=rShow  #value="tab || 4"
                 onmodified="texts.V = regDemo.exec(srcText.V);"
                 ></define>
-            <table. class=demo>
-                <tr.><th. reacton="rShow">
-                    <if cond=editable>Editable</if> Source Code&nbsp;
-                    <div style="float:right">
-                        <component><but #value><content></content></but>
-                            <template value=v >
-                                <button #if="v<0 || texts.V[v]"
-                                     #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
-                            </template>
-                        </component>
+            <define rvar="tsStart"></define>
+            <define rvar="tsCompiled"></define>
+            <define rvar="tsBuilt"></define>
+            <table.>
+                <tr.>
+                    <th. reacton="rShow">
+                        <if cond=editable>Editable</if> Source Code&nbsp;
+                        <div style="float:right">
+                            <component><but #value><content></content></but>
+                                <template value=v >
+                                    <button #if="v<=0 || v==4 || texts.V[v]"
+                                        #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
+                                </template>
+                            </component>
 
-                        <but #value=1>Style</but>
-                        <but #value=2>Script</but>
-                        <but #value=3>Component</but>
-                        <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
-                        <but 
-                            #if="texts.V[1] || texts.V[2] || texts.V[3]"
-                            #value=-1>All</but>
-                        <but #value=0>Hide</but>
-                    </div>
-                </th.>
-                <th.><if cond=editable>Live</if> Result</th.></tr.>
+                            <but #value=1>Style</but>
+                            <but #value=2>Script</but>
+                            <but #value=3>Component</but>
+                            <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
+                            <but 
+                                #if="texts.V[1] || texts.V[2] || texts.V[3]"
+                                #value=-1>All</but>
+                            <but #value=0>Hide</but>
+                        </div>
+                    </th.>
+                    <th.><if cond=editable>Live</if> Result</th.>
+                </tr.>
                 <tr.>
                     <case reactOn=rShow>
                         <when cond="rShow.V > 0">
@@ -143,9 +156,16 @@
                         </else>
                     </case>
                     <td. class=sample>           
-                        <RHTML reacton=srcText #srctext="srcText.V"></RHTML>
+                        <RHTML reacton=srcText #srctext="srcText.V"
+                            beforecreateupdate="tsStart.V = performance.now()"
+                            onç="tsCompiled.V = performance.now()"
+                            aftercreateupdate="tsBuilt.V = performance.now()"
+                        ></RHTML>
                     </td.>
                 </tr.>
+                <tr.><td. colspan="2" reacton="tsStart,tsCompiled,tsBuilt">
+                    Compiled in {(tsCompiled.V - tsStart.V).toFixed(1)}ms + built in {(tsBuilt.V - tsCompiled.V).toFixed(1)}ms = {(tsBuilt.V - tsStart.V).toFixed(1)}ms
+                </td.></tr.>
             </table.>
         </template>
     </component>
@@ -336,11 +356,14 @@
                     (level <= 9 ? contents.U : lastDetails).push(entry);
                 }
             </script>
-            <component><HDR tagname #level id><content></content></HDR>
+            <component><HDR tagname #level #id><content></content></HDR>
                 <template>
                     <def var=nr #value="getNr(level)"></def>
                     <def var=hash #value="id||`s${pNum}.${nr}`"></def>
-                    <ELEMENT #tagname="tagname" #id="hash" onCreate="addContent(level, this)"><a href="#{hash}">{nr}. &nbsp;<content></content></a></ELEMENT>
+                    <ELEMENT #tagname="tagname" #id="hash" 
+                        onCreate="addContent(level, this)">
+                        <a href="#{hash}">{nr}. &nbsp;<content></content></a>
+                    </ELEMENT>
                 </template>
             </component>
             <div class=pageLayout>
@@ -370,7 +393,7 @@
                                 >
                             </a>
                         </div>
-                        <nav class=topbar style="grid-area: nav">
+                        <nav id="topbar" class=topbar style="grid-area: nav">
                             <a. href="."         #onclick=reroute #class:active="subpath==''">Intro</a.>
                             <a. href="docu"      #onclick=reroute #class:active="subpath=='docu'">Docu</a.>
                             <a. href="routing"   #onclick=reroute #class:active="subpath=='routing'">Routing</a.>
@@ -382,7 +405,7 @@
                 <main style.position="relative">
                     <button class="nav narrow-only"
                         style="position: fixed; bottom: 8pt; right: 8pt; background-color: var(--TC); z-index:1;"
-                        onclick="reroute('#TOC'); this.parentElement.nextElementSibling.scrollIntoView()"
+                        onclick="reroute('#topbar'); this.parentElement.nextElementSibling.scrollIntoView()"
                         >↑ Contents ↑</button>
                     
                     <!-- Here the contents of the page definition will be inserted -->

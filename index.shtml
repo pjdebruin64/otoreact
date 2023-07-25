@@ -9,7 +9,6 @@
     <meta name="viewport" content="width=device-width">
     <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications">
     <link rel=preload href="OtoReact.js"            as=script crossorigin>
-    <link rel=preload href="KoninklijkeOtolift.png" as=image>
     <!--
         <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
         <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
@@ -17,11 +16,7 @@
         <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
         <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
     -->
-    <link rel="shortcut icon"   href="otoreact.png" type="image/png"/>
-    <link rel="stylesheet"      href="index.css">
-    <link rel=preload href="webColors.json"         as=fetch crossorigin>
-    <link rel=preload href="dayjs.min.js"           as=fetch crossorigin>
-
+    <link rel="shortcut icon"   href="index_files/otoreact.png" type="image/png"/>
     <script>
         const 
             wiki = "https://en.wikipedia.org/wiki/",
@@ -29,9 +24,6 @@
             src="./",
             locationExternal = !/masterlist\/(test\/)?otoreact/i.test(location.href);
     
-    </script>
-    <script src="samples.js?" defer></script>
-    <script>
         var myIP = '<!--#echo var="REMOTE_ADDR"-->'
 
         window.dataLayer = window.dataLayer || [];
@@ -50,9 +42,8 @@
         }
     </script>
     <script type=module>
-        import {RCompile, RVAR, docLocation} from './OtoReact.js';
+        import { RVAR, docLocation} from './OtoReact.js';
         let popup = RVAR('popup', {display: 'none'});
-        RCompile(document.body, {bTiming:true, bAbortOnError: false}); 
 
         docLocation.Subscribe(() => {
             document.title =
@@ -67,48 +58,57 @@
 
         let mMobile = window.matchMedia("@media screen and (min-resolution: 150dpi)")
         let isMobile = RVAR('isMobile', mMobile.matches);
-        //mMobile.addListener(m => {isMobile.V = m.matches});
 
         // Auto-check for updates
-        let LastModified = null, hdrNoCache = new Headers();
-        hdrNoCache.append('Cache-Control', 'no-cache');
-        async function CheckForUpdates() {
-            let response = await fetch(location.href, LastModified == null
-                ? { method: 'HEAD' }
-                : { method: 'HEAD', headers: hdrNoCache });
+        /*
+        let LastModified, 
+            headers = new Headers({"Cache-Control": 'no-cache'});
+        (async function CheckForUpdates() {
+            let response = await fetch(location.href,
+                { method: 'HEAD', ... LastModified ? {headers} : {}}
+            );
             if (!response.ok)
                 return;
             let lm = response.headers.get('Last-Modified');
-            if (LastModified == null) {
-                LastModified = lm;
-                await CheckForUpdates();
-            }
-            else if (lm != LastModified)
-                location.reload();
-            else
-                setTimeout(CheckForUpdates, 5 * 60000);
-        }
-        //setTimeout(CheckForUpdates, 5 * 60000);
+            if (lm)
+                if (!LastModified) {
+                    LastModified = lm;
+                    await CheckForUpdates();
+                }
+                else if (lm != LastModified)
+                    location.reload();
+                else
+                    setTimeout(CheckForUpdates, 5 * 60000);
+        })();
+        */
     </script>
+    <script src="index_files/samples.js?"></script>
+    <link rel=preload href="OtoLib.html"           as=fetch crossorigin>
+    <link rel="stylesheet" href="index_files/index.css">
+    <link rel=preload href="index_files/KoninklijkeOtolift.png" as=image>
+    <link rel=preload href="demo/webColors.json"         as=fetch crossorigin>
+    <link rel=preload href="demo/dayjs.min.js"           as=fetch crossorigin>
     
 </head>
-<div reacton="isMobile">{isMobile.V ? 'Mobile' : ''}</div>
-<body onclick="popup.V=null" style.cursor=default hidden>
-    <script>document.body.hidden=true</script>
+<body hidden
+    rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']]"
+    oncreate="this.onclick = popup.Clear; // This avoids bAutoPointer"
+    >
 
-    <import src="Lib_Components.html">
+    <import src="index_files/Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
         <a href? #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo #srctext?="''" #bshow=true #editable?=true rvar?></demo>
+        <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout></pageLayout>
 
-        <RHTML #srctext ...rest></RHTML>
+        <RHTML #srctext></RHTML>
     </import>
-    <case thisreactson=docLocation #value="docLocation.subpath" hiding>
+
+    <case hiding #value="docLocation.subpath" thisreactson=docLocation>
         <when regmatch="^(index.shtml)?$">
             <pageLayout subpath="">
                 <pageHead>
@@ -116,8 +116,8 @@
                 </pageHead>
 
                 <section>
-                    <include src="C1_Introduction.html">
-                        <!--#include file="C1_Introduction.html"-->
+                    <include src="index_files/P1_Introduction.html">
+                        <!--#include file="index_files/P1_Introduction.html"-->
                     </include>                    
                 </section>
             </pageLayout>
@@ -129,28 +129,30 @@
                 </pageHead>
 
                 <section>
-                    <include src="C2_Concepts.html"><!--#include file="C2_Concepts.html"--></include>
+                    <include src="index_files/C1_Concepts.html">
+                        <!--#include file="index_files/C1_Concepts.html"-->
+                    </include>
                 </section>
                 <section>
-                    <include src="C3_HtmlElements.html"></include>
+                    <include src="index_files/C2_HtmlElements.html"></include>
                 </section>
                 <section>
-                    <include src="C4_Constructs.html"></include>
+                    <include src="index_files/C3_Constructs.html"></include>
                 </section>
                 <section>
-                    <include src="C5_Scripts.html"></include>
+                    <include src="index_files/C4_OtherSubjects.html"></include>
                 </section>
             </pageLayout>
 
         </when>
         <when match="routing">
-            <include src="P3_Routing.html"></include>
-        </when> 
+            <include src="index_files/P3_Routing.html"></include>
+        </when>
         <when match="otolib">
-            <include src="P4_OtoLib.html"></include>
+            <include src="index_files/P4_OtoLib.html"></include>
         </when> 
         <when match="download">
-            <include src="P5_Download.html"></include>
+            <include src="index_files/P5_Download.html"></include>
         </when>
         <else>
             Page '{docLocation.subpath}' not found
@@ -164,7 +166,7 @@
         border: 4px solid #FFE75B; padding: 8px; border-radius: 4px;
         outline: 8px solid white"
         >
-            This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a> and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a>.
+            This site uses cookies from <a href="https://policies.google.com/technologies/cookies">Google Analytics</a><!--  and from <a href="https://www.paypal.com/webapps/mpp/ua/cookie-full">PayPal</a> -->.
             <button onclick="cookiesAck.V=true">Understood</button>
         </div>
     </if>
@@ -172,12 +174,12 @@
         style="position: absolute; background-color: #FFFBE3; 
             border: 4px solid #FFE75B; padding: 8px; border-radius: 4px;
             outline: 8px solid white"
-        +style="popup.V || {display: 'none'}" thisreactson=popup
+        #style="popup.V || {display: 'none'}" thisreactson=popup
     >
         You can find more about me on my <a href="https://www.linkedin.com/in/peter-de-bruin-trautmann/">LinkedIn profile</a>,
         <br>and on my <a href="http://www.peterdebruin.net">personal homepage</a> in Dutch
     </div>
 
-    <!--#include file="Lib_Components.html"-->
+    <!--include file="Lib_Components.html"-->
   </body>
 </html>

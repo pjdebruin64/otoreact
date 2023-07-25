@@ -1,17 +1,26 @@
-declare const defaults: {
+declare type booly = boolean | string | number | object | null | undefined;
+declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bSubfile: boolean;
+    bSubf: boolean | 2;
     basePattern: string;
-    preformatted: string[];
+    bAutoSubscribe: boolean;
+    bAutoPointer: boolean;
+    bAutoReroute: boolean;
     bNoGlobals: boolean;
     bDollarRequired: boolean;
-    bSetPointer: boolean;
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
+    preformatted: string[];
     storePrefix: string;
+    version: number;
+    headers: HeadersInit;
+}>;
+declare type hHTMLElement = HTMLElement & {
+    b?: booly;
 };
+<<<<<<< HEAD
 declare type DOMBuilder = ((ar: Area, ...args: any[]) => Promise<void>) & {
     ws?: boolean;
     auto?: boolean;
@@ -70,49 +79,55 @@ declare type ConstructDef = {
     Cnm?: string;
 };
 declare type Template = (ar: Area, args: unknown[], mSlotTemplates: Map<string, Template[]>, cdef: ConstructDef, slotEnv: Environment) => Promise<void>;
+=======
+export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
+declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
+    T?: never;
+}) | (((t: T) => Promise<unknown>) & {
+    T: true;
+});
+>>>>>>> new-Context
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-declare class _RVAR<T = unknown> {
+export declare class _RVAR<T = unknown> {
     name?: string;
-    store?: Store;
-    storeName?: string;
-    constructor(name?: string, initial?: T | Promise<T>, store?: Store, storeName?: string);
-    private v;
+    constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
+    v: T;
+    private _Imm;
     _Subs: Set<Subscriber<T>>;
-    auto: Subscriber;
-    private get _sNm();
-    Subscribe(s: Subscriber<T>, bImmediate?: boolean, bCr?: boolean): this;
+    Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     get V(): T;
-    set V(t: T);
+    set V(v: T);
     get Set(): (t: T | Promise<T>) => T | Promise<T>;
-    get Clear(): (_: any) => any;
+    get Clear(): () => any;
     get U(): T;
     set U(t: T);
     SetDirty(): void;
-    Save(): void;
+    Exec(): Promise<void>;
     toString(): string;
 }
 export declare type RVAR<T = unknown> = _RVAR<T>;
 export declare type RVAR_Light<T> = T & {
+    Subscribe: (sub: Subscriber) => void;
+    Exec: () => Promise<void>;
+    Save: () => void;
     _Subs: Set<Subscriber>;
     _UpdTo?: Array<RVAR>;
-    Subscribe?: (sub: Subscriber) => void;
     store?: any;
-    Save?: () => void;
     readonly U?: T;
+    readonly V?: T;
 };
+<<<<<<< HEAD
 declare function Subscriber({ parN, bROnly }: Area, bldr: DOMBuilder, r: Range, arg?: any): Subscriber;
+=======
+>>>>>>> new-Context
 export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
-interface Key {
-}
-interface Hash {
-}
-export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
+export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class DocLoc extends _RVAR<string> {
     constructor();
     basepath: string;
@@ -125,5 +140,5 @@ declare class DocLoc extends _RVAR<string> {
     search(fld: string, val: string): string;
     RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
 }
-declare const DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
+declare let DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
 export { DL as docLocation, reroute };

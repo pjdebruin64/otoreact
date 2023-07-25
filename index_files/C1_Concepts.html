@@ -1,41 +1,65 @@
+
+<component>
+	<IDEMO src></IDEMO>
+	<template>
+		<code style="white-space: pre;">{src}</code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=src></rhtml></span>
+	</template>
+</component>
+
 <h1>RHTML Concepts</h1>
-This chapter introduces a number of basic RHTML concepts, but it also contains full documentation of all features.
-<br>Sections marked with a '*' are advanced and should be skipped on first reading.
+This chapter introduces and documents a number of basic RHTML concepts.
+<p>Sections and paragraphs marked with a '*' are advanced and may be skipped on first reading.
+<p>Notation</p>
+<def var="idemo" value="This is <{}b>bold<{}/b>"></def>
+<blockquote>
+    <idemo #src="idemo"></idemo>
+</blockquote>
+means:
+<blockquote>
+    Source text "{idemo}" produces output "<rhtml #srctext="idemo"></rhtml>".
+</blockquote>
 
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
-All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces, like <code>1 + 1 = \{1 + 1}</code>, which results in the text "1 + 1 = {1 + 1}".
+All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces: <idemo src="1 + 1 = \{1 + 1}"></idemo>
 <br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
 
 <p>
     The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
 </p>
-<p>
-    To include a normal pair of braces in RHTML, at least one of them must be escaped with a backslash.
-</p>
-
 <p>Within JavaScript, you can of course use the <a href="{MDN}Web/JavaScript/Reference/Template_literals"></a>JavaScript syntax for template literals</a>, using backquotes and dollar signs:</p>
 <pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
 <p>
-    If you prefer, you may add a dollar sign in RHTML as well, like <code>1 + 1 = $\{1 + 1}</code>.
+    If you prefer, you may add a dollar sign in RHTML as well: <idemo src="1 + 1 = $\{1 + 1}"></idemo>
 </p>
 <h4>Notes*</h4>
-<p>
-    If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write normal braces without backslashes.
-</p>
-<p>
-    Expression values <code>null</code> and <code>undefined</code> are not shown. This is unlike JavaScript template literals, where <code>`$\{null}`</code> yields <code>"null"</code>.
-</p>
-<p>
-    You may omit the expression, like <code>\{}</code>, which comes in handy if you want the parser to not recognize an HTML tag:
-</p>
-<demo #srctext="sampleBraces"></demo>
+<ul>
+    <li>
+        Literal (normal) braces can be shown by preceeding them with a backslash: <idemo src="\\{ 1 + 1 }"></idemo>
+        <p>
+            In all other cases, backslashes stand for themselves: <idemo src="\ \n \\ \\\{ 1 + 1 \}"></idemo>
+        </p>
+    </li>
+    <li>
+        To include a literal backslash or dollar sign right in front of an embedded expression, insert a dollar sign in between: <idemo src="\$\{1+1}"></idemo>, <idemo src="$$\{1+1}"></idemo>
+    </li>
+    <li>
+        If you set the <a href="#Options">option</a> 'bDollarRequired', then the dollar sign becomes compulsory, and you can write literal braces without backslashes.
+    </li>
+    <li>
+        Expression values <code>null</code> and <code>undefined</code> are not shown: <idemo src='"\{null} \{undefined}"'></idemo>.
+        <p>This is unlike JavaScript template literals, where <code>null</code> and <code>undefined</code> are spelled out: <idemo src="\{  `$\{null} $\{undefined}`  }"></idemo>
+    </li>
+    <li>
+        You may omit the expression, like <code>\{ \}</code>, which comes in handy if you want the parser to not recognize an HTML tag: <idemo src="<\{}br>"></idemo>
+    </li>
+</ul>
 
 <h2 id="ConstructsOverview">RHTML constructs overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>
 <ul>
     <li>
-        <a href=#DEFINE><elm>DEFINE</elm></a> introduces a local variable or reactive variable
+        <a href=#DEFINE><elm>DEF</elm></a> or <elm>DEFINE</elm> introduces a local variable or reactive variable
     </li>
     <li>
         <a href=#IF><elm>IF</elm></a> specifies a conditional block of RHTML
@@ -73,6 +97,9 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
     <li>
         <a href="#ATTRIBUTE"><elm>ATTRIBUTE</elm></a> adds a variably named attribute to its parent HTML element.
     </li>
+    <li>
+        <a href="#COMMENT"><elm>COMMENT</elm></a> inserts a comment containing variable text.
+    </li>
 </ul>
 Note: We write construct names in uppercase and attribute names in lowercase here, but as in HTML, both are case independent.
 
@@ -82,20 +109,21 @@ The OtoReact module makes the following functions available for import. They are
 <br>The question marks indicate optional arguments.
 <ul>
     <li>
-        <code>RCompile(HTMLElement, options?)</code> compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
-    </li>
-    <li>
         <code>RVAR(name?, initialValue?, store?)</code> creates a <a href="#RVAR">reactive variable</a>.
-    </li>
-    <li>
-        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
     </li>
     <li id=rangeFunction>
         <code>range(start?, count, step?)</code> yields an iterable range of <i>count</i> numerical values: <i>start</i>, <i>start</i>+<i>step</i>, &hellip;, <i>start</i>+(<i>count</i>-1) * <i>step</i>.
         <br>You can use this with <a href=#FOR><elm>FOR</elm></a>.
     </li>
+    <li>
+        <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
+    </li>
     <li id=RFetch>
         * <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
+    </li>
+    <li>
+        * <code>RCompile(HTMLElement, options?)</code> is available as an alternative way to initiate RHTML compilation.
+        <br>It compiles and builds the given HTMLElement as RHTML, using the given <a href=#Options>options</a>.
     </li>
 </ul>
 <p>
@@ -124,20 +152,20 @@ Ordinary JavaScript in a browser environment distinguishes between local variabl
 Browser-based JavaScript also has a distinction between <i>classic</i> JavaScript and <i>module</i> JavaScript, more about that in our <a href=#SCRIPT>section on <elm>SCRIPT</elm></a>.
 
 <h4>RHTML local variables</h4>
-<p>RHTML adds another kind of variable: <i>RHTML local variables</i>; these are visible in all <u>inline</u> JavaScript code within a <i>block of RHTML code</i>.</p>
+<p>RHTML adds one other kind of variable: <i>RHTML local variables</i>; these are visible in all local JavaScript code within a <i>block of RHTML code</i>.</p>
 <p>These are introduced by the following RHTML constructs:</p>
 <ul>
     <li>
-        Constructs <elm>DEFINE</elm> and <elm>SCRIPT type="otoreact/local"</elm> introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag.
+        Constructs <elm>DEFINE</elm>, <elm>SCRIPT type="otoreact/local"</elm>, <elm>SCRIPT type="otoreact/static"</elm>, <elm>IMPORT defines=&hellip;</elm>, and <elm>DOCUMENT name</elm> introduce local variable(s) visible in the <u>surrounding</u> block, following the construct closing tag.
     </li>
     <li>
-        Constructs <elm>FOR</elm>, <elm>CASE value</elm> with capturing, and <elm>COMPONENT</elm> templates with parameters introduce local variables visible <u>within</u> the construct block.
+        Constructs <elm>FOR</elm>, <elm>CASE value</elm> with capturing, <elm>COMPONENT</elm> templates with parameters, and <elm>DOCUMENT params? window?</elm> introduce local variables visible <u>within</u> the construct block.
     </li>
 </ul>
 <p>
     RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
 </p>
-<p>RHTML local variables are <u>not</u> visible within other <elm>SCRIPT</elm> embedded or external scripts; these are executed just once in global scope.</p>
+<p>RHTML local variables are <u>not</u> visible within non-local <elm>SCRIPT</elm> embedded or external scripts; these scripts are executed just once in global scope.</p>
 
 <h4>Global variables in RHTML</h4>
 Global variables are visible in RHTML inline scripts, of course.
@@ -151,7 +179,7 @@ Global variables are visible in RHTML inline scripts, of course.
         In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
     </li>
     <li>
-        Or by using the <code>defines</code> attribute of <a href="#SCRIPT"><elm>SCRIPT type="otoreact"</elm></a>.
+        Or by writing <a href="#SCRIPT"><elm>SCRIPT type="otoreact/global" defines=&hellip;</elm></a>.
     </li>
 </ul>
     
@@ -192,7 +220,7 @@ Global variables are visible in RHTML inline scripts, of course.
     </dd>
     <dt><code>subscriber</code>*</dt>
     <dd>
-        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR, as by <code>x.Subscribe(subscriber)</code>.
+        A routine which is <a href="#Subscribe">subscribed</a> to the RVAR for immediate execution, as by <code>x.Subscribe(subscriber, true)</code>.
     </dd>
     <dt><code>storename</code>*</dt>
     <dd>See <a href="#Persistence">Persistence</a>.</dd>
@@ -226,15 +254,18 @@ Global variables are visible in RHTML inline scripts, of course.
     <dd>
         The RVAR can be explicitly set dirty by calling <code>x.SetDirty()</code>.
     </dd>
-    <dt id=Subscribe><code class=sourcecode>x.Subscribe(subs, bImmediate?, bInit = bImmediate)</code> *</dt>
+    <dt id=Subscribe><code class=sourcecode>x.Subscribe(<i>subs</i>, <i>bImmediate</i>?, <i>bInit</i>?)</code> *</dt>
     <dd>
-        Routine <code>subs</code> is registered as a subscriber to <code>x</code>, so it will be called whenever <code>x</code> has been set dirty.
-        <br>When <code>bImmediate</code> is truthy, <code>subs</code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
-        <br>When <code>bInit</code> is truthy, then <code>subs</code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+        Routine <code><i>subs</i></code>, when not null, is registered as a subscriber to <code>x</code>, so <code><i>subs</i>(x.V)</code> will be executed whenever <code>x</code> has been set dirty.
+        <p>When <code><i>bImmediate</i></code> is truthy, <code><i>subs</i></code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
+        <p>When <code><i>bInit</i></code> is truthy, then <code><i>subs</i></code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+        <p>
+            The return value is <code>x</code>, so calls to <code>Subscribe</code> can be chained.
+        </p>
     </dd>
-    <dt><code class=sourcecode>x.UnSubscribe(subs)</code> *</dt>
+    <dt><code class=sourcecode>x.Unsubscribe(<i>subs</i>)</code> *</dt>
     <dd>
-        Unregisters a routine <code>subs</code> previously registered as a subscriber to <code>x</code>.
+        Unregisters a routine <code><i>subs</i></code> previously registered as a subscriber to <code>x</code>.
     </dd>
     <dt><code class=sourcecode>x.Set(value)</code> *</dt>
     <dd>
@@ -289,14 +320,18 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <a 
 
 
 <h2>Style sheets</h2>
-Style sheets can be included anywhere using the <elm>STYLE</elm> element as in HTML. OtoReact will move them to the document head so they don't get repeated or lost.
+Internal or external <elm>STYLE</elm> style sheets can be included anywhere and you can choose whether they are effective in local or global scope.
 <p>
-    Styles sheets have global effect, except inside an 'isolated' <a href=#COMPONENT>component</a> or inside <elm>RHTML</elm> text.
-    <br>There is no provision yet for style sheets with local scope. To use local styling, just add local class names to each styling rule.
+    With <elm>RSTYLE</elm>, one can dynamically <i>generate</i> style sheets, using all RHTML constructs and embedded expressions.
+    One can for example:
+    <ul>
+        <li>Define a style based on variable data and use this style on multiple places in one or more stylesheets,</li>
+        <li>Use a FOR loop to define styles for all columns in a table, based on column specs fetched from a database,</li>
+        <li>Create style sheets that react on state changes.</li>
+    </ul>
 </p>
 <p>
-    Style sheets inserted with <elm>STYLE</elm> <u>cannot contain interpolated strings</u>, because the HTML parser does not allow that.
-    <br>To build up dynamic style sheets using string interpolation and other OtoReact features, you can use <a href=#RSTYLE><elm>RSTYLE</elm></a>.
+    See <a href=#RSTYLE><{}STYLE> and <{}RSTYLE></a> for details.
 </p>
 
 
@@ -326,18 +361,18 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
         <br>It will do so again anytime the DOM tree changes.
     </li>
     <li>
-        Whenever some RVAR is marked dirty, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all reacting DOM tree parts to get updated by their registered builder routine in its registered environment.
+        Whenever some RVAR is being marked dirty by a user event or otherwise, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all reacting DOM tree parts to be updated by their registered builder routine in its registered environment.
         <br>The updating takes place at the next 'event cycle'.
         <br>While updating, all present HTML elements will remain in place as much as possible, so that any elements that had received focus or input data will keep that.
     </li>
 </ol>
 
 
-<h2>Limitations inflicted by the parser</h2>
-Using the browser HTML parser inflicts us some limitations, as it isn't tailored for RHTML. Such as:
+<h2 id="Limitations">Limitations inflicted by the parser</h2>
+Using the browser HTML parser inflicts on us some limitations, as the parser isn't tailored for RHTML. Such as:
 <ul>
     <li><b>Element arrangement</b>
-        <br>The HTML parser forces elements to be arranged according to HTML rules, and will <i>silently rearrange them</i> if they are not.
+        <br>The HTML parser forces elements in some cases to be arranged according to HTML rules, and will <i>silently rearrange them</i> if they are not.
         <br>Notably:
         <ul>
             <li>Table-related elements TABLE, THEAD, TBODY, TFOOT, TR may only contain appropriate children.
@@ -389,7 +424,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         As attribute names in HTML are case-insensitive, the parser makes them all lowercase.
         <ul>
             <li>As RHTML sometimes uses attribute names as bound variables, such variables will be lowercase, even if you wrote them with uppercase, and OtoReact can't warn you about this.</li>
-            <li>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), which will only work for class names in lowercase.</li>
+            <li>There is also a feature for conditional classes (<code>#class:someclass="someBoolean"</code>), that will only work for class names in lowercase.</li>
             <li>RHTML allows you to use attributes to set DOM and Style properties, but these property names are case sensitive. So OtoReact receives the property name in lowercase and has to restore proper casing.</li>
         </ul>
     </li>
@@ -398,7 +433,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
         There are more cases where the browser doesn't inform you of errors, which may result in strange behaviour.
     </li>
 </ul>
-<p>I imagine Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.</p>
+<p>I imagine a formalism similar to Reactive HTML one day being natively supported by the browser. In that case, these limitations can be lifted.</p>
 
 <h3>Problem solving</h3>
 <ul>
@@ -406,7 +441,7 @@ Using the browser HTML parser inflicts us some limitations, as it isn't tailored
     When you get weird errors, you may have forgotten to add dots where needed.
     <br>Otherwise, you may want to check how the browser has parsed your document:
     <ol>
-        <li>Outcomment or remove your compiler invocation: <code>// RCompile(&hellip;)</code></li>
+        <li>Outcomment or remove your compiler invocation, like <code>_RHTML</code> or <code>// RCompile(&hellip;)</code></li>
         <li>Reload your application</li>
         <li>Inspect the parsed DOM-tree using your browsers development tools. Either:
             <ul>

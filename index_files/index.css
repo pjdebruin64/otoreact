@@ -58,6 +58,7 @@ pre, code, elm, .pre {
     font: var(--Code);
     color: darkblue;
     background-color: rgb(236, 236, 236);
+    font-weight: normal;
 }
 elm::before { content: "<"; }
 elm::after  { content: ">"; }
@@ -68,12 +69,13 @@ comm { color: green; }
 comm::before { content: "<!-- "; }
 comm::after  { content: " -->"; }
 
-dt  {margin-left:1em; margin-top: .5em; }
+dt  {margin-left:1em; margin-top: .5em; font-weight: 500;}
 dd  {margin-left:3em}
 p, ol, ul, li  {margin: .4em 0}
 h1  {font-size: 2em}
 h2  {font-size: 1.5em}
 h3,h4  {margin: .6em 0}
+blockquote {margin: .5em 40px}
 
 a:not([target]) {
     text-decoration: none;

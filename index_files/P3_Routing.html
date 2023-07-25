@@ -27,14 +27,20 @@ Now, <i>URL routing</i> means routing different URLs to different virtual pages,
 </p>
 
 <h2>Variants of URL routing</h2>
+<style scope="local">
+    .o {color: deeppink}
+    .p {color: slateblue}
+    .s {color: limegreen}
+    .h {color: orange}
+</style>
 An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like 
-"<span style="color:deeppink">https://otoreact.dev:80</span><span style="color:slateblue">/some/path</span><span style="color:limegreen">?param1=A&amp;param2=B</span><span style="color:orange">#someHash</span>", consists of several parts that can be used for routing.
+"<span class=o>https://otoreact.dev:80</span><span class=p>/some/path</span><span class=s>?param1=A&amp;param2=B</span><span class=h>#someHash</span>", consists of several parts that can be used for routing.
 <ul>
     <li>
-        The protocol, host, and optional port, together called the 'origin' "<span style="color:deeppink">https://otoreact.dev:80</span>", must remain the same for all pages in an application, and cannot be used for routing.
+        The protocol, host, and optional port, together called the '<b>origin</b>' "<span class=o>https://otoreact.dev:80</span>", must remain the same for all pages in an application, and cannot be used for routing.
     </li>
     <li>
-        The 'pathname' "<span style="color:slateblue">/some/path</span>" is suited for routing:
+        The '<b>pathname</b>' "<span class=p>/some/path</span>" is suited for routing:
         <ul>
             <li>"https://yourdomain.com/inventory" could be your inventory page</li>
             <li>"https://yourdomain.com/customers" could be your customers list</li>
@@ -49,25 +55,32 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like
                 <br>When you are on a shared hosting server, you may not be allowed to modify the server configuration file. In that case, you have to resort to 'search string' routing.
             </li>
             <li>
-                When you want to use pathnames composed of multiple segments separated by a slash, like "/customer/12345", then there is a problem 
+                When you want to use pathnames composed of multiple segments separated by a slash, like "/customer/12345", then there is a problem when using relative URLs, because they depend on the base path from which the page is loaded, which may vary.
+                <p>In OtoReact this can be remedied by inserting <code>\{docLocation.basepath}</code> before the relative URL, to turn it into an absolute URL without hard-coding a fixed base path.</p>
             </li>
         </ol>
     </li>
     <li>
-        The optional 'search string' "<span style="color:limegreen">?param1=A&amp;param2=B</span>"
+        The optional '<b>search string</b>' "<span class=s>?param1=A&amp;param2=B</span>" is suited for routing too, and does not have the complications listed above.
+        <p>
+            It must start with a question mark "<span class="s">?</span>", but isn't required to contain parameter name-value-pairs. It can be a path like "<span class=s>?/some/path</span>".
+        </p>
     </li>
     <li>
-        The optional 'hash' or 'fragment' "<span style="color:orange">#someHash</span>" could be used for routing too.
+        The optional '<b>hash</b>' or 'fragment' "<span class=h>#someHash</span>" is suited for routing too, and doesn't have the complications of pathname routing either.
+        <p>A drawback is that one then cannot use the hash to create internal document links.</p>
+        <p>An advantage is that web and browser document caching will be much better.</p>
     </li>
 </ul>
 
 <h2>How is URL Routing achieved</h2>
 <ol>
     <li>
-        When using the pathname for routing, then the web server has to be configured to serve the same web application on different pathnames.
+        When the pathname is used for routing, then the web server has to be configured to serve the same web application on different pathnames.
+        <br>See "Complication 1" above.
     </li>
     <li>
-        When the application is opened with a specific URL, it has to "route" the URL to the correct page definition.
+        When the application is opened with a specific URL, the application has to "route" the URL to the correct page definition.
     </li>
     <li>
         When the user clicks on a link to a different internal page, then:
@@ -86,7 +99,47 @@ An (absolute) URL (<a href="{wiki}URL">Uniform Resource Locator</a>), like
 </ol>
 
 <h2>How does OtoReact facilitate URL Routing</h2>
+An OtoReact application can implement routing by e.g. a simple <elm>CASE</elm> distinction on the current URL, as it is provided by a special RVAR <a href="docu#URLRouting"><code>docLocation</code></a>.
 
-(See <a href="docu#URLRouting">OtoReact routing facilities</a> for a summary)
+<p><code>docLocation</code> provides a few additional features, including <code>docLocation.subpath</code>, yielding the current subpath.</p>
+
+<p>
+    The <elm>CASE</elm><elm>WHEN</elm> construct also has a feature targeted at URL routing, namely <code>urlmatch</code>.
+    It allows matching (part of) a URL to a pattern, and binding local variables to <i>URL-decoded</i> parts of that URL.
+</p>
+
+<p>
+    Internal links must either have a handler <code>#onclick=reroute</code> to intercept the internal page request, or one must set <a href=docu#Options>option <code>bAutoReroute</code></a>.
+</p>
+
+<p>The body of a simple application implementing the URLs listed above could be like:</p>
+
+<pre class="sourcecode" #innertext='
+`<body rhtml="bAutoReroute: true">
+    <case #value="docLocation.subpath" reacton="docLocation">
+
+        <when urlmatch="/inventory">
+            <include src="inventory.html"></include>
+        </when>
+
+        <when urlmatch="/customers">
+            <include src="customers.html"></include>
+        </when>
+
+        <when urlmatch="/customer/\{customerNo\}">
+            <!-- Now &apos;customerNo&apos; is a local variable bound to the url-decoded part of &apos;docLocation.subpath&apos; after "/customer/" -->
+            <include src="customer.html"></include>
+        </when>
+
+    </case>
+</body>`'></pre>
+
+<p>
+    For a basic working demo with full source code, see this <a href="routingdemo/" target="_blank">Routingdemo</a>.
+</p>
+
+<p>
+    See <a href="docu#URLRouting">OtoReact routing facilities</a> for the documentation of all facilities.
+</p>
 
 </pageLayout>

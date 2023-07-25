@@ -6,7 +6,7 @@ const
     , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
     , markJScript = (script: string) =>
         `<span style='color:purple'>${
-            script.replace(/\/[^\/*](?:\\\/|.)*?\/|(\/\/[^\n]*|\/\*.*?\*\/)/gs
+            script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/)/g
                 , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
             )
         }</span>`
@@ -14,8 +14,8 @@ const
         if (/^\/?RSTYLE/i.test(mTag))
             bRSTYLE = !bRSTYLE;
         return `<span class=mTag>&lt;${
-                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])(.*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{.*?\}|.)*?\})|./gsi
-                //            (a1                                                                                               )   (a2  )(a3 )   (a4      )      (mExpr              )            
+                mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])([^]*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{[^]*?\}|[^])*?\})|./gi
+                //               (a1                                                                                             )   (a2  )(a3   )   (a4          )      (mExpr                  )            
                     , (m,a1,a2,a3,a4,mExpr) => 
                         ( mExpr ? `<span class=otored>${mExpr}</span>`
                         : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
@@ -25,7 +25,7 @@ const
                     )
             }&gt;</span>`;
     }
-    , reg = /(<!--.*?-->)|<((script|style).*?)>(.*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:".*?"|'.*?'|.)*?)>|(?:\\)\{|(\$?\{(?:\{.*?\}|.)*?\})|([<>&])/gis
+    , reg = /(<!--[^]*?-->)|<((script|style)[^]*?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi
     , ColorCode = (html: string) =>
       `<span style='color:black'>${
           html.replace(
@@ -60,7 +60,7 @@ function Indent(text: string, n: number) {
 
 
 const sampleGreeting=
-`<!-- Create a local reactive variable (RVAR) to receive the entered name -->
+`<!-- Create a local reactive state variable (RVAR) to receive the entered name -->
 <DEFINE rvar='yourName'></DEFINE>
 
 <p>
@@ -83,30 +83,29 @@ const sampleGreeting=
     <head>
         <script type=module src="OtoReact.js"></script>
     </head>
-    <body hidden type=rhtml>
+    <body rhtml>
 
         <!-- Here goes your RHTML -->
 
     </body>
 </html>
-`;
-
-const sampleServerData2=
-`<style>
-  table.colorTable {
+`
+, sampleServerData2=
+`<style scope=local>
+  main {
+    height:45em;
+    width:100%;
+    overflow-y:scroll;
+  }
+  table {
     margin: auto;
   }
-  table.colorTable td {
+  td {
     padding: 0px 4px;
     text-align: center;
     max-width: 8em;
     overflow:hidden;
     font-size: small;
-  }
-  div.scrollbox {
-    height:100ex;
-    width:100%;
-    overflow-y:scroll;
   }
 </style>
 
@@ -118,7 +117,7 @@ const ColorTable = RVAR( null,
   /* Asynchronously fetch the data.
     When the data has been received, the RVAR will be updated and the table will be drawn.
    */
-  RFetch("webColors.json").then(response => response.json())
+  RFetch("demo/webColors.json").then(response => response.json())
 );
 
 /* Utility for 2-digit hex code */
@@ -130,26 +129,27 @@ function toHex(n){
 let handle=RVAR();
 
 function StartStop() {
-  handle.V =
-    ( handle.V
-    ? clearInterval(handle.V)
+  if (handle.V > 0) {
+    clearInterval(handle.V);
+    handle.V = -1;
+  }
+  else
     // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
-    : setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 330)
-    );
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 350)
 }
 </script>
 
-<div class=scrollbox>
-<!-- Here we build our table.
+<main>
+<!--
     The dots behind tag names are needed because HTML does not allow <FOR> as a child of <TABLE>.
     OtoReact removes these dots.
 -->
-<table. class=colorTable>
+<table.>
 
   <!-- Table caption -->
   <caption.>Web Colors 
     <button onclick="StartStop();" reacton=handle style="float:right; width:5em">
-        {handle.V ? 'Stop' : 'Rotate'}
+        {handle.V > 0 ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
 
@@ -161,34 +161,54 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
-    <tr. 
-      style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
-      #style.color = "C.green<148 ? 'white' : 'black'"
-    >
-      <td.>{C.name}</td.>
-      <td.>{C.red}</td.>
-      <td.>{C.green}</td.>
-      <td.>{C.blue}</td.>
-      <td.>
-        #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
-      </td.>
-    </tr.>
-  </FOR>
+  <!-- RVAR 'ColorTable' is defined in the script; we need a 'reacton' attribute to tell OtoReact that this piece
+    of code should react on changes in 'ColorTable.V'.
+    'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if 'C' remains the same object.
+  -->
+  <tbody.>
+    <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+      <tr. 
+        style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
+        #style.color = "C.green<148 ? 'white' : 'black'"
+      >
+        <td.>{C.name}</td.>
+        <td.>{C.red}</td.>
+        <td.>{C.green}</td.>
+        <td.>{C.blue}</td.>
+        <td.>
+          #{toHex(C.red)+toHex(C.green)+toHex(C.blue)}
+        </td.>
+      </tr.>
+    </FOR>
+  </tbody.>
 
 </table.>
-</div>`;
+</main>`;
+/* 
+
+  @keyframes Disappearing {
+    from {line-height: 80%}
+    to   {line-height: 0%}
+  }  
+  table.animate > tbody > tr:first-child {
+    animation: Disappearing 280ms linear 70ms forwards
+  }
+
+  
+<table. #class:animate="handle.V" thisreactson=handle>
+*/
 
 const sampleBraces =
 `1 + 1 = {1 + 1}  \\{ Check }
 <p>
-Null and undefined are not shown:
-  "{null} {undefined}".
+Null and undefined are not shown:    "{null} {undefined}".
 <br>
-Compare this JavaScript template literal:
-  "{ \`\${null} \${undefined}\` }".
+Compare this JavaScript template literal:    "{ \`\${null} \${undefined}\` }".
 <p>
-Tag <{}br> looks better in source code than &lt;br&gt;`;
+Tag <{}br> looks better in source code than &lt;br&gt;
+<p>
+To show a literal backslash right in front of an embedded expression, write \\$:
+\\${ 1 + 1 }`;
 
 const sampleGreeting2 =
 `<!-- Create a "Reactive variable" with a local name and
@@ -216,15 +236,18 @@ const sampleSqrt=
 <button onclick="x.V += 1">Increment</button>`;
 
 const sampleInlineStyles=
-`<p style.backgroundColor=lightgrey> Light grey </p>
+`<p style.backgroundColor="lightgrey"> Light grey </p>
 
 <define var=color value="red"></define>
 <p #style.backgroundColor="color"> Colored </p>
 
-<define var=myStyle 
-  #value="{color: 'blue',fontStyle: 'italic'}"
+<define var=stringStyle value="color: orange; font-style: italic"
 ></define>
-<p +style="myStyle">My style</p>`;
+<p #style="stringStyle">String style</p>
+
+<define var=objectStyle #value="{color: 'green', fontWeight: 'bold'}"
+></define>
+<p #style="objectStyle">Object style</p>`;
 
 const sampleParticipants=
 `<!-- Here we use a local RVAR -->
@@ -361,7 +384,7 @@ This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>`;
 
 const sampleA =
-`<import src=" OtoLib.html"><a></a></import>
+`<import src="OtoLib.html"><a></a></import>
 
 <p>This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>
@@ -430,18 +453,21 @@ td { text-align: center }
 `;
 
 const sampleTicTacToe = 
-`<!-- Styles are global; we must use a class to restrict these rules to the current demo -->
-<style>
-    div.tic-tac-toe {
+`<style>
+    main {
         display:grid;
         grid-template-columns: auto 120pt;
         background-color: white;
     }
-    .tic-tac-toe table {
+    header {
+        grid-column: 1/3;
+        text-align: center;
+    }
+    table {
         width: fit-content;
         margin:1ex
     }
-    .tic-tac-toe td {
+    td {
         height: 4ex; width: 4ex;
         padding: 0px;
         border: 2px solid;
@@ -449,7 +475,7 @@ const sampleTicTacToe =
         text-align: center;
         vertical-align: middle;
     }
-    .tic-tac-toe button {
+    button {
         font-size: 80%;
     }
 </style>
@@ -506,11 +532,10 @@ const sampleTicTacToe =
   }
 </script>
 
-<div class=tic-tac-toe>
-  <!-- Caption -->
-  <div style="grid-column: 1/3; text-align: center;">
+<main>
+  <header>
     <b>Tic-Tac-Toe</b>
-  </div>
+  </header>
 
   <!-- Show the board -->
   <table. reacton=board>
@@ -524,6 +549,7 @@ const sampleTicTacToe =
       </tr.>
     </for>
   </table.>
+  
   <!-- Show either the outcome, or the player to move -->
   <div>
     <p reacton=outcome,toMove>
@@ -541,32 +567,31 @@ const sampleTicTacToe =
     </p>
     <button onclick="ClearAll()">Clear</button>
   </div>
-</div>`;
+</main>`;
 
 const sampleRHTML =
 `<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
 <textarea @value="sourcecode.V" rows=3 cols=50></textarea>
-<br>
-<RHTML #srctext=sourcecode.V></RHTML>`;
+<p>
+<RHTML #srctext=sourcecode.V></RHTML>
+<p>
+<RHTML>{srctext.V}</RHTML>`;
 
 const sampleStyleTemplate =
-`<def rvar=Hue #value="0"></def>
-Current hue is: {Hue.V.toFixed()}
-
+`<def rvar=Hue value="0.0"></def>
 <RSTYLE>
   h2 {
-    color: hsl( \${Hue}, 100%, 50%);
+    color: hsl( \${Hue}deg 100% 50% );
   }
 </RSTYLE>
 
 <h2>Section head</h2>
 Section contents
 <h2>Another section head</h2>
-
-Click here:
-  <button onclick="Hue.V = Math.random() * 360">Random hue</button>`;
+<button onclick="Hue.V = (Math.random() * 360).toFixed(1)">Change hue</button>
+Current hue is: {Hue.V}.`;
 
 const C1=
 `<!-- Component signature with parameter -->
@@ -616,8 +641,8 @@ const sampleFormatting =
 <define var=today #value="new Date()"></define>
 <dl>
     <dt>Internationalization API</dt>
-    <script>
-        globalThis.dateFmt = 
+    <script type=otoreact defines=dateFmt>
+        const dateFmt = 
             new Intl.DateTimeFormat('en', 
                 {day:'numeric', month: 'short'});
     </script>
@@ -626,40 +651,51 @@ const sampleFormatting =
     </dd>
 
     <dt>Day.js</dt>
-    <script async src="./dayjs.min.js"></script>
+    <script async src="demo/dayjs.min.js"></script>
     <dd>
         Today is {dayjs(today).format('MMM D')}.
     </dd>
 
     <dt>Standard Date methods</dt>
     <dd>
-      Today is {today.toString().replace(/\\w+ (\\w+ \\w+) .*/, '$1')}.
+      Today is {today.toString().replace(/\\w+ (\\w+) 0*(\\d+) .*/, '$1 $2')}.
     </dd>
 </dl>`
 
 const sampleDocument = 
-`<def rvar=check #value="false"></def>
+`<style>
+h3 {color: green}
+</style>
+<def rvar=check #value="false"></def>
 
-<document name=showCheck>
-    <h4>This is a separate document.</h4>
-    <label reacton=check style="display: block; margin: 30px">
+<document name=demoDoc ondestroy="demoDoc.closeAll()">
+    <style> 
+        label { display: block; margin: 30px }
+    </style>
+    <h3>This is a separate document.</h3>
+    <label reacton=check>
         <input type=checkbox @checked=check.V> Check me!
     </label>
 </document>
 
+Please click
 <button onclick="
-    showCheck.open(''
-        ,\`screenX=\${window.screenX + event.clientX - 100},
+    demoDoc.open(''
+        ,\`screenX=\${window.screenX + event.clientX},
         screenY=\${window.screenY + event.clientY + 200},
         width=250,height=120\`
         )"
 >Pop up</button>
+and note how the checkbox in the popup browser window is synchronized with the checkbox below.
 
+<p>
 <label reacton=check>
     <input type=checkbox @checked=check.V> Checked.
 </label>
 <p>
-<button onclick="showCheck.print()">Print</button>`
+
+Click <button onclick="demoDoc.print()">Print</button>
+to open a print dialog for a document without showing it in a browser window`
 
 const sampleRadioGroup=
 `<component>
@@ -717,28 +753,29 @@ const demoRendering=
   }
 </style>
 
-<h5>RHTML source:</h5>
+<h5>Editable RHTML source:</h5>
 <def rvar=source store=sessionStorage value=
-"<def var=x value=A></def>
-<ul> <li> x = \\{x\\} </ul>"
+"<!-- Source code -->
+<def var=x value=A></def>
+<ul> <li> x = \\{x\\} </ul>
+<comment> x = \\{x\\} </comment>"
 ></def>
 <textarea rows=5 cols=50 @value=source.V></textarea>
 
-<h5>Parsed HTML:</h5>
-<def rvar=ParsedHTML></def>
+<h5>Source DOM tree:</h5>
+<def rvar=SourceDOM></def>
 <div hidden #innerhtml=source.V 
-    *+innerhtml= "ParsedHTML.V"
+    *+innerhtml= "SourceDOM.V"
 ></div>
-<pre>{ParsedHTML.V}</pre>
+<pre>{SourceDOM.V}</pre>
 
-<h5>RHTML rendering:</h5>
-<def rvar=RenderedHTML></def>
-<rhtml #srctext=source.V
-  oncreateupdate= "RenderedHTML.V = this.shadowRoot.innerHTML"
-></rhtml>
+<h5>RHTML rendered output:</h5>
+<def rvar=Result></def>
+<rhtml oncreateupdate= "Result.V = this.shadowRoot.innerHTML"
+>{source.V}</rhtml>
 
-<h5>Rendered HTML:</h5>
-<pre>{RenderedHTML.V}</pre>`;
+<h5>Created DOM tree:</h5>
+<pre>{Result.V}</pre>`;
 
 const demoScoping=
 `(Look at the source code please)
@@ -750,7 +787,7 @@ const demoScoping=
     Now A = { A }, F(1) = { F(1) }
 </p>
 
-<p style="border: 1px solid; padding:2px">
+<p style="border: 1px solid; padding:1ex">
     <define var=A #value=20></define>
     Here we have a new A = {A}, but F still refers to the orinal A, so F(2) = {F(2)}
 </p>
@@ -761,12 +798,10 @@ const basicSetup =
 `<!DOCTYPE html>
 <html>
     <head>
-        <script type=module>
-            import {RCompile} from './OtoReact.js';
-            RCompile(document.body)
-        </script>
+        <meta charset="utf-8">
+        <script type=module src="./OtoReact.js"></script>
     </head>
-    <body hidden>
+    <body hidden RHTML>
         <!-- Here goes your RHTML -->
         <FOR let=i of="range(5)">
             <div>Hello world {i}</div>
@@ -800,15 +835,17 @@ const demoRadiogroup=
 </case>`;
 
 const demoCheckbox=
-`<import src="OtoLib.html"><checkbox></checkbox></import>
+`<import src="OtoLib.html">
+  <checkbox></checkbox>
+</import>
 
 <def rvar="check" #value="null"></def>
 
-<checkbox @value="check.V">Click me</checkbox>
-<br>
+<checkbox @value="check.V">Click me</checkbox>,
+or
 <button onclick="check.V = null">Set to indeterminate</button>
 
- <p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
+<p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
 
 const demoTables =
 `<style>
@@ -880,9 +917,63 @@ const demoAutoSubscribtion = `
 	<button onclick="a.V++">{a}</button>
 	<span>a = {a}</span>
 </p>
+
 <p>
 	<def rvar=b #value=0></def>
 	<!-- Here only the <span> reacts on b: -->
 	<button onclick="b.V++">{b}</button>
 	<span reacton=b>b = {b}</span>
 </p>`
+
+const demoLocalRstyles = 
+`<component>
+  <T color></T>
+
+  <!-- This style sheet is local to the component but shared by all component instances -->
+  <STYLE scope=local>
+    span {background-color: azure; padding: 4px}
+  </STYLE>
+
+  <template color>
+    <!-- Each component instance gets its own copy of this sheet.
+    So it can refer to component parameter 'color'.  -->
+    <RSTYLE scope=local>
+      span { color: \${color} }
+    </RSTYLE>
+
+    <def rvar=n #value=2></def>
+    <p>
+      <button onclick="n.V++"> + </button>
+      <for let=i of="range(1, n.V)">
+        <span>{i}</span>
+      </for>
+    </p>
+  </template>
+</component>
+
+<T color=red></T>
+<T color=green></T>
+<T color=blue></T>
+<p>
+  <span>The style sheets above do not apply to this <{}span>.</span>
+<p>`
+
+const demoModule =
+`<import async src="/hi" defines="pi">
+  <hi mark="?"></hi>
+</import>
+
+<hi></hi>
+
+pi = {pi}
+
+<module id="/hi">
+  <component>
+    <hi mark="!"></hi>
+    <template>
+      <p>Hi {mark}</p>
+    </template>
+  </component>
+
+  <def var=pi #value="3.14"></def>
+</module>`

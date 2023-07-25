@@ -1,10 +1,10 @@
 <h1>RHTML Constructs</h1>
 
-N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may optionally be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
+N.B. All construct attributes which must be JavaScript expressions, like <code>cond</code> and <code>of</code>, may <i>optionally</i> be prefixed with a hash mark: <code>#cond</code>, <code>#of</code>.
 <br>Their meaning remains the same.
 
 <p>
-    Any attribute starting with an underscore "_" is ignored. So one can use this to insert a comment right between attributes (<code>_="Some comment"</code>) or to comment out some attribute.
+    Any attribute starting with an underscore "_" is ignored like comment. So one can use this to insert a comment right between attributes (<code>_="Some comment"</code>), or to comment out attributes.
 </p>
 
 <p>
@@ -44,7 +44,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <demo #srctext=demoScoping></demo>
 
 <h3 id="def-rvar"><{}DEFINE rvar #value></h3>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i></elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i> auto?=true</elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
@@ -64,13 +64,19 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <p>
     When <code class="sourcecode">onmodified</code> is specified, the given handler will be subscribed to the new RVAR, i.e., the handler will be executed whenever the RVAR has been modified or otherwise been set dirty.
 </p>
+<p>
+    When <code class="sourcecode">auto=false</code> is set, then auto-subscription (see below) is disabled.
+    The default is determined by RHTML <a href="#Options">option</a> <code>bAutoSubscribe</code>, which defaults to <code>true</code>.
+</p>
 
 
-<h4>RVAR auto-subscription*</h4>
-When an RVAR is declared using <elm>DEFINE rvar</elm>, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR) was found while building the range of HTML following the <elm>DEFINE</elm>, then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
+<h4 id="auto">RVAR auto-subscription*</h4>
+When an RVAR is declared using <elm>DEFINE rvar</elm>, and auto-subscription is enabled, and no subscriber (like a <code>reacton</code> attribute refering to the RVAR)
+was found while either compiling or building the range of HTML following the <elm>DEFINE</elm>,
+then OtoReact will <i>automatically subscribe</i> that whole range where the RVAR is visible.
 <p>
     Here you have two RVAR's <code>a</code> and <code>b</code>, each followed by a button and a span element.
-    <br><code>a</code> has no explicit subscriber, so both these elements are auto-subscribed to <code>a</code> and are updated when you click the button.
+    <br><code>a</code> has no explicit subscriber, so both elements are auto-subscribed to <code>a</code> and are updated when you click the button.
     <br>The second span is subscribed to <code>b</code>, so there is no auto-subscription and the second button won't be updated when you click it.
 </p>
 <demo #srctext="demoAutoSubscribtion"></demo>
@@ -107,7 +113,7 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
     </li>
     <li>
         When <code class=sourcecode>hiding</code> is specified, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden">hidden</a>.
-        <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="thisreactson"><code>thisreactson</code></a>).
+        <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#GlobalAtts"><code>thisreactson</code></a>).
     </li>
 </ul>
 <h3 id=PatternMatching>Pattern Matching</h3>
@@ -185,7 +191,7 @@ is the same as:
 </p>
 
 
-<h2 id=FOR><{}FOR let of index?></h2>
+<h2 id=FOR><{}FOR let of key? index?></h2>
 <pre class="sourcecode">
 <{}FOR let=<i>name</i> of="<i>iterableExpression</i>">
     <i>BodyPart</i>
@@ -294,9 +300,11 @@ Further on, <elm>FOR</elm> can have the following attributes:
     You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript <a href="{MDN}Web/JavaScript/Guide/Modules"><i>module</i></a>.
 </p>
 <p>
-    Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact add a number of extra options.
+    Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact adds a number of extra options.
     <br>Together, you have the following alternatives:
 </p>
+<h4>Regular classic/module scripts</h4>
+These are the two regular forms of JavaScript.
 <dl>
     <dt><elm>SCRIPT src?</elm> or <elm>SCRIPT type="<b>text/javascript</b>" src?</elm></dt>
     <dd>
@@ -311,10 +319,10 @@ Further on, <elm>FOR</elm> can have the following attributes:
             <li>
                 <i>Outside</i> the main file, in included or imported RHTML files, OtoReact will execute the internal or external script as classic JavaScript <i>while compiling the file</i>.
                 <br>OtoReact functions are available.
-                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, as with <code>type="module"</code>, or switch to <elm>SCRIPT type="otoreact" defines?="<i>nameList</i>"</elm>.
+                <br>OtoReact tries to mimick  browser behaviour, but it cannot detect which names have been defined, and does not automatically put them in global scope. You need to explicitly define them as properties of the global object, or switch to <elm>SCRIPT type="otoreact" defines?="<i>nameList</i>"</elm>.
                 <br>One can use strict mode as above.
                 <br>With attribute <code>async</code>, fetching and executing is done asynchronously, and awaited for when the respective DOM tree is being built.
-                <br>With attribute <code>defer</code>, execution is postponed till the first time the DOM tree is being built.
+                <br>With attribute <code>defer</code>, execution is defered till, and awaited for, the first time the DOM tree is being built.
             </li>
         </ul>
     </dd>
@@ -334,39 +342,47 @@ Further on, <elm>FOR</elm> can have the following attributes:
             </li>
         </ul>
     </dd>
+</dl>
 
+<h4>OtoReact-supported classic JavaScript</h4>
+These are three forms of classic JavaScript with OtoReact features.
+<br>Strict mode is involed automatically.
+<dl>
     <dt><elm>SCRIPT type="<b>otoreact</b>" src? defines?="<i>nameList</i>"</elm>,
         <br><elm>SCRIPT type="<b>otoreact/global</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
         <br>Names are not automatically defined in global scope, but one can provide a comma-separated <code>defines="<i>nameList</i>"</code> telling which names should be put in global scope.
-        <br>OtoReact invokes strict mode automatically.
-    </dd>
-    
-    <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines="<i>nameList</i>"</elm></dt>
-    <dd>
-        OtoReact asynchronously fetches the internal or external script, and executes it once as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
-        <br>Names listed in <i>nameList</i> are not put in global scope, but are defined <i>as OtoReact local variables</i>.
-        <p>
-            So when this type of script is used inside, e.g., a component, then the script is executed just once, the values of the listed names are internally remembered, and visible as local variables just inside the component.
-        </p>
-    </dd>    
+    </dd>  
     
     <dt><elm>SCRIPT type="<b>otoreact/local</b>" src? defines?="<i>nameList</i>" updating?</elm></dt>
     <dd>
-        This type of script is executed <i>every time</i> the surrounding RHTML is being built.
+        This type of script is executed <i>every time</i> the surrounding RHTML is being <i>built</i>.
         <br>With attribute <code class="sourcecode">updating</code>, the script is executed every time the surrounding RHTML is being built <i>or updated</i>.
-        <br>Local variables from the surrounding RHTML are visible inside the script, and names listed in <i>nameList</i> are defined <i>as new OtoReact local variables</i>.
+        <br>Local variables from the surrounding RHTML are visible inside the script, and names listed in <i>nameList</i> are defined as new OtoReact <i>local variables</i>.
         <p>
             So when this type of script is used inside a component template, then each instance of the component will have its own set of data.
         </p>
     </dd>
+    
+    <dt><elm>SCRIPT type="<b>otoreact/static</b>" src? defines="<i>nameList</i>"</elm></dt>
+    <dd>
+        OtoReact asynchronously fetches the internal or external script, and executes it <i>once</i> as <i>classic</i> JavaScript <i>the first time the DOM tree is being built</i>.
+        <br>Names listed in <i>nameList</i> are not put in global scope, but are defined as OtoReact <i>local variables</i>.
+        <p>
+            So when this type of script is used inside, e.g., a component, then the script is executed just once, the values of the listed names are internally remembered, and visible as local variables just inside the component.
+        </p>
+    </dd>  
+</dl>
 
+<h4>OtoReact-supported JavaScript modules</h4>
+These are two forms of JavaScript modules with OtoReact features.
+<dl>
     <dt><elm>SCRIPT type="<b>otoreact; type=module</b>" src? defines?="<i>nameList</i>"</elm>
         <br><elm>SCRIPT type="<b>otoreact/global; type=module</b>" src? defines?="<i>nameList</i>"</elm></dt>
     <dd>
         OtoReact asynchronously executes the internal or external script as a JavaScript <u>module</u>.
-        <br>Fetching and executing the script is initiated when compiling the containing file, and awaited for when first building the DOM tree.
+        <br>Fetching and executing the script is initiated when compiling the containing file, and is awaited for when first building the DOM tree.
         <br>When a <i>nameList</i> is given, then the script is required to <u>export</u> the listed names, and OtoReact will define them <i>in global scope</i>.
     </dd>
     <dt><elm>SCRIPT type="<b>otoreact/static; type=module</b>" src? defines="<i>nameList</i>"</elm></dt>
@@ -377,20 +393,17 @@ Further on, <elm>FOR</elm> can have the following attributes:
     </dd>
 </dl>
 
-<h2 id=REACT><{}REACT on? renew?></h2>
+<h2 id=REACT><{}REACT on?></h2>
 
 <p>
 <pre class=sourcecode>
 <elm>REACT</elm>
     <i>Content</i>
 <elm>/REACT</elm></pre>
-    allows you to group a range of source nodes, limit the scope of local variables, and add <a href="#GlobalAtts">global attributes</a>, without adding other functionality.       
+    allows you to group a range of source nodes, limit the scope of local variables, add <a href="#GlobalAtts">global attributes</a>, and set <a href="#PseudoEvents">pseudo events</a>, without adding other functionality.       
 </p>
 <p>
-    <elm class=sourcecode>REACT on=<i>RVARlist</i></elm> is a shorthand for <elm>REACT reacton=<i>RVARlist</i></elm>.
-</p>
-<p>
-    With attribute <code class=sourcecode>renew</code>, the given content will not be updated, but will be removed and rebuilt on every update request.
+    <elm class=sourcecode>REACT on=<i>RVAR-list</i></elm> is a shorthand for <elm>REACT reacton=<i>RVAR-list</i></elm>.
 </p>
 
 <h2>Introduction to Components</h2>
@@ -441,26 +454,28 @@ Here you have a small times table:
 
 <p>
     Suppose one wishes to insert a single multiplication table (or 'times table') on multiple places within one application.
-    <br>Then one could want to define a construct (1):
+    <br>Then one could want to define a construct <i>(1)</i>:
 <pre #innerhtml='ColorCode(signat)'></pre>
-    that is to be replaced by the output of (2):
+    that is to be replaced by the output of <i>(2)</i>:
 <pre #innerhtml='ColorCode(templ)'></pre>
 where <code>R</code> and <code>F</code> are JavaScript variables representing the values of the construct properties <code>#rows</code> and <code>#factor</code>.
 
 <p>
-    HTML expression (1) is called the component 'signature', RHTML code (2) is called its 'template', and <code>#rows</code> and <code>#factor</code> are called its 'parameters'.
+    HTML expression (1) is called the component '<i>signature</i>', RHTML code (2) is called its '<i>template</i>', and <code>#rows</code> and <code>#factor</code> are called its '<i>parameters</i>'.
 </p>
 <p>
-    The construct can be defined by writing:
+    Such a construct can be defined by writing:
 </p>
 <pre #innerhtml='ColorCode(compTimes)'></pre>
 
+<p>The SIGNATURE tags may be omitted.</p>
+
 <p>The new construct can subsequently be used like:</p>
 <pre #innerhtml='ColorCode(`<TimesTable #rows="5" #factor="2"></TimesTable>`)'></pre>
-This is called an 'instance' of the construct.
+This is called an '<i>instance</i>' of the construct.
 
 <p>Instances are fully reactive:</p>
-<demo #srctext="demoTimes" #bShow="false"></demo>
+<demo #srctext="demoTimes" #tab="false"></demo>
 
 
 <h3>Parameters</h3>
@@ -487,9 +502,9 @@ Besides parameters, components can have <i>slots</i>.
 
 <p>Now note:</p>
 <ul>
-    <li>A construct signature contains a signature of each contruct slot</li>
-    <li>A construct template can contain instances of each construct slot</li>
-    <li>A construct instance can or must contain templates for each construct slot</li>
+    <li>A construct <i>signature</i> contains a <i>signature</i> of each contruct slot</li>
+    <li>A construct <i>template</i> can contain <i>instances</i> of each construct slot</li>
+    <li>A construct <i>instance</i> can contain <i>templates</i> for each construct slot</li>
 </ul>
 
 
@@ -546,6 +561,9 @@ Notes:
     <li>
         The <a href=#Templates><i>template</i></a> describes what content should be generated for each component instance. Inside the template, parameters are available as JavaScript variables, and slots are available as RHTML constructs. So the template may contain instances of the slots.</li>
     <li>
+        In between signature and template any RHTML content is allowed, but is advisable to use only declarative content, as above, or invisible content, like a <elm>datalist</elm> that is to be shared among all instances of the component.
+    </li>
+    <li>
         <a href=#Instances><i>Instances</i></a> may or must specify values for each parameter, and contain blocks of RHTML code (or actually <i>templates</i>) for each slot.
     </li>
     <li>
@@ -564,7 +582,7 @@ Notes:
     </li>
 </ul>
 <p>
-    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, both simpler and more powerful.
+    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, that is much simpler and at the same time much more powerful.
 </p>
 
 
@@ -585,12 +603,22 @@ Notes:
             <ul>
                 <li>
                     Attributes with a question mark <code><i>name?</i></code> or with a nonempty default value <code><i>name</i>="<i>string</i>"</code> or <code><i>#name</i>="<i>expression</i>"</code> define <b>optional parameters</b>.
-                    <br>When an instance doesn't have this attribute, then the specified default string or expression is used instead, or <code>undefined</code> when there is no default.
-                    <p>
-                        An empty string <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
-                        <br>To specify the empty string as default value, one must use an empty string <i>expression</i>, like: <code>#<i>name</i>=" '' "</code>.
-                    </p>
-                    <p>The default default value is <code>undefined</code>.</p>
+                    <ul>
+                        <li>
+                            When an instance doesn't have this attribute, or when the initial parameter value is <code>undefined</code>, then the specified default string or expression is used instead.
+                        </li>
+                        <li>
+                            An empty string <code><i>name</i>=""</code> is not recognized as a default value, because the HTML parser does not distinguish between a missing value and the empty string.
+                            <br>To specify the empty string as default value, one must use an empty string <i>expression</i>, like: <code>#<i>name</i>=" '' "</code>.
+                        </li>
+                        <li>
+                            Component parameter defaults can refer to global and local variables.
+                        </li>
+                        <li>
+                            Parameter defaults are evaluated each time the component is instantiated and the parameter value is <code>undefined</code>.
+                        </li>
+                        <li>The default default value is <code>undefined</code>.</li>
+                    </ul>
                 </li>
                 <li>
                     Attributes <code><i>name</i></code> where <i>name</i> starts with "on" represent <b>event handlers</b>.
@@ -618,12 +646,13 @@ Notes:
             </p>
             <p>
                 As slots have signatures, they can have parameters and slots themselves.
+                <br>Slot parameter defaults may not yet refer to local variables (because slot templates are evaluated in a different environment than the slot signature).
             </p>
         </li>
         <li>
             Slot names starting with "CONTENT" are special. When a component signature contains such a <elm>CONTENT*</elm> slot, then all content of a component instance that does not match any other slot, forms a template for this special slot.
         </li>
-        <li>There may be at most one such content slot</li>
+        <li>There may be at most one such content slot.</li>
     </ul>
 </p>
 
@@ -695,7 +724,7 @@ Now in this case, the slot is named <elm>content</elm> indeed, so we can shorten
 Note how the instance tag <elm>repeat</elm> carries both  the component parameter value <code>#count=7</code> and the <elm>content</elm> slot parameter name <code>#num</code>.
 
 <p>Putting it all together, we get:</p>
-<demo #srctext=sampleComponent1></demo>
+<demo #srctext=sampleComponent1 #tab="-1"></demo>
 
 
 <h3 id="MutualRecursion">Mutual recursion</h3>
@@ -863,7 +892,8 @@ allows you to include another RHTML file as if it were inserted into the main fi
     <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes">Server Side Includes</a> (SSI) to include your file, if your server supports it.
 </p>
 <p>
-    It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not:
+    It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not.
+    <br>Like this:
 </p>
 <pre #innerHTML='ColorCode(`<include src="includefile.html">
     <`+`!--#include file="includefile.html"-->
@@ -883,9 +913,9 @@ allows you to include another RHTML file as if it were inserted into the main fi
 
 
 <h2 id=MODULE><{}MODULE id?></h2>
-<elm>MODULE</elm> encapsulates a series of components, definitions, and other content, that can be imported at other places using <elm>IMPORT</elm>.
-<p>A <elm>MODULE</elm> can either be saved in a separate file, or be included anywhere in the main file.
-<br>It may even be concatenated to the main file; the HTML parser will insert it inside the document body.</p>
+<elm>MODULE</elm> encapsulates a <em>module</em>: a series of components, definitions, and other content, that can be imported at other places using <elm>IMPORT</elm>.
+<p>A <elm>MODULE</elm> can either be saved in a separate file, or be included anywhere in the importing file, for example by using a server-side-include.
+<br>It may even be concatenated to the importing file; the HTML parser will insert it inside the document body.</p>
 
 
 <h2 id=IMPORT><{}IMPORT src defines? include?></h2>
@@ -894,13 +924,14 @@ allows you to include another RHTML file as if it were inserted into the main fi
     <i>Signatures</i>
 <{}/IMPORT>
 </pre>
-imports a number of components defined in a <elm>module</elm>.
+imports a number of components and variables defined in a <a href="#MODULE">module</a>.
 <p>
     The module may reside either:
 </p>
 <ul>
-    <li>Anywhere in the main file with an <code>id</code> being exactly equal to <i>src</i></li>
-    <li>Or in a separate file loaded from URL <i>src</i>.</li>
+    <li>Anywhere in the current file with an <code>id</code> being exactly equal to <i>src</i></li>
+    <li>Or in a separate file loaded from URL <i>src</i>. In this case, the <elm>MODULE</elm> tag is optional.
+    </li>
 </ul>
 There are two variants:
 <ul>
@@ -908,22 +939,24 @@ There are two variants:
         With the <code class=sourcecode>async</code> option, the <elm>IMPORT</elm> element must contain full signatures of the imported components.
         <br>Compiling the document will continue with the provided signatures while the external file is being asynchronously fetched and compiled.
         <br>Only when one of the components has to be instantiated, will OtoReact wait for the completion of the import.
-        <p>
-            The listed signature need not be identical to the external signature, but must be 'compatible'. E.g., the order of parameters and slots may differ, and the external signature may have optional parameters and slots missing in the listed signature.
-            <br>Default values may be different too; Otoreact will use the values listed in the <elm>IMPORT</elm> element.
-        </p>
+        <p>The listed signature need not be identical to, but must be 'compatible' with the external signature:</p>
+        <ul>
+            <li>All parameters and slots of the listed signature must be present in the external signature;</li>
+            <li>Any optional parameter of the listed signature must be optional in the external signature too;</li>
+            <li>Any missing parameter of the listed signature must be optional in the external signature;</li>
+            <li>Slots of the external signature must be compatible with the corresponding slots of the listed signature, when present;</li>
+            <li><u>Default values</u> need not be specified; Otoreact will always use the values provided in the <u>external</u> signature.</li>
+        </ul>
     </li>
     <li>
         Without the <code>async</code> option, the <elm>IMPORT</elm> element needs only specify the names of the imported components.
-        <br>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of these components, it will wait for the external file and get the signatures from there.
+        <br>The import may specify a signature but it will be ignored.
+        <p>Compiling will still continue asynchronously, but as soon as the compiler encounters an invocation of one of the imported components, it will wait for the external file and get the signatures from there.
         <br>So one can import from multiple modules one after another, and these will still be fetched in parallel.
     </li>
 </ul>
 Furthermore:
 <ul>
-    <li>
-        Components from the same module may be imported at multiple places and will be fetched and compiled only once, provided the URL is spelled exactly the same.
-    </li>
     <li>
         Local variables from the main file are not visible within the module.
     </li>
@@ -940,43 +973,95 @@ Furthermore:
             This is mainly useful for invisible content, like the definition of pop-up windows and datalists.
         </p>
     </li>
+    <li>
+        The same module may be imported at multiple places, and will be fetched and compiled only once, provided the URL is spelled exactly the same.
+    </li>
 </ul>
 Again, to speed things up, you can insert a <code>preload</code> link in the main document header.
 
+<demo #srctext="demoModule"></demo>
 
-<h2 id="RSTYLE"><{}RSTYLE> dynamic style sheets</h2>
-While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to build style sheets using string interpolation and RHTML constructs, including loops and conditionals.
-<p>
-    Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>\$\{ \}</code>.
-</p>
+
+<h2 id="STYLE"><{}STYLE scope? src?>: Static style sheets</h2>
+All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the document header at compile time, so they won't get lost or duplicated.
+<p>It is not possible to use any OtoReact constructs or interpolated text inside <elm>STYLE</elm>, because the browser HTML parser allows only contents that conforms to the CSS specification.</p>
+<p>OtoReact recognizes, however, two extra attributes:</p>
+<dl>
+    <dt><code class="sourcecode">scope="local"</code></dt>
+    <dd>
+        With <code>scope="local"</code>, the style sheet and the RHTML code that follows it are modified so that the sheet is effective in local scope only: all its <a href="{MDN}Web/CSS/CSS_Selectors">CSS selectors</a> will match only with HTML elements that are created by the subsequent RHTML code till the closing tag of its parent element.
+        <p>
+            In particular, if you place such a sheet within a component definition, then it will apply to the HTML content created by the component template, and by components defined locally within that component, but not to HTML content created by components called from that template but defined elsewhere.
+        </p>
+        <demo #tab="-1" srctext=
+'<component>
+    <marked><content></content></marked>
+    <STYLE scope=local>
+        div \{ color: red; font-weight: bold; }
+    </STYLE>
+    <template>
+        <div><content></content></div>
+    </template>
+</component>
+
+<marked>This <\{}div> is marked.</marked>
+<div>This <\{}div> is not.</div>'
+        ></demo>
+        <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
+        <p>
+            Note: <code>scope="local"</code> applies to some but not all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
+        </p>
+        <ul>
+            <li>It works with conditional group rules (<code>@media</code>, <code>@supports</code>, <code>@document</code>);</li>
+            <li>It does not apply to sheets imported with <code>@import</code>;</li>
+            <li>Styling features (like <code>@font-face</code>, <code>@keyframes</code>, and <code>@counter-style</code>) cannot be localized by means of class names, and are left alone.</li>
+        </ul>
+    </dd>
+    <dt><code class="sourcecode">src="<i>URL</i>"</code></dt>
+    <dd>
+        With <code>src="<i>URL</i>"</code>, OtoReact inserts the content of the external style sheet fetched from <i>URL</i>. This can be combined with <code>scope</code>.
+        <p>
+            Without <code>scope</code>, the result is the same as using <code><{}rhead><{}link rel="stylesheet" href="<i>URL</i>"><{}/rhead></code> or as <code><{}style>@import <i>URL</i><{}/style></code>.
+        </p>
+        <p>
+            When <elm>STYLE</elm> has both non-trivial content and a <code>src</code> attribute, then <code>src</code> is ignored, just like <a href="#INCLUDE"><elm>INCLUDE</elm></a>, so that one can use server-side-includes to optionally insert the contents of the external file.
+        </p>
+    </dd>
+</dl>
+
+
+<h2 id="RSTYLE"><{}RSTYLE scope? src?>: Dynamic style sheets</h2>
+While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build <i>dynamic</i> style sheets using string interpolation and RHTML constructs, including loops, conditionals, and use of local variables.
+<ul>
+    <li>The sheet contents is evaluated at run time, and the resulting <elm>style</elm> sheet is inserted in the document, and updated or removed when needed.</li>
+
+    <li>Braces <code>\{ \}</code> inside <elm>RSTYLE</elm> are treated as part of the style sheet; to use string interpolation you must add a dollar sign <code>$\{ \}</code>.</li>
+
+    <li><elm>RSTYLE</elm> supports <code>scope</code> and <code>src</code> just as <elm>STYLE</elm>.</li>
+
+    <li>Other attributes,like <a href="{MDN}Web/HTML/Element/style#attributes"><code>media</code></a>, are compiled as usual and applied to the created <elm>style</elm> element.</li>
+</ul>
 <p>
     Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue, without needing inline styles:
 </p>
-<demo #srctext=sampleStyleTemplate bDollarRequired></demo>
+<demo #srctext=sampleStyleTemplate></demo>
 
 <p>Some points of attention:</p>
 <ul>
     <li>
-        <elm>RSTYLE</elm> style sheet templates have global effect just like <elm>STYLE</elm>, but may depend on local variables.
-        <br>When they are placed inside a <elm>FOR</elm> loop, or inside a component template, then multiple, possibly different, instances of the same style sheet template may arise.
+        When <elm>RSTYLE</elm> style sheet templates are placed inside a <elm>FOR</elm> loop, or inside a component template, then multiple, possibly different, instances of the same style sheet template may be created.
         <br>For efficiency reasons you should avoid this, unless you really mean to have multiple distinct instances.
     </li>
     <li>
         <elm>RSTYLE</elm> sheets react on updates, but at every update, the sheet has to be rebuilt as a string, and parsed again by the browser.
-        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code>.
+        <br>So you may want to avoid unnecessary style sheet updates, by proper use of <code>reacton</code> or <code>hash</code>.
     </li>
     <li>
-        Sheets imported with <code><a href="{MDN}CSS/@import">@import</a></code> cannot use string interpolation.
-        <br>To use RHTML functionality in an external style sheet, you can combine <elm>RSTYLE</elm> with <elm>INCLUDE</elm>:
-        <pre>
-<{}RSTYLE>
-    <{}INCLUDE src="yourDynamicStyleSheet.css"></{}INCLUDE>
-<{}/RSTYLE></pre>
-    </li>
-    <li>
-        Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm>, except that braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ \\}</code>.
+        Note that <elm>STYLE.</elm> has exactly the same result as <elm>RSTYLE</elm> without scope, except that literal braces inside <ELM>STYLE.</ELM> must be escaped like <code>\\{ }</code>.
     </li>
 </ul>
+Here is a sample component where each instance has its own local stylesheet:
+<demo #srctext="demoLocalRstyles" #tab="-1"></demo>
 
 
 <h2 id="ELEMENT"><{}ELEMENT #tagname>*</h2>
@@ -997,32 +1082,59 @@ While <elm>STYLE</elm> sheets are always static, <elm>RSTYLE</elm> allows you to
 <p>Updates to the attribute name are handled accordingly.</p>
 
 <demo srctext=
-'<def rvar=attName value="value"></def>
-<input @value="attName .V">
-<input.>
-    <ATTRIBUTE #name="attName .V" value="ok"></ATTRIBUTE>
-</input.>'></demo>
+'<def rvar=aName></def>
+<def rvar=aValue value="80"></def>
 
+Choose attribute:
+<select @value=aName.V size=3>
+	<option>width</option>
+	<option>height</option>
+    <option>title</option>
+</select>
+= <input @value="aValue.V">
+
+<p>
+<canvas style.backgroundcolor=ivory>
+    <ATTRIBUTE 
+		#name="aName .V" 
+		#value="aValue.V"
+	></ATTRIBUTE>
+</canvas>'></demo>
+
+
+<h2 id="COMMENT"><{}COMMENT>*</h2>
+<code class=sourcecode><{}COMMENT><i>contents</i><{}/COMMENT></code>, where <i>contents</i> is any RHTML code, inserts a dynamically generated HTML Comment node in the DOM tree.
+
+<p>Comments are invisible in the rendered document, but one can see the generated content by inspecting the DOM tree. One could use this to inspect the value of variables without showing them.</p>
+
+<p>There is a demonstration of this in the <a href="#RHTML-demo">RHTML demo</a> below.</p>
+
+<p>Note that comments <code><{}!-- <i>comment text</i> --></code> in the source text won't be included in the created DOM tree, unless <a href="#options">option</a> <code>bKeepComments</code> is set.</p>
 
 <h2 id=RHTML><{}RHTML #srctext>*</h2>
-<code class=sourcecode><elm>RHTML #srctext="<i>sourceExpr</i>"</elm><elm>/RHTML</elm></code> allows you to interpret dynamically generated text as Reactive HTML.
-<p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
+<code class=sourcecode><{}RHTML><i>sourceCode</i><{}/RHTML></code>
+or
+<code class=sourcecode><{}RHTML #srctext="<i>sourceExpr</i>"><{}/RHTML></code>
+allow you to interpret dynamically generated text as Reactive HTML.
+<p>After each build or update, when the text value of <i>sourceExpr</i> has changed, or when the text generated by <i>sourceCode</i> has changed, then this text is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 
 <demo srctext=
-'<define rvar=sourcecode
+'<define rvar=source
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
-<textarea @value="sourcecode.V" rows=3 cols=50></textarea>
-<br>
-<RHTML #srctext=sourcecode.V></RHTML>'></demo>
+<textarea @value="source.V" rows=3 cols=50></textarea>
+<p>
+<RHTML>\{source.V}</RHTML>
+<p>
+<RHTML #srctext="source.V"></RHTML>'></demo>
 
 <h4>Caution</h4>
 When you use <elm>RHTML</elm> on your site, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
-<h3>Demo HTML vs RHTML</h3>
+<h3 id="RHTML-demo">Demo HTML vs RHTML</h3>
 In the following demo you can enter a piece of (R)HTML and compare how it is parsed and rendered by the browser before and after OtoReact processing.
 <br>Note how OtoReact removes irrelevant white space.
 
@@ -1038,7 +1150,7 @@ Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the cu
 
 <h2 id=DOCUMENT><{}DOCUMENT>*</h2>
 <pre class=sourcecode>
-    <{}DOCUMENT name=<i>docName</i> params?="<i>nameList</i>" window?=<i>windowVar</i> encapsulate?>
+    <{}DOCUMENT name=<i>docName</i> params?="<i>parameterNames</i>" window?=<i>windowVar</i> encapsulate?>
         <i>content</i>
     <{}/DOCUMENT>
 </pre>
@@ -1051,8 +1163,15 @@ Any scripts within <i>content</i> are executed within the same browsing context 
     When <code class=sourcecode>params</code> is specified, then the given parameter names are available within <i>content</i> as local variables.
 </p>
 <p>
-    When <code class=sourcecode>window</code> is specified, then the given <i>windowVar</i> is available within <i>content</i> as a local variable, and will be bound to the created window.
-    <br>Note that global variable <code>window</code> refers to the main application window, but may be hidden by the local variable by specifying <code>window="window"</code>.
+    When <code class=sourcecode>window=<i>windowVar</i></code> is specified, then the given <i>windowVar</i> is available within <i>content</i> as a local variable, and will be bound to the created window.
+    <br>When <code>window</code> is specified without value, then <i>windowVar</i> is assumed to be "<code>window</code>", hiding the global variable <code>window</code> that  refers to the main application window.
+</p>
+<p>
+    When <code class=sourcecode>encapsulate</code> is specified, then the documentcreated by the methods below will be styled independent of the main document.
+    <br>When not specified then all style sheets attached to the parent document are copied to the new document. (They won't be updated though.)
+</p>
+<p>
+    Any <elm>style</elm> sheets within the <elm>DOCUMENT</elm> content are excluded from the parent document, and attached to each new child window.
 </p>
 <p>
     The available methods are:
@@ -1078,9 +1197,5 @@ Any scripts within <i>content</i> are executed within the same browsing context 
         </p>
     </dd>
 </dl>
-
-By default, all styling rules attached to the parent document are copied to the new document, but with the option <code class=sourcecode>encapsulate</code> no rules are copied.
-<br>Any <elm>style</elm> sheets within the <elm>DOCUMENT</elm> content are excluded from the parent document, and attached to each new child window. 
-<br>Or you can use <elm>RHEAD</elm><elm>LINK &hellip;</elm><elm>/RHEAD</elm> to link an external style sheet.
 
 <demo #srctext=sampleDocument></demo>

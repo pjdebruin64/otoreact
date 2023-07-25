@@ -222,22 +222,25 @@
         "affectsGlobalScope": true
       },
       "./otoreact.ts": {
+<<<<<<< HEAD
         "version": "9c8750dc8c5b076d87fa0546f80069cc74f74e32c21cdc52fcfda22dc0ffcb32",
         "signature": "1b56403e910d9ba35ea032a120c2b0f8c8bb51055fe004123ba087e6a7e7c1c6",
+=======
+        "version": "fd03065c26311103f25a91474d993c04d9a8231cd49cbfba58e4e62f66869d30",
+        "signature": "dfa027bb6a1fcb50878c27d7c474ce4b84e3f4c11cc2a592204089ae1484595a",
+>>>>>>> new-Context
         "affectsGlobalScope": false
       },
-      "./samples.ts": {
-        "version": "d7c25e33798a5fbc04f8aa30cca2b3ab7989b1490fcc1eabd4257250732d8a37",
-        "signature": "204e2adfa6e3e71d8e4a17e288bcd1c01898d456b46255860471850ff1e852d0",
+      "./index_files/samples.ts": {
+        "version": "ed37902d4c6a87576899689efa435975e7c8b4d9dccbe9d0d75e0ef0c3ab5c97",
+        "signature": "b11ad13803c8fe1ce3f17d206eed059b175fb52cf378be1f938d44ecda23647e",
         "affectsGlobalScope": true
       }
     },
     "options": {
       "noEmitOnError": true,
-      "noImplicitThis": true,
       "removeComments": true,
       "module": 99,
-      "target": 7,
       "lib": [
         "lib.dom.d.ts",
         "lib.dom.iterable.d.ts",
@@ -245,6 +248,10 @@
       ],
       "declaration": true,
       "composite": true,
+      "target": 7,
+      "downlevelIteration": false,
+      "strictNullChecks": false,
+      "project": "./tsconfig.json",
       "watch": true,
       "configFilePath": "./tsconfig.json"
     },
@@ -295,8 +302,13 @@
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.promise.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.string.d.ts",
       "c:/users/p.bruin/appdata/roaming/npm/node_modules/typescript/lib/lib.esnext.weakref.d.ts",
+<<<<<<< HEAD
       "./otoreact.ts",
       "./samples.ts"
+=======
+      "./index_files/samples.ts",
+      "./otoreact.ts"
+>>>>>>> new-Context
     ]
   },
   "version": "4.1.3"

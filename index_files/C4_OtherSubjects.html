@@ -7,9 +7,9 @@
 <p>Here a summary of the OtoReact routing features:</p>
 <dl>
     <dt><code>docLocation</code></dt>
-    <dd reacton=docLocation>
+    <dd>
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
-        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "{docLocation.V}").
+        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "<react on=docLocation>{docLocation.V}</react>").
         <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.</p>
         <p>It has four additional properties and methods:</p>
         <dl>
@@ -22,7 +22,7 @@
             <dt><code>docLocation.subpath</code></dt>
             <dd>
                 Gets or sets the part of the current pathname after the base path.
-                <br>For this page it is "{docLocation.subpath}".
+                <br>For this page it is "<react on=docLocation>{docLocation.subpath}</react>".
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
 
@@ -43,7 +43,7 @@
 
             <dt><code>docLocation.RVAR(<i>field</i>, <i>default?</i>, <i>name</i>=<i>field</i>)</code></dt>
             <dd>
-                Calling this method yields a new RVAR that is two-way bound to query string field <i>field</i>m, very much like the <elm>define ...</elm> above.
+                Calling this method yields a new RVAR that is two-way bound to query string field <i>field</i>, very much like the <elm>define ...</elm> above.
                 <p>
                     The name of the RVAR is registered in the global environment. If you don't want this, specify an empty string for name.
                 </p>
@@ -94,7 +94,7 @@ OtoReact does not (yet) have extra formatting functionality for numbers and date
 <demo #srctext=sampleFormatting></demo>
 
 <h2 id=Options>Options</h2>
-When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</code> object may contain the following settings.
+The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>, and the <a href="#Functions"><code>RCompile(<i>element</i>, <i>options</i>)</code> function</a>, that both trigger RHTML compilation, both recognize the following options.
 <style>
     table#tblOptions {
         margin: 1em 2em;
@@ -122,15 +122,43 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
     </tr></thead>
     <tbody>
         <tr>
-            <td>bTiming</td><td>false</td>
-            <td>When true, OtoReact will write timing information to the JavaScript console for each compile, build or update action.</td>
-        </tr>
-        <tr>
             <td>bAbortOnError</td><td>false</td>
             <td>
                 When true, building or updating the DOM will be aborted when any error occurs.
                 <br>An error message will be written to the console and shown in an alert box.
                 <p>Compile time errors will always cause an abort, except within <elm>RHTML</elm> text.</p>
+            </td>
+        </tr>
+        <tr>
+            <td>bAutoSubscribe</td><td>true</td>
+            <td>
+                When true, <a href="#auto">RVAR auto-subscription</a> is enabled.
+            </td>
+        </tr>
+        <tr>
+            <td>bAutoPointer</td><td>true</td>
+            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler and is not disabled.</td>
+        </tr>
+        <tr>
+            <td>bAutoReroute</td><td>false</td>
+            <td>When true, OtoReact will add <code>#onclick=reroute</code> to any <elm>A</elm> element that has no <code>onclick</code> handler and no <code>download</code> attribute and that refers to a relative or absolute internal URL.</td>
+        </tr>
+        <tr>
+            <td>bDollarRequired</td><td>false</td>
+            <td>
+                When true, a dollar sign is required before <a href="#StringInterpolation">string interpolation</a> braces, and no backslash is needed before other braces within interpolated text.
+            </td>
+        </tr>
+        <tr>
+            <td>bKeepComments</td><td>false</td>
+            <td>
+                When true, comments in the RHTML code will be included in the DOM output.
+            </td>
+        </tr>
+        <tr>
+            <td>bKeepWhiteSpace</td><td>false</td>
+            <td>
+                When true, <i>all</i> white space will be preserved in the DOM output.
             </td>
         </tr>
         <tr>
@@ -140,14 +168,8 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
             </td>
         </tr>
         <tr>
-            <td>bDollarRequired</td><td>false</td>
-            <td>
-                When true, a dollar sign is required before <a href="#StringInterpolation">string interpolation</a> braces, and no backslash is needed before other braces within interpolated text.
-            </td>
-        </tr>
-        <tr>
-            <td>bSetPointer</td><td>true</td>
-            <td>When true, OtoReact will add style 'cursor: pointer' to any element that has a non-null <code>onclick</code> handler and is not disabled.</td>
+            <td>bTiming</td><td>false</td>
+            <td>When true, OtoReact will write timing information to the JavaScript console for each compile, build or update action.</td>
         </tr>
         <tr>
             <td>basePattern</td><td>"/"</td>
@@ -159,21 +181,10 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         <tr>
             <td>preformatted</td><td>[ ]</td>
             <td>
-                By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page. Only within the preformatted <elm>pre</elm> element white space is always preserved.
+                By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page.
+                <br>Only within the preformatted <elm>pre</elm> element, and within elements with an explicit in-line <code>style="white-space: pre..."</code> style setting, all white space is preserved.
                 <br>With the 'preformatted' option, you can set an array of other (case insensitive) element names that should have all white space preserved in the DOM.
                 <p>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
-            </td>
-        </tr>
-        <tr>
-            <td>bKeepWhiteSpace</td><td>false</td>
-            <td>
-                When true, <i>all</i> white space will be preserved in the DOM output.
-            </td>
-        </tr>
-        <tr>
-            <td>bKeepComments</td><td>false</td>
-            <td>
-                When true, comments in the RHTML code will be included in the DOM output.
             </td>
         </tr>
         <tr>
@@ -187,50 +198,7 @@ When calling <code>RCompile(HTMLElement, options?)</code>, the <code>options</co
         </tr>
     </tbody>
 </table>
-Example: <code>RCompile(document.body, \{bTiming: true, preformatted: ['quote'], } );</code>
-
-
-<h2>Search engine compatibility</h2>
-<i>Dynamic</i> content generated by a JavaScript framework, or just any client-side JavaScript code, can only be indexed by a search engine if that engine is able to execute the JavaScript.
-<br>Now Google does a very good job at executing JavaScript, and will probably be able to index your OtoReact site, provided each page has its own URL and is reachable through normal links.
-<br>Most other engines, including Bing I think, won't do so.
-
-<p>
-    <i>Static</i> content in an OtoReact <i>main file</i>, on the other hand, is just HTML and can be indexed by any search engine.
-    This is an advantage over frameworks like Angular and Svelte, where <i>all</i> content is generated by JavaScript.
-</p>
-<p>
-    Static content in <i>included files</i> can only be loaded throught JavaScript, and can only be indexed by search engines executing JavaScript.
-    <br>If you want your static content be split over multiple files ánd want it to be indexable by any search engine, you could think of the following solutions:
-</p>
-<ul>
-    <li>
-        Use server-side technology, like Server Side Includes (SSI) or PHP, to include files in your main file.
-    </li>
-    <li>
-        Use a tool to bundle multiple OtoReact files into a single file before deployment. <!-- Like Webpack? -->
-        <br>Such a tool is not available yet, but it's not difficult to develop one.
-    </li>
-</ul>
-
-<h2>Playground(s)</h2>
-Here you have a playground to enter your own Reactive HTML.
-<p>
-    All code you enter will be saved by your browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
-</p>
-
-<def rvar=playCount #value=1 store=localStorage></def>
-<react on=playCount>
-    <def var=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
-    <for let=rvar of="Playgrounds" index key=index>
-        <demo #rvar="rvar"></demo>
-    </for>
-    <button onclick="playCount.V++">
-        Add another playground
-    </button>
-    <if cond="playCount.V > 1">
-        <button onclick="playCount.V--; Playgrounds[playCount.V].V=''; Playgrounds.length = playCount.V">
-            Remove last playground
-        </button>
-    </if>
-</react>
+Examples:
+<pre><{}body hidden rhtml="bTiming: true, preformatted: ['quote']"></pre>
+or
+<pre>RCompile(document.body, \{bTiming: true, preformatted: ['quote'] } );</pre>

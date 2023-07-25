@@ -4,6 +4,11 @@ Options +Includes
 AddType text/html .shtml
 AddOutputFilter INCLUDES .shtml
 
+ErrorDocument 403 default
+ErrorDocument 404 default
+
+DirectoryIndex index.shtml index.html
+
 <IfModule mod_rewrite.c>
    RewriteEngine On
 
@@ -16,9 +21,16 @@ AddOutputFilter INCLUDES .shtml
     RewriteRule ^cgi-bin/ - [L,R=403]
 
     ####
-    # Redirect any non existing file/directory to /index.html
+    # Redirect any non existing directory request (without a dot) to /index.html
     ####
     RewriteCond %{REQUEST_FILENAME} !-f
-    #RewriteCond %{REQUEST_FILENAME} "!^/ts/"
-    RewriteRule (.*) index.shtml [E=X_REWRITE:1,E=X_PATH_INFO:/$1,L]
+    RewriteRule "(^|/)([^/.]*)$" index.shtml    [L]
+
+    ####
+    # Redirect any non existing file request (with a dot) to the base directory
+    ####
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule "(^|/)([^/]*\.[^/]*)$" "$2"            [L]
+
+    # E=X_REWRITE:1,E=X_PATH_INFO:/$1,
 </IfModule>
