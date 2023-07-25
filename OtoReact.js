@@ -579,11 +579,11 @@ class RComp {
     async Compile(elm, nodes) {
         for (let tag of this.S.preformatted)
             this.sPRE.add(tag.toUpperCase());
-        this.srcNodeCnt = 0;
+        this.srcCnt = 0;
         let t0 = now(), b = (nodes
             ? await this.CIter(nodes)
             : await this.CElm(elm, T)) || dB;
-        this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
+        this.log(`Compiled ${this.srcCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr = b;
     }
     log(msg) {
@@ -601,7 +601,7 @@ class RComp {
         }
         await DoUpdate();
     }
-    CChilds(srcParent, nodes = srcParent.childNodes) {
+    CChilds(PN, nodes = PN.childNodes) {
         let ES = this.SS();
         return this.CIter(nodes).finally(ES);
     }
@@ -624,7 +624,7 @@ class RComp {
             this.rt = i == L && rt;
             switch (srcN.nodeType) {
                 case 1:
-                    this.srcNodeCnt++;
+                    this.srcCnt++;
                     if (rv = (bl = await this.CElm(srcN))?.auto)
                         try {
                             bldrs.push(bl);
@@ -652,7 +652,7 @@ class RComp {
                         }
                     break;
                 case 3:
-                    this.srcNodeCnt++;
+                    this.srcCnt++;
                     let str = srcN.nodeValue, getText = this.CText(str), { fx } = getText;
                     if (fx !== Q) {
                         bl = async (ar) => PrepData(ar, getText());
@@ -804,11 +804,11 @@ class RComp {
                         break;
                     case 'RHTML':
                         {
-                            let { ws, rt, FP } = this, b = await this.CUncN(srcE), dSrc = !b && this.CPam(ats, 'srctext'), dO = this.CPam(ats, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
+                            let { ws, rt } = this, b = await this.CUncN(srcE), dSrc = !b && this.CPam(ats, 'srctext'), dO = this.CPam(ats, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
                             bl = async function RHTML(ar) {
                                 let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : dSrc?.();
                                 if (src != r.src) {
-                                    let sv = env, C = ass(new RComp(N, FP, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                    let sv = env, C = ass(new RComp(N, L.origin + DL.basepath, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
                                     (C.doc = D.createDocumentFragment()).appendChild(tmp);
                                     parR.erase(parN);
                                     parN.innerHTML = Q;
@@ -1121,20 +1121,19 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bCls = /^((text|application)\/javascript)?$/i.test(type), mOto = /^otoreact(\/((local)|static))?\b/.exec(type), bUpd = ats.gB('updating'), { ct } = this.CT, lvars = mOto && mOto[2] && this.LVars(defs), exp, SetV = lvars
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), exp, SetV = lvars
             ? (e) => SetLVs(lvars, e)
             : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
         ats.clear();
-        if (mOto || (bCls || bMod) && this.S.bSubf) {
-            if (mOto?.[3]) {
-                let prom = (async () => Ev(US +
-                    `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
+        if (mO || (bC || bM) && this.S.bSubf) {
+            if (mO?.[3]) {
+                let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
                 return async function LSCRIPT(ar) {
-                    if (!ar.r || bUpd)
+                    if (!ar.r || bU)
                         SetV((await prom)(env));
                 };
             }
-            else if (bMod) {
+            else if (bM) {
                 let prom = src
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
@@ -1144,10 +1143,10 @@ class RComp {
                 };
             }
             else {
-                let prom = (async () => `${mOto ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let prom = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
                 if (src && async)
                     prom = prom.then(txt => void (exp = Ev(txt)));
-                else if (!mOto && !defer)
+                else if (!mO && !defer)
                     exp = Ev(await prom);
                 return async function SCRIPT(ar) {
                     !ar.r &&
