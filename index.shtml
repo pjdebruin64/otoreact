@@ -86,8 +86,8 @@
     <link rel=preload href="OtoLib.html"           as=fetch crossorigin>
     <link rel="stylesheet" href="index_files/index.css">
     <link rel=preload href="index_files/KoninklijkeOtolift.png" as=image>
-    <link rel=preload href="webColors.json"         as=fetch crossorigin>
-    <link rel=preload href="index_files/dayjs.min.js"           as=fetch crossorigin>
+    <link rel=preload href="demo/webColors.json"         as=fetch crossorigin>
+    <link rel=preload href="demo/dayjs.min.js"           as=fetch crossorigin>
     
 </head>
 <body hidden

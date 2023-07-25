@@ -1229,7 +1229,7 @@ class RComp {
     ) {
         for (let tag of this.S.preformatted)
             this.sPRE.add(tag.toUpperCase());
-        this.srcNodeCnt = 0;
+        this.srcCnt = 0;
         //this.log('Compile');
         let t0 = now(),
             b =
@@ -1237,7 +1237,7 @@ class RComp {
             ? await this.CIter(nodes)
             : await this.CElm(elm as HTMLElement, T)
             ) || dB;
-        this.log(`Compiled ${this.srcNodeCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
+        this.log(`Compiled ${this.srcCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
         return this.bldr = b;
     }
 
@@ -1266,11 +1266,11 @@ class RComp {
     private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
     private rt: booly = T;     // While compiling: may the generated DOM output be right-trimmed
 
-    private srcNodeCnt: number;   // To check for empty Content
+    private srcCnt: number;   // To check for empty Content
 
     private CChilds(
-        srcParent: ParentNode,
-        nodes: Iterable<ChildNode> = srcParent.childNodes,
+        PN: ParentNode,
+        nodes: Iterable<ChildNode> = PN.childNodes,
     ): Promise<DOMBuilder> {
         let ES = this.SS(); // Start scope
         return this.CIter(nodes).finally(ES)
@@ -1304,7 +1304,7 @@ class RComp {
             switch (srcN.nodeType) {
                 
                 case 1:         //Node.ELEMENT_NODE:
-                    this.srcNodeCnt ++;
+                    this.srcCnt ++;
 
                     if (rv = (bl = await this.CElm(srcN as HTMLElement))?.auto)
                         // Handle auto-subscription
@@ -1346,7 +1346,7 @@ class RComp {
                     break;
 
                 case 3:         //Node.TEXT_NODE:
-                    this.srcNodeCnt ++;
+                    this.srcCnt ++;
                     let str = srcN.nodeValue
                         , getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
@@ -1601,7 +1601,7 @@ class RComp {
 
                     case 'RHTML': {
                         let 
-                            {ws,rt, FP} = this
+                            {ws,rt} = this
                             , b = await this.CUncN(srcE)
                             , dSrc = !b && this.CPam<string>(ats, 'srctext')
                             , dO = this.CPam<Handler>(ats, "onç") // Undocumented feature
@@ -1617,7 +1617,7 @@ class RComp {
                             if (src != r.src) {
                                 let 
                                     sv = env
-                                    , C = ass( new RComp(N, FP, s)
+                                    , C = ass( new RComp(N, L.origin+DL.basepath, s)
                                             , {ws,rt})
                                     , parN = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
                                     , parR = r.pR ||= new Range(N, N, tag)
@@ -2079,17 +2079,17 @@ class RComp {
             , defs = ats.g('defines')
             , varlist = [...split(defs)]
             // Is this a 'module' script (type=module or e.g. type="otoreact;type=module")?
-            , bMod = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type)
+            , bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type)
             // Is this a classic script?
-            , bCls = /^((text|application)\/javascript)?$/i.test(type)
+            , bC = /^((text|application)\/javascript)?$/i.test(type)
             // Is this an ororeact script (local or static or global)
-            , mOto = /^otoreact(\/((local)|static))?\b/.exec(type)
+            , mO = /^otoreact(\/((local)|static))?\b/.exec(type)
             // True if a local script shpuld be re-executed at every update
-            , bUpd = ats.gB('updating')
+            , bU = ats.gB('updating')
             // Current context string befóre NewVars
             , {ct} = this.CT
             // Local variables to be defined
-            , lvars = mOto && mOto[2] && this.LVars(defs)
+            , lvars = mO && mO[2] && this.LVars(defs)
             // Placeholder to remember the variable values when !bUpd
             , exp: Array<unknown>
             // Routine to actually define the either local or global variables
@@ -2103,25 +2103,24 @@ class RComp {
         /* Script have to be handled by Otoreact in the following cases:
             * When it is a 'type=otoreact' script
             * Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
-        if (mOto || (bCls || bMod) && this.S.bSubf) {
-            if (mOto?.[3]) {
+        if (mO || (bC || bM) && this.S.bSubf) {
+            if (mO?.[3]) {
                 // otoreact/local script
                 let prom = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    Ev(US+
-                        `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
+                    Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
                     ) as DepE<unknown[]>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
                 return async function LSCRIPT(ar: Area) {
-                    if (!ar.r || bUpd)
+                    if (!ar.r || bU)
                         SetV((await prom)(env));
                 }
             } 
-            else if (bMod) {
+            else if (bM) {
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
                 let prom: Promise<Object> =
                     src 
@@ -2153,11 +2152,11 @@ class RComp {
             }
             else {
                 // Classic or otoreact/static or otoreact/global script
-                let prom = (async() => `${mOto ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let prom = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
                 if (src && async)
                     // Evaluate asynchronously as soon as the script is fetched
                     prom = prom.then(txt => void (exp = Ev(txt)));
-                else if (!mOto && !defer)
+                else if (!mO && !defer)
                     // Evaluate standard classic scripts without defer immediately
                     exp = Ev(await prom);
 

@@ -74,7 +74,7 @@ const ColorTable = RVAR( null,
   /* Asynchronously fetch the data.
     When the data has been received, the RVAR will be updated and the table will be drawn.
    */
-  RFetch("webColors.json").then(response => response.json())
+  RFetch("demo/webColors.json").then(response => response.json())
 );
 
 /* Utility for 2-digit hex code */
@@ -556,7 +556,7 @@ const sampleFormatting = `<style>
     </dd>
 
     <dt>Day.js</dt>
-    <script async src="./dayjs.min.js"></script>
+    <script async src="demo/dayjs.min.js"></script>
     <dd>
         Today is {dayjs(today).format('MMM D')}.
     </dd>
