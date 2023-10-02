@@ -1121,16 +1121,16 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), exp, SetV = lvars
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), SetV = lvars
             ? (e) => SetLVs(lvars, e)
             : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
         ats.clear();
         if (mO || (bC || bM) && this.S.bSubf) {
             if (mO?.[3]) {
-                let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
+                let pExec = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
                 return async function LSCRIPT(ar) {
-                    if (!ar.r || bU)
-                        SetV((await prom)(env));
+                    ar.r && !bU ||
+                        SetV((await pExec)(env));
                 };
             }
             else if (bM) {
@@ -1138,19 +1138,18 @@ class RComp {
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
                 return async function MSCRIPT(ar) {
-                    !ar.r &&
+                    ar.r ||
                         SetV(await prom.then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`))));
                 };
             }
             else {
-                let prom = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let pText = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)(), exp = async () => Ev(await pText), pData, a = () => pData || (pData = exp());
                 if (src && async)
-                    prom = prom.then(txt => void (exp = Ev(txt)));
+                    a();
                 else if (!mO && !defer)
-                    exp = Ev(await prom);
+                    await a();
                 return async function SCRIPT(ar) {
-                    !ar.r &&
-                        SetV(exp || (exp = Ev(await prom)));
+                    ar.r || SetV(await a());
                 };
             }
         }
@@ -1729,8 +1728,8 @@ class RComp {
                 this.cRvars[nm] = N;
         return this.CExpr(`[${L}\n]`, attNm);
     }
-    gsc(exp) {
-        let { ct, lvM, d } = this.CT, n = d + 1;
+    gsc(exp, { ct, lvM, d } = this.CT) {
+        let n = d + 1;
         for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k = lvM.get(m[0]);
             if (k?.d < n)
@@ -1841,10 +1840,15 @@ export function* range(from, count, step = 1) {
     }
 }
 export async function RFetch(input, init) {
-    let rp = await fetch(input, init);
-    if (!rp.ok)
-        throw `${init?.method || 'GET'} ${input} returned ${rp.status} ${rp.statusText}`;
-    return rp;
+    try {
+        let rp = await fetch(input, init);
+        if (!rp.ok)
+            throw `Response ${rp.status} ${rp.statusText}`;
+        return rp;
+    }
+    catch (ex) {
+        throw `${init?.method || 'GET'} ${input}: ` + ex;
+    }
 }
 class DocLoc extends _RVAR {
     constructor() {

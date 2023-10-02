@@ -2090,8 +2090,6 @@ class RComp {
             , {ct} = this.CT
             // Local variables to be defined
             , lvars = mO && mO[2] && this.LVars(defs)
-            // Placeholder to remember the variable values when !bUpd
-            , exp: Array<unknown>
             // Routine to actually define the either local or global variables
             , SetV = lvars
                 ? (e:unknown[]) => SetLVs(lvars, e)
@@ -2106,7 +2104,7 @@ class RComp {
         if (mO || (bC || bM) && this.S.bSubf) {
             if (mO?.[3]) {
                 // otoreact/local script
-                let prom = (async () => 
+                let pExec = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
                     Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
@@ -2116,8 +2114,8 @@ class RComp {
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
                 return async function LSCRIPT(ar: Area) {
-                    if (!ar.r || bU)
-                        SetV((await prom)(env));
+                    ar.r && !bU ||
+                        SetV((await pExec)(env));
                 }
             } 
             else if (bM) {
@@ -2140,7 +2138,7 @@ class RComp {
                         // And the ObjectURL has to be revoked
                     ).finally(() => URL.revokeObjectURL(src));
                 return async function MSCRIPT(ar: Area) {
-                    !ar.r && 
+                    ar.r || 
                         SetV(
                             await prom.then(obj => 
                                 varlist.map(nm => 
@@ -2152,17 +2150,20 @@ class RComp {
             }
             else {
                 // Classic or otoreact/static or otoreact/global script
-                let prom = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let pText = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)()
+                    , exp = async () => Ev(await pText) as Array<unknown>
+                    , pData: Promise<Array<unknown>>
+                    , a = () => pData ||= exp()
+                    ;
                 if (src && async)
                     // Evaluate asynchronously as soon as the script is fetched
-                    prom = prom.then(txt => void (exp = Ev(txt)));
+                    a(); 
                 else if (!mO && !defer)
                     // Evaluate standard classic scripts without defer immediately
-                    exp = Ev(await prom);
+                   await a();
 
                 return async function SCRIPT(ar: Area) {
-                        !ar.r &&
-                            SetV(exp ||= Ev(await prom));
+                        ar.r || SetV(await a());
                     };
             }
         }
@@ -3107,7 +3108,8 @@ class RComp {
     private CRout<V>(
         txt: string
         , x: string
-        , E: string): DepE<(v: V) => any> {
+        , E: string
+        ): DepE<(v: V) => any> {
             try {
                 let ct = this.gsc(txt)
                     , C = Ev(`${US}(function(${x},${ct}){${txt}\n})`)
@@ -3162,10 +3164,10 @@ class RComp {
         return this.CExpr<T[]>(`[${L}\n]`, attNm);
     }
 
-    private gsc(exp: string) {
+    private gsc(exp: string, {ct,lvM, d}: Context = this.CT) {
         // Get Shaked Context string
         // See if the context string this.CT.ct can be abbreviated
-        let {ct,lvM, d} = this.CT, n=d+1
+        let n=d+1
         for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
             let k: EnvKey = lvM.get(m[0]);
             if (k?.d < n) n = k.d;
@@ -3357,10 +3359,15 @@ export function* range(from: number, count?: number, step: number = 1) {
 }
 
 export async function RFetch(input: RequestInfo, init?: RequestInit) {
-    let rp = await fetch(input, init);
-    if (!rp.ok)
-        throw `${init?.method||'GET'} ${input} returned ${rp.status} ${rp.statusText}`;
-    return rp;
+    try {
+        let rp = await fetch(input, init);
+        if (!rp.ok)
+            throw `Response ${rp.status} ${rp.statusText}`;
+        return rp;
+    }
+    catch (ex) {        
+        throw `${init?.method||'GET'} ${input}: ` + ex;
+    }
 }
 
 class DocLoc extends _RVAR<string> {
