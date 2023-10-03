@@ -2175,7 +2175,8 @@ class RComp {
                 ats: Atts,
                 body?: Iterable<ChildNode>,
             }> = [],
-            body: ChildNode[] = [];
+            body: ChildNode[] = [],
+            bE: booly;
         
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement) 
@@ -2186,6 +2187,9 @@ class RComp {
                         cases.push({n, ats});
                         continue;
                     case 'ELSE':
+                        if (bE) throw "Double ELSE";
+                        bE = T;
+                        // Fall through!
                     case 'WHEN':
                         cases.push({n, ats: new Atts(n as HTMLElement)});
                         continue;
@@ -2205,9 +2209,8 @@ class RComp {
             }> = [],
             {ws, rt, CT}= this,
             postCT = CT,
-            postWs: WSpc = 0, // Highest whitespace mode to be reached after any alternative
-            bE: booly;
-        
+            postWs: WSpc = 0 // Highest whitespace mode to be reached after any alternative
+            ;
         for (let {n, ats, body} of cases) {
             let ES = 
                 ass(this, {ws, rt, CT: new Context(CT)})
@@ -2249,8 +2252,6 @@ class RComp {
                         ats.None();
                         postWs = Math.max(postWs, this.ws);
                         postCT = postCT.max(this.CT);
-
-                        bE ||= cond === U;  // Is there an ELSE
                 }
             } 
             catch (m) { throw n.tagName=='IF' ? m : ErrM(n, m); }
@@ -3113,11 +3114,11 @@ class RComp {
                 return ct ? 
                     (e: Environment = env) =>
                         function($) {
-                            try { C.call(this,$,e); }
+                            try { return C.call(this,$,e); }
                             catch(m) {throw m+E;}
                         }
                     : () => function($) {
-                            try { C.call(this,$); }
+                            try { return C.call(this,$); }
                             catch(m) {throw m+E;}
                         };
             }
@@ -3137,11 +3138,11 @@ class RComp {
             throw `[${nm}] Empty expression`;
         
         try {
-            var f = Ev(
+            var E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
+                , f = Ev(
                     `${US}(function(${this.gsc(e)}){return(${e}\n)})`  // Expression evaluator
                 ) as (e:Environment) => T
-                , E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
-
+                ;
             return () => {
                     try { 
                         return f.call(pn, env);

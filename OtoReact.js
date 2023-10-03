@@ -1156,7 +1156,7 @@ class RComp {
         }
     }
     async CCase(srcE, ats) {
-        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [];
+        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bE;
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement)
                 switch (n.tagName) {
@@ -1166,6 +1166,9 @@ class RComp {
                         cases.push({ n, ats });
                         continue;
                     case 'ELSE':
+                        if (bE)
+                            throw "Double ELSE";
+                        bE = T;
                     case 'WHEN':
                         cases.push({ n, ats: new Atts(n) });
                         continue;
@@ -1174,7 +1177,7 @@ class RComp {
         }
         if (srcE.tagName == 'IF' && !bThen)
             cases.unshift({ n: srcE, ats, body });
-        let caseList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0, bE;
+        let caseList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
         for (let { n, ats, body } of cases) {
             let ES = ass(this, { ws, rt, CT: new Context(CT) })
                 .SS();
@@ -1206,7 +1209,6 @@ class RComp {
                         ats.None();
                         postWs = Math.max(postWs, this.ws);
                         postCT = postCT.max(this.CT);
-                        bE || (bE = cond === U);
                 }
             }
             catch (m) {
@@ -1681,7 +1683,7 @@ class RComp {
             return ct ?
                 (e = env) => function ($) {
                     try {
-                        C.call(this, $, e);
+                        return C.call(this, $, e);
                     }
                     catch (m) {
                         throw m + E;
@@ -1689,7 +1691,7 @@ class RComp {
                 }
                 : () => function ($) {
                     try {
-                        C.call(this, $);
+                        return C.call(this, $);
                     }
                     catch (m) {
                         throw m + E;
@@ -1706,7 +1708,7 @@ class RComp {
         if (!/\S/.test(e))
             throw `[${nm}] Empty expression`;
         try {
-            var f = Ev(`${US}(function(${this.gsc(e)}){return(${e}\n)})`), E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1];
+            var E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1], f = Ev(`${US}(function(${this.gsc(e)}){return(${e}\n)})`);
             return () => {
                 try {
                     return f.call(pn, env);
