@@ -3,11 +3,12 @@ Redirect 301 /test/ /
 Options +Includes
 AddType text/html .shtml
 AddOutputFilter INCLUDES .shtml
+AddOutputFilter INCLUDES .html
 
 ErrorDocument 403 default
 ErrorDocument 404 default
 
-DirectoryIndex index.shtml index.html
+# DirectoryIndex index.shtml index.html
 
 <IfModule mod_rewrite.c>
    RewriteEngine On
@@ -24,7 +25,7 @@ DirectoryIndex index.shtml index.html
     # Redirect any non existing directory request (without a dot) to /index.html
     ####
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule "(^|/)([^/.]*)$" index.shtml    [L]
+    RewriteRule "(^|/)([^/.]*)$" index.html    [L]
 
     ####
     # Redirect any non existing file request (with a dot) to the base directory
