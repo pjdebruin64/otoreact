@@ -1,5 +1,5 @@
-declare type booly = boolean | string | number | object | null | undefined;
-declare type Settings = Partial<{
+type booly = boolean | string | number | object | null | undefined;
+type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -17,11 +17,11 @@ declare type Settings = Partial<{
     version: number;
     headers: HeadersInit;
 }>;
-declare type hHTMLElement = HTMLElement & {
+type hHTMLElement = HTMLElement & {
     b?: booly;
 };
 export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
-declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
+type Subscriber<T = unknown> = (((t?: T) => unknown) & {
     T?: never;
 }) | (((t: T) => Promise<unknown>) & {
     T: true;
@@ -48,8 +48,8 @@ export declare class _RVAR<T = unknown> {
     Exec(): Promise<void>;
     toString(): string;
 }
-export declare type RVAR<T = unknown> = _RVAR<T>;
-export declare type RVAR_Light<T> = T & {
+export type RVAR<T = unknown> = _RVAR<T>;
+export type RVAR_Light<T> = T & {
     Subscribe: (sub: Subscriber) => void;
     Exec: () => Promise<void>;
     Save: () => void;

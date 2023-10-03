@@ -1121,38 +1121,33 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), exp, SetV = lvars
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), SetV = lvars
             ? (e) => SetLVs(lvars, e)
-            : (e) => varlist.forEach((nm, i) => G[nm] = e[i]);
+            : (e) => varlist.forEach((nm, i) => G[nm] = e[i]), ex;
         ats.clear();
         if (mO || (bC || bM) && this.S.bSubf) {
             if (mO?.[3]) {
                 let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
-                return async function LSCRIPT(ar) {
-                    if (!ar.r || bU)
-                        SetV((await prom)(env));
-                };
+                ex = async () => (await prom)(env);
             }
             else if (bM) {
-                let prom = src
+                let pArr = (src
                     ? import(this.GetURL(src))
-                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIPT(ar) {
-                    !ar.r &&
-                        SetV(await prom.then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`))));
-                };
+                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)))
+                    .then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)));
+                ex = () => pArr;
             }
             else {
-                let prom = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
+                let pTxt = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)(), V;
+                ex = async () => V || (V = Ev(await pTxt));
                 if (src && async)
-                    prom = prom.then(txt => void (exp = Ev(txt)));
+                    ex();
                 else if (!mO && !defer)
-                    exp = Ev(await prom);
-                return async function SCRIPT(ar) {
-                    !ar.r &&
-                        SetV(exp || (exp = Ev(await prom)));
-                };
+                    await ex();
             }
+            return async function SCRIPT(ar) {
+                ar.r && !bU || SetV(await ex());
+            };
         }
     }
     async CCase(srcE, ats) {
@@ -1843,10 +1838,15 @@ export function* range(from, count, step = 1) {
     }
 }
 export async function RFetch(input, init) {
-    let rp = await fetch(input, init);
-    if (!rp.ok)
-        throw `${init?.method || 'GET'} ${input} returned ${rp.status} ${rp.statusText}`;
-    return rp;
+    try {
+        let rp = await fetch(input, init);
+        if (!rp.ok)
+            throw `Status ${rp.status} ${rp.statusText}`;
+        return rp;
+    }
+    catch (e) {
+        throw `${init?.method || 'GET'} ${input}: ` + e;
+    }
 }
 class DocLoc extends _RVAR {
     constructor() {

@@ -2089,12 +2089,11 @@ class RComp {
             , {ct} = this.CT
             // Local variables to be defined
             , lvars = mO && mO[2] && this.LVars(defs)
-            // Placeholder to remember the variable values when !bUpd
-            , exp: Array<unknown>
             // Routine to actually define the either local or global variables
             , SetV = lvars
                 ? (e:unknown[]) => SetLVs(lvars, e)
                 : (e:unknown[]) => varlist.forEach((nm,i) => G[nm] = e[i])
+            , ex: () => Promise<Array<unknown>>
             ;
         
         ats.clear();   // No error on unknown attributes
@@ -2105,65 +2104,64 @@ class RComp {
         if (mO || (bC || bM) && this.S.bSubf) {
             if (mO?.[3]) {
                 // otoreact/local script
-                let prom = (async () => 
+                let prom
+                 = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
                     Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
-                    ) as DepE<unknown[]>
+                    ) as DepE<Array<unknown>>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
-                return async function LSCRIPT(ar: Area) {
-                    if (!ar.r || bU)
-                        SetV((await prom)(env));
-                }
+                ex = async() => (await prom)(env);
             } 
             else if (bM) {
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
-                let prom: Promise<Object> =
-                    src 
-                    ? import(this.GetURL(src)) // External script
-                    : import(
-                        // For internal scripts, we must create an "ObjectURL"
-                        src = URL.createObjectURL(
-                            new Blob(
-                                // Imports in the script may need an adjusted URL
-                                [ text.replace(
-                                    /(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g,
-                                    (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3
-                                ) ]
-                                , {type: 'text/javascript'}
-                            )
-                        )
-                        // And the ObjectURL has to be revoked
-                    ).finally(() => URL.revokeObjectURL(src));
-                return async function MSCRIPT(ar: Area) {
-                    !ar.r && 
-                        SetV(
-                            await prom.then(obj => 
-                                varlist.map(nm => 
-                                    nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
+                let pArr: Promise<Array<unknown>>
+                    = ( src 
+                    ?   import(this.GetURL(src)) // External script
+                    :   import(
+                            // For internal scripts, we must create an "ObjectURL"
+                            src = URL.createObjectURL(
+                                new Blob(
+                                    // Imports in the script may need an adjusted URL
+                                    [ text.replace(
+                                        /(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g,
+                                        (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3
+                                    ) ]
+                                    , {type: 'text/javascript'}
                                 )
                             )
-                        );
-                }
+                            // And the ObjectURL has to be revoked
+                        ).finally(() => URL.revokeObjectURL(src))
+                    )
+                    // Then convert the resulting object into value array
+                    .then(obj => 
+                        varlist.map(nm => 
+                            nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
+                        ));
+                ex = () => pArr;
             }
             else {
                 // Classic or otoreact/static or otoreact/global script
-                let prom = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)();
-                if (src && async)
-                    // Evaluate asynchronously as soon as the script is fetched
-                    prom = prom.then(txt => void (exp = Ev(txt)));
-                else if (!mO && !defer)
-                    // Evaluate standard classic scripts without defer immediately
-                    exp = Ev(await prom);
+                let pTxt: Promise<string>
+                    = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)()
+                    , V: Array<unknown>;
+                // Routine to initiate execution, at most once
+                ex = async() => V ||= Ev(await pTxt);
 
-                return async function SCRIPT(ar: Area) {
-                        !ar.r &&
-                            SetV(exp ||= Ev(await prom));
-                    };
+                if (src && async)
+                    // Exec asynchronously as soon as the script is fetched
+                    ex();
+                else if (!mO && !defer)
+                    // Exec and await standard classic scripts without defer immediately
+                    await ex();
+                // else defer execution till it is required
             }
+            return async function SCRIPT(ar: Area) {
+                ar.r && !bU || SetV(await ex());
+            };
         }
     }
 
@@ -3357,10 +3355,15 @@ export function* range(from: number, count?: number, step: number = 1) {
 }
 
 export async function RFetch(input: RequestInfo, init?: RequestInit) {
-    let rp = await fetch(input, init);
-    if (!rp.ok)
-        throw `${init?.method||'GET'} ${input} returned ${rp.status} ${rp.statusText}`;
-    return rp;
+    try {
+        let rp = await fetch(input, init);
+        if (!rp.ok)
+            throw `Status ${rp.status} ${rp.statusText}`;
+        return rp;
+    }
+    catch (e) {
+        throw `${init?.method||'GET'} ${input}: ` + e;
+    }
 }
 
 class DocLoc extends _RVAR<string> {
