@@ -1121,24 +1121,21 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines'), varlist = [...split(defs)], bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO && mO[2] && this.LVars(defs), SetV = lvars
-            ? (e) => SetLVs(lvars, e)
-            : (e) => varlist.forEach((nm, i) => G[nm] = e[i]), ex;
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO?.[2] && this.LVars(defs), ex;
         ats.clear();
         if (mO || (bC || bM) && this.S.bSubf) {
             if (mO?.[3]) {
-                let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`))();
+                let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
             else if (bM) {
                 let pArr = (src
                     ? import(this.GetURL(src))
-                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)))
-                    .then(obj => varlist.map(nm => nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)));
+                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
                 ex = () => pArr;
             }
             else {
-                let pTxt = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)(), V;
+                let pTxt = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), V;
                 ex = async () => V || (V = Ev(await pTxt));
                 if (src && async)
                     ex();
@@ -1146,7 +1143,13 @@ class RComp {
                     await ex();
             }
             return async function SCRIPT(ar) {
-                ar.r && !bU || SetV(await ex());
+                if (!ar.r || bU) {
+                    let obj = await ex();
+                    if (lvars)
+                        lvars.forEach(lv => lv(obj[lv.nm]));
+                    else
+                        ass(G, obj);
+                }
             };
         }
     }

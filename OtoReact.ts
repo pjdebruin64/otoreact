@@ -2075,8 +2075,7 @@ class RComp {
             // External source?
             , src = ats.g('src')     // Niet srcE.src
             // Any variables to define?
-            , defs = ats.g('defines')
-            , varlist = [...split(defs)]
+            , defs = ats.g('defines') || ''
             // Is this a 'module' script (type=module or e.g. type="otoreact;type=module")?
             , bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type)
             // Is this a classic script?
@@ -2088,12 +2087,8 @@ class RComp {
             // Current context string befóre NewVars
             , {ct} = this.CT
             // Local variables to be defined
-            , lvars = mO && mO[2] && this.LVars(defs)
-            // Routine to actually define the either local or global variables
-            , SetV = lvars
-                ? (e:unknown[]) => SetLVs(lvars, e)
-                : (e:unknown[]) => varlist.forEach((nm,i) => G[nm] = e[i])
-            , ex: () => Promise<Array<unknown>>
+            , lvars = mO?.[2] && this.LVars(defs)
+            , ex: () => Promise<object>
             ;
         
         ats.clear();   // No error on unknown attributes
@@ -2108,8 +2103,8 @@ class RComp {
                  = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn[${defs}]}})`
-                    ) as DepE<Array<unknown>>
+                    Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`
+                    ) as DepE<object>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
@@ -2118,7 +2113,7 @@ class RComp {
             } 
             else if (bM) {
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
-                let pArr: Promise<Array<unknown>>
+                let pArr: Promise<object>
                     = ( src 
                     ?   import(this.GetURL(src)) // External script
                     :   import(
@@ -2135,18 +2130,13 @@ class RComp {
                             )
                             // And the ObjectURL has to be revoked
                         ).finally(() => URL.revokeObjectURL(src))
-                    )
-                    // Then convert the resulting object into value array
-                    .then(obj => 
-                        varlist.map(nm => 
-                            nm in obj ? obj[nm] : thro(`'${nm}' is not exported by this script`)
-                        ));
+                    );
                 ex = () => pArr;
             }
             else {
                 // Classic or otoreact/static or otoreact/global script
                 let pTxt: Promise<string>
-                    = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;[${defs}]`)()
+                    = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
                     , V: Array<unknown>;
                 // Routine to initiate execution, at most once
                 ex = async() => V ||= Ev(await pTxt);
@@ -2160,7 +2150,13 @@ class RComp {
                 // else defer execution till it is required
             }
             return async function SCRIPT(ar: Area) {
-                ar.r && !bU || SetV(await ex());
+                if (!ar.r || bU) {
+                    let obj = await ex();
+                    if (lvars)
+                        lvars.forEach(lv => lv(obj[lv.nm]));
+                    else
+                        ass(G, obj);
+                }
             };
         }
     }
