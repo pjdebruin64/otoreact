@@ -673,37 +673,37 @@ class RComp {
     }
     async CElm(srcE, bUH) {
         try {
-            let tag = srcE.tagName, ats = new Atts(srcE), AL = this.rActs.length, ga = [], bf = [], af = [], bl, auto, constr = this.CT.getCS(tag), b, m, nm;
-            for (let [att] of ats)
+            let tag = srcE.tagName, ats = new Atts(srcE), ga = [], bf = [], af = [], bl, bA, auto, constr = this.CT.getCS(tag), b, m, nm;
+            for (let [at] of ats)
                 if (m =
                     /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
-                        .exec(att))
+                        .exec(at))
                     if (m[1])
                         m[4] && tag != 'REACT'
                             || m[7] && tag == 'FOR'
                             || ga.push({
-                                att,
+                                at,
                                 m,
                                 dV: m[5]
-                                    ? this.CHandlr(ats.g(att), att)
+                                    ? this.CHandlr(ats.g(at), at)
                                     : m[8]
-                                        ? this.CAttExp(ats, att)
+                                        ? this.CAttExp(ats, at)
                                         :
-                                            this.CAttExpList(ats, att, T)
+                                            this.CAttExpList(ats, at, T)
                             });
                     else {
-                        let txt = ats.g(att);
-                        if (/cr|d/.test(att))
+                        let txt = ats.g(at);
+                        if (/cr|d/.test(at))
                             (m[9] ? bf : af)
                                 .push({
-                                att,
+                                at,
                                 txt,
-                                C: /cr/.test(att),
-                                U: /u/.test(att),
-                                D: /y/.test(att),
-                                h: m[9] && this.CHandlr(txt, att)
+                                C: /cr/.test(at),
+                                U: /u/.test(at),
+                                D: /y/.test(at),
+                                h: m[9] && this.CHandlr(txt, at)
                             });
-                        if (/m/.test(att))
+                        if (/m/.test(at))
                             Ev(`(function(){${txt}\n})`).call(srcE);
                     }
             if (constr)
@@ -716,7 +716,7 @@ class RComp {
                             NoChilds(srcE);
                             let rv = ats.g('rvar'), t = '@value', twv = rv && ats.g(t), dGet = twv ? this.CExpr(twv, t) : this.CPam(ats, 'value'), bUpd = ats.gB('reacting') || ats.gB('updating') || twv, dSet = twv && this.CTarget(twv), dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
                             auto = rv && ats.gB('auto', this.S.bAutoSubscribe) && !onMod && rv;
-                            bl = async function DEF(ar, bR) {
+                            bA = async function DEF(ar, bR) {
                                 let r = ar.r, v, upd;
                                 if (!r || bUpd || bR != N) {
                                     try {
@@ -781,7 +781,7 @@ class RComp {
                             if (!bAsync)
                                 for (let sig of imps)
                                     sig.task = task;
-                            bl = async function IMPORT(ar) {
+                            bA = async function IMPORT(ar) {
                                 let { sub, cr, r } = PrepRng(ar, srcE);
                                 if (cr || bIncl) {
                                     try {
@@ -830,15 +830,15 @@ class RComp {
                         }
                         break;
                     case 'SCRIPT':
-                        bl = await this.CScript(srcE, ats);
+                        bA = await this.CScript(srcE, ats);
                         break;
                     case 'COMPONENT':
-                        bl = await this.CComp(srcE, ats);
+                        bA = await this.CComp(srcE, ats);
                         break;
                     case 'DOCUMENT':
                         {
                             let vDoc = this.LV(ats.g('name', T)), bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LV(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
-                            bl = async function DOCUMENT(ar) {
+                            bA = async function DOCUMENT(ar) {
                                 if (!ar.r) {
                                     let { doc, hd } = PC, docEnv = env, wins = new Set();
                                     vDoc({
@@ -978,10 +978,10 @@ class RComp {
                 }
             if (!bUH)
                 ats.None();
-            nm = (bl || (bl = dB)).name;
+            nm = (bl || (bl = bA || (bA = dB))).name;
             if (bf.length || af.length) {
                 for (let g of af)
-                    g.h = this.CHandlr(g.txt, g.att);
+                    g.h = this.CHandlr(g.txt, g.at);
                 let b = bl;
                 bl = async function Pseu(ar, bR) {
                     let { r, sub, cr } = PrepRng(ar, srcE), sr = sub.r || T, bD = ph(bf, 'bU', sr != T && sr.n || pn);
@@ -1009,11 +1009,11 @@ class RComp {
                     }
                 };
             }
-            for (let { att, m, dV } of this.S.version ? ga : ga.reverse()) {
+            for (let { at, m, dV } of this.S.version ? ga : ga.reverse()) {
                 let b = bl, es = m[6] ? 'e' : 's';
                 if (m[2]) {
                     let R = async (ar, bR) => {
-                        let { r, sub } = PrepRng(ar, srcE, att);
+                        let { r, sub } = PrepRng(ar, srcE, at);
                         if (r.upd != upd)
                             await b(sub, bR);
                         r.upd = upd;
@@ -1032,7 +1032,7 @@ class RComp {
                                 rvar.Subscribe(s);
                             }
                             catch {
-                                throw `This is not an RVAR\nat [${att}]`;
+                                throw `This is not an RVAR\nat [${at}]`;
                             }
                     };
                 }
@@ -1040,7 +1040,7 @@ class RComp {
                     bl =
                         m[5]
                             ? async function SetOnES(ar, bR) {
-                                let s = oes, { sub, r } = PrepRng(ar, srcE, att);
+                                let s = oes, { sub, r } = PrepRng(ar, srcE, at);
                                 oes = ass(r.oes || (r.oes = {}), oes);
                                 try {
                                     oes[es] = dV();
@@ -1052,23 +1052,23 @@ class RComp {
                             }
                             : m[7]
                                 ? function HASH(ar, bR) {
-                                    let { sub, r, cr } = PrepRng(ar, srcE, att), ph = r.v;
+                                    let { sub, r, cr } = PrepRng(ar, srcE, at), ph = r.v;
                                     r.v = dV();
                                     if (cr || r.v.some((hash, i) => hash !== ph[i]))
                                         return b(sub, bR);
                                 }
                                 : m[8]
                                     ? function hIf(ar, bR) {
-                                        let c = dV(), p = PrepRng(ar, srcE, att, 1, !c);
+                                        let c = dV(), p = PrepRng(ar, srcE, at, 1, !c);
                                         if (c)
                                             return b(p.sub, bR);
                                     }
                                     :
                                         function renew(sub, bR) {
-                                            return b(PrepRng(sub, srcE, att, 2).sub, bR);
+                                            return b(PrepRng(sub, srcE, at, 2).sub, bR);
                                         };
             }
-            return bl != dB && ass(this.ErrH(bl, srcE, this.rActs.length > AL), { auto, nm });
+            return bl != dB && ass(this.ErrH(bl, srcE, bA), { auto, nm });
         }
         catch (m) {
             throw ErrM(srcE, m);
@@ -1658,14 +1658,14 @@ class RComp {
         }
         return { lvars, RE: new RegExp(`^${reg}$`, 'i'), url };
     }
-    CPam(ats, att, bReq) {
-        let txt = ats.g(att);
-        return (txt == N ? this.CAttExp(ats, att, bReq)
-            : /^on/.test(att) ? this.CHandlr(txt, att)
-                : this.CText(txt, att));
+    CPam(ats, at, bReq) {
+        let txt = ats.g(at);
+        return (txt == N ? this.CAttExp(ats, at, bReq)
+            : /^on/.test(at) ? this.CHandlr(txt, at)
+                : this.CText(txt, at));
     }
-    CAttExp(ats, att, bReq) {
-        return this.CExpr(ats.g(att, bReq, T), att, U);
+    CAttExp(ats, at, bReq) {
+        return this.CExpr(ats.g(at, bReq, T), at, U);
     }
     CTarget(LHS) {
         return this.CRout(`(${LHS})=$`, '$', `\nin assigment target "${LHS}"`);

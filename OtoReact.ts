@@ -1380,18 +1380,20 @@ class RComp {
                 tag = srcE.tagName
                 // List of source attributes, to check for unrecognized attributes
                 , ats =  new Atts(srcE)
-                , AL = this.rActs.length
 
                 // Global attributes (this)react(s)on / hash / if / renew handlers,
                 // to be compiled after the the element itself has been compiled
-                , ga: Array<{att: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = []
+                , ga: Array<{at: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = []
 
                 // Generic pseudo-event handlers to be handled at runtime BEFORE and AFTER building
-                , bf: Array<{att: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
-                , af: Array<{att: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
+                , bf: Array<{at: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
+                , af: Array<{at: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
                                 
                 // The intermediate builder will be put here
                 , bl: DOMBuilder
+                // 'bA' is set rather than 'bl' for builders that should abort the current range of nodes when an error occurs.
+                // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
+                , bA: DOMBuilder
                 
                 , auto: string  // rvar-name that might need auto-subscription
 
@@ -1404,44 +1406,44 @@ class RComp {
                 , nm: string;
 
                 // Check for generic attributes
-            for (let [att] of ats)
+            for (let [at] of ats)
                 if (m = 
 /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
 //     123                4       56                7      8              9          
-                     .exec(att))
+                     .exec(at))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
                         || m[7] && tag=='FOR'   // <FOR> has its own 'hash'
                         // other cases are put in the list:
                         ||  ga.push(
                                 {
-                                    att, 
+                                    at, 
                                     m, 
                                     dV: 
                                         m[5]  // on((error)|success)
-                                            ? this.CHandlr(ats.g(att), att)
+                                            ? this.CHandlr(ats.g(at), at)
                                         : m[8] // if
-                                            ? this.CAttExp(ats, att)
+                                            ? this.CAttExp(ats, at)
                                         :   // reacton, hash
-                                          this.CAttExpList<RVAR>(ats, att, T)
+                                          this.CAttExpList<RVAR>(ats, at, T)
                                 });
                     else { 
-                        let txt = ats.g(att);
-                        if (/cr|d/.test(att))  // #?(before|after|on)(create|update|destroy|compile)+
+                        let txt = ats.g(at);
+                        if (/cr|d/.test(at))  // #?(before|after|on)(create|update|destroy|compile)+
                             // We have a pseudo-event
                             (m[9] ? bf : af)    // Is it before or after
                             .push({
-                                att, 
+                                at, 
                                 txt, 
-                                C: /cr/.test(att),    // 'att' contains 'create'
-                                U: /u/.test(att),    // 'att' contains 'update'
-                                D: /y/.test(att),    // 'att' contains 'destroy'
+                                C: /cr/.test(at),    // 'at' contains 'create'
+                                U: /u/.test(at),    // 'at' contains 'update'
+                                D: /y/.test(at),    // 'at' contains 'destroy'
                                 // 'before' events are compiled now, before the element is compiled
-                                h: m[9] && this.CHandlr(txt, att)
+                                h: m[9] && this.CHandlr(txt, at)
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
-                        if (/m/.test(att))    // oncompile
+                        if (/m/.test(at))    // oncompile
                             // Execute now, with 'srcE' as 'this'
                             Ev(`(function(){${txt}\n})`).call(srcE);
                     }
@@ -1469,7 +1471,7 @@ class RComp {
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
                         auto = rv && ats.gB('auto', this.S.bAutoSubscribe) && !onMod && rv; 
-                        bl = async function DEF(ar, bR?) {
+                        bA = async function DEF(ar, bR?) {
                                 let r = ar.r
                                     , v: unknown, upd: RVAR;
                                 // Evaluate the value only when:
@@ -1572,7 +1574,7 @@ class RComp {
                             for (let sig of imps)
                                 sig.task = task;
                         
-                        bl = async function IMPORT(ar: Area) {
+                        bA = async function IMPORT(ar: Area) {
                             let {sub,cr,r} = PrepRng<{v:Environment}>(ar, srcE)
                             if (cr || bIncl) {
                                 try {
@@ -1649,11 +1651,11 @@ class RComp {
                     } break;
 
                     case 'SCRIPT': 
-                        bl = await this.CScript(srcE as HTMLScriptElement, ats); 
+                        bA = await this.CScript(srcE as HTMLScriptElement, ats); 
                         break;
 
                     case 'COMPONENT':
-                        bl = await this.CComp(srcE, ats);
+                        bA = await this.CComp(srcE, ats);
                         break;
 
                     case 'DOCUMENT': {
@@ -1665,7 +1667,7 @@ class RComp {
                             vWin = RC.LV(ats.g('window',F,F,T)),
                             H = RC.hd = D.createDocumentFragment(),   //To store static stylesheets
                             b = await RC.CChilds(srcE);
-                        bl = async function DOCUMENT(ar: Area) {
+                        bA = async function DOCUMENT(ar: Area) {
                             if (!ar.r) {
                                 let {doc, hd} = PC,
                                     docEnv = env,
@@ -1859,13 +1861,13 @@ class RComp {
             // a non-empty builder.
             // When no handling is added, we'll make 'bl' empty again.
             
-            nm = (bl ||= dB).name;
+            nm = (bl ||= bA ||= dB).name;
 
             // Add pseudo-event handling
             if (bf.length || af.length) {
                 // Compile after-handlers now
                 for (let g of af)
-                    g.h = this.CHandlr(g.txt, g.att);
+                    g.h = this.CHandlr(g.txt, g.at);
 
                 let b = bl;
                 bl = async function Pseu(ar: AreaR, bR) {                   
@@ -1912,13 +1914,13 @@ class RComp {
             }
 
             // Compile global attributes
-            for (let {att, m, dV} of this.S.version ? ga : ga.reverse()) {
+            for (let {at, m, dV} of this.S.version ? ga : ga.reverse()) {
                 let b = bl
                     , es = m[6] ? 'e' : 's';  // onerror or onsuccess
                 if (m[2]) { // (this)?reacts?on|(on)
                     let R =
                         async (ar: Area, bR?: boolean) => {
-                            let {r, sub} = PrepRng<{upd: number}>(ar, srcE, att);
+                            let {r, sub} = PrepRng<{upd: number}>(ar, srcE, at);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
                                 await b(sub, bR);
@@ -1948,7 +1950,7 @@ class RComp {
                                 }
                                 // Subscribe current rvar
                                 rvar.Subscribe(s); }
-                            catch { throw `This is not an RVAR\nat [${att}]`}
+                            catch { throw `This is not an RVAR\nat [${at}]`}
                     }
                 }
                 else
@@ -1957,7 +1959,7 @@ class RComp {
                         ? async function SetOnES(ar: Area, bR) {
                             let 
                                 s = oes    // Remember current setting
-                                , {sub, r} = PrepRng<{oes: object}>(ar, srcE, att);
+                                , {sub, r} = PrepRng<{oes: object}>(ar, srcE, at);
 
                             // Create a copy. On updates, assign current values to the copy created before.
                             oes = ass(r.oes ||= <any>{}, oes);
@@ -1970,7 +1972,7 @@ class RComp {
 
                         : m[7]   // hash
                         ? function HASH(ar: Area, bR) {
-                            let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, att)
+                            let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, at)
                                 , ph  = r.v;
                             r.v = <unknown[]>dV();
         
@@ -1980,21 +1982,21 @@ class RComp {
                         : m[8]  // #if
                         ?   function hIf(ar: Area, bR) {
                                 let c = <booly>dV(),
-                                    p = PrepRng(ar, srcE, att, 1, !c)
+                                    p = PrepRng(ar, srcE, at, 1, !c)
                                 if (c)
                                     return b(p.sub, bR)
                             }
                         :   // Renew
                             function renew(sub: Area, bR) {
                                 return b(
-                                    PrepRng(sub, srcE, att, 2).sub
+                                    PrepRng(sub, srcE, at, 2).sub
                                     , bR
                                 );
                             }
             }
 
             return bl != dB && ass(
-                this.ErrH(bl, srcE, this.rActs.length > AL)
+                this.ErrH(bl, srcE, bA)
                 , {auto,nm}
                 );
         }
@@ -3067,19 +3069,19 @@ class RComp {
         return {lvars, RE: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
-    private CPam<T = unknown>(ats: Atts, att: string, bReq?: booly): Dep<T> 
+    private CPam<T = unknown>(ats: Atts, at: string, bReq?: booly): Dep<T> 
     // Compile parameter (of some OtoReact construct) 
     {
-        let txt = ats.g(att);
+        let txt = ats.g(at);
         return (
-            txt == N ? this.CAttExp<T>(ats, att, bReq)
-            : /^on/.test(att) ? this.CHandlr(txt, att) as Dep<any>
-            : this.CText(txt, att) as Dep<any>
+            txt == N ? this.CAttExp<T>(ats, at, bReq)
+            : /^on/.test(at) ? this.CHandlr(txt, at) as Dep<any>
+            : this.CText(txt, at) as Dep<any>
         );
     }
-    private CAttExp<T>(ats: Atts, att: string, bReq?: booly
+    private CAttExp<T>(ats: Atts, at: string, bReq?: booly
         ) {
-        return this.CExpr<T>(ats.g(att, bReq, T), att, U);
+        return this.CExpr<T>(ats.g(at, bReq, T), at, U);
     }
     
     private CTarget<T = unknown>(LHS: string): Dep<(t:T) => void>
