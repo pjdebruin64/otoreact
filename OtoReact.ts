@@ -79,12 +79,17 @@ type hHTMLElement = HTMLElement & {b?: booly};
     'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
         false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder<RT = unknown> = ((ar: Area, bR?: boolean) => Promise<RT>) 
+type DOMBuilder<RT = void|booly> = ((ar: Area, bR?: boolean) => Promise<RT>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
     };
 
+async function Bldrs(bs: Iterable<DOMBuilder>, ar: Area){ 
+    for (let b of bs)
+        if (await b(ar))
+            break;
+}
 
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
@@ -323,18 +328,19 @@ export async function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<vo
                     , L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
                     , setts
                 );
+
             await C.Compile(srcN);
 
             // Initial build
-            Jobs.add({Exec: async() => {
-                srcN.innerHTML = Q;
-                await C.Build({
+            srcN.innerHTML = Q;
+            Jobs.add({Exec: () =>
+                C.Build({
                     parN: srcN.parentElement,
                     srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
                     bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
-                });
-                ScrollToHash();
-            }});
+                }).then(S2Hash)
+            });
+
             DoUpdate();
         }
         catch (e) {    
@@ -728,7 +734,7 @@ let
     oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
-    Jobs = new Set< {Exec: () => Promise<void> } >(),
+    Jobs = new Set< {Exec: () => Promise<unknown> } >(),
 
     hUpd: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
@@ -1100,7 +1106,11 @@ class RComp {
                 // We can use a range provided by the caller, or prepare a new one
                 let e = env;
                 r || ({r,sub} = PrepRng<{v:Environment}>(sub));
-                (env = r.env) || ((env = r.env = <Environment>[nf ? e : e[0]]).cl = e.cl);
+
+                env = r.env ||= ass([nf ? e : e[0]], {cl: e.cl});
+
+                //r.env || ((r.env = <Environment>[nf ? e : e[0]]).cl = e.cl);
+                //env = r.env;
                 
                 return {sub, EF: () => {env = e;} }; // 'EndFrame' routine
             }
@@ -1221,11 +1231,12 @@ class RComp {
         }
     }
 
-    // Compile a source tree into an ElmBuilder
+    // Compile a source tree into a DOMBuilder
     public async Compile(
         elm: ParentNode, 
         nodes?: Iterable<ChildNode>,  // Compile the element itself, or just its childnodes
-    ) {
+    ): Promise<DOMBuilder>
+    {
         for (let tag of this.S.preformatted)
             this.sPRE.add(tag.toUpperCase());
         this.srcCnt = 0;
@@ -1282,15 +1293,14 @@ class RComp {
         while(rt && arr.length && reWS.test(arr[arr.length - 1]?.nodeValue)) 
             arr.pop();
         
-        let bldrs = await this.CArr(arr, this.rt), l=bldrs.length;
+        let bs = await this.CArr(arr, this.rt), l=bs.length;
 
         return !l ? N
-            : l > 1 ? async function Iter(ar: Area)
-                {   
-                    for (let b of bldrs)
-                        await b(ar);
-                }
-            : bldrs[0];
+            : l < 2 ? bs[0]
+            : function Iter(ar: Area)
+            {
+                return Bldrs(bs, ar);
+            };
     }
 
     private async CArr(arr: Array<ChildNode>, rt: booly, i=0) : Promise<DOMBuilder[]> {
@@ -1324,8 +1334,7 @@ class RComp {
                                         let {r, sub, cr} = PrepRng<{upd: number}>(ar);
                                         if (cr) {
                                             let rvar = gv(), s = rvar._Subs.size;
-                                            for (let b of bs)
-                                                await b(sub);
+                                            await Bldrs(bs, sub);
                                             if (rvar._Subs.size==s) // No new subscribers still?
                                                 // Then auto-subscribe with the correct range
                                                 rvar.Subscribe(
@@ -1333,8 +1342,7 @@ class RComp {
                                                 );
                                         }
                                         else if (r.upd != upd)
-                                            for (let b of bs)
-                                                await b(sub);
+                                            await Bldrs(bs, sub);
                                         
                                         r.upd = upd;                                      
                                     }
@@ -1642,7 +1650,7 @@ class RComp {
                                     await C.Build({ parN, parR });
                                 }
                                 catch(e) { 
-                                    parN.appendChild(crErrN(`Compile error: `+e))
+                                    parN.appendChild(crErrN(e))
                                 }
                                 finally { env = sv; }
                             }
@@ -1918,8 +1926,8 @@ class RComp {
                 let b = bl
                     , es = m[6] ? 'e' : 's';  // onerror or onsuccess
                 if (m[2]) { // (this)?reacts?on|(on)
-                    let R =
-                        async (ar: Area, bR?: boolean) => {
+                    let R: DOMBuilder<Range>
+                        = async (ar: Area, bR?: boolean) => {
                             let {r, sub} = PrepRng<{upd: number}>(ar, srcE, at);
 
                             if (r.upd != upd)   // Avoid duplicate updates in the same RUpdate loop iteration
@@ -1950,7 +1958,7 @@ class RComp {
                                 }
                                 // Subscribe current rvar
                                 rvar.Subscribe(s); }
-                            catch { throw `This is not an RVAR\nat [${at}]`}
+                            catch { throw `This is not an RVAR\nat '${at}'`}
                     }
                 }
                 else
@@ -2003,7 +2011,8 @@ class RComp {
         catch (m) { throw ErrM(srcE, m); }
     }
 
-    private ErrH(b: DOMBuilder, srcN: ChildNode, bA?: booly): DOMBuilder{
+    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: booly): DOMBuilder<booly>
+    {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
         return b && (async (ar: AreaR<{eN: ChildNode}>, bR) => {
@@ -2016,12 +2025,12 @@ class RComp {
             try {
                 await b(ar, bR);
             } 
-            catch (m) { 
+            catch (m) {
                 let msg = 
                     srcN instanceof HTMLElement ? ErrM(srcN, m, 39) : m
                     , e = oes.e;
 
-                if (bA || this.S.bAbortOnError)
+                if (this.S.bAbortOnError)
                     throw msg;
 
                 this.log(msg);
@@ -2029,6 +2038,7 @@ class RComp {
                 : this.S.bShowErrors ?
                     (r||{} as typeof r).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
                 : U
+                return bA;
             }
         });
     }
@@ -2608,7 +2618,7 @@ class RComp {
                 , ES = this.SS()
                 , b = this.ErrH(
                         await this.CIter(arr)
-                        , srcE)
+                        , srcE, T)
                 , mapS = new Map<string, Signat>(mapI(sigs, S => [S.nm, S]));
 
             for (let [nm, elm, body] of 
@@ -3081,7 +3091,7 @@ class RComp {
     }
     private CAttExp<T>(ats: Atts, at: string, bReq?: booly
         ) {
-        return this.CExpr<T>(ats.g(at, bReq, T), at, U);
+        return this.CExpr<T>(ats.g(at, bReq, T), '#'+at, U);
     }
     
     private CTarget<T = unknown>(LHS: string): Dep<(t:T) => void>
@@ -3096,7 +3106,7 @@ class RComp {
     ): DepE<(v: Event) => any> {
         return /^#/.test(nm) ?
             this.CExpr(txt, nm, txt)
-            : this.CRout(txt, 'event', `\nat [${nm}]="${Abbr(txt)}"`);
+            : this.CRout(txt, 'event', `\nat ${nm}="${Abbr(txt)}"`);
 
     }
 
@@ -3131,10 +3141,10 @@ class RComp {
             return <null>e;  // when 'e' is either null or undefined
         
         if (!/\S/.test(e)) 
-            throw `[${nm}] Empty expression`;
+            throw `${nm}: Empty expression`;
         
         try {
-            var E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
+            var E = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
                 , f = Ev(
                     `${US}(function(${this.gsc(e)}){return(${e}\n)})`  // Expression evaluator
                 ) as (e:Environment) => T
@@ -3236,7 +3246,7 @@ class Atts extends Map<string,string> {
         if (v != N)
             super.delete(m);
         else if (bReq)
-            throw `Missing attribute [` + nm + `]`;
+            throw `Missing attribute '` + nm + `'`;
         return bI && v == Q ? nm : v;
     }
 
@@ -3324,7 +3334,7 @@ const
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
 
-, ScrollToHash = () =>
+, S2Hash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 ;
 
@@ -3378,7 +3388,7 @@ class DocLoc extends _RVAR<string> {
             this.Subscribe(loc => {
                 let h = (this.url = new URL(loc)).href;
                 h == L.href || history.pushState(N, N, h);    // Change URL withour reloading the page
-                ScrollToHash(); // Scroll to hash, even when URL remains the same
+                S2Hash(); // Scroll to hash, even when URL remains the same
             },T,T);
         }
         basepath: string;
@@ -3427,7 +3437,7 @@ W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
 // Initiate compilation of marked elements
 setTimeout(() => {
     for (let src of <NodeListOf<HTMLElement>>D.querySelectorAll('*[rhtml],*[type=RHTML]')) {
-        let o = src.getAttribute('rhtml'); src.removeAttribute('rhtml');
+        let o = src.getAttribute('rhtml'); // Options
         RCompile(src, o && Ev(`({${o}})`));
     }
 }, 0);

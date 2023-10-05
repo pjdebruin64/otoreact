@@ -6,6 +6,11 @@ const U = undefined, N = null, T = true, F = false, Q = '', E = [], W = window, 
     storePrefix: "RVAR_",
     version: 1
 }, P = new DOMParser(), Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, NO = () => new Object(null);
+async function Bldrs(bs, ar) {
+    for (let b of bs)
+        if (await b(ar))
+            break;
+}
 class Range {
     constructor(ar, n, text) {
         this.text = text;
@@ -112,15 +117,13 @@ export async function RCompile(srcN, setts) {
             srcN.b = T;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
-            Jobs.add({ Exec: async () => {
-                    srcN.innerHTML = Q;
-                    await C.Build({
-                        parN: srcN.parentElement,
-                        srcN,
-                        bfor: srcN
-                    });
-                    ScrollToHash();
-                } });
+            srcN.innerHTML = Q;
+            Jobs.add({ Exec: () => C.Build({
+                    parN: srcN.parentElement,
+                    srcN,
+                    bfor: srcN
+                }).then(S2Hash)
+            });
             DoUpdate();
         }
         catch (e) {
@@ -507,7 +510,7 @@ class RComp {
         return Comp((sub, r) => {
             let e = env;
             r || ({ r, sub } = PrepRng(sub));
-            (env = r.env) || ((env = r.env = [nf ? e : e[0]]).cl = e.cl);
+            env = r.env || (r.env = ass([nf ? e : e[0]], { cl: e.cl }));
             return { sub, EF: () => { env = e; } };
         }).finally(() => {
             ass(this.CT = CT, { ct, d, L, M });
@@ -609,13 +612,12 @@ class RComp {
         let { rt } = this, arr = Array.from(iter);
         while (rt && arr.length && reWS.test(arr[arr.length - 1]?.nodeValue))
             arr.pop();
-        let bldrs = await this.CArr(arr, this.rt), l = bldrs.length;
+        let bs = await this.CArr(arr, this.rt), l = bs.length;
         return !l ? N
-            : l > 1 ? async function Iter(ar) {
-                for (let b of bldrs)
-                    await b(ar);
-            }
-                : bldrs[0];
+            : l < 2 ? bs[0]
+                : function Iter(ar) {
+                    return Bldrs(bs, ar);
+                };
     }
     async CArr(arr, rt, i = 0) {
         let bldrs = [], L = arr.length, rv;
@@ -634,14 +636,12 @@ class RComp {
                                     let { r, sub, cr } = PrepRng(ar);
                                     if (cr) {
                                         let rvar = gv(), s = rvar._Subs.size;
-                                        for (let b of bs)
-                                            await b(sub);
+                                        await Bldrs(bs, sub);
                                         if (rvar._Subs.size == s)
                                             rvar.Subscribe(Subs(ar, Auto, r));
                                     }
                                     else if (r.upd != upd)
-                                        for (let b of bs)
-                                            await b(sub);
+                                        await Bldrs(bs, sub);
                                     r.upd = upd;
                                 }
                                 : (bldrs.push(...bs), N);
@@ -819,7 +819,7 @@ class RComp {
                                         await C.Build({ parN, parR });
                                     }
                                     catch (e) {
-                                        parN.appendChild(crErrN(`Compile error: ` + e));
+                                        parN.appendChild(crErrN(e));
                                     }
                                     finally {
                                         env = sv;
@@ -1032,7 +1032,7 @@ class RComp {
                                 rvar.Subscribe(s);
                             }
                             catch {
-                                throw `This is not an RVAR\nat [${at}]`;
+                                throw `This is not an RVAR\nat '${at}'`;
                             }
                     };
                 }
@@ -1086,13 +1086,14 @@ class RComp {
             }
             catch (m) {
                 let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 39) : m, e = oes.e;
-                if (bA || this.S.bAbortOnError)
+                if (this.S.bAbortOnError)
                     throw msg;
                 this.log(msg);
                 e ? e(m)
                     : this.S.bShowErrors ?
                         (r || {}).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
                         : U;
+                return bA;
             }
         });
     }
@@ -1409,7 +1410,7 @@ class RComp {
             : [eSig])
             sigs.push(new Signat(elm, this));
         try {
-            var DC = bRec && this.LCons(sigs), ES = this.SS(), b = this.ErrH(await this.CIter(arr), srcE), mapS = new Map(mapI(sigs, S => [S.nm, S]));
+            var DC = bRec && this.LCons(sigs), ES = this.SS(), b = this.ErrH(await this.CIter(arr), srcE, T), mapS = new Map(mapI(sigs, S => [S.nm, S]));
             for (let [nm, elm, body] of t[1]
                 ? mapI(eTem.children, elm => [elm.tagName, elm, elm])
                 : [
@@ -1665,7 +1666,7 @@ class RComp {
                 : this.CText(txt, at));
     }
     CAttExp(ats, at, bReq) {
-        return this.CExpr(ats.g(at, bReq, T), at, U);
+        return this.CExpr(ats.g(at, bReq, T), '#' + at, U);
     }
     CTarget(LHS) {
         return this.CRout(`(${LHS})=$`, '$', `\nin assigment target "${LHS}"`);
@@ -1673,7 +1674,7 @@ class RComp {
     CHandlr(txt, nm) {
         return /^#/.test(nm) ?
             this.CExpr(txt, nm, txt)
-            : this.CRout(txt, 'event', `\nat [${nm}]="${Abbr(txt)}"`);
+            : this.CRout(txt, 'event', `\nat ${nm}="${Abbr(txt)}"`);
     }
     CRout(txt, x, E) {
         try {
@@ -1704,9 +1705,9 @@ class RComp {
         if (e == N)
             return e;
         if (!/\S/.test(e))
-            throw `[${nm}] Empty expression`;
+            throw `${nm}: Empty expression`;
         try {
-            var E = '\nat ' + (nm ? `[${nm}]=` : Q) + dl[0] + Abbr(src) + dl[1], f = Ev(`${US}(function(${this.gsc(e)}){return(${e}\n)})`);
+            var E = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1], f = Ev(`${US}(function(${this.gsc(e)}){return(${e}\n)})`);
             return () => {
                 try {
                     return f.call(pn, env);
@@ -1779,7 +1780,7 @@ class Atts extends Map {
         if (v != N)
             super.delete(m);
         else if (bReq)
-            throw `Missing attribute [` + nm + `]`;
+            throw `Missing attribute '` + nm + `'`;
         return bI && v == Q ? nm : v;
     }
     gB(nm, df = F) {
@@ -1819,7 +1820,7 @@ const reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD
             || n.nodeType == 3
                 && !reWS.test(n.nodeValue))
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
-}, ScrollToHash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
+}, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
 function* mapI(I, f, c) {
     for (let x of I)
         if (!c || c(x))
@@ -1863,7 +1864,7 @@ class DocLoc extends _RVAR {
         this.Subscribe(loc => {
             let h = (this.url = new URL(loc)).href;
             h == L.href || history.pushState(N, N, h);
-            ScrollToHash();
+            S2Hash();
         }, T, T);
     }
     get subpath() { return L.pathname.slice(this.basepath.length); }
@@ -1898,7 +1899,6 @@ W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
 setTimeout(() => {
     for (let src of D.querySelectorAll('*[rhtml],*[type=RHTML]')) {
         let o = src.getAttribute('rhtml');
-        src.removeAttribute('rhtml');
         RCompile(src, o && Ev(`({${o}})`));
     }
 }, 0);
