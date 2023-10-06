@@ -41,7 +41,7 @@ export declare class _RVAR<T = unknown> {
     get V(): T;
     set V(v: T);
     get Set(): (t: T | Promise<T>) => T | Promise<T>;
-    get Clear(): () => any;
+    get Clear(): () => true;
     get U(): T;
     set U(t: T);
     SetDirty(): void;

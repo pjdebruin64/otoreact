@@ -5,16 +5,19 @@
 const
     // Some abbreviations
     // Please forgive me for trying to minimize the library file size
-    U = undefined, N = null, T = true, F = false, Q='', 
-    E = [],     // Empty array, must remain empty
-    W = window, D = document, L = location,
-    G = <typeof globalThis>self,
-        // Polyfill for globalThis
-        //W.globalThis || ((W as any).globalThis = W.self)
-    US = "'use strict';",
+    N = null
+    , T: true = !0
+    , F: false = <false>!T
+    , U: undefined = void 0
+    , Q = ''
+    , E = []        // Empty array, must remain empty
+    , W = window, D = document, L = location
+    , G = <typeof globalThis>self  // globalThis
+    
+    , US = "'use strict';"
 
     // Default settings 
-    dflts: Settings = {
+    , dflts: Settings = {
         bShowErrors:    T,
         // The default basepattern is defined in RCompile.
         //basePattern:    '/',
@@ -23,16 +26,16 @@ const
         preformatted:   E as string[],
         storePrefix:    "RVAR_",
         version:        1
-    },
+    }
     
     // Some utilities
-    P = new DOMParser(),
-    Ev = eval,                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
-    ass = Object.assign as
-                <T extends Object>(obj: T, props: Object) => T,
-    now = () => performance.now(),
-    thro = (err: any) => {throw err},
-    NO = () => new Object(null) as {}   // A null object is a (cheap) object without prototype
+    , P = new DOMParser()
+    , Ev = eval                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
+    , ass = Object.assign as
+                <T extends {}>(obj: T, props: {}) => T
+    , now = () => performance.now()
+    , thro = (err: any) => {throw err}
+    , NO = () => new Object(null) as {}   // A null object is a (cheap) object without prototype
     ;
 
 //if (G.R$) {alert(`OtoReact is loaded both from:\n  ${G.R$}\nand from:\n  ${import.meta.url}\nYour application may not function correctly.`); throw Q;}
@@ -79,7 +82,7 @@ type hHTMLElement = HTMLElement & {b?: booly};
     'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
         false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder<RT = void|booly> = ((ar: Area, bR?: boolean) => Promise<RT>) 
+type DOMBuilder<RT = void|boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -2004,14 +2007,14 @@ class RComp {
             }
 
             return bl != dB && ass(
-                this.ErrH(bl, srcE, bA)
+                this.ErrH(bl, srcE, !!bA)
                 , {auto,nm}
                 );
         }
         catch (m) { throw ErrM(srcE, m); }
     }
 
-    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: booly): DOMBuilder<booly>
+    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder<boolean>
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
@@ -2088,28 +2091,26 @@ class RComp {
             , src = ats.g('src')     // Niet srcE.src
             // Any variables to define?
             , defs = ats.g('defines') || ''
-            // Is this a 'module' script (type=module or e.g. type="otoreact;type=module")?
-            , bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type)
-            // Is this a classic script?
-            , bC = /^((text|application)\/javascript)?$/i.test(type)
-            // Is this an ororeact script (local or static or global)
-            , mO = /^otoreact(\/((local)|static))?\b/.exec(type)
+            , m = /^\s*(((text|application)\/javascript|)|(module)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
+            //         123----------------3             2 4------4 5--------56  78-----8 9------9       7 A---A61   B               C-C          B 
             // True if a local script shpuld be re-executed at every update
             , bU = ats.gB('updating')
             // Current context string befóre NewVars
             , {ct} = this.CT
             // Local variables to be defined
-            , lvars = mO?.[2] && this.LVars(defs)
+            , lvars = m[8] && this.LVars(defs)
             , ex: () => Promise<object>
             ;
         
         ats.clear();   // No error on unknown attributes
 
-        /* Script have to be handled by Otoreact in the following cases:
-            * When it is a 'type=otoreact' script
-            * Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
-        if (mO || (bC || bM) && this.S.bSubf) {
-            if (mO?.[3]) {
+        // Script have to be handled by Otoreact in the following cases:
+        // When it is a 'type=otoreact' script
+        if (m[5] && (!m[10] || thro("Invalid script type"))
+            // Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
+            || (m[2] != N  || m[4]) && this.S.bSubf)
+        {
+            if (m[8]) {
                 // otoreact/local script
                 let prom
                  = (async () => 
@@ -2123,7 +2124,7 @@ class RComp {
                     )();
                 ex = async() => (await prom)(env);
             } 
-            else if (bM) {
+            else if (m[4] || m[11]) {
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
                 let pArr: Promise<object>
                     = ( src 
@@ -2148,7 +2149,7 @@ class RComp {
             else {
                 // Classic or otoreact/static or otoreact/global script
                 let pTxt: Promise<string>
-                    = (async() => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
+                    = (async() => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
                     , V: Array<unknown>;
                 // Routine to initiate execution, at most once
                 ex = async() => V ||= Ev(await pTxt);
@@ -2156,11 +2157,12 @@ class RComp {
                 if (src && async)
                     // Exec asynchronously as soon as the script is fetched
                     ex();
-                else if (!mO && !defer)
+                else if (!m[5] && !defer)
                     // Exec and await standard classic scripts without defer immediately
                     await ex();
-                // else defer execution till it is required
+                // else (m[5] || defer) defer execution till it is required
             }
+
             return async function SCRIPT(ar: Area) {
                 if (!ar.r || bU) {
                     let obj = await ex();

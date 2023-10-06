@@ -1,4 +1,4 @@
-const U = undefined, N = null, T = true, F = false, Q = '', E = [], W = window, D = document, L = location, G = self, US = "'use strict';", dflts = {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], W = window, D = document, L = location, G = self, US = "'use strict';", dflts = {
     bShowErrors: T,
     bAutoSubscribe: T,
     bAutoPointer: T,
@@ -1068,7 +1068,7 @@ class RComp {
                                             return b(PrepRng(sub, srcE, at, 2).sub, bR);
                                         };
             }
-            return bl != dB && ass(this.ErrH(bl, srcE, bA), { auto, nm });
+            return bl != dB && ass(this.ErrH(bl, srcE, !!bA), { auto, nm });
         }
         catch (m) {
             throw ErrM(srcE, m);
@@ -1122,25 +1122,26 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', bM = /^module$|;\s*type\s*=\s*("?)module\1\s*$/i.test(type), bC = /^((text|application)\/javascript)?$/i.test(type), mO = /^otoreact(\/((local)|static))?\b/.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = mO?.[2] && this.LVars(defs), ex;
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', m = /^\s*(((text|application)\/javascript|)|(module)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = m[8] && this.LVars(defs), ex;
         ats.clear();
-        if (mO || (bC || bM) && this.S.bSubf) {
-            if (mO?.[3]) {
+        if (m[5] && (!m[10] || thro("Invalid script type"))
+            || (m[2] != N || m[4]) && this.S.bSubf) {
+            if (m[8]) {
                 let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
-            else if (bM) {
+            else if (m[4] || m[11]) {
                 let pArr = (src
                     ? import(this.GetURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
                 ex = () => pArr;
             }
             else {
-                let pTxt = (async () => `${mO ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), V;
+                let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), V;
                 ex = async () => V || (V = Ev(await pTxt));
                 if (src && async)
                     ex();
-                else if (!mO && !defer)
+                else if (!m[5] && !defer)
                     await ex();
             }
             return async function SCRIPT(ar) {
