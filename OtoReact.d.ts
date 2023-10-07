@@ -1,5 +1,5 @@
-type booly = boolean | string | number | object | null | undefined;
-type Settings = Partial<{
+declare type booly = boolean | string | number | object | null | undefined;
+declare type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
@@ -17,11 +17,7 @@ type Settings = Partial<{
     version: number;
     headers: HeadersInit;
 }>;
-type hHTMLElement = HTMLElement & {
-    b?: booly;
-};
-export declare function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void>;
-type Subscriber<T = unknown> = (((t?: T) => unknown) & {
+declare type Subscriber<T = unknown> = (((t?: T) => unknown) & {
     T?: never;
 }) | (((t: T) => Promise<unknown>) & {
     T: true;
@@ -48,8 +44,8 @@ export declare class _RVAR<T = unknown> {
     Exec(): Promise<void>;
     toString(): string;
 }
-export type RVAR<T = unknown> = _RVAR<T>;
-export type RVAR_Light<T> = T & {
+export declare type RVAR<T = unknown> = _RVAR<T>;
+export declare type RVAR_Light<T> = T & {
     Subscribe: (sub: Subscriber) => void;
     Exec: () => Promise<void>;
     Save: () => void;
@@ -59,7 +55,6 @@ export type RVAR_Light<T> = T & {
     readonly U?: T;
     readonly V?: T;
 };
-export declare function DoUpdate(): Promise<void>;
 export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
@@ -77,3 +72,7 @@ declare class DocLoc extends _RVAR<string> {
 }
 declare let DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
 export { DL as docLocation, reroute };
+export declare function RCompile(srcN: HTMLElement & {
+    b?: booly;
+}, setts?: Settings): Promise<void>;
+export declare function DoUpdate(): Promise<void>;

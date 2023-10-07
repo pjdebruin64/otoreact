@@ -6,9 +6,9 @@ const
     // Some abbreviations
     // Please forgive me for trying to minimize the library file size
     N = null
-    , T: true = !0
-    , F: false = <false>!T
-    , U: undefined = void 0
+    , T = <true> !0
+    , F = <false>!T
+    , U = <undefined> void 0
     , Q = ''
     , E = []        // Empty array, must remain empty
     , W = window, D = document, L = location
@@ -29,7 +29,7 @@ const
     }
     
     // Some utilities
-    , P = new DOMParser()
+    , P = new DOMParser
     , Ev = eval                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
     , ass = Object.assign as
                 <T extends {}>(obj: T, props: {}) => T
@@ -71,10 +71,6 @@ const enum WSpc {
     inline,         // We are in inline mode, whitespace is relevant
     preserve        // Preserve all whitespace
 }
-
-/* For any HTMLElement we create, we remember which event handlers have been added,
-    So we can remove them when needed */
-type hHTMLElement = HTMLElement & {b?: booly};
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
@@ -203,7 +199,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
     subs?: Subscriber;      // Subscriber object created for this element instance
     rvars?: RVAR[];         // RVARs on which the element reacts
 
-
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
     // The range itself remains a child of its parent range.
     // The parent node must be specified, or a falsy value when nodes need not be removed.
@@ -261,14 +256,17 @@ class Context {
     csM:  Map<string, {S:Signat, k: EnvKey}>;
 
     // Construct a new context, optionally based on an existing context.
-    // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the map is to be made.
-    // With synchronous compilation, this is not needed because the maps will always be restored to their previous value.
-    constructor(C?: Context, a?: booly) {
+    constructor(
+        C?: Context
+        , a?: booly
+        // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the maps is to be made.
+        // With synchronous compilation, this is not needed because the maps will always be restored to their previous value.
+    ) {
         ass(
             this,
             C || {
                 d: 0, L: 0, M: 0, ct: Q,
-                lvM: new Map(), csM: new Map()
+                lvM: new Map, csM: new Map
             }
         );
         if (a && C) {
@@ -317,38 +315,6 @@ class Context {
             }
         );
     }
-}
-
-export async function RCompile(srcN: hHTMLElement, setts?: Settings): Promise<void> {
-    // if (!setts?.version) alert('version 0')
-    if (srcN.isConnected && !srcN.b)   // No duplicate compilation
-        try {
-            srcN.b = T;   // No duplicate compilation
-            let
-                m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
-                , C = new RComp(
-                    N
-                    , L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
-                    , setts
-                );
-
-            await C.Compile(srcN);
-
-            // Initial build
-            srcN.innerHTML = Q;
-            Jobs.add({Exec: () =>
-                C.Build({
-                    parN: srcN.parentElement,
-                    srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
-                    bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
-                }).then(S2Hash)
-            });
-
-            DoUpdate();
-        }
-        catch (e) {    
-            alert(`OtoReact compile error: ` + Abbr(e, 1000));
-        }
 }
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
@@ -475,15 +441,6 @@ type Subscriber<T = unknown> =
 type ParentNode = HTMLElement|DocumentFragment;
 
 type Handler = (ev:Event) => any;
-
-// Inside a builder routine, a local variable is represented by a routine to set its value,
-// having additional properties 'nm' with the variable name and 'i' with its index position in the environment 'env'
-type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
-
-// Setting multiple LVars at once
-function SetLVs(vars: Array<LVar>, data: Array<unknown>) {
-    vars.forEach((v,i) => v(data[i]));
-}
 
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {
@@ -757,27 +714,6 @@ let
     }
 ;
 
-export async function DoUpdate() {
-    hUpd = N;
-    if (Jobs.size && !env) {
-        env = E;
-        nodeCnt = 0;
-        let u0 = upd;
-        start = now();
-        while (Jobs.size) {
-            let J = Jobs;
-            Jobs = new Set();
-            if (upd++ - u0 > 25)
-            { alert('Infinite react-loop'); break; }
-            for (let j of J)
-                await j.Exec();
-        }
-        if (nodeCnt)
-            R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-        env=U;
-    }
-}
-
 /* A "responsive variable" is a variable that listeners can subscribe to. */
 export function RVAR<T>(
     nm?: string, 
@@ -793,7 +729,7 @@ export function RVAR<T>(
 
 const RV_props = 
 {
-    // _subs: {get: function(this: RVAR_Light<unknown>){ this._Subs = new Set() }},
+    // _subs: {get: function(this: RVAR_Light<unknown>){ this._Subs = new Set }},
     V:  {get: function(this: RVAR_Light<unknown>) {return this}},
     U:  {get:
             function(this: RVAR_Light<unknown>) {
@@ -816,7 +752,7 @@ function RVAR_Light<T>(
     updTo?: Array<RVAR>,
 ): RVAR_Light<T> {
     if (!(t as RVAR_Light<T>)._Subs) {
-        (t as RVAR_Light<T>)._Subs = new Set();        
+        (t as RVAR_Light<T>)._Subs = new Set;        
         (t as RVAR_Light<T>)._UpdTo = updTo;
         Object.defineProperties(t, RV_props);
     }
@@ -902,7 +838,7 @@ function ApplyMods(
                     case MType.Event:                        
                         // Set and remember new handler
                         if (cr) {
-                            (H = r[k] = new Hndlr()).oes = oes;
+                            (H = r[k] = new Hndlr).oes = oes;
                             e.addEventListener(nm, H.hndl.bind(H));
                         }
                         else
@@ -1041,6 +977,15 @@ class Hndlr {
                     (e || thro)(er);
                 }        
     }
+}
+
+// Inside builder routines, a local variable is represented by a routine to set its value,
+// having additional properties 'nm' with the variable name and 'i' with its index position in the environment 'env'
+type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
+
+// Setting multiple LVars at once
+function SetLVs(vars: Array<LVar>, data: Array<unknown>) {
+    vars.forEach((v,i) => v(data[i]));
 }
 
 let iRC = 0        // Numbering of RComp instances
@@ -1223,9 +1168,8 @@ class RComp {
         return async(ar: Area) => {
             let {parN, bfor} = ar
                 , p: Range;
-            ass(ar, {parN: this.hd, bfor: N});
             try {
-                return await b(ar);
+                return await b(ass(ar, {parN: this.hd, bfor: N}));
             }
             finally {
                 if (p = ar.prR) p.parN = ar.parN;  // Allow the created range to be erased when needed
@@ -1460,7 +1404,7 @@ class RComp {
                     }
 
             if (constr)
-                bl = await this.CInstance(srcE, ats, constr);
+                bl = await this.CInst(srcE, ats, constr);
             else
                 switch (tag) {
                     case 'DEF':
@@ -1548,7 +1492,7 @@ class RComp {
                             
                         if (!cTask) {
                             // When the same module is imported at multiple places, it needs to be compiled only once
-                            let C = new RComp(this, this.GetP(src), {bSubf: T}, new Context());
+                            let C = new RComp(this, this.GetP(src), {bSubf: T}, new Context);
                             C.log(src);
                             cTask = 
                                 this.fetchM(src)
@@ -2030,7 +1974,7 @@ class RComp {
             } 
             catch (m) {
                 let msg = 
-                    srcN instanceof HTMLElement ? ErrM(srcN, m, 39) : m
+                    srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
                     , e = oes.e;
 
                 if (this.S.bAbortOnError)
@@ -2374,7 +2318,7 @@ class RComp {
                                 throw `[of] Value (${iter}) is not iterable`;
 
                             // Map of the current set of child ranges
-                            let keyMap: Map<Key, ForRange> = r.v ||= new Map()
+                            let keyMap: Map<Key, ForRange> = r.v ||= new Map
 
                             // Map of the newly obtained data
                                 , nwMap = new Map<Key, ItemInfo>()
@@ -2738,11 +2682,11 @@ class RComp {
                 await b(sub).finally(EF);
                 pn = ar.parN;
             }
-        }).catch(m => { throw ErrM(srcE, `<${S.nm}> template: `+m); });
+        }).catch(m => { throw `<${S.nm}> template: ` + m; });
     }
 
     // Compile a construct instance, given its signature and definition
-    private async CInstance(
+    private async CInst(
         srcE: HTMLElement, ats: Atts,
         {S, dC}: {S: Signat, dC: DepE<ConstructDef>}
     ) {
@@ -3306,7 +3250,7 @@ const
     return c;
 }
 
-, Abbr = (s: string, m: number=60) =>
+, Abbr = (s: string, m: number=65) =>
     s.length > m ?
         s.slice(0, m - 3) + "..."
         : s
@@ -3414,7 +3358,7 @@ class DocLoc extends _RVAR<string> {
     }
 let
     R: RComp,
-    DL = new DocLoc(),
+    DL = new DocLoc,
     reroute: (arg: MouseEvent | string) => void = 
         arg => {
             if (typeof arg == 'object') {
@@ -3435,6 +3379,59 @@ ass(
 
 // Close registered child windows on page hide (= window close)
 W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
+
+export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: Settings): Promise<void> {
+    // if (!setts?.version) alert('version 0')
+    if (srcN.isConnected && !srcN.b)   // No duplicate compilation
+        try {
+            srcN.b = T;   // No duplicate compilation
+            let
+                m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
+                , C = new RComp(
+                    N
+                    , L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
+                    , setts
+                );
+
+            await C.Compile(srcN);
+
+            // Initial build
+            srcN.innerHTML = Q;
+            Jobs.add({Exec: () =>
+                C.Build({
+                    parN: srcN.parentElement,
+                    srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
+                    bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
+                }).then(S2Hash)
+            });
+
+            DoUpdate();
+        }
+        catch (e) {    
+            alert(`OtoReact compile error: ` + Abbr(e, 1000));
+        }
+}
+
+export async function DoUpdate() {
+    hUpd = N;
+    if (Jobs.size && !env) {
+        env = E;
+        nodeCnt = 0;
+        let u0 = upd;
+        start = now();
+        while (Jobs.size) {
+            let J = Jobs;
+            Jobs = new Set;
+            if (upd++ - u0 > 25)
+            { alert('Infinite react-loop'); break; }
+            for (let j of J)
+                await j.Exec();
+        }
+        if (nodeCnt)
+            R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
+        env=U;
+    }
+}
 
 // Initiate compilation of marked elements
 setTimeout(() => {

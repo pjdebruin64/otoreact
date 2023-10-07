@@ -5,7 +5,7 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], W = window, D = docu
     preformatted: E,
     storePrefix: "RVAR_",
     version: 1
-}, P = new DOMParser(), Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, NO = () => new Object(null);
+}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, NO = () => new Object(null);
 async function Bldrs(bs, ar) {
     for (let b of bs)
         if (await b(ar))
@@ -80,7 +80,7 @@ class Context {
     constructor(C, a) {
         ass(this, C || {
             d: 0, L: 0, M: 0, ct: Q,
-            lvM: new Map(), csM: new Map()
+            lvM: new Map, csM: new Map
         });
         if (a && C) {
             this.lvM = new Map(this.lvM);
@@ -110,25 +110,6 @@ class Context {
             M: Math.min(this.M, C.M)
         });
     }
-}
-export async function RCompile(srcN, setts) {
-    if (srcN.isConnected && !srcN.b)
-        try {
-            srcN.b = T;
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
-            await C.Compile(srcN);
-            srcN.innerHTML = Q;
-            Jobs.add({ Exec: () => C.Build({
-                    parN: srcN.parentElement,
-                    srcN,
-                    bfor: srcN
-                }).then(S2Hash)
-            });
-            DoUpdate();
-        }
-        catch (e) {
-            alert(`OtoReact compile error: ` + Abbr(e, 1000));
-        }
 }
 const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
     let { parN, r } = ar, sub = { parN }, cr;
@@ -176,9 +157,6 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
     }
     nodeCnt++;
 }, dU = _ => U, dB = async () => { }, chWins = new Set(), OMods = new Map();
-function SetLVs(vars, data) {
-    vars.forEach((v, i) => v(data[i]));
-}
 class Signat {
     constructor(srcE, RC) {
         this.srcE = srcE;
@@ -323,28 +301,6 @@ let env, pn, oes = { e: N, s: N }, Jobs = new Set(), hUpd, ro = F, upd = 0, node
     if (!env && !hUpd)
         hUpd = setTimeout(DoUpdate, 1);
 };
-export async function DoUpdate() {
-    hUpd = N;
-    if (Jobs.size && !env) {
-        env = E;
-        nodeCnt = 0;
-        let u0 = upd;
-        start = now();
-        while (Jobs.size) {
-            let J = Jobs;
-            Jobs = new Set();
-            if (upd++ - u0 > 25) {
-                alert('Infinite react-loop');
-                break;
-            }
-            for (let j of J)
-                await j.Exec();
-        }
-        if (nodeCnt)
-            R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
-        env = U;
-    }
-}
 export function RVAR(nm, value, store, subs, storeName) {
     return new _RVAR(nm, value, store, storeName).Subscribe(subs, T);
 }
@@ -366,7 +322,7 @@ const RV_props = {
 };
 function RVAR_Light(t, updTo) {
     if (!t._Subs) {
-        t._Subs = new Set();
+        t._Subs = new Set;
         t._UpdTo = updTo;
         Object.defineProperties(t, RV_props);
     }
@@ -394,7 +350,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         break;
                     case 7:
                         if (cr) {
-                            (H = r[k] = new Hndlr()).oes = oes;
+                            (H = r[k] = new Hndlr).oes = oes;
                             e.addEventListener(nm, H.hndl.bind(H));
                         }
                         else
@@ -483,6 +439,9 @@ class Hndlr {
             }
     }
 }
+function SetLVs(vars, data) {
+    vars.forEach((v, i) => v(data[i]));
+}
 let iRC = 0, iStyle = 0;
 class RComp {
     constructor(RC, FP, settings, CT = RC?.CT) {
@@ -568,9 +527,8 @@ class RComp {
     InHead(b) {
         return async (ar) => {
             let { parN, bfor } = ar, p;
-            ass(ar, { parN: this.hd, bfor: N });
             try {
-                return await b(ar);
+                return await b(ass(ar, { parN: this.hd, bfor: N }));
             }
             finally {
                 if (p = ar.prR)
@@ -707,7 +665,7 @@ class RComp {
                             Ev(`(function(){${txt}\n})`).call(srcE);
                     }
             if (constr)
-                bl = await this.CInstance(srcE, ats, constr);
+                bl = await this.CInst(srcE, ats, constr);
             else
                 switch (tag) {
                     case 'DEF':
@@ -756,7 +714,7 @@ class RComp {
                         {
                             let src = ats.g('src', T), bIncl = ats.gB('include'), bAsync = ats.gB('async'), lvars = this.LVars(ats.g('defines')), imps = Array.from(mapI(srcE.children, ch => new Signat(ch, this))), DC = this.LCons(imps), cTask = OMods.get(src);
                             if (!cTask) {
-                                let C = new RComp(this, this.GetP(src), { bSubf: T }, new Context());
+                                let C = new RComp(this, this.GetP(src), { bSubf: T }, new Context);
                                 C.log(src);
                                 cTask =
                                     this.fetchM(src)
@@ -1085,7 +1043,7 @@ class RComp {
                 await b(ar, bR);
             }
             catch (m) {
-                let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 39) : m, e = oes.e;
+                let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m, e = oes.e;
                 if (this.S.bAbortOnError)
                     throw msg;
                 this.log(msg);
@@ -1267,7 +1225,7 @@ class RComp {
                         ({ env, oes } = sEnv);
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                             throw `[of] Value (${iter}) is not iterable`;
-                        let keyMap = r.v || (r.v = new Map()), nwMap = new Map(), ix = 0, { EF } = SF(N, {});
+                        let keyMap = r.v || (r.v = new Map), nwMap = new Map(), ix = 0, { EF } = SF(N, {});
                         try {
                             for await (let item of iter) {
                                 vLet(item);
@@ -1467,9 +1425,9 @@ class RComp {
                 await b(sub).finally(EF);
                 pn = ar.parN;
             };
-        }).catch(m => { throw ErrM(srcE, `<${S.nm}> template: ` + m); });
+        }).catch(m => { throw `<${S.nm}> template: ` + m; });
     }
-    async CInstance(srcE, ats, { S, dC }) {
+    async CInst(srcE, ats, { S, dC }) {
         await S.task;
         let { RP, CSlot, Slots } = S, gArgs = [], SBldrs = new Map(mapI(Slots, ([nm]) => [nm, []]));
         for (let { mode, nm, rq } of S.Pams)
@@ -1812,7 +1770,7 @@ const reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD
         Cnms[nm] = c;
     }
     return c;
-}, Abbr = (s, m = 60) => s.length > m ?
+}, Abbr = (s, m = 65) => s.length > m ?
     s.slice(0, m - 3) + "..."
     : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrM = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, crErrN = (m) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt',
     innerText: m }), NoChilds = (srcE) => {
@@ -1884,7 +1842,7 @@ class DocLoc extends _RVAR {
         return rv;
     }
 }
-let R, DL = new DocLoc(), reroute = arg => {
+let R, DL = new DocLoc, reroute = arg => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
@@ -1897,6 +1855,47 @@ export { DL as docLocation, reroute };
 ass(G, { RVAR, range, reroute, RFetch, DoUpdate
 });
 W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
+export async function RCompile(srcN, setts) {
+    if (srcN.isConnected && !srcN.b)
+        try {
+            srcN.b = T;
+            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
+            await C.Compile(srcN);
+            srcN.innerHTML = Q;
+            Jobs.add({ Exec: () => C.Build({
+                    parN: srcN.parentElement,
+                    srcN,
+                    bfor: srcN
+                }).then(S2Hash)
+            });
+            DoUpdate();
+        }
+        catch (e) {
+            alert(`OtoReact compile error: ` + Abbr(e, 1000));
+        }
+}
+export async function DoUpdate() {
+    hUpd = N;
+    if (Jobs.size && !env) {
+        env = E;
+        nodeCnt = 0;
+        let u0 = upd;
+        start = now();
+        while (Jobs.size) {
+            let J = Jobs;
+            Jobs = new Set;
+            if (upd++ - u0 > 25) {
+                alert('Infinite react-loop');
+                break;
+            }
+            for (let j of J)
+                await j.Exec();
+        }
+        if (nodeCnt)
+            R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
+        env = U;
+    }
+}
 setTimeout(() => {
     for (let src of D.querySelectorAll('*[rhtml],*[type=RHTML]')) {
         let o = src.getAttribute('rhtml');
