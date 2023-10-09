@@ -5,7 +5,7 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], W = window, D = docu
     preformatted: E,
     storePrefix: "RVAR_",
     version: 1
-}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, NO = () => new Object(null);
+}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; };
 class Range {
     constructor(ar, n, text) {
         this.text = text;
@@ -438,7 +438,7 @@ let iRC = 0, iStyle = 0;
 class RComp {
     constructor(RC, FP, settings, CT = RC?.CT) {
         this.num = iRC++;
-        this.cRvars = NO();
+        this.cRvars = {};
         this.rActs = [];
         this.sPRE = new Set(['PRE']);
         this.ws = 1;
@@ -1454,7 +1454,7 @@ class RComp {
         }
         this.ws = 3;
         return async function INST(ar) {
-            let { r, sub } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.args || (r.args = NO());
+            let { r, sub } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.args || (r.args = {});
             if (cdef)
                 try {
                     ro = T;
@@ -1746,7 +1746,7 @@ class Atts extends Map {
     }
 }
 const rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/, rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/, AddC = (txt, nm) => nm ? txt.replaceAll(/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(\w|[-.#:()\u00A0-\uFFFF]|\[(?:"(?:\\.|.)*?"|'(?:\\.|.)*?'|.)*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/gsi, (m, p) => p ? `${m}.${nm}` : m)
-    : txt, Cnms = NO(), ChkNm = (obj, nm) => {
+    : txt, Cnms = {}, ChkNm = (obj, nm) => {
     let c = Cnms[nm], r;
     if (!c) {
         c = nm;

@@ -35,7 +35,6 @@ const
                 <T extends {}>(obj: T, props: {}) => T
     , now = () => performance.now()
     , thro = (err: any) => {throw err}
-    , NO = () => new Object(null) as {}   // A null object is a (cheap) object without prototype
     ;
 
 //if (G.R$) {alert(`OtoReact is loaded both from:\n  ${G.R$}\nand from:\n  ${import.meta.url}\nYour application may not function correctly.`); throw Q;}
@@ -990,7 +989,7 @@ class RComp {
     CT: Context         // Compile-time context
 
     private cRvars: {[nm: string]: booly}
-         = NO(); //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
+         = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
 
     private doc: Document;
 
@@ -2750,14 +2749,14 @@ class RComp {
             let {r, sub} = PrepRng<{args: ArgSet}>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
-                args = r.args ||= NO();
+                args = r.args ||= {};
             
             if (cdef)  //Just in case of an async imported component where the client signature has less slots than the real signature
                 try {
                     ro = T;
                     for (let {nm, dG, dS} of gArgs)
                         if (dS)
-                            ( args[nm] ||= RVAR(U,U,U,dS()) ).v = dG();
+                            ( (<_RVAR> args[nm]) ||= RVAR(U,U,U,dS()) ).v = dG();
                         else
                             args[nm] = dG();
                     
@@ -3227,7 +3226,7 @@ const
         : txt
 
     // Capitalized propnames cache
-    , Cnms: {[nm: string]: string} = NO()
+    , Cnms: {[nm: string]: string} = {}
 
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.

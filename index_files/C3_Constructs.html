@@ -96,7 +96,7 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
 <h2 id=CASE><{}CASE> <{}WHEN cond> <{}ELSE></h2>
 <pre class=sourcecode>
 <{}CASE hiding?>
-    <{}WHEN cond="<i>expr</i>"> <i>WhenPart</i> <{}/WHEN>
+    <{}WHEN cond?="<i>condition</i>"> <i>WhenPart</i> <{}/WHEN>
     &hellip;
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/CASE>
@@ -106,7 +106,7 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
         There may be multiple <elm>WHEN</elm> parts.
     </li>
     <li>
-        The first <i>WhenPart</i> for which the value of <i>expr</i> is true (or <a href="{MDN}Glossary/Truthy">truthy</a>), is included in the document.
+        The first <i>WhenPart</i> for which the value of <i>condition</i> is true (or <a href="{MDN}Glossary/Truthy">truthy</a>), is included in the document.
     </li>
     <li>
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
@@ -116,16 +116,17 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#GlobalAtts"><code>thisreactson</code></a>).
     </li>
 </ul>
-<h3 id=PatternMatching>Pattern Matching</h3>
+
+<h3 id=PatternMatching>Pattern Matching*</h3>
 Furthermore, <elm>CASE</elm> can select an alternative based on <i>pattern matching</i> against a given string value.
 <p>Substrings of the value can be captured into new local variables.
 <p>There are three variants of patterns:
 </p>
 <pre class="sourcecode">
 <{}CASE #value="<i>expr</i>">
-    <{}WHEN match="<i>pattern</i>"> &hellip; <{}/WHEN>
-    <{}WHEN urlmatch="<i>pattern</i>"> &hellip; <{}/WHEN>
-    <{}WHEN regmatch="<i>regExp</i>" captures?="<i>nameList</i>"> &hellip; <{}/WHEN>
+    <{}WHEN not? match="<i>pattern</i>"> &hellip; <{}/WHEN>
+    <{}WHEN not? urlmatch="<i>pattern</i>"> &hellip; <{}/WHEN>
+    <{}WHEN not? regmatch="<i>regExp</i>" captures?="<i>nameList</i>"> &hellip; <{}/WHEN>
     &hellip;
     [<{}ELSE> <i>ElsePart</i> <{}/ELSE>]
 <{}/CASE>
@@ -161,9 +162,28 @@ All three variants are case-insensitive, and all can be combined with a simple c
         <p>The match succeeds when a substring of the string value matches against <i>regExp</i>.</p>
         <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</a> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
     </dd>
+    <dt><code>cond="..."</code></dt>
+    <dd>
+        All of the above can be combined with a simple condition <code>cond</code>.
+        <br>The pattern matching will then only be performed when the condition yields a truthy result.
+    </dd>
+    <dt><code>not</code></dt>
+    <dd>
+        When <code>not</code> is added to any of the above, the <i>WhenPart</i> will be included only if the test does <u>not</u> succeed.
+        <br>This cannot be combined with <code>captures</code>, of course.
+    </dd>
 </dl>
 Patterns with captures cannot be combined with <code>hiding</code>, as no DOM-tree can be built when the variable values are unknown.
 
+<h3><{}WHEN &hellip; src="<i>URL</i>">*</h3>
+Instead of providing a <i>WhenPart</i>, one can include a <code>src</code> attribute refering to an external file.
+<br>This is handled exactly as:
+<pre>
+<{}WHEN &hellip;>
+    <{}INCLUDE src="<i>URL</i>"><{}/INCLUDE>
+<{}/WHEN>
+</pre>
+, see <a href="#INCLUDE"><elm>INCLUDE</elm></a>.
 
 <h2 id=IF><{}IF cond> <{}THEN> <{}ELSE></h2>
 <pre class=sourcecode>
