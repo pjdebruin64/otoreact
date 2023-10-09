@@ -118,19 +118,13 @@ An OtoReact application can implement routing by e.g. a simple <elm>CASE</elm> d
 `<body rhtml="bAutoReroute: true">
     <case #value="docLocation.subpath" reacton="docLocation">
 
-        <when urlmatch="/inventory">
-            <include src="inventory.html"></include>
-        </when>
+        <when urlmatch="/inventory"   src="inventory.html"></when>
 
-        <when urlmatch="/customers">
-            <include src="customers.html"></include>
-        </when>
+        <when urlmatch="/customers"   src="customers.html"></when>
 
-        <when urlmatch="/customer/\{customerNo\}">
-            <!-- Now &apos;customerNo&apos; is a local variable bound to the url-decoded part of &apos;docLocation.subpath&apos; after "/customer/" -->
-            <include src="customer.html"></include>
-        </when>
-
+        <when urlmatch="/customer/\{customerNo\}" src=customer.html"></when>
+        <!-- Here &apos;customerNo&apos; becomes a local variable bound to the url-decoded part of &apos;docLocation.subpath&apos; after "/customer/" -->
+        
     </case>
 &lt;/body&gt;`'></pre>
 

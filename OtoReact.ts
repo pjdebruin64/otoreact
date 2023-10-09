@@ -72,24 +72,6 @@ const enum WSpc {
     preserve        // Preserve all whitespace
 }
 
-/* A 'DOMBuilder' is the semantics of a piece of RHTML.
-    It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
-    The created DOM is yielded in 'ar.r'.
-    'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
-        false when called on behalf of a 'reacton' on the current node
-*/
-type DOMBuilder<RT = void|boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) 
-    & {
-        auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
-        nm?: string;   // Name of the DOMBuilder
-    };
-
-async function Bldrs(bs: Iterable<DOMBuilder>, ar: Area){ 
-    for (let b of bs)
-        if (await b(ar))
-            break;
-}
-
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
 */
@@ -229,6 +211,8 @@ class Range<NodeType extends ChildNode = ChildNode> {
     }
 }
 
+// #region Environments
+
 // An ENVIRONMENT holds at runtime the actual values of all local variables (lvars) and construct definitions.
 // It is organized as a linked list of frames, where each frame is an array of values,
 // and its first element is the parent frame.
@@ -316,6 +300,8 @@ class Context {
         );
     }
 }
+
+// #endregion
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
 // This will be the semantics, the meaning, of e.g. a JavaScript expression.
@@ -878,7 +864,7 @@ function ApplyMods(
                         // 'M.fp' is the URL of the source document.
                         // Each URL in attribute value 'x' is to be interpreted as relative to 'M.fp'.
                         e[nm] = (x as string).replace(
-                            /([^, \t\f\r\n]+)((\s.*?)?(,|$))/g,
+                            /(.+?)(,|$)/gs,
                             (_,u,r) => new URL(u, M.fp).href + r
                             );
                         break;
@@ -983,10 +969,17 @@ class Hndlr {
 // having additional properties 'nm' with the variable name and 'i' with its index position in the environment 'env'
 type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
 
-// Setting multiple LVars at once
-function SetLVs(vars: Array<LVar>, data: Array<unknown>) {
-    vars.forEach((v,i) => v(data[i]));
-}
+/* A 'DOMBuilder' is the semantics of a piece of RHTML.
+    It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
+    The created DOM is yielded in 'ar.r'.
+    'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
+        false when called on behalf of a 'reacton' on the current node
+*/
+type DOMBuilder<RT = void|boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) 
+    & {
+        auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
+        nm?: string;   // Name of the DOMBuilder
+    };
 
 let iRC = 0        // Numbering of RComp instances
     , iStyle = 0;   // Numbering of local stylesheet classnames
@@ -1005,7 +998,7 @@ class RComp {
     public hd: HTMLHeadElement|DocumentFragment|ShadowRoot;
 
     // Source file path, used for interpreting relative URLs
-    public FP: string;
+    public fp: string;
 
     lscl: string[];     // Local static stylesheet classlist
     ndcl: number;       // Number of dynamic local classnames
@@ -1017,7 +1010,7 @@ class RComp {
         CT = RC?.CT,
     ) { 
         this.S   = {... RC ? RC.S : dflts, ...settings};
-        this.FP  = FP || RC?.FP;
+        this.fp  = FP || RC?.fp;
         this.doc = RC?.doc || D
         this.hd  = RC?.hd || this.doc.head;
         this.CT    = new Context(CT, T);
@@ -2036,8 +2029,8 @@ class RComp {
             , src = ats.g('src')     // Niet srcE.src
             // Any variables to define?
             , defs = ats.g('defines') || ''
-            , m = /^\s*(((text|application)\/javascript|)|(module)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
-            //         123----------------3             2 4------4 5--------56  78-----8 9------9       7 A---A61   B               C-C          B 
+            , m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
+            //         123----------------3             4------4 2 5--------56  78-----8 9------9       7 A---A61   B               C-C          B 
             // True if a local script shpuld be re-executed at every update
             , bU = ats.gB('updating')
             // Current context string befóre NewVars
@@ -2053,7 +2046,7 @@ class RComp {
         // When it is a 'type=otoreact' script
         if (m[5] && (!m[10] || thro("Invalid script type"))
             // Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
-            || (m[2] != N  || m[4]) && this.S.bSubf)
+            || m[2] != N && this.S.bSubf)
         {
             if (m[8]) {
                 // otoreact/local script
@@ -2073,15 +2066,17 @@ class RComp {
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
                 let pArr: Promise<object>
                     = ( src 
-                    ?   import(this.GetURL(src)) // External script
+                    ?   import(this.gURL(src)) // External script
                     :   import(
                             // For internal scripts, we must create an "ObjectURL"
                             src = URL.createObjectURL(
                                 new Blob(
                                     // Imports in the script may need an adjusted URL
                                     [ text.replace(
-                                        /(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g,
-                                        (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3
+                                        // (\/\/.*?$|(['"])(?:\\.|.)*?\2)
+                                        /(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*['"])(.*?)(['"])/g,
+                                    //   1----------------------------------------------------12---23----3
+                                        (_, p1, p2, p3) => p1 + this.gURL(p2) + p3
                                     ) ]
                                     , {type: 'text/javascript'}
                                 )
@@ -2251,7 +2246,7 @@ class RComp {
                             SetLVs(
                                 cAlt.patt.lvars,
                                 cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE                                                
-                            )
+                            );
 
                         await cAlt.b(sub);
                     }
@@ -2866,7 +2861,7 @@ class RComp {
                             (d.fx != N ? 1 : 3)
                     };
                 if (ap && mt == MType.Event) M.ap = nm == 'click';
-                if (mt == MType.Src) M.fp = this.FP;
+                if (mt == MType.Src) M.fp = this.fp;
 
                 // Either the 'before' or 'after' list
                 (mt < MType.RestParam && nm!='value' ? bf : af).push(M);
@@ -3136,18 +3131,18 @@ class RComp {
 
     // Returns the normalized (absolute) form of URL 'src'.
     // Relative URLs are considered relative to this.FilePath.
-    private GetURL(src: string) {
-        return new URL(src, this.FP).href
+    private gURL(src: string) {
+        return new URL(src, this.fp).href
     }
     // Returns the normalized form of URL 'src' without file name.
     private GetP(src: string) {
-        return this.GetURL(src).replace(/[^/]*$/, Q);
+        return this.gURL(src).replace(/[^/]*$/, Q);
     }
 
     // Fetches text from an URL
     async FetchText(src: string): Promise<string> {
         return (
-            await RFetch(this.GetURL(src), {headers: this.S.headers})
+            await RFetch(this.gURL(src), {headers: this.S.headers})
         ).text();
     }
 
@@ -3257,6 +3252,10 @@ const
         s.slice(0, m - 3) + "..."
         : s
 
+// Setting multiple LVars at once
+, SetLVs = (vars: Array<LVar>, data: Array<unknown>) =>
+    vars.forEach((v,i) => v(data[i]))
+
 // Add an object 'o' having a name 'o.nm' to a map
 , mapNm = <OT extends {nm: string}>(m: Map<string, OT>, o:OT) =>
     m.set(o.nm, o)
@@ -3268,6 +3267,7 @@ const
 , ErrM = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
     e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`
 
+// Create an error DOM node
 , crErrN = (m: string) => 
     ass(D.createElement('div')
         , { style: 'color:crimson;font-family:sans-serif;font-size:10pt'
@@ -3281,6 +3281,12 @@ const
             )
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
+
+, Bldrs = async (bs: Iterable<DOMBuilder>, ar: Area) => { 
+        for (let b of bs)
+            if (await b(ar))
+                break;
+    }
 
 , S2Hash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)

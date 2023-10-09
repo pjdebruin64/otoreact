@@ -344,6 +344,10 @@ These are the two regular forms of JavaScript.
             </li>
             <li>
                 <i>Outside</i> the main file, OtoReact will asynchronously execute the script as a JavaScript module while compiling, and await for it when building the DOM tree. Adding <code>async</code> makes no difference.
+                <p>
+                    When the script contains relative URLs, and is located in a file on a different URL path than the main file, then there might be confusion how to interpret the relative URLs', especially when the same file is used (included or imported) from multiple main files on different paths.
+                    <br>So OtoReact modifies all <code>import</code> declarations in the script so that relative URLs are interpreted <u>relative to the file they occur in</u>.
+                </p>
             </li>
         </ul>
     </dd>

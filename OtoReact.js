@@ -6,11 +6,6 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], W = window, D = docu
     storePrefix: "RVAR_",
     version: 1
 }, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, NO = () => new Object(null);
-async function Bldrs(bs, ar) {
-    for (let b of bs)
-        if (await b(ar))
-            break;
-}
 class Range {
     constructor(ar, n, text) {
         this.text = text;
@@ -369,7 +364,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
                         break;
                     case 6:
-                        e[nm] = x.replace(/([^, \t\f\r\n]+)((\s.*?)?(,|$))/g, (_, u, r) => new URL(u, M.fp).href + r);
+                        e[nm] = x.replace(/(.+?)(,|$)/gs, (_, u, r) => new URL(u, M.fp).href + r);
                         break;
                     case 5:
                         ass(e, x);
@@ -439,9 +434,6 @@ class Hndlr {
             }
     }
 }
-function SetLVs(vars, data) {
-    vars.forEach((v, i) => v(data[i]));
-}
 let iRC = 0, iStyle = 0;
 class RComp {
     constructor(RC, FP, settings, CT = RC?.CT) {
@@ -452,7 +444,7 @@ class RComp {
         this.ws = 1;
         this.rt = T;
         this.S = { ...RC ? RC.S : dflts, ...settings };
-        this.FP = FP || RC?.FP;
+        this.fp = FP || RC?.fp;
         this.doc = RC?.doc || D;
         this.hd = RC?.hd || this.doc.head;
         this.CT = new Context(CT, T);
@@ -1080,18 +1072,18 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', m = /^\s*(((text|application)\/javascript|)|(module)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = m[8] && this.LVars(defs), ex;
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = m[8] && this.LVars(defs), ex;
         ats.clear();
         if (m[5] && (!m[10] || thro("Invalid script type"))
-            || (m[2] != N || m[4]) && this.S.bSubf) {
+            || m[2] != N && this.S.bSubf) {
             if (m[8]) {
                 let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
             else if (m[4] || m[11]) {
                 let pArr = (src
-                    ? import(this.GetURL(src))
-                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\s(?:(?:\{.*?\}|\s|[a-zA-Z0-9_,*])*\sfrom)?\s*['"])([^'"]*)(['"])/g, (_, p1, p2, p3) => p1 + this.GetURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
+                    ? import(this.gURL(src))
+                    : import(src = URL.createObjectURL(new Blob([text.replace(/(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*['"])(.*?)(['"])/g, (_, p1, p2, p3) => p1 + this.gURL(p2) + p3)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
                 ex = () => pArr;
             }
             else {
@@ -1527,7 +1519,7 @@ class RComp {
             if (ap && mt == 7)
                 M.ap = nm == 'click';
             if (mt == 6)
-                M.fp = this.FP;
+                M.fp = this.fp;
             (mt < 8 && nm != 'value' ? bf : af).push(M);
         };
         for (let [A, V] of ats)
@@ -1702,14 +1694,14 @@ class RComp {
             q = ct.indexOf(']', q) + 1;
         return `[${ct.slice(0, p)}${ct.slice(q)}]`;
     }
-    GetURL(src) {
-        return new URL(src, this.FP).href;
+    gURL(src) {
+        return new URL(src, this.fp).href;
     }
     GetP(src) {
-        return this.GetURL(src).replace(/[^/]*$/, Q);
+        return this.gURL(src).replace(/[^/]*$/, Q);
     }
     async FetchText(src) {
-        return (await RFetch(this.GetURL(src), { headers: this.S.headers })).text();
+        return (await RFetch(this.gURL(src), { headers: this.S.headers })).text();
     }
     async fetchM(src) {
         let m = this.doc.getElementById(src);
@@ -1771,13 +1763,17 @@ const rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]
     return c;
 }, Abbr = (s, m = 65) => s.length > m ?
     s.slice(0, m - 3) + "..."
-    : s, mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrM = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, crErrN = (m) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt',
+    : s, SetLVs = (vars, data) => vars.forEach((v, i) => v(data[i])), mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrM = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, crErrN = (m) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt',
     innerText: m }), NoChilds = (srcE) => {
     for (let n of srcE.childNodes)
         if (n.nodeType == 1
             || n.nodeType == 3
                 && /\S/.test(n.nodeValue))
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
+}, Bldrs = async (bs, ar) => {
+    for (let b of bs)
+        if (await b(ar))
+            break;
 }, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
 function* mapI(I, f, c) {
     for (let x of I)
