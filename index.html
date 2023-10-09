@@ -133,27 +133,18 @@
                         <!--#include file="index_files/C1_Concepts.html"-->
                     </include>
                 </section>
-                <section>
-                    <include src="index_files/C2_HtmlElements.html"></include>
-                </section>
-                <section>
-                    <include src="index_files/C3_Constructs.html"></include>
-                </section>
-                <section>
-                    <include src="index_files/C4_OtherSubjects.html"></include>
-                </section>
+                
+                <section><include src="index_files/C2_HtmlElements.html"></include></section>
+
+                <section><include src="index_files/C3_Constructs.html"></include></section>
+
+                <section><include src="index_files/C4_OtherSubjects.html"></include></section>
             </pageLayout>
 
         </when>
-        <when match="routing">
-            <include src="index_files/P3_Routing.html"></include>
-        </when>
-        <when match="otolib">
-            <include src="index_files/P4_OtoLib.html"></include>
-        </when> 
-        <when match="download">
-            <include src="index_files/P5_Download.html"></include>
-        </when>
+        <when match="routing"   src="index_files/P3_Routing.html"></when>
+        <when match="otolib"    src="index_files/P4_OtoLib.html"></when> 
+        <when match="download"  src="index_files/P5_Download.html"></when>
         <else>
             Page '{docLocation.subpath}' not found
         </else>    

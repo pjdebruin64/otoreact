@@ -2046,29 +2046,30 @@ class RComp {
         });
     }
 
-    private CIncl(srcE: HTMLElement, ats: Atts, bReq?: booly): Promise<DOMBuilder> {
-        // Compile the contents of a node that may contain a 'src' attribute to include external source code
-        let src = ats?.g('src', bReq);
-        // When no ats were passed, or no src is present, or the node contains (server-side included) non-blank content,
-        if (!src || srcE.children.length || srcE.textContent.trim())
+    private CIncl(srcE: HTMLElement, ats: Atts, bR?: booly, cn?: Iterable<ChildNode>): Promise<DOMBuilder> {
+        // Compile the contents of any node that may contain a 'src' attribute to include external source code.
+        // With 'bReq', 'src' is required.
+        let src = ats?.g('src', bR);
+
+        // When no ats were passed, or no src is present, or the node contains (possibly SSI included) non-blank content,
+        return !src || srcE.children.length || srcE.textContent.trim() ?
             // then we compile just the child contents:
-            return this.CChilds(srcE);
+            this.CChilds(srcE, cn)
         // Otherwise we use a separate RComp object to asynchronously fetch and compile the external source code
         // We need a separate frame for local variables in this file, so that compilation of the main file can continue
-        return this.Framed(async SF => {
-            let C = new RComp(this, this.GetP(src), {bSubf: T})
-                , task = 
-                    this.fetchM(src)
-                    // Parse the contents of the file, and compile the parsed contents of the file in the original context
-                    .then(txt => C.Compile(N, txt))
-                    .catch(e => {alert(e); throw e});
+            : this.Framed(async SF => {
+                let C = new RComp(this, this.GetP(src), {bSubf: T})
+                    , task = 
+                        this.fetchM(src)
+                        // Parse the contents of the file, and compile the parsed contents of the file in the original context
+                        .then(txt => C.Compile(N, txt))
+                        .catch(e => {alert(e); throw e});
 
-            return async function INCLUDE(ar) {
-                    let {sub,EF} = SF(ar);
-                    await (await NoTime(task))(sub).finally(EF);
-                };
-        }
-        );
+                return async function INCL(ar) {
+                        let {sub,EF} = SF(ar);
+                        await (await NoTime(task))(sub).finally(EF);
+                    };
+            });
     }
 
     private async CUncN(srcE: HTMLElement, ats?: Atts): Promise<DOMBuilder<HTMLElement>> {
@@ -2237,12 +2238,15 @@ class RComp {
                         patt = dV && (
                             (p = ats.g('match') ?? ats.g('pattern')) != N
                                 ? this.CPatt(p)
+
                             : (p = ats.g('urlmatch')) != N
                                 ? this.CPatt(p, T)
+
                             : (p = ats.g('regmatch') || ats.g('regexp')) != N
                                 ?  {RE: new RegExp(p, 'i'), 
                                     lvars: this.LVars(ats.g('captures'))
                                 }
+
                             : N
                         );
 
@@ -2254,7 +2258,7 @@ class RComp {
                     case 'ELSE':
                         caseList.push({
                             cond, not, patt
-                            , b: await this.CChilds(n, body) || dB
+                            , b: await this.CIncl(n, ats, F, body) || dB
                             , n
                         });
                         ats.None();
@@ -2677,22 +2681,23 @@ class RComp {
         return this.Framed(async SF => {
             this.ws = this.rt = WSpc.block;
             let
-                myAtts = ats || new Atts(srcE),
+                atts = ats || new Atts(srcE),
                 // Local variables to contain the attribute values.
                 // Note that the attribute name 'nm' may be different from the variable name.
                 lvars: Array<[string, LVar]> =
                     S.Pams.map(
                         ({mode,nm}) => {
-                            let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
+                            let lnm = atts.g(nm) ?? atts.g(mode + nm);
                             return [nm, this.LV(lnm || (lnm === Q || !bSlot ? nm : N) )];
                         }
-                    ),
-                DC = ( !ats && myAtts.None(),
-                    this.LCons(S.Slots.values())
-                    ),
-                b  = await this.CIter(body.childNodes),
-                tag = // Is S.nm a valid custom element name?
-                    /^[A-Z].*-/.test(S.nm) ? S.nm : 'rhtml-'+S.nm;
+                    )
+                , DC = this.LCons(S.Slots.values())
+                , src = atts.g('src')
+                , b  = !src || body.children.length
+                    ? await this.CIter(body.childNodes)
+                    : 
+                ;
+            ats || atts.None();
 
             // Routine to instantiate the template
             return b && async function TEMPL(
@@ -2727,7 +2732,9 @@ class RComp {
                 ));
 
                 if (eStyles) {
-                    let {r: {n}, sub: s, cr} = PrepElm(sub, tag), 
+                    let {r: {n}, sub: s, cr} = 
+                            PrepElm(sub
+                                , /^[A-Z].*-/.test(S.nm) ? S.nm : 'RHTML-'+S.nm), 
                         SR = s.parN = n.shadowRoot || n.attachShadow({mode: 'open'});
                     if (cr)
                         for (let sn of eStyles)

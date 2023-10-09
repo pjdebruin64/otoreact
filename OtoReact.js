@@ -1097,19 +1097,23 @@ class RComp {
             }
         });
     }
-    CIncl(srcE, ats, bReq) {
-        let src = ats?.g('src', bReq);
-        if (!src || srcE.children.length || srcE.textContent.trim())
-            return this.CChilds(srcE);
-        return this.Framed(async (SF) => {
-            let C = new RComp(this, this.GetP(src), { bSubf: T }), task = this.fetchM(src)
-                .then(txt => C.Compile(N, txt))
-                .catch(e => { alert(e); throw e; });
-            return async function INCLUDE(ar) {
-                let { sub, EF } = SF(ar);
-                await (await NoTime(task))(sub).finally(EF);
-            };
-        });
+    CIncl(srcE, ats, bR, cn) {
+        let src = ats?.g('src', bR);
+        return !src || srcE.children.length || srcE.textContent.trim() ?
+            this.CChilds(srcE, cn)
+            : this.Framed(async (SF) => {
+                let task = this.CSrc(src);
+                return async function INCL(ar) {
+                    let { sub, EF } = SF(ar);
+                    await (await NoTime(task))(sub).finally(EF);
+                };
+            });
+    }
+    CSrc(src) {
+        let C = new RComp(this, this.GetP(src), { bSubf: T });
+        return this.fetchM(src)
+            .then(txt => C.Compile(N, txt))
+            .catch(e => { alert(e); throw e; });
     }
     async CUncN(srcE, ats) {
         let b = await this.CIncl(srcE, ats);
@@ -1203,7 +1207,7 @@ class RComp {
                     case 'ELSE':
                         caseList.push({
                             cond, not, patt,
-                            b: await this.CChilds(n, body) || dB,
+                            b: await this.CIncl(n, ats, F, body) || dB,
                             n
                         });
                         ats.None();
@@ -1439,11 +1443,13 @@ class RComp {
     CTempl(S, srcE, bSlot, ats, body = srcE, eStyles) {
         return this.Framed(async (SF) => {
             this.ws = this.rt = 1;
-            let myAtts = ats || new Atts(srcE), lvars = S.Pams.map(({ mode, nm }) => {
-                let lnm = myAtts.g(nm) ?? myAtts.g(mode + nm);
+            let atts = ats || new Atts(srcE), lvars = S.Pams.map(({ mode, nm }) => {
+                let lnm = atts.g(nm) ?? atts.g(mode + nm);
                 return [nm, this.LV(lnm || (lnm === Q || !bSlot ? nm : N))];
-            }), DC = (!ats && myAtts.None(),
-                this.LCons(S.Slots.values())), b = await this.CIter(body.childNodes), tag = /^[A-Z].*-/.test(S.nm) ? S.nm : 'rhtml-' + S.nm;
+            }), DC = this.LCons(S.Slots.values()), src = atts.g('src'), b = await (!src || body.children.length
+                ? this.CIter(body.childNodes)
+                : this.CSrc(src));
+            ats || atts.None();
             return b && async function TEMPL(args, mSlots, env, ar) {
                 if (!ar.r)
                     for (let { nm, pDf } of S.Pams)
@@ -1458,7 +1464,7 @@ class RComp {
                     env
                 })));
                 if (eStyles) {
-                    let { r: { n }, sub: s, cr } = PrepElm(sub, tag), SR = s.parN = n.shadowRoot || n.attachShadow({ mode: 'open' });
+                    let { r: { n }, sub: s, cr } = PrepElm(sub, /^[A-Z].*-/.test(S.nm) ? S.nm : 'RHTML-' + S.nm), SR = s.parN = n.shadowRoot || n.attachShadow({ mode: 'open' });
                     if (cr)
                         for (let sn of eStyles)
                             SR.appendChild(sn.cloneNode(T));

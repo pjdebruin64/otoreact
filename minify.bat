@@ -5,4 +5,4 @@ if "%Dest%"=="" SET Dest=..\..\test\otoreact\
 xcopy /y OtoReact.d.ts %Dest%
 xcopy /y OtoReact.ts %Dest%
 xcopy /y *.html %Dest%
-xcopy /y index_files %Dest%
+xcopy /y /s index_files %Dest%
