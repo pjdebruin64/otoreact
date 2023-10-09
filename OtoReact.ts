@@ -1237,10 +1237,10 @@ class RComp {
     private async CIter(iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         let {rt} = this     // Indicates whether the output may be right-trimmed
             , arr = Array.from(iter);
-        while(rt && arr.length && reWS.test(arr[arr.length - 1]?.nodeValue)) 
+        while(rt && arr.length && !/[^ \t\n\r]/.test(arr[arr.length - 1]?.nodeValue)) 
             arr.pop();
         
-        let bs = await this.CArr(arr, this.rt), l=bs.length;
+        let bs = await this.CArr(arr, rt), l=bs.length;
 
         return !l ? N
             : l < 2 ? bs[0]
@@ -2636,10 +2636,7 @@ class RComp {
                         }
                     )
                 , DC = this.LCons(S.Slots.values())
-                , src = atts.g('src')
-                , b  = !src || body.children.length
-                    ? await this.CIter(body.childNodes)
-                    : 
+                , b  = await this.CIter(body.childNodes)
                 ;
             ats || atts.None();
 
@@ -2793,10 +2790,10 @@ class RComp {
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = WSpc.preserve; postWs = WSpc.block;
         }
-        else if (reBlock.test(nm))
+        else if (rBlock.test(nm))
             this.ws = this.rt = postWs = WSpc.block;
         
-        else if (reInline.test(nm)) {  // Inline-block
+        else if (rInline.test(nm)) {  // Inline-block
             this.ws = this.rt = WSpc.block;
             postWs = WSpc.inline;
         }
@@ -2963,7 +2960,7 @@ class RComp {
 |[^])*?`
             , rIS = this.rIS ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{(${f(f(f('[^]*?')))})\\}|$`
+                    `\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`
                     , 'g'
                 ),
             gens: Array< string | Dep<unknown> > = [],
@@ -2978,7 +2975,7 @@ class RComp {
             // Add fixed text to 'fx':
             fx += text.slice(lastIx, m.index) + (m[1]||Q)
             // When we are either at the end of the string, or have a nonempty embedded expression:
-            if (!m[0] || m[2]?.trim()) {
+            if (!m[0] || m[2]) {
                 if (ws < WSpc.preserve) {
                     // Whitespace reduction
                     fx = fx.replace(/[ \t\n\r]+/g, " ");  // Reduce all whitespace to a single space
@@ -3091,10 +3088,9 @@ class RComp {
         , dl: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
     ): Dep<T> {
         if (e == N)
-            return <null>e;  // when 'e' is either null or undefined
+            return <null>e;  // when 'e' is either null or undefined, return the same
         
-        if (!/\S/.test(e)) 
-            throw `${nm}: Empty expression`;
+        e.trim() || thro(`${nm}: Empty expression`);
         
         try {
             var E = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
@@ -3224,9 +3220,8 @@ class Atts extends Map<string,string> {
 const
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
-    reBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
-    , reInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/     // Elements that trigger inline mode before/after
-    , reWS = /^[ \t\n\r]*$/                 // Just whitespace, non-breaking space U+00A0 excluded!
+    rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
+    , rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/     // Elements that trigger inline mode before/after
 
     // Routine to add a class name to all selectors in a style sheet
     , AddC = (txt: string, nm: string) =>
@@ -3282,7 +3277,7 @@ const
     for (let n of srcE.childNodes)
         if ( n.nodeType == 1         //Node.ELEMENT_NODE
             || n.nodeType == 3       //Node.TEXT_NODE 
-                && !reWS.test(n.nodeValue)
+                && /\S/.test(n.nodeValue)
             )
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
