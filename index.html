@@ -2,28 +2,10 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <!--
-        <meta http-equiv=Content-Security-Policy content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.paypal.com https://www.googletagmanager.com">
-    -->
-    <title>The OtoReact Framework</title>
     <meta name="viewport" content="width=device-width">
     <meta name="keywords" content="otoreact,javascript frameworks,reactive html,single page applications,web applications">
-    <link rel=preload href="OtoReact.js"            as=script crossorigin>
-    <!--
-        <link rel=preload href="Lib_Components.html"    as=fetch crossorigin>
-        <link rel=preload href="C1_Introduction.html"   as=fetch crossorigin>
-        <link rel=prefetch href="C2_HtmlElements.html"  as=fetch crossorigin>
-        <link rel=prefetch href="C3_Constructs.html"    as=fetch crossorigin>
-        <link rel=prefetch href="C4_Scripts.html"       as=fetch crossorigin>
-    -->
     <link rel="shortcut icon"   href="index_files/otoreact.png" type="image/png"/>
-    <script>
-        const 
-            wiki = "https://en.wikipedia.org/wiki/",
-            MDN="https://developer.mozilla.org/en-US/docs/",
-            src="./",
-            locationExternal = !/masterlist\/(test\/)?otoreact/i.test(location.href);
-    
+    <script>    
         var myIP = '<!--#echo var="REMOTE_ADDR"-->'
 
         window.dataLayer = window.dataLayer || [];
@@ -41,49 +23,32 @@
             if(ga) dataLayer.push(arguments);
         }
     </script>
+    <title.   reacton="docLocation">{
+        /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+        : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
+        : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
+        : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
+        : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
+        : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
+        : "Page not found"
+    }</title.>
     <script type=module>
         import { RVAR, docLocation} from './OtoReact.js';
+
         let popup = RVAR('popup', {display: 'none'});
-
-        docLocation.Subscribe(() => {
-            document.title =
-                /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
-                : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
-                : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
-                : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
-                : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
-                : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
-                : "Page not found";
-        }, true);
-
         let mMobile = window.matchMedia("@media screen and (min-resolution: 150dpi)")
         let isMobile = RVAR('isMobile', mMobile.matches);
 
-        // Auto-check for updates
-        /*
-        let LastModified, 
-            headers = new Headers({"Cache-Control": 'no-cache'});
-        (async function CheckForUpdates() {
-            let response = await fetch(location.href,
-                { method: 'HEAD', ... LastModified ? {headers} : {}}
-            );
-            if (!response.ok)
-                return;
-            let lm = response.headers.get('Last-Modified');
-            if (lm)
-                if (!LastModified) {
-                    LastModified = lm;
-                    await CheckForUpdates();
-                }
-                else if (lm != LastModified)
-                    location.reload();
-                else
-                    setTimeout(CheckForUpdates, 5 * 60000);
-        })();
-        */
+        Object.assign(globalThis, {
+            wiki: "https://en.wikipedia.org/wiki/",
+            MDN: "https://developer.mozilla.org/en-US/docs/",
+            src: "./",
+            locationExternal: !/masterlist\/(test\/)?otoreact/i.test(location.href)
+        });;
     </script>
     <script src="index_files/samples.js?"></script>
     <link rel=preload href="OtoLib.html"           as=fetch crossorigin>
+
     <link rel="stylesheet" href="index_files/index.css">
     <link rel=preload href="index_files/KoninklijkeOtolift.png" as=image>
     <link rel=preload href="demo/webColors.json"         as=fetch crossorigin>

@@ -81,11 +81,15 @@
         <p>The default basePattern is "/".
         <br>E.g., if an OtoReact application is loaded from URL "https://mydomain.org/myapplication/myroutedpage?query" and <code>basePattern</code> is not explicitly set, then <code>BasePath</code> is set equal to the initial part of pathname "/myapplication/myroutedpage" up to and including the last slash, which is "/myapplication/".
     </dd>
+    <dt><elm>CASE #value=docLocation.subpath</elm><elm>WHEN urlmatch="&hellip;" src="&hellip;"</elm></dt>
+    <dd>
+        A case distinction on the current URL subppath, see <a href=#PatternMatching>Pattern Matching</a>
+    </dd>
 </dl>
 
 
 <h2>Formatting</h2>
-OtoReact does not (yet) have extra formatting functionality for numbers and dates, etc.
+OtoReact does not have its own formatting functionality for numbers and dates, etc.
 <p>
     You can use standard JavaScript features like the <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Intl">Internationalization API</a>, a library like <a href="https://day.js.org/">Day.js</a>,
     or the (quite limited) standard methods of Date objects.

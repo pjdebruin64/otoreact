@@ -1178,13 +1178,26 @@ Any child elements of <elm class=sourcecode>RHEAD</elm> are inserted into the cu
 <p>
     You can use this e.g. to set a dynamic document title or to add dynamic links, or to specify header content for documents created by <elm>DOCUMENT</elm>.
 </p>
+<p>Alternatives to using <elm>RHEAD</elm> are:</p>
+<ul>
+    <li>
+        One can apply OtoReact functionality directly within the document header, by marking individual header elements with <code>RHTML</code>:
+        <pre><{}title rhtml reacton="&hellip;">\{ &hellip; \}<{}/title></pre>
+    </li>
+    <li>
+        Marking the whole header (<elm>head rhtml reacton="&hellip;"</elm>) works too, but is not recommended.
+    </li>
+    <li>
+        The <elm>title</elm> may be placed within the document body, instead of in the header.
+    </li>
+</ul>
 
 
 <h2 id=DOCUMENT><{}DOCUMENT>*</h2>
 <pre class=sourcecode>
-    <{}DOCUMENT name=<i>docName</i> params?="<i>parameterNames</i>" window?=<i>windowVar</i> encapsulate?>
-        <i>content</i>
-    <{}/DOCUMENT>
+<{}DOCUMENT name=<i>docName</i> params?="<i>parameterNames</i>" window?=<i>windowVar</i> encapsulate?>
+    <i>content</i>
+<{}/DOCUMENT>
 </pre>
 allows you to define a separate document or form, that remains part of the same RHTML application.
 <br>

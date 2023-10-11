@@ -18,9 +18,7 @@
     </style>
 
     <script type=module>
-      import {RVAR, RFetch} from './OtoReact.js';
-
-      globalThis.sourceCode = document.documentElement.outerHTML
+      import {RVAR} from './OtoReact.js';
 
       RVAR('customers', [
         {no: '001', name: "Mary", address: "Washington"},
@@ -32,21 +30,15 @@
     </script>
   </head>
 
-  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden>
+  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden reacton="docLocation">
 
-    <main reacton="docLocation">    
+    <main>    
       <menu>
         <a href="{docLocation.basepath}customers">Customer list</a>
         <a href="{docLocation.basepath}inventory">Inventory</a>
       </menu>
       
       <case #value="docLocation.subpath">
-  
-        <when urlmatch="inventory">
-          <title>Inventory</title>
-          <h1>Inventory</h1>
-          (Show or include inventory here)
-        </when>
   
         <when urlmatch="customers">
           <title>Customer list</title>
@@ -86,6 +78,8 @@
           <p>You can click the 'back' button or select a menu item.</p>
         </when>
   
+        <when urlmatch="inventory" src="inventory.html"></when>
+  
         <else>
           <h1>Routing demo</h1>
           <title>Routing demo</title>
@@ -98,16 +92,17 @@
 
     <p>Current values of:</p>
     <table>
-      <tbody reacton="docLocation">
+      <tbody>
         <tr> <th>location.origin</th>   <th>location.pathname</th>   <th>docLocation.basepath</th>   <th>docLocation.subpath</th>   </tr>
         <tr> <td>{location.origin}</td> <td>{location.pathname}</td> <td>{docLocation.basepath}</td> <td>{docLocation.subpath}</td> </tr>
       </tbody>
     </table>
 
     <p>Full source code of the current application:</p>
+    
+    <def rvar="sourceCode" #value="RFetch(location.href).then(response => response.text())"></def>
     <pre>
-&lt;!DOCTYPE html>
-{sourceCode.replaceAll('='+'""','')}
+{sourceCode.V}
     </pre>
   </body>
 </html>

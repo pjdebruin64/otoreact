@@ -38,13 +38,13 @@ button {font-size: 87%;}
 }
 .sourcecode {
     padding: 1px 3px;
-    margin: 2px;
     border: solid 3px rgb(180,180,180);
     border-radius: .5em;
     width: fit-content;
 }
 code.sourcecode {
     display: inline-block;
+    margin: 2px;
 }
 pre, .pre {
     margin: 1ex 2vw; 

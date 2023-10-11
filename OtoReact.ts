@@ -11,8 +11,8 @@ const
     , U = <undefined> void 0
     , Q = ''
     , E = []        // Empty array, must remain empty
+    , G = <typeof globalThis>self
     , W = window, D = document, L = location
-    , G = <typeof globalThis>self  // globalThis
     
     , US = "'use strict';"
 
@@ -37,17 +37,18 @@ const
     , thro = (err: any) => {throw err}
     ;
 
-//if (G.R$) {alert(`OtoReact is loaded both from:\n  ${G.R$}\nand from:\n  ${import.meta.url}\nYour application may not function correctly.`); throw Q;}
-
 // Type used for truthy / falsy values
-type booly = boolean|string|number|object|null|undefined;
+type booly = boolean|string|number|object|null|void;
+// Nodes that can have children
+type ParentNode = HTMLElement|DocumentFragment;
+type Handler = (ev:Event) => booly;
 
 type Settings = Partial<{
-    bTiming: boolean,
-    bAbortOnError:  boolean,      // Abort processing on runtime errors,
-                            // When false, only the element producing the error will be skipped
-    bShowErrors:    boolean,      // Show runtime errors as text in the DOM output
-    bSubf:          boolean|2,      // Subfile. 2 is used for RHTML.
+    bTiming:        boolean,
+    bAbortOnError:  boolean,    // Abort processing on runtime errors,
+                                // When false, only the element producing the error will be skipped
+    bShowErrors:    boolean,    // Show runtime errors as text in the DOM output
+    bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
     basePattern:    string,
     bAutoSubscribe: boolean,
     bAutoPointer:   boolean,
@@ -62,14 +63,105 @@ type Settings = Partial<{
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
 }>;
 
-// Current whitespace mode of the compiler:
-const enum WSpc {
-    zero = 0,
-    block = 1,      // We are in block mode; whitespace is irrelevant
-    inlineSpc,      // We are in inline mode with trailing whitespace, so more whitespace can be skipped
-    inline,         // We are in inline mode, whitespace is relevant
-    preserve        // Preserve all whitespace
+// A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
+// This will be the semantics, the meaning, of e.g. a JavaScript expression.
+type Dep<T> = (() => T);
+// 'DepE<T>' is the same thing, using an optional parameter. The default parameter value should be the global environment, again.
+type DepE<T> = ((e?:Environment) => T);
+
+//#region Environments
+
+// An ENVIRONMENT holds at runtime the actual values of all local variables (lvars) and construct definitions.
+// It is organized as a linked list of frames, where each frame is an array of values,
+// and its first element is the parent frame.
+// Local variables in nested scopes will in most cases be stored in the same frame;
+// they will just be made invisible after the scope has ended.
+
+// Furthermore, because construct definitions can vary and can contain references to local variables outside the definition,
+// they must be stored in the environment as well.
+// We use negative indices for this, like { [k: number]: ConstructDef} for k<0
+type Environment =  [Environment?, ...unknown[] ] & {cl?: string[]};
+
+// An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
+type EnvKey = {d: number, i: number};
+
+// A CONTEXT keeps track at runtime of all visible local variables and constructs, and where they are stored
+class Context {
+    d: number;          // Depth = number of parent frames
+    L: number;          // Length = number of positive (local variable) array elements
+    M: number;          // Number of negative (construct) array elements
+    ct: string;         // String of all visible variable names, to match against an environment
+
+    // Mapping of visible lvar names to EnvKeys
+    lvM: Map<string, EnvKey>
+    // Mapping of visible construct names to their signature and EnvKey
+    csM:  Map<string, {S:Signat, k: EnvKey}>;
+
+    // Construct a new context, optionally based on an existing context.
+    constructor(
+        C?: Context
+        , a?: booly
+        // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the maps is to be made.
+        // With synchronous compilation, this is not needed because the maps will always be restored to their previous value.
+    ) {
+        ass(
+            this,
+            C || {
+                d: 0, L: 0, M: 0, ct: Q,
+                lvM: new Map, csM: new Map
+            }
+        );
+        if (a && C) {
+            this.lvM = new Map(this.lvM);
+            this.csM = new Map(this.csM);
+        }
+    }
+
+    // Return a routines that, given an environment matching the current context returns the value pointed to by EnvKey 'k'
+    getV<T>(k: EnvKey): DepE<T> {
+        if (k) {
+            let D = this.d;
+            return (e:Environment = env) => {
+                let {d,i} = k;
+                for(;d < D; d++)
+                    e = e[0];
+                return e[i] as T;
+            }
+        }
+    }
+    // For a variable name 'nm', returns a routines that,
+    // given an environment matching the current context returns the lvar named by 'nm'
+    // Throws an error when unknown
+    getLV(nm: string): DepE<unknown>
+    {
+        return this.getV(this.lvM.get(nm) || thro(`Unknown name '${nm}'`));
+    }
+    // For a construct name 'nm', return a routines that,
+    // given an environment matching the current context,
+    // returns both the signature and the ConstructDef named by 'nm'
+    // Returns 'null' when unknown
+    getCS(nm: string): {S: Signat, dC: DepE<ConstructDef>}
+    {
+        let SK = this.csM.get(nm);
+        return SK && {S: SK.S, dC: this.getV<ConstructDef>(SK.k)};
+    }
+    
+    // Used by the <CASE> construct, that has alternative scopes all stored in the same frame.
+    max(C: Context) {
+        return ass(
+            //C,
+            C.L > this.L ? C : this, 
+            {
+                //L: Math.max(this.L, C.L),
+                M: Math.min(this.M, C.M)
+            }
+        );
+    }
 }
+
+// #endregion
+
+//#region DOMHandling: Area and Range
 
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
     Area's are transitory objects; discarded after the builders are finished
@@ -83,7 +175,7 @@ type Area<RT = {}, T = true> = {
     bfor?: ChildNode;     // DOM node before which new nodes are to be inserted
 
     /* When !r, i.e. when the DOM has to be created: */
-    srcN?: HTMLElement;     // Optional source node to be replaced by the new DOM 
+    srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
     parR?: Range;         // The new range shall either be the first child this parent range,
     prR?: Range;        // Or the next sibling of this previous range
 }
@@ -209,105 +301,6 @@ class Range<NodeType extends ChildNode = ChildNode> {
         }
     }
 }
-
-// #region Environments
-
-// An ENVIRONMENT holds at runtime the actual values of all local variables (lvars) and construct definitions.
-// It is organized as a linked list of frames, where each frame is an array of values,
-// and its first element is the parent frame.
-// Local variables in nested scopes will in most cases be stored in the same frame;
-// they will just be made invisible after the scope has ended.
-
-// Furthermore, because construct definitions can vary and can contain references to local variables outside the definition,
-// they must be stored in the environment as well.
-// We use negative indices for this, like { [k: number]: ConstructDef} for k<0
-type Environment =  [Environment?, ...unknown[] ] & {cl?: string[]};
-
-// An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
-type EnvKey = {d: number, i: number};
-
-// A CONTEXT keeps track at runtime of all visible local variables and constructs, and where they are stored
-class Context {
-    d: number;          // Depth = number of parent frames
-    L: number;          // Length = number of positive (local variable) array elements
-    M: number;          // Number of negative (construct) array elements
-    ct: string;         // String of all visible variable names, to match against an environment
-
-    // Mapping of visible lvar names to EnvKeys
-    lvM: Map<string, EnvKey>
-    // Mapping of visible construct names to their signature and EnvKey
-    csM:  Map<string, {S:Signat, k: EnvKey}>;
-
-    // Construct a new context, optionally based on an existing context.
-    constructor(
-        C?: Context
-        , a?: booly
-        // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the maps is to be made.
-        // With synchronous compilation, this is not needed because the maps will always be restored to their previous value.
-    ) {
-        ass(
-            this,
-            C || {
-                d: 0, L: 0, M: 0, ct: Q,
-                lvM: new Map, csM: new Map
-            }
-        );
-        if (a && C) {
-            this.lvM = new Map(this.lvM);
-            this.csM = new Map(this.csM);
-        }
-    }
-
-    // Return a routines that, given an environment matching the current context returns the value pointed to by EnvKey 'k'
-    getV<T>(k: EnvKey): DepE<T> {
-        if (k) {
-            let D = this.d;
-            return (e:Environment = env) => {
-                let {d,i} = k;
-                for(;d < D; d++)
-                    e = e[0];
-                return e[i] as T;
-            }
-        }
-    }
-    // For a variable name 'nm', returns a routines that,
-    // given an environment matching the current context returns the lvar named by 'nm'
-    // Throws an error when unknown
-    getLV(nm: string): DepE<unknown>
-    {
-        return this.getV(this.lvM.get(nm) || thro(`Unknown name '${nm}'`));
-    }
-    // For a construct name 'nm', return a routines that,
-    // given an environment matching the current context,
-    // returns both the signature and the ConstructDef named by 'nm'
-    // Returns 'null' when unknown
-    getCS(nm: string): {S: Signat, dC: DepE<ConstructDef>}
-    {
-        let SK = this.csM.get(nm);
-        return SK && {S: SK.S, dC: this.getV<ConstructDef>(SK.k)};
-    }
-    
-    // Used by the <CASE> construct, that has alternative scopes all stored in the same frame.
-    max(C: Context) {
-        return ass(
-            //C,
-            C.L > this.L ? C : this, 
-            {
-                //L: Math.max(this.L, C.L),
-                M: Math.min(this.M, C.M)
-            }
-        );
-    }
-}
-
-// #endregion
-
-// A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
-// This will be the semantics, the meaning, of e.g. a JavaScript expression.
-type Dep<T> = (() => T);
-// 'DepE<T>' is the same thing, using an optional parameter. The default parameter value should be the global environment, again.
-type DepE<T> = ((e?:Environment) => T);
-
 /* The following function prepares a sub area of a given 'area', 
     containing (when creating) a new Range,
     AND updates 'area' to point to the next range in a linked list.
@@ -407,26 +400,9 @@ const PrepRng = <RT>(
     }
     nodeCnt++;
 }
+// #endregion
 
-    //, NewEnv  = () => [N] as Environment
-,   dU: DepE<any>   = _ => U,               // Undefined dependent value
-    dB: DOMBuilder  = async ()=>{},         // A dummy DOMBuilder
-    // Child windows to be closed when the app is closed
-    chWins  = new Set<Window>(),
-    // Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
-    OMods   = new Map<string, Promise<[DOMBuilder, Context]>>();
-
-// A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
-// or an updating routine to some area .ar, yielding a promise that has to be awaited for,
-// because no two updating routines may run in parallel.
-type Subscriber<T = unknown> = 
-      ((t?: T) =>unknown)          & { T?: never; }
-    | ((t: T) => Promise<unknown>) & { T: true; };
-
-type ParentNode = HTMLElement|DocumentFragment;
-
-type Handler = (ev:Event) => any;
-
+//#region Component signatures
 // A PARAMETER describes a construct parameter: a name with a default expression
 type Parameter = {
     mode: ''|'#'|'@'|'...' 
@@ -528,7 +504,9 @@ type ArgSet = {[nm: string]: unknown};
 type Template =
     (args: ArgSet, mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, ar: Area)
     => Promise<void>;
+// #endregion
 
+//#region RVARs
 interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
@@ -592,7 +570,7 @@ export class _RVAR<T = unknown>{
             this.SetDirty();
         }
     }
-    get Set() : (t:T | Promise<T>) => T | Promise<T>
+    get Set() : (t:T | Promise<T>) => void
     {
         return t =>
             t instanceof Promise ?
@@ -655,51 +633,7 @@ export type RVAR_Light<T> = T & {
     readonly V?: T;
 };
 
-        
-function Subs({parN, parR}: Area, b: DOMBuilder, r: Range, bR:boolean = false): Subscriber {
-    let eon = {env, oes, pn};
-    // A DOM subscriber is  a routine that restores the current environment and error/success handlers,
-    // and runs a DOMBuilder
-    return ass(
-        () => (
-                ({env, oes, pn} = eon),
-                b({parN, parR, r: r||T}, bR)
-        )
-        // Assign property .T just to mark it as a DOMSubscriber
-        , {T});
-}
-
-type OES = {
-    e: Handler, s: Handler // onerror and onsuccess handlers
-};
-let    
-/* Runtime data */
-    env: Environment,       // Current runtime environment
-    pn: ParentNode,         // Current html node
-    oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
-
-    // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
-    Jobs = new Set< {Exec: () => Promise<unknown> } >(),
-
-    hUpd: number,        // Handle to a scheduled update
-    ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
-
-    upd = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
-    nodeCnt = 0,      // Count of the number of nodes
-    start: number,
-    NoTime = <T>(prom: Promise<T>) => {
-        // Just await for the given promise, but increment 'start' time with the time the promise has taken,
-        // so that this time isn't counted for the calling (runtime) task.
-        let t= now();
-        return prom.finally(() => { start += now()-t; })
-    },
-    RUpd = () => {
-        if (!env && !hUpd)
-            hUpd = setTimeout(DoUpdate, 1);
-    }
-;
-
-/* A "responsive variable" is a variable that listeners can subscribe to. */
+/* A "reactive variable" is a variable that listeners can subscribe to. */
 export function RVAR<T>(
     nm?: string, 
     value?: T | Promise<T>, 
@@ -712,7 +646,7 @@ export function RVAR<T>(
     ).Subscribe(subs, T);
 }
 
-const RV_props = 
+let RV_props = 
 {
     // _subs: {get: function(this: RVAR_Light<unknown>){ this._Subs = new Set }},
     V:  {get: function(this: RVAR_Light<unknown>) {return this}},
@@ -744,7 +678,65 @@ function RVAR_Light<T>(
     return (t as RVAR_Light<T>);
 }
 
-// Element modifiers
+// A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
+// or an updating routine to some area .ar, yielding a promise that has to be awaited for,
+// because no two updating routines may run in parallel.
+type Subscriber<T = unknown> = 
+      ((t?: T) =>unknown)          & { T?: never; }
+    | ((t: T) => Promise<unknown>) & { T: true; };
+
+// Creating an RVAR subscriber        
+function Subs({parN, parR}: Area, b: DOMBuilder, r: Range, bR:boolean = false): Subscriber {
+    let eon = {env, oes, pn};
+    // A DOM subscriber is  a routine that restores the current environment and error/success handlers,
+    // and runs a DOMBuilder
+    return ass(
+        () => (
+                ({env, oes, pn} = eon),
+                b({parN, parR, r: r||T}, bR)
+        )
+        // Assign property .T just to mark it as a DOMSubscriber
+        , {T});
+}
+//#endregion
+
+//#region Runtime data and utilities
+type OES = {e: Handler, s: Handler};     // Holder for onerror and onsuccess handlers
+// Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
+let    
+    env: Environment,       // Current runtime environment
+    pn: ParentNode,         // Current html node
+    oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
+
+    // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
+    Jobs = new Set< {Exec: () => Promise<unknown> } >(),
+
+    hUpd: number,        // Handle to a scheduled update
+    ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
+
+    upd = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
+    nodeCnt = 0,   // Count of the number of updated nodes (elements and text)
+    start: number   // Start time of the current update
+    // Child windows to be closed when the app is closed
+    , chWins  = new Set<Window>()
+    // Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
+    , OMods   = new Map<string, Promise<[DOMBuilder, Context]>>()
+
+// Runtime utilities
+    , NoTime = <T>(prom: Promise<T>) => {
+        // Just await for the given promise, but increment 'start' time with the time the promise has taken,
+        // so that this time isn't counted for the calling (runtime) task.
+        let t= now();
+        return prom.finally(() => { start += now()-t; })
+    }
+    , RUpd = () => {
+        if (!env && !hUpd)
+            hUpd = setTimeout(DoUpdate, 1);
+    }
+;
+//#endregion
+
+//#region Element modifiers
 type CU = 0|1|2|3;  // 1 = apply on create; 2 = apply on update; 3 = both
 type Modifier = {
     mt: MType,          // Modifier type
@@ -775,6 +767,34 @@ const enum MType {
 }
 type RestArg = {ms: Modifier[], xs: unknown[]};
 type ModifierData = { [k: number]: Set<string>|Hndlr};
+
+// Object to supply DOM event handlers with error handling and 'this' binding.
+// It allows the handler and onerror handlers to be updated without creating a new closure
+// and without replacing the target element event listener.
+class Hndlr {
+    oes: OES;       // onerror and onsuccess handler
+    h: Handler;     // User-defined handler
+
+    hndl(ev: Event, ...r: any[]) {
+            if (this.h)
+                try {
+                    var {e,s} = this.oes,
+                        a = this.h.call(ev.currentTarget, ev, ...r);
+                    // Mimic return value treatment of 'onevent' attribute/property
+                    a === false && ev.preventDefault();
+
+                    a instanceof Promise
+                        // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
+                        ? a.then(_ => s?.(ev), e)
+                        // Otherwise call an onsuccess handler
+                        : s?.(ev);
+                }
+                catch (er) {
+                    // Call onerror handler or retrow the error
+                    (e || thro)(er);
+                }        
+    }
+}
 
 function ApplyMods(
         r: Range<HTMLElement> & ModifierData        // ModifierData may store previous information
@@ -843,8 +863,6 @@ function ApplyMods(
                             typeof x == 'string'
                             ?   ((e.style as any) = x)
                             :   ass(e.style, x);
-                                //for (let [nm,v] of Object.entries(x as Object))
-                                //    e.style[nm] = v || v === 0 ? v : Q;
                         break;
                         
                     case MType.StyleProp:
@@ -935,34 +953,9 @@ function ApplyMods(
     finally { ro = F; }
     return k;
 }
+//#endregion
 
-// Object to supply DOM event handlers with error handling and 'this' binding.
-// It allows the handler and onerror handlers to be updated without creating a new closure
-// and without replacing the target element event listener.
-class Hndlr {
-    oes: OES;       // onerror and onsuccess handler
-    h: Handler;     // User-defined handler
-
-    hndl(ev: Event, ...r: any[]) {
-            if (this.h)
-                try {
-                    var {e,s} = this.oes,
-                        a = this.h.call(ev.currentTarget, ev, ...r);
-                    // Mimic return value treatment of 'onevent' attribute/property
-                    a === false && ev.preventDefault();
-
-                    a instanceof Promise
-                        // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
-                        ? a.then(_ => s?.(ev), e)
-                        // Otherwise call an onsuccess handler
-                        : s?.(ev);
-                }
-                catch (er) {
-                    // Call onerror handler or retrow the error
-                    (e || thro)(er);
-                }        
-    }
-}
+//#region Compiling
 
 // Inside builder routines, a local variable is represented by a routine to set its value,
 // having additional properties 'nm' with the variable name and 'i' with its index position in the environment 'env'
@@ -980,10 +973,20 @@ type DOMBuilder<RT = void|boolean> = ((ar: Area, bR?: boolean) => Promise<RT>)
         nm?: string;   // Name of the DOMBuilder
     };
 
-let iRC = 0        // Numbering of RComp instances
-    , iStyle = 0;   // Numbering of local stylesheet classnames
-class RComp {
+// Whitespace modes of the compiler
+const enum WSpc {
+    zero = 0,
+    block = 1,      // Block mode; whitespace is irrelevant
+    inlineSpc,      // Inline mode with preceeding whitespace, so more whitespace can be skipped
+    inline,         // Inline mode, whitespace is relevant
+    preserve        // Preserve all whitespace
+}
 
+// Instances of RComp perform synchronous compilation.
+// Everytime an asynchronous compilation is wanted, a instance shall be cloned.
+let   iRC = 0       // Numbering of RComp instances
+    , iLS = 0;      // Numbering of local stylesheet classnames
+class RComp {
     public num = iRC++;  // Rcompiler instance number, just for identification during debugging
 
     CT: Context         // Compile-time context
@@ -1016,11 +1019,13 @@ class RComp {
         this.lscl= RC?.lscl || E;
         this.ndcl = RC?.ndcl || 0;
     }
+
 /*
     'Framed' compiles a range of RHTML within a new variable-frame.
     Its parameter 'Comp' is the actual compiling routine, which is executed in a modified context,
-    and receives a parameter 'SF' to be used in the builder routine created by 'Comp' to
-    convert the environment 'env' into a new frame, and that returns a routine 'EndFrame' to restore the precious environment
+    and receives a parameter 'SF' (Start Frame),
+    to be used in the builder routine created by 'Comp' to convert the environment 'env' into a new frame,
+    and that returns a routine EF (End Frame) to restore the precious environment
 */  
     private Framed<T>(
         Comp: (
@@ -1048,16 +1053,13 @@ class RComp {
                 r || ({r,sub} = PrepRng<{v:Environment}>(sub));
 
                 env = r.env ||= ass([nf ? e : e[0]], {cl: e.cl});
-
-                //r.env || ((r.env = <Environment>[nf ? e : e[0]]).cl = e.cl);
-                //env = r.env;
                 
                 return {sub, EF: () => {env = e;} }; // 'EndFrame' routine
             }
         ).finally(() =>        
         {
             // Restore the context
-            ass(this.CT = CT, <Context>{ct,d,L,M});
+            this.CT = ass(CT, <Context>{ct,d,L,M});
             
             // When new variables or constructs have been set in the maps,
             // 'rActs' contains the restore actions to restore the maps to their previous state
@@ -1238,7 +1240,7 @@ class RComp {
             : l < 2 ? bs[0]
             : function Iter(ar: Area)
             {
-                return Bldrs(bs, ar);
+                return ExAll(bs, ar);
             };
     }
 
@@ -1273,7 +1275,7 @@ class RComp {
                                         let {r, sub, cr} = PrepRng<{upd: number}>(ar);
                                         if (cr) {
                                             let rvar = gv(), s = rvar._Subs.size;
-                                            await Bldrs(bs, sub);
+                                            await ExAll(bs, sub);
                                             if (rvar._Subs.size==s) // No new subscribers still?
                                                 // Then auto-subscribe with the correct range
                                                 rvar.Subscribe(
@@ -1281,7 +1283,7 @@ class RComp {
                                                 );
                                         }
                                         else if (r.upd != upd)
-                                            await Bldrs(bs, sub);
+                                            await ExAll(bs, sub);
                                         
                                         r.upd = upd;                                      
                                     }
@@ -1691,7 +1693,7 @@ class RComp {
                             /^local$/i.test(sc) || thro('Invalid scope');
                             // Local scope
                             // Get a unique classname for this stylesheet
-                            nm = `\uFFFE${iStyle++}`; // or e.g. \u0212
+                            nm = `\uFFFE${iLS++}`; // or e.g. \u0212
 
                             //bl = async function STYLE()
 
@@ -1737,7 +1739,7 @@ class RComp {
 
                                 if (sc) {
                                     let txt = (await b(ar) as HTMLElement).innerText
-                                        , nm =  r.cn ||= `\uFFFE${iStyle++}`;
+                                        , nm =  r.cn ||= `\uFFFE${iLS++}`;
                                 
                                     if (txt != r.tx)
                                         // Set the style text
@@ -2072,10 +2074,9 @@ class RComp {
                                 new Blob(
                                     // Imports in the script may need an adjusted URL
                                     [ text.replace(
-                                        // (\/\/.*?$|(['"])(?:\\.|.)*?\2)
-                                        /(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*['"])(.*?)(['"])/g,
-                                    //   1----------------------------------------------------12---23----3
-                                        (_, p1, p2, p3) => p1 + this.gURL(p2) + p3
+                                        /\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g,
+                                    //          1-----1                2                                                3----324---4
+                                        (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0
                                     ) ]
                                     , {type: 'text/javascript'}
                                 )
@@ -2526,6 +2527,7 @@ class RComp {
         }
     }
 
+    //#region Components and instances
 
     // Compile a <COMPONENT> definition
     private async CComp(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
@@ -2642,7 +2644,6 @@ class RComp {
                 , ar: Area
             ) {
                 // Handle defaults, in the constructdef environment,
-                // using the default 
                 if (!ar.r)
                     for (let {nm, pDf} of S.Pams)
                         if (pDf && args[nm] === U)
@@ -2652,7 +2653,8 @@ class RComp {
                 
                 // Start frame
                 let {sub, EF} = SF(ar);
-                // Set parameter values
+
+                // Set parameter values in the new frame
                 for (let [nm,lv] of lvars)
                     lv(args[nm]);
 
@@ -2768,6 +2770,7 @@ class RComp {
                 finally {env = sEnv; ro = F;}
         }
     }
+    //#endregion
 
     private async CHTML(srcE: HTMLElement, ats: Atts
             , dTag?: Dep<string>    // Optional routine to compute the tag name
@@ -2941,7 +2944,7 @@ class RComp {
     CText(text: string, nm?: string): Dep<string> & {fx?: string} {
         let 
             // Regular expression to recognize string interpolations, with or without dollar,
-            // with support for two levels of nested braces,
+            // with support for threeo levels of nested braces,
             // where we also must take care to skip js strings possibly containing braces,  escaped quotes, quoted strings, regexps, backquoted strings containing other expressions.
             // Backquoted js strings containing js expressions containing backquoted strings might go wrong
             // (We can't use negative lookbehinds; Safari does not support them)
@@ -2972,8 +2975,7 @@ class RComp {
             if (!m[0] || m[2]) {
                 if (ws < WSpc.preserve) {
                     // Whitespace reduction
-                    fx = fx.replace(/[ \t\n\r]+/g, " ");  // Reduce all whitespace to a single space
-                    // We can't use \s for whitespace, because that includes nonbreakable space &nbsp;
+                    fx = fx.replace(/[ \t\n\r]+/g, " ");  // Reduce all whitespace to a single space, except nonbreakable space &nbsp;
                     if (ws <= WSpc.inlineSpc && !gens.length)
                         fx = fx.replace(/^ /,Q);     // No initial whitespace
                     if (this.rt && !m[0])
@@ -3210,17 +3212,22 @@ class Atts extends Map<string,string> {
             throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
     }
 }
+//#endregion
 
+//#region Utilities
 const
+    dU: DepE<any>     = _ => U             // Undefined dependent value
+    , dB: DOMBuilder  = async _ => U       // A dummy DOMBuilder
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
-    rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
+    , rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
     , rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/     // Elements that trigger inline mode before/after
 
     // Routine to add a class name to all selectors in a style sheet
     , AddC = (txt: string, nm: string) =>
         nm ? txt.replaceAll(
-/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(\w|[-.#:()\u00A0-\uFFFF]|\[(?:"(?:\\.|.)*?"|'(?:\\.|.)*?'|.)*?\]|\\[0-9A-F]+\w*|\\.|"(?:\\.|.)*?"|'(?:\\.|.)*?')+/gsi,
+/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi,
+//                                  1                                        2----2                                        3----3             1
                 (m,p) => p ? `${m}.${nm}` : m
             )
         : txt
@@ -3246,6 +3253,7 @@ const
     return c;
 }
 
+// Abbreviate text
 , Abbr = (s: string, m: number=65) =>
     s.length > m ?
         s.slice(0, m - 3) + "..."
@@ -3272,26 +3280,29 @@ const
         , { style: 'color:crimson;font-family:sans-serif;font-size:10pt'
             , innerText: m})
 
+// Check that some element has no nonblank content
 , NoChilds = (srcE: HTMLElement) => {
     for (let n of srcE.childNodes)
         if ( n.nodeType == 1         //Node.ELEMENT_NODE
             || n.nodeType == 3       //Node.TEXT_NODE 
-                && /\S/.test(n.nodeValue)
+                && n.nodeValue.trim()
             )
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
 
-, Bldrs = async (bs: Iterable<DOMBuilder>, ar: Area) => { 
+// Execute all DOMBuilders; break if any returns truthy
+, ExAll = async (bs: Iterable<DOMBuilder>, ar: Area) => { 
         for (let b of bs)
             if (await b(ar))
                 break;
     }
 
+// Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
 , S2Hash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 ;
 
-// Map an iterable to another iterable
+// Map an iterable to another iterable, for items satisfying an optional condition
 function* mapI<A, B>(I: Iterable<A>, f: (a:A)=>B, c?: (a:A)=>booly): Iterable<B> {
     for (let x of I)
         if (!c || c(x))
@@ -3303,6 +3314,7 @@ function* split(s: string) {
         for (let v of s.split(','))
             yield v.trim();
 }
+
 // Iterate through a range of numbers
 export function* range(from: number, count?: number, step: number = 1) {
 	if (count === U) {
@@ -3315,6 +3327,7 @@ export function* range(from: number, count?: number, step: number = 1) {
     }
 }
 
+// Fetch an URL with error handling
 export async function RFetch(input: RequestInfo, init?: RequestInit) {
     try {
         let rp = await fetch(input, init);
@@ -3326,10 +3339,12 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
         throw `${init?.method||'GET'} ${input}: ` + e;
     }
 }
+//#endregion
 
+//#region Routing
 class DocLoc extends _RVAR<string> {
         constructor() {
-            super('docLocation', L.href);
+            super(N, L.href);
             W.addEventListener('popstate', _ => this.V = L.href );
 
             let DL = this;
@@ -3364,6 +3379,7 @@ class DocLoc extends _RVAR<string> {
         }
     }
 let
+    _ur = import.meta.url,
     R: RComp,
     DL = new DocLoc,
     reroute: (arg: MouseEvent | string) => void = 
@@ -3377,20 +3393,19 @@ let
             DL.U = new URL(arg, DL.V).href;
         };
 export {DL as docLocation, reroute}
+//#endregion
 
+
+if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
 // Define global constants
-ass(
-    G, {RVAR, range, reroute, RFetch, DoUpdate
-    }
-);
+ass(G, {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur} );
 
-// Close registered child windows on page hide (= window close)
-W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
-
-export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: Settings): Promise<void> {
-    // if (!setts?.version) alert('version 0')
+export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {
+            if (typeof setts == 'string')
+                setts = <Settings>Ev(`({${setts}})`);
+
             srcN.b = T;   // No duplicate compilation
             let
                 m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
@@ -3440,10 +3455,11 @@ export async function DoUpdate() {
     }
 }
 
+// Close registered child windows on page hide (= window close)
+W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
+
 // Initiate compilation of marked elements
 setTimeout(() => {
-    for (let src of <NodeListOf<HTMLElement>>D.querySelectorAll('*[rhtml],*[type=RHTML]')) {
-        let o = src.getAttribute('rhtml'); // Options
-        RCompile(src, o && Ev(`({${o}})`));
-    }
+    for (let src of <NodeListOf<HTMLElement>>D.querySelectorAll('*[rhtml]'))
+        RCompile(src, src.getAttribute('rhtml'))  // Options
 }, 0);
