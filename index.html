@@ -23,15 +23,6 @@
             if(ga) dataLayer.push(arguments);
         }
     </script>
-    <title.   reacton="docLocation">{
-        /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
-        : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
-        : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
-        : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
-        : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
-        : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
-        : "Page not found"
-    }</title.>
     <script type=module>
         import { RVAR, docLocation} from './OtoReact.js';
 
@@ -59,6 +50,15 @@
     rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']]"
     oncreate="this.onclick = popup.Clear; // This avoids bAutoPointer"
     >
+    <title. reacton="docLocation">{
+        /^(index.shtml)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
+        : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
+        : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
+        : /^routing$/i.test(docLocation.subpath)    ? "OtoReact Routing"
+        : /^otolib$/i.test(docLocation.subpath)     ? "The OtoLib library"
+        : /^download$/i.test(docLocation.subpath)   ? "OtoReact Download"
+        : "Page not found"
+    }</title.>
 
     <import src="index_files/Lib_Components.html">
         <!-- This component ensures that all <a> elements with no target and an external href, get a target='_blank' attribute -->
@@ -74,7 +74,7 @@
     </import>
 
     <case hiding #value="docLocation.subpath" thisreactson=docLocation>
-        <when regmatch="^(index.html)?$">
+        <when regmatch="^(index\.|$)">
             <pageLayout subpath="">
                 <pageHead>
                     <span class=OtoRed>Reactive HTML</span> through the <span class=OtoRed>OtoReact</span> framework
@@ -82,7 +82,7 @@
 
                 <section>
                     <include src="index_files/P1_Introduction.html">
-                        <!--#include file="index_files/P1_Introduction.html"-->
+                        <!-- include file="index_files/P1_Introduction.html"-->
                     </include>                    
                 </section>
             </pageLayout>

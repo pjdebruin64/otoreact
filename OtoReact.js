@@ -1047,19 +1047,19 @@ class RComp {
             }
         });
     }
-    CIncl(srcE, ats, bR, cn) {
+    CIncl(srcE, ats, bR, cn = srcE.childNodes) {
         let src = ats?.g('src', bR);
-        return !src || srcE.children.length || srcE.textContent.trim() ?
-            this.CChilds(srcE, cn)
-            : this.Framed(async (SF) => {
-                let C = new RComp(this, this.GetP(src), { bSubf: T }), task = this.fetchM(src)
-                    .then(txt => C.Compile(N, txt))
-                    .catch(e => { alert(e); throw e; });
+        return src ?
+            this.Framed(async (SF) => {
+                let C = new RComp(this, this.GetP(src), { bSubf: T }), task = srcE.children.length || srcE.textContent.trim()
+                    ? C.Compile(N, cn)
+                    : this.fetchM(src).then(cn => C.Compile(N, cn));
                 return async function INCL(ar) {
                     let { sub, EF } = SF(ar);
                     await (await NoTime(task))(sub).finally(EF);
                 };
-            });
+            })
+            : this.CChilds(srcE, cn);
     }
     async CUncN(srcE, ats) {
         let b = await this.CIncl(srcE, ats);

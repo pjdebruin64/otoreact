@@ -1984,30 +1984,34 @@ class RComp {
         });
     }
 
-    private CIncl(srcE: HTMLElement, ats: Atts, bR?: booly, cn?: Iterable<ChildNode>): Promise<DOMBuilder> {
+    private CIncl(srcE: HTMLElement, ats: Atts, bR?: booly, cn: Iterable<ChildNode> = srcE.childNodes): Promise<DOMBuilder> {
         // Compile the contents of any node that may contain a 'src' attribute to include external source code.
         // With 'bReq', 'src' is required.
+        // The source code may be server side included.
         let src = ats?.g('src', bR);
 
-        // When no ats were passed, or no src is present, or the node contains (possibly SSI included) non-blank content,
-        return !src || srcE.children.length || srcE.textContent.trim() ?
-            // then we compile just the child contents:
-            this.CChilds(srcE, cn)
-        // Otherwise we use a separate RComp object to asynchronously fetch and compile the external source code
+        // When src is given,
+        return src ?
+        // Then use a separate RComp object to asynchronously fetch and compile the included or external source code
+        // , perhaps with a different base path.
         // We need a separate frame for local variables in this file, so that compilation of the main file can continue
-            : this.Framed(async SF => {
+            this.Framed(async SF => {
                 let C = new RComp(this, this.GetP(src), {bSubf: T})
                     , task = 
-                        this.fetchM(src)
+                        srcE.children.length || srcE.textContent.trim()
+                        ? C.Compile(N, cn)
                         // Parse the contents of the file, and compile the parsed contents of the file in the original context
-                        .then(txt => C.Compile(N, txt))
-                        .catch(e => {alert(e); throw e});
+                        : this.fetchM(src).then(cn => C.Compile(N, cn))
+                        //.catch(e => {alert(e); throw e})
+                        ;
 
                 return async function INCL(ar) {
                         let {sub,EF} = SF(ar);
                         await (await NoTime(task))(sub).finally(EF);
                     };
-            });
+            })
+            // Otherwise we just compile just the child contents
+            : this.CChilds(srcE, cn)
     }
 
     private async CUncN(srcE: HTMLElement, ats?: Atts): Promise<DOMBuilder<HTMLElement>> {
