@@ -4,7 +4,7 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     bAutoPointer: T,
     preformatted: E,
     storePrefix: "RVAR_",
-    version: 1
+    version: 1,
 }, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; };
 class Context {
     constructor(C, a) {
@@ -818,8 +818,8 @@ class RComp {
                                         open(target, features, ...args) {
                                             let w = W.open(Q, target || Q, features), cr = !chWins.has(w);
                                             if (cr) {
-                                                w.addEventListener('keydown', function (event) { if (event.key == 'Escape')
-                                                    this.close(); });
+                                                w.addEventListener('keydown', (event) => { if (event.key == 'Escape')
+                                                    w.close(); });
                                                 w.addEventListener('close', () => chWins.delete(w), wins.delete(w));
                                                 chWins.add(w);
                                                 wins.add(w);
@@ -1072,11 +1072,11 @@ class RComp {
         });
     }
     async CScript(srcE, ats) {
-        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = m[8] && this.LVars(defs), ex;
+        let { type, text, defer, async } = srcE, src = ats.g('src'), defs = ats.g('defines') || '', m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/(((local)|static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type), bU = ats.gB('updating'), { ct } = this.CT, lvars = m[8] && this.LVars(defs), ex;
         ats.clear();
         if (m[5] && (!m[10] || thro("Invalid script type"))
             || m[2] != N && this.S.bSubf) {
-            if (m[8]) {
+            if (m[9]) {
                 let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
@@ -1851,7 +1851,8 @@ if (G._ur) {
     alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`);
     throw Q;
 }
-ass(G, { RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur });
+let globs = { RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur };
+ass(G, globs);
 export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {

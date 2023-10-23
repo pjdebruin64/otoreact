@@ -25,7 +25,8 @@ const
         bAutoPointer:   T,
         preformatted:   E as string[],
         storePrefix:    "RVAR_",
-        version:        1
+        version:        1,
+        //bGlobs:         true,
     }
     
     // Some utilities
@@ -61,6 +62,7 @@ type Settings = Partial<{
     storePrefix:    string,
     version:        number,
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
+    //bGlobs:         boolean,
 }>;
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
@@ -989,7 +991,7 @@ let   iRC = 0       // Numbering of RComp instances
 class RComp {
     public num = iRC++;  // Rcompiler instance number, just for identification during debugging
 
-    CT: Context         // Compile-time context
+    public CT: Context         // Compile-time context
 
     private cRvars: {[nm: string]: booly}
          = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
@@ -1097,7 +1099,7 @@ class RComp {
 
     // At compiletime, declare a single LVar.
     // Returns a routine to set the value of the LVar.
-    private LV<T>(nm: string): LVar<T> {
+    public LV<T>(nm: string): LVar<T> {
         if (nm = nm?.trim())
         {
                 try {
@@ -1652,9 +1654,11 @@ class RComp {
                                             , cr = !chWins.has(w);
                                         if (cr) {
                                             w.addEventListener('keydown', 
-                                                function(this: Window,event:KeyboardEvent) {if(event.key=='Escape') this.close();}
+                                                (event:KeyboardEvent) => {if(event.key=='Escape') w.close();}
                                             );
-                                            w.addEventListener('close', () => chWins.delete(w), wins.delete(w))
+                                            w.addEventListener('close', 
+                                                () => chWins.delete(w), wins.delete(w));
+                                            //w.addEventListener('load', () => w.focus());
                                             chWins.add(w); wins.add(w);
                                         }
                                         w.document.body.innerHTML=Q // Just in case an existing target was used
@@ -2034,13 +2038,13 @@ class RComp {
             , src = ats.g('src')     // Niet srcE.src
             // Any variables to define?
             , defs = ats.g('defines') || ''
-            , m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/((local)|(static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
+            , m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/(((local)|static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
             //         123----------------3             4------4 2 5--------56  78-----8 9------9       7 A---A61   B               C-C          B 
             // True if a local script shpuld be re-executed at every update
             , bU = ats.gB('updating')
             // Current context string befóre NewVars
             , {ct} = this.CT
-            // Local variables to be defined
+            // local or static: Local variables to be defined
             , lvars = m[8] && this.LVars(defs)
             , ex: () => Promise<object>
             ;
@@ -2053,7 +2057,7 @@ class RComp {
             // Or when it is a classic or module script ánd we are in a subfile, so the browser doesn't automatically handle it */
             || m[2] != N && this.S.bSubf)
         {
-            if (m[8]) {
+            if (m[9]) {
                 // otoreact/local script
                 let prom
                  = (async () => 
@@ -3401,8 +3405,10 @@ export {DL as docLocation, reroute}
 
 
 if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
+
+let globs = {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur};
 // Define global constants
-ass(G, {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur} );
+ass(G, globs);
 
 export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
@@ -3418,7 +3424,11 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
                     , L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
                     , setts
                 );
-
+            /*
+            if (!setts.bGlobs)
+                for (let g of Object.keys(globs))
+                    C.LV(g);
+            */
             await C.Compile(srcN);
 
             // Initial build
