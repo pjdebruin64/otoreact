@@ -76,8 +76,126 @@ const sampleGreeting=
         Nice to meet you, {yourName.V}. <!-- yourName.V is inserted here -->
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
-</IF>`
-  , fileTemplate = 
+</IF>`;
+
+const sampleTicTacToe = 
+`<style>
+    main {
+        display:grid;
+        grid-template-columns: auto 120pt;
+        background-color: white;
+    }
+    header {
+        grid-column: 1/3;
+        text-align: center;
+    }
+    table {
+        width: fit-content;
+        margin:1ex
+    }
+    td {
+        height: 4ex; width: 4ex;
+        padding: 0px;
+        border: 2px solid;
+        line-height: 1;
+        text-align: center;
+        vertical-align: middle;
+    }
+    button {
+        font-size: 80%;
+    }
+</style>
+
+<!-- By using a local script, multiple instances of this game will have their own state -->
+<script type="otoreact/local" 
+  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
+>
+    let
+      board =    RVAR(),           // State of the board
+      toMove =   RVAR(null, '✕'), // Player to move: '◯' or '✕'
+      outcome =  RVAR(),    // Player that has won, or boolean true when it's a draw
+      count = 0;            // Number of moves made
+
+    function ClearAll() {
+        // Initialize the board as an array of arrays of objects {P: '◯' | '✕'}
+        board.V = Board();
+        // Reset the outcome
+        outcome.V = null;
+        count = 0;
+        
+        function Cell() {return {P: null}; }
+        function Row()  {return [Cell(), Cell(), Cell()]; }
+        function Board(){return [Row(), Row(), Row()]; }
+    }
+
+    ClearAll();
+
+    function Move(cell) {
+        // Play a move, when allowed
+        if (outcome.V || cell.P) // Move not allowed
+          return;
+        cell.U.P = toMove.V; // Update the cell
+        toMove.V = (toMove.V=='✕' ? '◯' : '✕'); // Set next player to move
+        count++;   // Count moves
+        outcome.V = CheckWinner(board.V) || count==9; // Check end of game
+    }
+
+    function CheckWinner(b) {
+        // Check if there is a winner
+        let w = null;
+        for (let i=0;i<3;i++) {
+            w = w || CheckRow(...b[i]);   // Horizontal row
+            w = w || CheckRow(b[0][i], b[1][i], b[2][i]); // Vertical row
+        }
+        for (let i=-1;i<=1;i+=2)
+            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]); // Diagonal row
+        return w;
+
+        function CheckRow(c1, c2, c3) {
+            // Return the result when the three cells have the same state
+            return (c1.P == c2.P && c2.P == c3.P && c1.P);
+        }
+  }
+</script>
+
+<main>
+  <header>
+    <b>Tic-Tac-Toe</b>
+  </header>
+
+  <!-- Show the board -->
+  <table.>
+          <!-- This table should react on the RVAR 'board'. -->
+    <for let=row of="board.V">
+      <tr.>
+        <for let=cell of="row" reacting>
+          <td. onclick="Move(cell)"
+           >{cell.P}</td.>
+        </for>
+      </tr.>
+    </for>
+  </table.>
+  
+  <!-- Show either the outcome, or the player to move -->
+  <div>
+    <p>
+      <case>
+        <when cond="outcome.V===true">
+          <b>It's a draw.</b>
+        </when>
+        <when cond="outcome.V">
+          <b>The winner is: <large>{outcome.V}</large></b>
+        </when>
+        <else>
+          Player to move: {toMove.V}
+        </else>
+      </case>
+    </p>
+    <button onclick="ClearAll()">Clear</button>
+  </div>
+</main>`;
+
+const fileTemplate = 
 `<!DOCTYPE html>
 <html>
     <head>
@@ -148,7 +266,7 @@ function StartStop() {
 
   <!-- Table caption -->
   <caption.>Web Colors 
-    <button onclick="StartStop();" reacton=handle style="float:right; width:5em">
+    <button onclick="StartStop();" style="float:right; width:5em">
         {handle.V > 0 ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
@@ -161,12 +279,11 @@ function StartStop() {
   </tr.>
 
   <!-- Detail records -->
-  <!-- RVAR 'ColorTable' is defined in the script; we need a 'reacton' attribute to tell OtoReact that this piece
-    of code should react on changes in 'ColorTable.V'.
+  <!-- RVAR 'ColorTable' is defined in the script;
     'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if 'C' remains the same object.
   -->
   <tbody.>
-    <FOR let=C of="ColorTable.V" hash=C reacton=ColorTable>
+    <FOR let=C of="ColorTable.V" hash=C>
       <tr. 
         style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
         #style.color = "C.green<148 ? 'white' : 'black'"
@@ -195,7 +312,7 @@ function StartStop() {
   }
 
   
-<table. #class:animate="handle.V" thisreactson=handle>
+<table. #class:animate="handle.V">
 */
 
 const sampleBraces =
@@ -295,7 +412,7 @@ const sampleTODO=
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item of=TODO.V key=item reacton=TODO reactive>
+            <for let=item of=TODO.V key=item reactive>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
                     <label style="display: block">
@@ -452,123 +569,6 @@ td { text-align: center }
 </TableMaker>
 `;
 
-const sampleTicTacToe = 
-`<style>
-    main {
-        display:grid;
-        grid-template-columns: auto 120pt;
-        background-color: white;
-    }
-    header {
-        grid-column: 1/3;
-        text-align: center;
-    }
-    table {
-        width: fit-content;
-        margin:1ex
-    }
-    td {
-        height: 4ex; width: 4ex;
-        padding: 0px;
-        border: 2px solid;
-        line-height: 1;
-        text-align: center;
-        vertical-align: middle;
-    }
-    button {
-        font-size: 80%;
-    }
-</style>
-
-<!-- By using a local script, multiple instances of this game will have their own state -->
-<script type="otoreact/local" 
-  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
->
-    let
-      board =    RVAR(),           // State of the board
-      toMove =   RVAR(null, '✕'), // Player to move: '◯' or '✕'
-      outcome =  RVAR(),    // Player that has won, or boolean true when it's a draw
-      count = 0;            // Number of moves made
-
-    function ClearAll() {
-        // Initialize the board as an array of arrays of objects {P: '◯' | '✕'}
-        board.V = Board();
-        // Reset the outcome
-        outcome.V = null;
-        count = 0;
-        
-        function Cell() {return {P: null}; }
-        function Row()  {return [Cell(), Cell(), Cell()]; }
-        function Board(){return [Row(), Row(), Row()]; }
-    }
-
-    ClearAll();
-
-    function Move(cell) {
-        // Play a move, when allowed
-        if (outcome.V || cell.P) // Move not allowed
-          return;
-        cell.U.P = toMove.V; // Update the cell
-        toMove.V = (toMove.V=='✕' ? '◯' : '✕'); // Set next player to move
-        count++;   // Count moves
-        outcome.V = CheckWinner(board.V) || count==9; // Check end of game
-    }
-
-    function CheckWinner(b) {
-        // Check if there is a winner
-        let w = null;
-        for (let i=0;i<3;i++) {
-            w = w || CheckRow(...b[i]);   // Horizontal row
-            w = w || CheckRow(b[0][i], b[1][i], b[2][i]); // Vertical row
-        }
-        for (let i=-1;i<=1;i+=2)
-            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]); // Diagonal row
-        return w;
-
-        function CheckRow(c1, c2, c3) {
-            // Return the result when the three cells have the same state
-            return (c1.P == c2.P && c2.P == c3.P && c1.P);
-        }
-  }
-</script>
-
-<main>
-  <header>
-    <b>Tic-Tac-Toe</b>
-  </header>
-
-  <!-- Show the board -->
-  <table. reacton=board>
-          <!-- This table should react on the RVAR 'board'. -->
-    <for let=row of="board.V">
-      <tr.>
-        <for let=cell of="row" reacting>
-          <td. onclick="Move(cell)"
-           >{cell.P}</td.>
-        </for>
-      </tr.>
-    </for>
-  </table.>
-  
-  <!-- Show either the outcome, or the player to move -->
-  <div>
-    <p reacton=outcome,toMove>
-      <case>
-        <when cond="outcome.V===true">
-          <b>It's a draw.</b>
-        </when>
-        <when cond="outcome.V">
-          <b>The winner is: <large>{outcome.V}</large></b>
-        </when>
-        <else>
-          Player to move: {toMove.V}
-        </else>
-      </case>
-    </p>
-    <button onclick="ClearAll()">Clear</button>
-  </div>
-</main>`;
-
 const sampleRHTML =
 `<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
@@ -673,7 +673,7 @@ h3 {color: green}
         label { display: block; margin: 30px }
     </style>
     <h3>This is a separate document.</h3>
-    <label reacton=check>
+    <label>
         <input type=checkbox @checked=check.V> Check me!
     </label>
 </document>
@@ -689,7 +689,7 @@ Please click
 and note how the checkbox in the popup browser window is synchronized with the checkbox below.
 
 <p>
-<label reacton=check>
+<label>
     <input type=checkbox @checked=check.V> Checked.
 </label>
 <p>
@@ -906,7 +906,7 @@ Please enter some numbers:
   <input type="number" @valueasnumber="num.V">
 </for>
 
-<p reacton="data">
+<p>
   The sum is \{data.V.reduce((a,b)=>a+b,0)}
 </p>`
 
@@ -922,7 +922,7 @@ const demoAutoSubscribtion = `
 	<def rvar=b #value=0></def>
 	<!-- Here only the <span> reacts on b: -->
 	<button onclick="b.V++">{b}</button>
-	<span reacton=b>b = {b}</span>
+	<span>b = {b}</span>
 </p>`
 
 const demoLocalRstyles = 

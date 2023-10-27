@@ -91,11 +91,9 @@
 
         <template srctext=source #bDollarRequired="bDollarRequired" #tab>
             <define var=srcText #value="rvar || RVAR('', source.trim())"></define>
-            <define rvar="texts"></define>
-            <script type="otoreact/local">
-                texts.V = regDemo.exec(srcText.V);
-                texts.Subscribe(([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')},false,true)
-            </script>
+            <define rvar="texts" #value="regDemo.exec(srcText.V)"
+                #onmodified="([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')}"
+            ></define>
 
             <define rvar=rShow  #value="tab || 4"
                 onmodified="texts.V = regDemo.exec(srcText.V);"
@@ -105,22 +103,23 @@
             <define rvar="tsBuilt"></define>
             <table.>
                 <tr.>
-                    <th. reacton="rShow">
+                    <th.>
                         <if cond=editable>Editable</if> Source Code&nbsp;
                         <div style="float:right">
                             <component><but #value><content></content></but>
                                 <template value=v >
-                                    <button #if="v<=0 || v==4 || texts.V[v]"
+                                    <if cond="v<=0 || v==4 || texts.V[v]">
+                                    <button
                                         #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
+                                    </if>
                                 </template>
                             </component>
 
                             <but #value=1>Style</but>
                             <but #value=2>Script</but>
                             <but #value=3>Component</but>
-                            <but #value=4>{texts.V[3] ? 'Application' : 'Code'}</but>
-                            <but 
-                                #if="texts.V[1] || texts.V[2] || texts.V[3]"
+                            <but #value=4>{texts.V[3] ? 'Application' : 'HTML'}</but>
+                            <but #if="texts.V[1] || texts.V[2] || texts.V[3]"
                                 #value=-1>All</but>
                             <but #value=0>Hide</but>
                         </div>
@@ -128,11 +127,11 @@
                     <th.><if cond=editable>Live</if> Result</th.>
                 </tr.>
                 <tr.>
-                    <case reactOn=rShow>
+                    <case>
                         <when cond="rShow.V > 0">
-                            <td. class="pre"                            
+                            <td. class="pre"                          
                                 contenteditable="{editable}" spellcheck=false 
-                                #innerHTML="ColorCode(texts.V[rShow.V])"
+                                #innerHTML="ColorCode(texts.v[rShow.V] || '')"
                                 !innerText="texts.U[rShow.V]"
                                 onkeydown="if (event.key=='Tab') {
                                     event.preventDefault();
@@ -143,7 +142,7 @@
                         <when cond="rShow.V < 0">
                             <td. class="pre"                            
                                 contenteditable="{editable}" spellcheck=false 
-                                #innerHTML="ColorCode(srcText.V)"
+                                #innerHTML="ColorCode(srcText.v)"
                                 !innerText="srcText.V"
                                 onkeydown="if (event.key=='Tab') {
                                     event.preventDefault();
@@ -156,14 +155,14 @@
                         </else>
                     </case>
                     <td. class=sample>           
-                        <RHTML reacton=srcText #srctext="srcText.V"
+                        <RHTML #srctext="srcText.V"
                             beforecreateupdate="tsStart.V = performance.now()"
                             onç="tsCompiled.V = performance.now()"
                             aftercreateupdate="tsBuilt.V = performance.now()"
                         ></RHTML>
                     </td.>
                 </tr.>
-                <tr.><td. colspan="2" reacton="tsStart,tsCompiled,tsBuilt">
+                <tr.><td. colspan="2">
                     Compiled in {(tsCompiled.V - tsStart.V).toFixed(1)}ms + built in {(tsBuilt.V - tsCompiled.V).toFixed(1)}ms = {(tsBuilt.V - tsStart.V).toFixed(1)}ms
                 </td.></tr.>
             </table.>
@@ -435,7 +434,7 @@
                     <center style="background-color: var(--TC);">
                         <b><i>Table of Contents</i></b>
                     </center>
-                    <for let=item of=contents.V reacton="contents" key="item">
+                    <for let=item of=contents.V key="item">
                         <if cond="item.subs.length">
                             <then>
                                 <details>
