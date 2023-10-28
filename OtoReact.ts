@@ -685,43 +685,24 @@ export function RVAR<T>(
         value, U, nm, store, storeName
     ).Subscribe(subs, T);
 }
-const _U = Object.getOwnPropertyDescriptor(RVA.prototype, 'U').get
-    , RV_handler: ProxyHandler<{_Subs?: Set<Range|Subscriber>; _UpdTo?: RV[]}> = {
-    get(t, p, rv) {
-        switch (p) {
-            case '_v':
-                return t;
-            case 'U':
-                return _U.call(rv);
-            case 'SetDirty':
-            case 'Exec':
-            case 'Subscribe': 
-            case '$SR':
-            case '$UR': 
-                return RVA.prototype[p];
-            case '_Imm':
-            case '_Subs':
-            case '_UpdTo':
-                return t[p];
-        }
-        addVar(rv);
-        return t[p];
+const
+    RV_handler: ProxyHandler<RVA> = {
+    get(rv: RVA, p) {
+        return p in rv ? rv[p] : rv.V[p];
     },
 
-    set(t, p, v, rv) {
-        _U.call(rv)[p] = v;
+    set(rv: RVA, p, v) {
+        if (p in rv)
+            rv[p] = v;
+        else if (v != rv._v[p])
+            rv.U[p] = v;
         return T
     },
 }
 
-function ROBJ<T extends object>(
-    t: T & {_Subs?: Set<Range|Subscriber>; _UpdTo?: RV[]}, 
-    updTo?: Array<RV>
-): ROBJ<T> {
-    t._Subs ||= new Set;
-    t._UpdTo ||= [];
-    if (updTo) t._UpdTo.push(...updTo);
-    return new Proxy<T>(t, RV_handler) as ROBJ<T>;
+function ROBJ<T extends object>(...args: ConstructorParameters<typeof RVA<T>>
+): RVA<T> {
+    return new Proxy<RVA<T>>(new RVA(...args), RV_handler);
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
