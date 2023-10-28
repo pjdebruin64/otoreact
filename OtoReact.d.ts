@@ -47,7 +47,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     bD?: Handler;
     aD?: Handler;
     upd?: number;
-    rvars?: Set<RV>;
+    rvars?: Set<RVA>;
     erase(par: false | Node): void;
     uInfo?: {
         b: DOMBuilder;
@@ -66,10 +66,10 @@ export interface Store {
 export declare class RVA<T = unknown> {
     name?: string;
     _v: T;
-    constructor(init?: T | Promise<T>, updTo?: Array<RV>, name?: string, store?: Store, storeNm?: string);
+    constructor(_v?: T | Promise<T>);
     private _Imm;
     _Subs: Set<Range<ChildNode> | Subscriber<T>>;
-    _UpdTo: Array<RV>;
+    _UpdTo: Array<RVA>;
     get V(): T;
     set V(v: T);
     get v(): T;
@@ -86,22 +86,7 @@ export declare class RVA<T = unknown> {
     valueOf(): Object | "";
 }
 export type RVAR<T = unknown> = RVA<T>;
-type RV = {
-    Subscribe: (sub: Subscriber) => void;
-    $SR: (ar: Area, b: DOMBuilder, r: Range, bR?: boolean) => void;
-    $UR: (r: Range) => void;
-    Exec: () => Promise<void>;
-    SetDirty: () => void;
-    _Subs: Set<Subscriber | Range>;
-    _UpdTo?: Array<RV>;
-};
-export type ROBJ<T> = T & RV & {
-    _v: T;
-    Save: () => void;
-    store?: any;
-    readonly U?: T;
-};
-export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeName?: string): RVAR<T>;
+export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: Array<RVA>): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T) => unknown);
 type OES = {
     e: Handler;

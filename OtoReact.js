@@ -216,26 +216,12 @@ class Signat {
     }
 }
 export class RVA {
-    constructor(init, updTo, name, store, storeNm) {
+    constructor(_v) {
         this._Imm = N;
         this._Subs = new Set();
-        this.name = name || storeNm;
-        if (name)
-            G[name] = this;
-        this._UpdTo = updTo;
-        if (store) {
-            let sNm = storeNm ||
-                'RVAR_' + name, s = store.getItem(sNm);
-            if (s)
-                try {
-                    init = JSON.parse(s);
-                }
-                catch { }
-            this.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
-        }
-        init instanceof Promise ?
-            init.then(v => this.V = v, oes.e)
-            : (this._v = init);
+        _v instanceof Promise ?
+            _v.then(v => this.V = v, oes.e)
+            : (this._v = _v);
     }
     get V() {
         addVar(this);
@@ -306,9 +292,6 @@ export class RVA {
     }
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
-export function RVAR(nm, value, store, subs, storeName) {
-    return new RVA(value, U, nm, store, storeName).Subscribe(subs, T);
-}
 const RV_handler = {
     get(rv, p) {
         return p in rv ? rv[p] : rv.V[p];
@@ -321,8 +304,23 @@ const RV_handler = {
         return T;
     },
 };
-function ROBJ(...args) {
-    return new Proxy(new RVA(...args), RV_handler);
+export function RVAR(nm, value, store, subs, storeNm, updTo) {
+    if (store) {
+        var sNm = storeNm || 'RVAR_' + nm, s = store.getItem(sNm);
+        if (s)
+            try {
+                value = JSON.parse(s);
+            }
+            catch { }
+    }
+    let rv = new RVA(value).Subscribe(subs, T);
+    if (store)
+        rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
+    rv.name = nm || storeNm;
+    if (nm)
+        G[nm] = this;
+    rv._UpdTo = updTo;
+    return new Proxy(rv, RV_handler);
 }
 let env, pn, oes = { e: N, s: N }, uVars, addVar = (rv, bA) => (uVars || (uVars = new Map)).set(rv, bA || uVars?.get(rv)), ur, uar, ubl, procVars = () => {
     if (uar && (ur || (ur = uar.prR))) {
@@ -1307,7 +1305,7 @@ class RComp {
                             nxIR = iter2.next();
                             let { sub: iSub, EF } = SF(chAr, chR), rv = chR.rv;
                             try {
-                                vLet(bRe ? chR.rv || (chR.rv = ROBJ(item, dUpd && [dUpd()])) : item);
+                                vLet(bRe ? chR.rv || (chR.rv = RVAR(N, item, N, N, N, dUpd && [dUpd()])) : item);
                                 vIx(ix);
                                 vPv(prIt);
                                 vNx(nxIR.value?.item);

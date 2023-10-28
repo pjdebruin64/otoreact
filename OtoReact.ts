@@ -273,7 +273,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
     upd?: number;   // Update stamp
 
     // For reactive elements
-    rvars?: Set<RV>;         // RVARs on which the element reacts
+    rvars?: Set<RVA>;         // RVARs on which the element reacts
 
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
     // The range itself remains a child of its parent range.
@@ -400,7 +400,7 @@ const PrepRng = <RT>(
     On updating, update 'area' to point to the next range.
 */
 , PrepData = (ar: Area, data: string, bC?: boolean) => {
-    let r = ar.r as Range<CharacterData> & {uv?: Set<RV>};
+    let r = ar.r as Range<CharacterData> & {uv?: Set<RVA>};
     if (!r)
         r = new Range(ar,
             ar.parN.insertBefore(
@@ -530,38 +530,17 @@ export class RVA<T = unknown> {
     // The value of the variable
     _v: T;
 
-    constructor(
-        init?: T | Promise<T>,
-        updTo?: Array<RV>,
-        name?: string,
-        store?: Store,
-        storeNm?: string,
-    ) {
-        this.name = name || storeNm;
-        if (name) G[name] = this;
-
-        this._UpdTo = updTo;
-        if (store) {
-            let sNm = storeNm || // R.setts.storePrefix 
-                    'RVAR_' + name
-                , s = store.getItem(sNm);
-            if (s)
-                try { init = JSON.parse(s); }
-                catch{}
-            this.Subscribe(v => 
-                store.setItem(sNm, JSON.stringify(v ?? N))
-            );
-        }
-        init instanceof Promise ? 
-            init.then( v => this.V = v,  oes.e)
-            : (this._v = init)
+    constructor(_v?: T | Promise<T>) {
+        _v instanceof Promise ? 
+            _v.then( v => this.V = v,  oes.e)
+            : (this._v = _v)
     }
     // Immediate subscribers
     private _Imm: Set<Subscriber<T>> = N;
     // Deferred subscribers
     public _Subs = new Set<Subscriber<T> | Range>();
 
-    public _UpdTo: Array<RV>;
+    public _UpdTo: Array<RVA>;
 
     // Use var.V to get or set its value
     get V() {
@@ -654,37 +633,6 @@ export class RVA<T = unknown> {
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
 export type RVAR<T = unknown> = RVA<T>;
-
-type RV = {
-    Subscribe: (sub:Subscriber) => void;
-    $SR: (ar: Area, b: DOMBuilder, r: Range, bR?:boolean) => void;
-    $UR: (r: Range) => void;
-    Exec: () => Promise<void>;
-    SetDirty: () => void;
-    _Subs: Set<Subscriber|Range>;
-    _UpdTo?: Array<RV>;
-}
-export type ROBJ<T> = T 
-& RV
-& {
-    _v : T;
-    Save: () => void;
-    store?: any;
-    readonly U?: T;
-};
-
-/* A "reactive variable" is a variable that listeners can subscribe to. */
-export function RVAR<T>(
-    nm?: string, 
-    value?: T | Promise<T>, 
-    store?: Store,
-    subs?: (t:T) => void,
-    storeName?: string
-): RVAR<T> {
-    return new RVA<T>(
-        value, U, nm, store, storeName
-    ).Subscribe(subs, T);
-}
 const
     RV_handler: ProxyHandler<RVA> = {
     get(rv: RVA, p) {
@@ -700,9 +648,37 @@ const
     },
 }
 
-function ROBJ<T extends object>(...args: ConstructorParameters<typeof RVA<T>>
-): RVA<T> {
-    return new Proxy<RVA<T>>(new RVA(...args), RV_handler);
+/* A "reactive variable" is a variable that listeners can subscribe to. */
+export function RVAR<T>(
+    nm?: string, 
+    value?: T | Promise<T>, 
+    store?: Store,
+    subs?: (t:T) => void,
+    storeNm?: string,
+    updTo?: Array<RVA>,
+): RVAR<T> {
+
+    if (store) {
+        var sNm = storeNm || 'RVAR_' + nm
+            , s = store.getItem(sNm);
+        if (s)
+            try { value = JSON.parse(s); }
+            catch{}
+    }
+
+    let rv = new RVA(value).Subscribe(subs, T);
+
+    if (store)
+        rv.Subscribe(v => 
+            store.setItem(sNm, JSON.stringify(v ?? N))
+        );
+
+    rv.name = nm || storeNm;
+    if (nm) G[nm] = this;
+
+    rv._UpdTo = updTo;
+
+    return new Proxy<RVA<T>>(rv, RV_handler);
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
@@ -722,9 +698,9 @@ let
     pn: ParentNode,         // Current html node
     oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
-    uVars: Map<RV, booly>,
-    addVar = (rv: RV, bA?: booly)=> (uVars ||= new Map).set(rv, bA || uVars?.get(rv)),
-    ur:Range & {uv?:Map<RV, booly>;}, uar: AreaR, ubl: DOMBuilder,
+    uVars: Map<RVA, booly>,
+    addVar = (rv: RVA, bA?: booly)=> (uVars ||= new Map).set(rv, bA || uVars?.get(rv)),
+    ur:Range & {uv?:Map<RVA, booly>;}, uar: AreaR, ubl: DOMBuilder,
     
     procVars = () => {
         if ( uar && (ur ||= uar.prR)
@@ -1319,7 +1295,7 @@ class RComp {
                     let str = srcN.nodeValue
                         , getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
-                        bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
+                        bl = async (ar: Area<{uv:Map<RVA, booly>}, never>) => {
                                 uVars = N;
                                 if (this.S.bAR)
                                     {ur = (uar=ar).r; ubl=bl;}                       
@@ -1973,7 +1949,7 @@ class RComp {
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
-        let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
+        let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RVA, booly>;}>, bR: boolean) => {
             let r = ar.r;
             if (r?.eN) {
                 // Remove an earlier error message in the DOM tree at this point
@@ -2484,7 +2460,7 @@ class RComp {
                                     vLet(
                                         bRe ?
                                         // Turn 'item' into an RVAR_Light
-                                            chR.rv ||= ROBJ<Item>(item, dUpd && [dUpd()])
+                                            chR.rv ||= RVAR<Item>(N,item,N,N,N, dUpd && [dUpd()])
                                         : item
                                     )
                                     vIx(ix);
