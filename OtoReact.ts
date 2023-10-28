@@ -685,43 +685,24 @@ export function RVAR<T>(
         value, U, nm, store, storeName
     ).Subscribe(subs, T);
 }
-const _U = Object.getOwnPropertyDescriptor(RVA.prototype, 'U').get
-    , RV_handler: ProxyHandler<{_Subs?: Set<Range|Subscriber>; _UpdTo?: RV[]}> = {
-    get(t, p, rv) {
-        switch (p) {
-            case '_v':
-                return t;
-            case 'U':
-                return _U.call(rv);
-            case 'SetDirty':
-            case 'Exec':
-            case 'Subscribe': 
-            case '$SR':
-            case '$UR': 
-                return RVA.prototype[p];
-            case '_Imm':
-            case '_Subs':
-            case '_UpdTo':
-                return t[p];
-        }
-        addVar(rv);
-        return t[p];
+const
+    RV_handler: ProxyHandler<RVA> = {
+    get(rv: RVA, p) {
+        return p in rv ? rv[p] : rv.V[p];
     },
 
-    set(t, p, v, rv) {
-        _U.call(rv)[p] = v;
+    set(rv: RVA, p, v) {
+        if (p in rv)
+            rv[p] = v;
+        else if (v != rv._v[p])
+            rv.U[p] = v;
         return T
     },
 }
 
-function ROBJ<T extends object>(
-    t: T & {_Subs?: Set<Range|Subscriber>; _UpdTo?: RV[]}, 
-    updTo?: Array<RV>
-): ROBJ<T> {
-    t._Subs ||= new Set;
-    t._UpdTo ||= [];
-    if (updTo) t._UpdTo.push(...updTo);
-    return new Proxy<T>(t, RV_handler) as ROBJ<T>;
+function ROBJ<T extends object>(...args: ConstructorParameters<typeof RVA<T>>
+): RVA<T> {
+    return new Proxy<RVA<T>>(new RVA(...args), RV_handler);
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
@@ -734,6 +715,7 @@ type Subscriber<T = unknown> =
 
 //#region Runtime data and utilities
 type OES = {e: Handler, s: Handler};     // Holder for onerror and onsuccess handlers
+type Job = {Exec: () => Promise<unknown> }
 // Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
 let    
     env: Environment,       // Current runtime environment
@@ -759,7 +741,7 @@ let
     },
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
-    Jobs = new Set< {Exec: () => Promise<unknown> } >(),
+    Jobs = new Set<Job>(),
 
     hUpd: number,        // Handle to a scheduled update
     ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
@@ -2324,7 +2306,8 @@ class RComp {
             key?: Key;
             hash?: Hash; 
             moving?: booly;
-            rv?: ROBJ<Item>           ;
+            rv?: RVA<Item>;
+            ix?: RVA<number>;
         }
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
