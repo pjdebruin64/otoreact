@@ -216,11 +216,13 @@ class Signat {
     }
 }
 export class RVA {
-    constructor(name, init, store, storeNm) {
+    constructor(init, updTo, name, store, storeNm) {
+        this._Imm = N;
         this._Subs = new Set();
         this.name = name || storeNm;
         if (name)
             G[name] = this;
+        this._UpdTo = updTo;
         if (store) {
             let sNm = storeNm ||
                 'RVAR_' + name, s = store.getItem(sNm);
@@ -302,12 +304,10 @@ export class RVA {
                 alert(e);
             }
     }
-    toString() {
-        return this.V?.toString() ?? Q;
-    }
+    valueOf() { return this.V?.valueOf() ?? Q; }
 }
 export function RVAR(nm, value, store, subs, storeName) {
-    return new RVA(nm, value, store, storeName).Subscribe(subs, T);
+    return new RVA(value, U, nm, store, storeName).Subscribe(subs, T);
 }
 const _U = Object.getOwnPropertyDescriptor(RVA.prototype, 'U').get, RV_handler = {
     get(t, p, rv) {
@@ -1066,7 +1066,7 @@ class RComp {
             }
             catch (m) {
                 let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m, e = oes.e;
-                if (this.S.bAbortOnError)
+                if (this.S.bAbortOnError || bA)
                     throw msg;
                 this.log(msg);
                 e ? e(m)
@@ -1481,7 +1481,7 @@ class RComp {
         }
         this.ws = 3;
         return async function INST(ar) {
-            let { r, sub } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.args || (r.args = {});
+            let { r, sub } = PrepRng(ar, srcE), sEnv = env, cdef = dC(), args = r.args || (r.args = { __proto__: N });
             if (cdef)
                 try {
                     ro = T;
@@ -1774,7 +1774,7 @@ class Atts extends Map {
     }
 }
 const dU = _ => U, dB = async (ar) => { PrepRng(ar); }, rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/, rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/, AddC = (txt, nm) => nm ? txt.replaceAll(/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi, (m, p) => p ? `${m}.${nm}` : m)
-    : txt, Cnms = {}, ChkNm = (obj, nm) => {
+    : txt, Cnms = { __proto__: N }, ChkNm = (obj, nm) => {
     let c = Cnms[nm], r;
     if (!c) {
         c = nm;
@@ -1800,8 +1800,7 @@ const dU = _ => U, dB = async (ar) => { PrepRng(ar); }, rBlock = /^(BODY|BLOCKQU
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }, ExAll = async (bs, ar) => {
     for (let b of bs)
-        if (await b(ar))
-            break;
+        await b(ar);
 }, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6);
 function* mapI(I, f, c) {
     for (let x of I)
@@ -1836,7 +1835,7 @@ export async function RFetch(input, init) {
 }
 class DocLoc extends RVA {
     constructor() {
-        super(N, L.href);
+        super(L.href);
         W.addEventListener('popstate', _ => this.V = L.href);
         this.query = new Proxy(this, {
             get(DL, key) { return DL.url.searchParams.get(key); },

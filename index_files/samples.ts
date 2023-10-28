@@ -70,10 +70,10 @@ const sampleGreeting=
 </p>
 
 <!-- If yourName.V is nonempty, -->
-<IF cond="yourName.V">
+<IF cond="yourName != '' ">
     <!-- then we show: -->
     <p>
-        Nice to meet you, {yourName.V}. <!-- yourName.V is inserted here -->
+        Nice to meet you, {yourName}. <!-- yourName.V is inserted here -->
         <br>By the way, your name consists of {yourName.V.length} characters.
     </p>
 </IF>`;
@@ -180,14 +180,14 @@ const sampleTicTacToe =
   <div>
     <p>
       <case>
-        <when cond="outcome.V===true">
+        <when cond="outcome == false">
+          Player to move: {toMove}
+        </when>
+        <when cond="outcome == true">
           <b>It's a draw.</b>
         </when>
-        <when cond="outcome.V">
-          <b>The winner is: <large>{outcome.V}</large></b>
-        </when>
         <else>
-          Player to move: {toMove.V}
+          <b>The winner is: <large>{outcome}</large></b>
         </else>
       </case>
     </p>
@@ -247,8 +247,8 @@ function toHex(n){
 let handle=RVAR();
 
 function StartStop() {
-  if (handle.V > 0) {
-    clearInterval(handle.V);
+  if (handle > 0) {
+    clearInterval(handle);
     handle.V = -1;
   }
   else
@@ -267,7 +267,7 @@ function StartStop() {
   <!-- Table caption -->
   <caption.>Web Colors 
     <button onclick="StartStop();" style="float:right; width:5em">
-        {handle.V > 0 ? 'Stop' : 'Rotate'}
+        {handle > 0 ? 'Stop' : 'Rotate'}
     </button>
   </caption.>
 
@@ -845,7 +845,7 @@ const demoCheckbox=
 or
 <button onclick="check.V = null">Set to indeterminate</button>
 
-<p>The checkbox value is: <code>{ \`\${check.V}\` }</code>`;
+<p>The checkbox value is: <code>{ \`\${check}\` }</code>`;
 
 const demoTables =
 `<style>
@@ -879,9 +879,9 @@ const demoTables =
 </div>
 
 <div class=multi>
-  <FOR let=y of="range(1,maxY.V)">
+  <FOR let=y of="range(1,maxY)">
       <div>
-          <FOR let=x of="range(1,maxX.V)">
+          <FOR let=x of="range(1,maxX)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>

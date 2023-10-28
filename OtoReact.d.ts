@@ -65,11 +65,11 @@ export interface Store {
 }
 export declare class RVA<T = unknown> {
     name?: string;
-    constructor(name?: string, init?: T | Promise<T>, store?: Store, storeNm?: string);
     _v: T;
+    constructor(init?: T | Promise<T>, updTo?: Array<RV>, name?: string, store?: Store, storeNm?: string);
     private _Imm;
     _Subs: Set<Range<ChildNode> | Subscriber<T>>;
-    _UpdTo?: Array<RV>;
+    _UpdTo: Array<RV>;
     get V(): T;
     set V(v: T);
     get v(): T;
@@ -83,7 +83,7 @@ export declare class RVA<T = unknown> {
     set U(t: T);
     SetDirty(): void;
     Exec(): Promise<void>;
-    toString(): string;
+    valueOf(): Object | "";
 }
 export type RVAR<T = unknown> = RVA<T>;
 type RV = {

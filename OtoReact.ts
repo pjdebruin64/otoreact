@@ -191,7 +191,7 @@ type AreaR<RT = object> = Area<RT, never>;
     OR just a linked list of subranges.
     It is created by a builder, and contains all metadata needed for updating or destroying the DOM.
 */
-class Range<NodeType extends ChildNode = ChildNode> {
+class Range<NodeType extends ChildNode = ChildNode>{
     n: NodeType;     // Optional DOM node, in case this range corresponds to a single node
     
     ch: Range;         // Linked list of child ranges (null=empty)
@@ -525,17 +525,22 @@ export interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-export class RVA<T = unknown>{
+export class RVA<T = unknown> {
     public name?: string;
+    // The value of the variable
+    _v: T;
+
     constructor(
-        name?: string, 
-        init?: T | Promise<T>, 
+        init?: T | Promise<T>,
+        updTo?: Array<RV>,
+        name?: string,
         store?: Store,
         storeNm?: string,
     ) {
         this.name = name || storeNm;
         if (name) G[name] = this;
 
+        this._UpdTo = updTo;
         if (store) {
             let sNm = storeNm || // R.setts.storePrefix 
                     'RVAR_' + name
@@ -551,13 +556,12 @@ export class RVA<T = unknown>{
             init.then( v => this.V = v,  oes.e)
             : (this._v = init)
     }
-    // The value of the variable
-    _v: T;
     // Immediate subscribers
-    private _Imm: Set<Subscriber<T>>;
+    private _Imm: Set<Subscriber<T>> = N;
     // Deferred subscribers
     public _Subs = new Set<Subscriber<T> | Range>();
-    public _UpdTo?: Array<RV>;
+
+    public _UpdTo: Array<RV>;
 
     // Use var.V to get or set its value
     get V() {
@@ -614,7 +618,6 @@ export class RVA<T = unknown>{
         return () => 
             Jobs.has(this) || (this.V=U);
     }
-
     // Use var.U to get its value for the purpose of updating some part of it.
     // It will be marked dirty.
     // Set var.U to to set the value and mark the rvar as dirty, even when the value has not changed.
@@ -648,9 +651,7 @@ export class RVA<T = unknown>{
             }
     }
 
-    toString() {
-        return this.V?.toString() ?? Q;
-    }
+    valueOf() { return this.V?.valueOf() ?? Q; }
 }
 export type RVAR<T = unknown> = RVA<T>;
 
@@ -681,31 +682,9 @@ export function RVAR<T>(
     storeName?: string
 ): RVAR<T> {
     return new RVA<T>(
-        nm, value, store, storeName
+        value, U, nm, store, storeName
     ).Subscribe(subs, T);
 }
-/*
-let RV_props = 
-{
-    // _subs: {get: function(this: RVAR_Light<unknown>){ this._Subs = new Set }},
-    V:  {get: function(this: RVAR_Light<unknown>) {return this}},
-    U:  {get:
-            function(this: RVAR_Light<unknown>) {
-                if (!ro) {
-                    Jobs.add(this);                                
-                    this._UpdTo?.forEach(rv => rv.SetDirty());                                
-                    RUpd();
-                }
-                return this;
-            }
-        },
-    Exec: {value: _RVAR.prototype.Exec},
-    Subscribe: {value: function(this: RVAR_Light<unknown>, sub: Subscriber) {
-        this._Subs.add(sub)
-    }},
-    $SR: {value: _RVAR.prototype.$SR}
-}
-*/
 const _U = Object.getOwnPropertyDescriptor(RVA.prototype, 'U').get
     , RV_handler: ProxyHandler<{_Subs?: Set<Range|Subscriber>; _UpdTo?: RV[]}> = {
     get(t, p, rv) {
@@ -741,8 +720,7 @@ function ROBJ<T extends object>(
 ): ROBJ<T> {
     t._Subs ||= new Set;
     t._UpdTo ||= [];
-    if (updTo)
-        t._UpdTo.push(...updTo);
+    if (updTo) t._UpdTo.push(...updTo);
     return new Proxy<T>(t, RV_handler) as ROBJ<T>;
 }
 
@@ -2009,7 +1987,7 @@ class RComp {
         catch (m) { throw ErrM(srcE, m); }
     }
 
-    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder<boolean>
+    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
@@ -2038,14 +2016,14 @@ class RComp {
                     srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
                     , e = oes.e;
 
-                if (this.S.bAbortOnError)
+                if (this.S.bAbortOnError || bA)
                     throw msg;
 
                 this.log(msg);
                 e ? e(m)
                 : this.S.bShowErrors ?
                     (r||{} as typeof r).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
-                : U
+                : U;
                 return bA;
             }
         });
@@ -2830,7 +2808,7 @@ class RComp {
             let {r, sub} = PrepRng<{args: ArgSet}>(ar, srcE),
                 sEnv = env,
                 cdef = dC(),
-                args = r.args ||= {};
+                args = r.args ||= {__proto__:N};
             
             if (cdef)  //Just in case of an async imported component where the client signature has less slots than the real signature
                 try {
@@ -3313,7 +3291,7 @@ const
         : txt
 
     // Capitalized propnames cache
-    , Cnms: {[nm: string]: string} = {}
+    , Cnms: {[nm: string]: string} = {__proto__:N}
 
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.
@@ -3373,8 +3351,7 @@ const
 // Execute all DOMBuilders; break if any returns truthy
 , ExAll = async (bs: Iterable<DOMBuilder>, ar: Area) => { 
         for (let b of bs)
-            if (await b(ar))
-                break;
+            await b(ar);
     }
 
 // Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
@@ -3424,7 +3401,7 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 //#region Routing
 class DocLoc extends RVA<string> {
         constructor() {
-            super(N, L.href);
+            super(L.href);
             W.addEventListener('popstate', _ => this.V = L.href );
 
             this.query = <any>new Proxy<DocLoc>(this, {
