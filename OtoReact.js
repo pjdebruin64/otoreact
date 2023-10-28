@@ -292,6 +292,12 @@ export class RVA {
     }
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
+<<<<<<< HEAD
+=======
+export function RVAR(nm, value, store, subs, storeName) {
+    return new RVA(value, U, nm, store, storeName).Subscribe(subs, T);
+}
+>>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
 const RV_handler = {
     get(rv, p) {
         return p in rv ? rv[p] : rv.V[p];
@@ -304,6 +310,7 @@ const RV_handler = {
         return T;
     },
 };
+<<<<<<< HEAD
 export function RVAR(nm, value, store, subs, storeNm, updTo) {
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm, s = store.getItem(sNm);
@@ -321,6 +328,10 @@ export function RVAR(nm, value, store, subs, storeNm, updTo) {
         G[nm] = this;
     rv._UpdTo = updTo;
     return new Proxy(rv, RV_handler);
+=======
+function ROBJ(t, updTo) {
+    return new Proxy(new RVA(t, updTo), RV_handler);
+>>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
 }
 let env, pn, oes = { e: N, s: N }, uVars, addVar = (rv, bA) => (uVars || (uVars = new Map)).set(rv, bA || uVars?.get(rv)), ur, uar, ubl, procVars = () => {
     if (uar && (ur || (ur = uar.prR))) {

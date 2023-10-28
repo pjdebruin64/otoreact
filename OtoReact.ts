@@ -657,6 +657,7 @@ export function RVAR<T>(
     storeNm?: string,
     updTo?: Array<RVA>,
 ): RVAR<T> {
+<<<<<<< HEAD
 
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm
@@ -679,6 +680,30 @@ export function RVAR<T>(
     rv._UpdTo = updTo;
 
     return new Proxy<RVA<T>>(rv, RV_handler);
+=======
+    return new RVA<T>(
+        value, U, nm, store, storeName
+    ).Subscribe(subs, T);
+}
+const
+    RV_handler: ProxyHandler<RVA> = {
+    get(rv: RVA, p) {
+        return p in rv ? rv[p] : rv.V[p];
+    },
+
+    set(rv: RVA, p, v) {
+        if (p in rv)
+            rv[p] = v;
+        else if (v != rv._v[p])
+            rv.U[p] = v;
+        return T
+    },
+}
+
+function ROBJ<T extends object>(...args: ConstructorParameters<typeof RVA<T>>
+): RVA<T> {
+    return new Proxy<RVA<T>>(new RVA(...args), RV_handler);
+>>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
