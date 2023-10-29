@@ -336,15 +336,15 @@ Here you have a playground to enter your own Reactive HTML.
 </p>
 
 <def rvar=playCount #value=1 store=localStorage></def>
-<react on=playCount>
-    <def var=Playgrounds #value="Array.from(range(playCount.V)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
+<react on=playCount beforecreate="debugger">
+    <def var=Playgrounds #value="Array.from(range(playCount)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
     <for let=rvar of="Playgrounds" index key=index>
         <demo #rvar="rvar"></demo>
     </for>
     <button onclick="playCount.V++">
         Add another playground
     </button>
-    <if cond="playCount.V > 1">
+    <if cond="playCount > 1">
         <button onclick="playCount.V--; Playgrounds[playCount.V].V=''; Playgrounds.length = playCount.V">
             Remove last playground
         </button>

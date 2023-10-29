@@ -273,7 +273,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
     upd?: number;   // Update stamp
 
     // For reactive elements
-    rvars?: Set<RVA>;         // RVARs on which the element reacts
+    rvars?: Set<RV>;         // RVARs on which the element reacts
 
     // Erase the range, i.e., destroy all child ranges and remove all nodes.
     // The range itself remains a child of its parent range.
@@ -400,7 +400,7 @@ const PrepRng = <RT>(
     On updating, update 'area' to point to the next range.
 */
 , PrepData = (ar: Area, data: string, bC?: boolean) => {
-    let r = ar.r as Range<CharacterData> & {uv?: Set<RVA>};
+    let r = ar.r as Range<CharacterData> & {uv?: Set<RV>};
     if (!r)
         r = new Range(ar,
             ar.parN.insertBefore(
@@ -525,7 +525,7 @@ export interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-export class RVA<T = unknown> {
+export class RV<T = unknown> {
     public name?: string;
     // The value of the variable
     _v: T;
@@ -540,7 +540,7 @@ export class RVA<T = unknown> {
     // Deferred subscribers
     public _Subs = new Set<Subscriber<T> | Range>();
 
-    public _UpdTo: Array<RVA>;
+    public _UpdTo: Array<RV>;
 
     // Use var.V to get or set its value
     get V() {
@@ -632,14 +632,14 @@ export class RVA<T = unknown> {
 
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
-export type RVAR<T = unknown> = RVA<T>;
+export type RVAR<T = unknown> = RV<T>;
 const
-    RV_handler: ProxyHandler<RVA> = {
-    get(rv: RVA, p) {
-        return p in rv ? rv[p] : rv.V[p];
+    RV_handler: ProxyHandler<RV> = {
+    get(rv: RV, p) {
+        return p in rv ? rv[p] : rv.V?.[p];
     },
 
-    set(rv: RVA, p, v) {
+    set(rv: RV, p, v) {
         if (p in rv)
             rv[p] = v;
         else if (v != rv._v[p])
@@ -655,9 +655,8 @@ export function RVAR<T>(
     store?: Store,
     subs?: (t:T) => void,
     storeNm?: string,
-    updTo?: Array<RVA>,
+    updTo?: Array<RV>,
 ): RVAR<T> {
-<<<<<<< HEAD
 
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm
@@ -667,7 +666,7 @@ export function RVAR<T>(
             catch{}
     }
 
-    let rv = new RVA(value).Subscribe(subs, T);
+    let rv = new RV(value).Subscribe(subs, T);
 
     if (store)
         rv.Subscribe(v => 
@@ -675,35 +674,11 @@ export function RVAR<T>(
         );
 
     rv.name = nm || storeNm;
-    if (nm) G[nm] = this;
+    if (nm) G[nm] = rv;
 
     rv._UpdTo = updTo;
 
-    return new Proxy<RVA<T>>(rv, RV_handler);
-=======
-    return new RVA<T>(
-        value, U, nm, store, storeName
-    ).Subscribe(subs, T);
-}
-const
-    RV_handler: ProxyHandler<RVA> = {
-    get(rv: RVA, p) {
-        return p in rv ? rv[p] : rv.V[p];
-    },
-
-    set(rv: RVA, p, v) {
-        if (p in rv)
-            rv[p] = v;
-        else if (v != rv._v[p])
-            rv.U[p] = v;
-        return T
-    },
-}
-
-function ROBJ<T extends object>(...args: ConstructorParameters<typeof RVA<T>>
-): RVA<T> {
-    return new Proxy<RVA<T>>(new RVA(...args), RV_handler);
->>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
+    return new Proxy<RV<T>>(rv, RV_handler);
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
@@ -723,9 +698,9 @@ let
     pn: ParentNode,         // Current html node
     oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
-    uVars: Map<RVA, booly>,
-    addVar = (rv: RVA, bA?: booly)=> (uVars ||= new Map).set(rv, bA || uVars?.get(rv)),
-    ur:Range & {uv?:Map<RVA, booly>;}, uar: AreaR, ubl: DOMBuilder,
+    uVars: Map<RV, booly>,
+    addVar = (rv: RV, bA?: booly)=> (uVars ||= new Map).set(rv, bA || uVars?.get(rv)),
+    ur:Range & {uv?:Map<RV, booly>;}, uar: AreaR, ubl: DOMBuilder,
     
     procVars = () => {
         if ( uar && (ur ||= uar.prR)
@@ -1320,7 +1295,7 @@ class RComp {
                     let str = srcN.nodeValue
                         , getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
-                        bl = async (ar: Area<{uv:Map<RVA, booly>}, never>) => {
+                        bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
                                 uVars = N;
                                 if (this.S.bAR)
                                     {ur = (uar=ar).r; ubl=bl;}                       
@@ -1974,7 +1949,7 @@ class RComp {
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
-        let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RVA, booly>;}>, bR: boolean) => {
+        let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
             let r = ar.r;
             if (r?.eN) {
                 // Remove an earlier error message in the DOM tree at this point
@@ -2307,8 +2282,8 @@ class RComp {
             key?: Key;
             hash?: Hash; 
             moving?: booly;
-            rv?: RVA<Item>;
-            ix?: RVA<number>;
+            rv?: RV<Item>;
+            ix?: RV<number>;
         }
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
@@ -2481,14 +2456,17 @@ class RComp {
                                 let {sub: iSub, EF} = SF(chAr, chR)
                                     , rv = chR.rv;
                                 try {
+                                    if(ixNm){
+                                        (chR.ix ||= new RV<number>()).V = ix;
+                                        vIx(chR.ix);
+                                    }
+
                                     // Set bound variables
-                                    vLet(
-                                        bRe ?
+                                    vLet( bRe ?
                                         // Turn 'item' into an RVAR_Light
-                                            chR.rv ||= RVAR<Item>(N,item,N,N,N, dUpd && [dUpd()])
-                                        : item
-                                    )
-                                    vIx(ix);
+                                        chR.rv ||= RVAR<Item>(N,item,N,N,N, dUpd && [dUpd()])
+                                        : item);
+
                                     vPv(prIt);
                                     vNx( (<ItemInfo>nxIR.value)?.item );
 
@@ -2799,7 +2777,7 @@ class RComp {
                     ro = T;
                     for (let {nm, dG, dS} of gArgs)
                         if (dS)
-                            ( (<RVA> args[nm]) ||= RVAR(U,U,U,dS()) )._v = dG();
+                            ( (<RV> args[nm]) ||= RVAR(U,U,U,dS()) )._v = dG();
                         else
                             args[nm] = dG();
                     
@@ -3357,15 +3335,21 @@ function* split(s: string) {
 }
 
 // Iterate through a range of numbers
-export function* range(from: number, count?: number, step: number = 1) {
-	if (count === U) {
-		count = from;
-		from = 0;
-	}
-	for (let i=0;i<count;i++) {
-		yield from;
-        from += step;
+export function range(from: number, count?: number, step: number = 1) {
+    if (count === U) {
+        count = from;
+        from = 0;
     }
+    // In case some arguments are RVARs, we want to coerce them into number immediately.
+    //If we did the coercion within the iterator function, it would be delayed, and OtoReact wouldn't mark the RVARs as used.
+    return (
+        function*(f:number,c:number,s:number) {
+            for (let i=0;i<count;i++) {
+                yield from;
+                from += step;
+            }
+        }
+    )(Number(from),Number(count),Number(step))
 }
 
 // Fetch an URL with error handling
@@ -3383,7 +3367,7 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 //#endregion
 
 //#region Routing
-class DocLoc extends RVA<string> {
+class DocLoc extends RV<string> {
         constructor() {
             super(L.href);
             W.addEventListener('popstate', _ => this.V = L.href );

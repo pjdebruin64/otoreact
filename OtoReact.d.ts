@@ -47,7 +47,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     bD?: Handler;
     aD?: Handler;
     upd?: number;
-    rvars?: Set<RVA>;
+    rvars?: Set<RV>;
     erase(par: false | Node): void;
     uInfo?: {
         b: DOMBuilder;
@@ -63,13 +63,13 @@ export interface Store {
     getItem(key: string): string | null;
     setItem(key: string, value: string): void;
 }
-export declare class RVA<T = unknown> {
+export declare class RV<T = unknown> {
     name?: string;
     _v: T;
     constructor(_v?: T | Promise<T>);
     private _Imm;
     _Subs: Set<Range<ChildNode> | Subscriber<T>>;
-    _UpdTo: Array<RVA>;
+    _UpdTo: Array<RV>;
     get V(): T;
     set V(v: T);
     get v(): T;
@@ -85,8 +85,8 @@ export declare class RVA<T = unknown> {
     Exec(): Promise<void>;
     valueOf(): Object | "";
 }
-export type RVAR<T = unknown> = RVA<T>;
-export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: Array<RVA>): RVAR<T>;
+export type RVAR<T = unknown> = RV<T>;
+export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: Array<RV>): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T) => unknown);
 type OES = {
     e: Handler;
@@ -98,7 +98,7 @@ type DOMBuilder<RT = void | boolean> = ((ar: Area, bR?: boolean) => Promise<RT>)
 };
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-declare class DocLoc extends RVA<string> {
+declare class DocLoc extends RV<string> {
     constructor();
     basepath: string;
     url: URL;

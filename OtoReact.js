@@ -215,7 +215,7 @@ class Signat {
         }
     }
 }
-export class RVA {
+export class RV {
     constructor(_v) {
         this._Imm = N;
         this._Subs = new Set();
@@ -292,15 +292,9 @@ export class RVA {
     }
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
-<<<<<<< HEAD
-=======
-export function RVAR(nm, value, store, subs, storeName) {
-    return new RVA(value, U, nm, store, storeName).Subscribe(subs, T);
-}
->>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
 const RV_handler = {
     get(rv, p) {
-        return p in rv ? rv[p] : rv.V[p];
+        return p in rv ? rv[p] : rv.V?.[p];
     },
     set(rv, p, v) {
         if (p in rv)
@@ -310,7 +304,6 @@ const RV_handler = {
         return T;
     },
 };
-<<<<<<< HEAD
 export function RVAR(nm, value, store, subs, storeNm, updTo) {
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm, s = store.getItem(sNm);
@@ -320,18 +313,14 @@ export function RVAR(nm, value, store, subs, storeNm, updTo) {
             }
             catch { }
     }
-    let rv = new RVA(value).Subscribe(subs, T);
+    let rv = new RV(value).Subscribe(subs, T);
     if (store)
         rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
     rv.name = nm || storeNm;
     if (nm)
-        G[nm] = this;
+        G[nm] = rv;
     rv._UpdTo = updTo;
     return new Proxy(rv, RV_handler);
-=======
-function ROBJ(t, updTo) {
-    return new Proxy(new RVA(t, updTo), RV_handler);
->>>>>>> 9c8f564e9d85a44b073cc4021eac040231f27eb6
 }
 let env, pn, oes = { e: N, s: N }, uVars, addVar = (rv, bA) => (uVars || (uVars = new Map)).set(rv, bA || uVars?.get(rv)), ur, uar, ubl, procVars = () => {
     if (uar && (ur || (ur = uar.prR))) {
@@ -1316,8 +1305,11 @@ class RComp {
                             nxIR = iter2.next();
                             let { sub: iSub, EF } = SF(chAr, chR), rv = chR.rv;
                             try {
+                                if (ixNm) {
+                                    (chR.ix || (chR.ix = new RV())).V = ix;
+                                    vIx(chR.ix);
+                                }
                                 vLet(bRe ? chR.rv || (chR.rv = RVAR(N, item, N, N, N, dUpd && [dUpd()])) : item);
-                                vIx(ix);
                                 vPv(prIt);
                                 vNx(nxIR.value?.item);
                                 if (cr ||
@@ -1803,15 +1795,17 @@ function* split(s) {
         for (let v of s.split(','))
             yield v.trim();
 }
-export function* range(from, count, step = 1) {
+export function range(from, count, step = 1) {
     if (count === U) {
         count = from;
         from = 0;
     }
-    for (let i = 0; i < count; i++) {
-        yield from;
-        from += step;
-    }
+    return (function* (f, c, s) {
+        for (let i = 0; i < count; i++) {
+            yield from;
+            from += step;
+        }
+    })(Number(from), Number(count), Number(step));
 }
 export async function RFetch(input, init) {
     try {
@@ -1824,7 +1818,7 @@ export async function RFetch(input, init) {
         throw `${init?.method || 'GET'} ${input}: ` + e;
     }
 }
-class DocLoc extends RVA {
+class DocLoc extends RV {
     constructor() {
         super(L.href);
         W.addEventListener('popstate', _ => this.V = L.href);
