@@ -21,7 +21,6 @@ const
         bShowErrors:    T,
         // The default basepattern is defined in RCompile.
         //basePattern:    '/',
-        bAutoSubscribe: F,
         bAutoPointer:   T,
         preformatted:   E as string[],
         storePrefix:    "RVAR_",
@@ -51,7 +50,6 @@ type Settings = Partial<{
     bShowErrors:    boolean,    // Show runtime errors as text in the DOM output
     bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
     basePattern:    string,
-    bAutoSubscribe: boolean,
     bAutoPointer:   boolean,
     bAutoReroute:   boolean,
     bNoGlobals:     boolean,
@@ -63,7 +61,6 @@ type Settings = Partial<{
     version:        number,
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
     //bGlobs:         boolean,
-    bAR:            boolean
 }>;
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
@@ -292,7 +289,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
 
             // Remove range ch from any RVAR it is subscribed to
             ch.rvars?.forEach(rv =>
-                rv._Subs.delete(ch));
+                rv.$subs.delete(ch));
 
             // Destroy 'ch'
             ch.erase(ch.parN ?? par);
@@ -526,7 +523,7 @@ export interface Store {
     setItem(key: string, value: string): void;
 }
 export class RV<T = unknown> {
-    public name?: string;
+    public $name?: string;
     // The value of the variable
     _v: T;
 
@@ -536,16 +533,16 @@ export class RV<T = unknown> {
             : (this._v = _v)
     }
     // Immediate subscribers
-    private _Imm: Set<Subscriber<T>> = N;
+    private $imm: Set<Subscriber<T>> = N;
     // Deferred subscribers
-    public _Subs = new Set<Subscriber<T> | Range>();
+    public $subs = new Set<Subscriber<T> | Range>();
 
-    public _UpdTo: Array<RV>;
+    public $upd: Array<RV>;
 
     // Use var.V to get or set its value
     get V() {
         // Mark as used
-        addVar(this);
+        arAdd(this);
         return this._v;
      }
     // When setting, it will be marked dirty.
@@ -555,8 +552,6 @@ export class RV<T = unknown> {
             this.SetDirty();
         }
     }
-    // use without marking
-    get v() {return this._v;}
 
     // Add a subscriber 's', when it is not null.
     // When 'bImm' is truthy, the subscriber will be called immediately when the RVAR is set dirty;
@@ -566,22 +561,22 @@ export class RV<T = unknown> {
         if (s) {
             if (cr)
                 s(this._v);
-            (bImm ? this._Imm ||= new Set<Subscriber<T>>
-                : this._Subs).add(s);
+            (bImm ? this.$imm ||= new Set<Subscriber<T>>
+                : this.$subs).add(s);
         }
         return this;
     }
     Unsubscribe(s: Subscriber<T>) {
-        this._Imm?.delete(s);
-        this._Subs.delete(s);
+        this.$imm?.delete(s);
+        this.$subs.delete(s);
     }
     $SR({parR, parN}: Area, b: DOMBuilder, r: Range, bR:boolean = true) {
         r.uInfo ||= {b, env, oes, pn: parN, parR, bR};
-        this._Subs.add(r);
+        this.$subs.add(r);
         (r.rvars ||= new Set).add(this);
     }
     $UR(r: Range) {
-        this._Subs.delete(r);
+        this.$subs.delete(r);
         r.rvars.delete(this);
     }
     get Set() : (t:T | Promise<T>) => void
@@ -606,18 +601,18 @@ export class RV<T = unknown> {
     set U(t: T) { this._v = t; this.SetDirty(); }
 
     public SetDirty() {
-        this._Imm?.forEach(s => s(this._v));
+        this.$imm?.forEach(s => s(this._v));
 
-        this._UpdTo?.forEach(rv => rv.SetDirty());
+        this.$upd?.forEach(rv => rv.SetDirty());
 
-        if (this._Subs.size) {
+        if (this.$subs.size) {
             Jobs.add(this);
             RUpd();
         }
     }
 
     public async Exec() {
-        for (let subs of this._Subs)
+        for (let subs of this.$subs)
             try { 
                 if (subs instanceof Range)
                     await subs.update();
@@ -633,52 +628,65 @@ export class RV<T = unknown> {
     valueOf() { return this.V?.valueOf() ?? Q; }
 }
 export type RVAR<T = unknown> = RV<T>;
-const
-    RV_handler: ProxyHandler<RV> = {
-    get(rv: RV, p) {
-        return p in rv ? rv[p] : rv.V?.[p];
-    },
+export type ROBJ<T extends object> = RV<T> & T;
 
-    set(rv: RV, p, v) {
-        if (p in rv)
-            rv[p] = v;
-        else if (v != rv._v[p])
-            rv.U[p] = v;
-        return T
-    },
-}
+const
+    ProxH: ProxyHandler<RV<object>> = 
+    {
+        get(rv: RV, p) {
+            return p in rv ? rv[p] : rv.V?.[p];
+        },
+
+        set(rv: RV, p, v) {
+            if (p in rv)
+                rv[p] = v;
+            else if (v != rv._v[p])
+                rv.U[p] = v;
+            return T
+        },
+
+        deleteProperty(rv, p) { return delete rv.U[p]; },
+        /* // This doesn't work with proxies:
+        ownKeys(rv) { return Reflect.ownKeys(rv.V); }
+        */
+    }
 
 /* A "reactive variable" is a variable that listeners can subscribe to. */
 export function RVAR<T>(
     nm?: string, 
-    value?: T | Promise<T>, 
+    val?: T | Promise<T>, 
     store?: Store,
     subs?: (t:T) => void,
     storeNm?: string,
-    updTo?: Array<RV>,
+    updTo?: RV,
 ): RVAR<T> {
 
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm
             , s = store.getItem(sNm);
         if (s)
-            try { value = JSON.parse(s); }
+            try { val = JSON.parse(s); }
             catch{}
     }
 
-    let rv = new RV(value).Subscribe(subs, T);
+    let rv = new RV(val).Subscribe(subs, T);
 
     if (store)
         rv.Subscribe(v => 
             store.setItem(sNm, JSON.stringify(v ?? N))
         );
 
-    rv.name = nm || storeNm;
-    if (nm) G[nm] = rv;
+    rv.$name = nm || storeNm;
+    if (updTo)            
+        rv.$upd = [updTo];
+    
+    if (typeof val == 'object')
+        rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
+    
+    if (nm) 
+        G[nm] = rv;
 
-    rv._UpdTo = updTo;
-
-    return new Proxy<RV<T>>(rv, RV_handler);
+    return rv;
 }
 
 // A subscriber to an RVAR<T> is either any routine on T (not having a property .T),
@@ -698,29 +706,32 @@ let
     pn: ParentNode,         // Current html node
     oes: OES = {e: N, s: N},    // Current onerror and onsuccess handlers
 
-    uVars: Map<RV, booly>,
-    addVar = (rv: RV, bA?: booly)=> (uVars ||= new Map).set(rv, bA || uVars?.get(rv)),
-    ur:Range & {uv?:Map<RV, booly>;}, uar: AreaR, ubl: DOMBuilder,
-    
-    procVars = () => {
-        if ( uar && (ur ||= uar.prR)
-        ) {
-            uVars?.forEach((bA, rv) =>
-                ur.uv?.delete(rv) || rv.$SR(uar, ubl, ur, !bA)
+    // Auto-react functionality
+    arR:Range & {uv?:Map<RV, booly>;}, 
+    arA: AreaR, 
+    arB: DOMBuilder,
+
+    arVars: Map<RV, booly>,
+    arAdd = (rv: RV, bA?: booly) => 
+        arA && (arVars ||= new Map).set(rv, bA || arVars?.get(rv)),
+    arCheck = () => {
+        if (arA && (arR || arVars)) {
+            arR ||= arA.prR;
+            arVars?.forEach((bA, rv) =>
+                arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA)
             );
-            ur.uv?.forEach((_,rv) => rv.$UR(ur) );
-            ur.uv = uVars;
-            ur.upd = upd;
+            arR.uv?.forEach((_,rv) => rv.$UR(arR) );
+            arR.uv = arVars;
+            arR.upd = upd;
         }
-        //updData = N;
-        uar= uVars = N;
+        arA = arVars = N;
     },
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
     Jobs = new Set<Job>(),
 
     hUpd: number,        // Handle to a scheduled update
-    ro: boolean = F,    // True while evaluating element properties so RVAR's should not be set dirty
+    ro: booly = F,    // Truthy while evaluating element properties so RVAR's should not be set dirty
 
     upd = 0,       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
     nodeCnt = 0,   // Count of the number of updated nodes (elements and text)
@@ -737,10 +748,7 @@ let
         let t= now();
         return prom.finally(() => { start += now()-t; })
     }
-    , RUpd = () => {
-        if (!env && !hUpd)
-            hUpd = setTimeout(DoUpdate, 1);
-    }
+    , RUpd = () => hUpd ||= setTimeout(DoUpdate, 1)
 ;
 //#endregion
 
@@ -993,7 +1001,8 @@ const enum WSpc {
 // Instances of RComp perform synchronous compilation.
 // Everytime an asynchronous compilation is wanted, a instance shall be cloned.
 let   iRC = 0       // Numbering of RComp instances
-    , iLS = 0;      // Numbering of local stylesheet classnames
+    , iLS = 0      // Numbering of local stylesheet classnames
+    ;
 class RComp {
     public num = iRC++;  // Rcompiler instance number, just for identification during debugging
     public S: Settings;
@@ -1020,7 +1029,7 @@ class RComp {
         settings?: Settings,
         CT = RC?.CT,
     ) { 
-        (this.S   = {... RC ? RC.S : dflts, ...settings}).bAR = !this.S.bAutoSubscribe;
+        this.S   = {... RC ? RC.S : dflts, ...settings};
         this.fp  = FP || RC?.fp;
         this.doc = RC?.doc || D
         this.hd  = RC?.hd || this.doc.head;
@@ -1232,15 +1241,15 @@ class RComp {
         return !L ? N
             //: l < 2 ? bs[0]
             : async function Iter(ar: Area)
-            {   procVars();
-                await ExAll(bs, ar);
+            {   arCheck(); 
+                for (let b of bs)
+                    await b(ar);
             };
     }
 
-    private async CArr(arr: Array<ChildNode>, rt: booly, i=0) : Promise<DOMBuilder[]> {
+    private async CArr(arr: Array<ChildNode>, rt: booly) : Promise<DOMBuilder[]> {
         let bldrs = [] as Array< DOMBuilder >
-            , L = arr.length
-            , rv: string
+            , i=0, L = arr.length
             ;
         while (i<L) {
             let srcN = arr[i++]
@@ -1250,40 +1259,7 @@ class RComp {
                 
                 case 1:         //Node.ELEMENT_NODE:
                     this.srcCnt ++;
-
-                    if (rv = (bl = await this.CElm(srcN as HTMLElement))?.auto)
-                        // Handle auto-subscription
-                        try {
-                            // Check for compile-time subscribers
-                            bldrs.push(bl);
-
-                            var 
-                                gv = this.CT.getLV(rv) as DepE<RVAR> // Routine to get the rvar
-                                // Compile remaining nodes, but first set this.cRvars[rv] to something truthy
-                                , s = this.cRvars[rv]    // Save previous value
-                                , bs = await this.CArr(arr, rt, this.cRvars[rv] =  i)
-                                ;
-
-                            // Were there no compile-time reacts for this rvar?
-                            bl = bs.length && this.cRvars[rv]
-                                ? async function Auto(ar: Area) {
-                                        let {r, sub, cr} = PrepRng<{upd: number}>(ar);
-                                        if (cr) {
-                                            let rvar = gv(), s = rvar._Subs.size;
-                                            await ExAll(bs, sub);
-                                            if (rvar._Subs.size==s) // No new subscribers still?
-                                                // Then auto-subscribe with the correct range
-                                                rvar.$SR(ar, Auto, r);
-                                        }
-                                        else if (r.upd != upd)
-                                            await ExAll(bs, sub);
-                                        
-                                        r.upd = upd;                                      
-                                    }
-                                : (bldrs.push(...bs), N);
-                            i = L;
-                        }
-                        finally { this.cRvars[rv] = s; }
+                    bl = await this.CElm(srcN as HTMLElement);
                     break;
 
                 case 8:         //Node.COMMENT_NODE:
@@ -1296,13 +1272,12 @@ class RComp {
                         , getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
                         bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
-                                uVars = N;
-                                if (this.S.bAR)
-                                    {ur = (uar=ar).r; ubl=bl;}                       
+                                arVars = N;
+                                arR = (arA=ar).r; arB=bl;                      
                                 
                                 PrepData(ar, getText(), bC);
 
-                                procVars();
+                                arCheck();
                             }
                         
                         // Update the compiler whitespace mode
@@ -1342,8 +1317,6 @@ class RComp {
                 // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
                 , bA: DOMBuilder
                 
-                , auto: string  // rvar-name that might need auto-subscription
-
                 // See if this node is a user-defined construct (component or slot) instance
                 , constr = this.CT.getCS(tag)
 
@@ -1405,7 +1378,7 @@ class RComp {
                         let rv      = ats.g('rvar'), // An RVAR
                             t = '@value', 
                             twv     = rv && ats.g(t),
-                            bUpd    = ats.gB('reacting') || ats.gB('updating') || twv,
+                            bU    = ats.gB('reacting') || ats.gB('updating') || twv,
                             dGet    = twv ? this.CExpr(twv,t) : this.CPam(ats, 'value'),
 
                             // When we want a two-way rvar, we need a routine to update the source expression
@@ -1417,40 +1390,40 @@ class RComp {
                             vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>,
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
-                        auto = rv && ats.gB('auto', this.S.bAutoSubscribe) && !onMod && rv; 
                         bA = async function DEF(ar, bR?) {
-                                let {cr} = PrepRng(ar, srcE)
-                                    , v: unknown, upd: RVAR;
-                                // Evaluate the value only when:
-                                // !r   : We are building the DOM
-                                // bUpd : 'updating' was specified
-                                // re:  : The routine is called because of a 'reacton' subscribtion
-                                if ( cr || bUpd || (uar=N) || bR != N){
-                                    try {
-                                        ro=T;
-                                        v = dGet?.();
-                                    }
-                                    finally { 
-                                        ro = F; 
-                                    }
-
-                                    if (rv)
-                                        if (cr)
-                                            (vLet as LVar<RVAR>)(
-                                                RVAR(N, v,
-                                                    dSto?.(),
-                                                    dSet?.(), 
-                                                    dSNm?.() || rv
-                                                )
-                                            )
-                                            .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
-                                            .Subscribe(onMod?.());
-                                        else
-                                            vGet().Set(v);
-                                    else
-                                        vLet(v);
+                            let {cr} = PrepRng(ar, srcE)
+                                , v: unknown, upd: RVAR;
+                            bU || arCheck();
+                            // Evaluate the value only when:
+                            // !r   : We are building the DOM
+                            // bUpd : 'updating' was specified
+                            // re:  : The routine is called because of a 'reacton' subscribtion
+                            if ( cr || bU || (arA=N) || bR != N){
+                                try {
+                                    ro=T;
+                                    v = dGet?.();
                                 }
+                                finally { 
+                                    ro = F; 
+                                }
+
+                                if (rv)
+                                    if (cr)
+                                        (vLet as LVar<RVAR>)(
+                                            RVAR(N, v,
+                                                dSto?.(),
+                                                dSet?.(), 
+                                                dSNm?.() || rv
+                                            )
+                                        )
+                                        .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
+                                        .Subscribe(onMod?.());
+                                    else
+                                        vGet().Set(v);
+                                else
+                                    vLet(v);
                             }
+                        }
                        
                     } break;
 
@@ -1526,7 +1499,7 @@ class RComp {
                         
                         bA = async function IMPORT(ar: Area) {
                             let {sub,cr,r} = PrepRng<{v:Environment}>(ar, srcE);
-                            (uar=N);
+                            (arA=N);
                             if (cr || bIncl) {
                                 try {
                                     var b = await NoTime(task)
@@ -1549,7 +1522,10 @@ class RComp {
 
                     case 'REACT':
                         b = await this.CChilds(srcE);
-                        bl = b && function REACT(sub: Area) { return b(PrepRng(sub, srcE).sub); }
+                        bl = b && function(ar, bR) {
+                            let {sub} = PrepRng(ar);
+                            return !bR && b(sub)
+                        }
                     break;
 
                     case 'RHTML': {
@@ -1558,7 +1534,7 @@ class RComp {
                             , b = await this.CUncN(srcE)
                             , dSrc = !b && this.CPam<string>(ats, 'srctext')
                             , dO = this.CPam<Handler>(ats, "onç") // Undocumented feature
-                            , s: Settings = {bSubf: 2, bTiming: this.S.bTiming, bAutoSubscribe: F}
+                            , s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                        
                         bl = async function RHTML(ar) {
@@ -1694,7 +1670,7 @@ class RComp {
                                 , p: Range;
                             try {
                                 // Execute 'b' with the document header as parent node
-                                return await b(ass(ar, {parN: this.hd, bfor: N}));
+                                await b(ass(ar, {parN: this.hd, bfor: N}));
                             }
                             finally {
                                 if (p = ar.prR) p.parN = ar.parN;  // Allow the created range to be erased when needed
@@ -1885,16 +1861,18 @@ class RComp {
                     , bA = !m[3]    // not 'thisreactson'?
                     ;
 
-                if (m[2])   // reacton / thisreactson
+                if (m[2]) {  // reacton / thisreactson
+                    //b = this.ErrH(b, srcE);
                     bl = function REACT(ar: Area, bR) {
                         // Consider the currently provided rvars
                         try {
-                            (dV() as RVAR[]).forEach(rv => addVar(rv, bA) )
+                            (dV() as RVAR[]).forEach(rv => rv && arAdd(rv, bA) )
                         }
                         catch { throw `This is not an RVAR\nat '${at}'`; }
-
-                        return b(ar, bR);
+                        
+                        return b(PrepRng(ar, srcE).sub, bR);
                     }
+                }
                 else
                     bl = 
                         m[5]  // set onerror or onsuccess
@@ -1917,7 +1895,6 @@ class RComp {
                             let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, at)
                                 , ph  = r.v;
                             r.v = <unknown[]>dV();
-        
                             if (cr || r.v.some((hash, i) => hash !== ph[i]))
                                 return b(sub, bR);
                         }
@@ -1939,7 +1916,7 @@ class RComp {
 
             return bl != dB && ass(
                 this.ErrH(bl, srcE, !!bA)
-                , {auto,nm}
+                , {nm}
                 );
         }
         catch (m) { throw ErrM(srcE, m); }
@@ -1957,17 +1934,14 @@ class RComp {
                 r.eN = U;
             }
             try {
-                //procVars();
-                uVars = N;
-                if (this.S.bAR)
-                    {ur = (uar=ar).r; ubl=bl;} 
+                arVars = N;
+                arR = (arA=ar).r; arB=bl;
 
                 let prom = b(ar, bR);
 
-                procVars();
+                arCheck();
 
                 await prom;
-                //ar.prR.upd = upd;
             } 
             catch (m) {
                 let msg = 
@@ -2011,11 +1985,11 @@ class RComp {
                         ;
 
                 return async function INCL(ar) {
-                        PrepRng(ar, srcE);
-                        (uar=N);
-                        let {sub,EF} = SF(ar);
-                        await (await NoTime(task))(sub).finally(EF);
-                    };
+                    PrepRng(ar, srcE);
+                    arCheck();
+                    let {sub,EF} = SF(ar);
+                    await (await NoTime(task))(sub).finally(EF);
+                };
             })
             // Otherwise we just compile just the child contents
             : this.CChilds(srcE, cn)
@@ -2116,7 +2090,7 @@ class RComp {
 
             return async function SCRIPT(ar: Area) {
                 PrepRng(ar,srcE);
-                bU || (uar=N);
+                bU || arCheck();
                 if (!ar.r || bU) {
                     let obj = await ex();
                     if (lvars)
@@ -2289,6 +2263,7 @@ class RComp {
 
         let letNm = ats.g('let')
             , ixNm = ats.g('index',F,F,T)
+            , rixNm = ats.g('rindex',F,F,T)
             ;
         this.rt = F;
 
@@ -2307,9 +2282,10 @@ class RComp {
                     // Add the loop-variable to the context, and keep a routine to set its value
                     vLet = this.LV(letNm),
                     // The same for 'index', 'previous' and 'next' variables
-                    vIx = this.LV(ixNm),
-                    vPv = this.LV(pvNm),
-                    vNx = this.LV(nxNm),
+                    vIx = this.LV<number>(ixNm),
+                    vRix = this.LV<RV<number>>(rixNm),
+                    vPv = this.LV<Item>(pvNm),
+                    vNx = this.LV<Item>(nxNm),
 
                     dKey = this.CAttExp<Key>(ats, 'key'),
                     dHash = this.CAttExpList<Hash>(ats, 'hash'),
@@ -2321,11 +2297,11 @@ class RComp {
                 // bR = update root only
                 return b && async function FOR(ar: Area, bR: booly) {
                     let 
-                        {r, sub} = PrepRng<{v:Map<Key, ForRange>}>(ar, srcE, Q)
+                        iter: Iterable<Item> | Promise<Iterable<Item>>
+                            = dOf() || E
+                        , {r, sub} = PrepRng<{v:Map<Key, ForRange>}>(ar, srcE, Q)
                         , {parN} = sub
                         , bfor = sub.bfor !== U ? sub.bfor : r.Nxt
-                        , iter: Iterable<Item> | Promise<Iterable<Item>>
-                            = dOf() || E
                         , sEnv = {env, oes}
                         , pIter = async (iter: Iterable<Item>) => {
                             ({env, oes} = sEnv);
@@ -2377,7 +2353,7 @@ class RComp {
                                             keyMap.delete(k);
                                         nxR.erase(parN);
                                         if (nxR.rv)
-                                            nxR.rv._Subs.delete(nxR);
+                                            nxR.rv.$subs.delete(nxR);
                                         nxR.pv = N;
                                         nxR = nxR.nx;
                                     }
@@ -2456,15 +2432,15 @@ class RComp {
                                 let {sub: iSub, EF} = SF(chAr, chR)
                                     , rv = chR.rv;
                                 try {
-                                    if(ixNm){
-                                        (chR.ix ||= new RV<number>()).V = ix;
-                                        vIx(chR.ix);
-                                    }
-
                                     // Set bound variables
+
+                                    vIx(ix);
+                                    if(rixNm)
+                                        vRix(chR.ix ||= new RV<number>) .V = ix;
+
                                     vLet( bRe ?
                                         // Turn 'item' into an RVAR_Light
-                                        chR.rv ||= RVAR<Item>(N,item,N,N,N, dUpd && [dUpd()])
+                                        chR.rv ||= RVAR<Item>(N,item,N,N,N, dUpd?.())
                                         : item);
 
                                     vPv(prIt);
@@ -2583,7 +2559,7 @@ class RComp {
                 , b = this.ErrH(
                         await this.CIter(arr)
                         , srcE, T)
-                    || (async (ar) => PrepRng(ar, srcE) && F)
+                    || dB
                 , mapS = new Map<string, Signat>(mapI(sigs, S => [S.nm, S]));
 
             for (let [nm, elm, body] of 
@@ -2758,10 +2734,12 @@ class RComp {
             // Compile all remaining attributes into a getter for the rest parameter
             let {bf,af} = this.CAtts(ats);
             bf.push(...af); // Don't distinguish between before and after; everything goes after
+            ro=T;
             gArgs.push({
                 nm: RP, 
                 dG: () => <RestArg>{ms: bf, xs: bf.map(M => M.d())}
             });
+            ro=F;
         }
         
         this.ws = WSpc.inline;
@@ -2781,7 +2759,7 @@ class RComp {
                         else
                             args[nm] = dG();
                     
-                    procVars();
+                    arCheck();
                     env = cdef.env;
 
                     for (let tmpl of cdef.tmps) 
@@ -2844,7 +2822,9 @@ class RComp {
                         ar,
                         nm || dTag()
                     )
-                    , k = bf && ApplyMods(r, cr, bf);
+                    , k = bf && ApplyMods(r, cr, bf)
+                    , xs = (ro=af)?.map(M => M.d());
+                ro = F;
 
                 if (cr) {
                     // Add static local scoping classnames
@@ -2858,7 +2838,7 @@ class RComp {
                     // Build / update childnodes
                     await b?.(sub);
                 
-                af && ApplyMods(r, cr, af, k);
+                af && ApplyMods(r, cr, af, k, xs);
 
                 pn = ar.parN;
             };
@@ -3310,12 +3290,6 @@ const
             throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
 }
 
-// Execute all DOMBuilders; break if any returns truthy
-, ExAll = async (bs: Iterable<DOMBuilder>, ar: Area) => { 
-        for (let b of bs)
-            await b(ar);
-    }
-
 // Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
 , S2Hash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
@@ -3474,6 +3448,7 @@ export async function DoUpdate() {
         while (Jobs.size) {
             let J = Jobs;
             Jobs = new Set;
+            //if (upd++ - u0 > 15) debugger
             if (upd++ - u0 > 25)
             { alert('Infinite react-loop'); break; }
             for (let j of J)
