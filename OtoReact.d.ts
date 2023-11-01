@@ -63,6 +63,7 @@ export interface Store {
 }
 export declare class RV<T = unknown> {
     $name?: string;
+    $name?: string;
     _v: T;
     constructor(t?: T | Promise<T>);
     private $imm;
@@ -83,6 +84,8 @@ export declare class RV<T = unknown> {
     valueOf(): Object | "";
 }
 export type RVAR<T = unknown> = RV<T>;
+export type ROBJ<T extends object> = RV<T> & T;
+export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: RV): RVAR<T>;
 export type ROBJ<T extends object> = RV<T> & T;
 export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: RV): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T) => unknown);
