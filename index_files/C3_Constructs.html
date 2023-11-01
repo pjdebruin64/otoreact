@@ -44,7 +44,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
 <demo #srctext=demoScoping></demo>
 
 <h3 id="def-rvar"><{}DEFINE rvar #value></h3>
-<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i> auto?=true</elm><elm>/DEFINE</elm></pre>
+<pre class=sourcecode><elm>DEFINE rvar=<i>name</i> #value?="<i>expression</i>" store?=<i>storage</i> storename?=<i>storeName</i> onmodified?=<i>handler</i> updates?=<i>rvar</i></elm><elm>/DEFINE</elm></pre>
 <p>
     introduces a local <u>reactive</u> variable <code><i>name</i></code>, with a value computed by <code><i>expression</i></code>.
     <br>This is similar to <code><elm>DEFINE var=<i>name</i> #value="RVAR(null, <i>expression</i>, <i>storage</i>, <i>storeName</i>)"</elm><elm>/DEFINE</elm></code>, see <a href=#RVAR>RVAR's</a>.
@@ -65,8 +65,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     When <code class="sourcecode">onmodified</code> is specified, the given handler will be subscribed to the new RVAR, i.e., the handler will be executed whenever the RVAR has been modified or otherwise been set dirty.
 </p>
 <p>
-    When <code class="sourcecode">auto=false</code> is set, then auto-subscription (see below) is disabled.
-    The default is determined by RHTML <a href="#Options">option</a> <code>bAutoSubscribe</code>, which defaults to <code>true</code>.
+    With <code class="sourcecode">updates?=<i>rvar</i></code> one can specify another RVAR that will be marked dirty whenever <i>name</i> is set dirtys.
 </p>
 
 

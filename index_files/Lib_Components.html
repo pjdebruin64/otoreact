@@ -131,7 +131,7 @@
                         <when cond="rShow.V > 0">
                             <td. class="pre"                          
                                 contenteditable="{editable}" spellcheck=false 
-                                #innerHTML="ColorCode(texts.v[rShow.V] || '')"
+                                #innerHTML="ColorCode(texts._v[rShow.V] || '')"
                                 !innerText="texts.U[rShow.V]"
                                 onkeydown="if (event.key=='Tab') {
                                     event.preventDefault();
@@ -142,7 +142,7 @@
                         <when cond="rShow.V < 0">
                             <td. class="pre"                            
                                 contenteditable="{editable}" spellcheck=false 
-                                #innerHTML="ColorCode(srcText.v)"
+                                #innerHTML="ColorCode(srcText._v)"
                                 !innerText="srcText.V"
                                 onkeydown="if (event.key=='Tab') {
                                     event.preventDefault();

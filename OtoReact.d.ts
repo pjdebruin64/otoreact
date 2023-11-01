@@ -7,7 +7,6 @@ type Settings = Partial<{
     bShowErrors: boolean;
     bSubf: boolean | 2;
     basePattern: string;
-    bAutoSubscribe: boolean;
     bAutoPointer: boolean;
     bAutoReroute: boolean;
     bNoGlobals: boolean;
@@ -18,7 +17,6 @@ type Settings = Partial<{
     storePrefix: string;
     version: number;
     headers: HeadersInit;
-    bAR: boolean;
 }>;
 type Environment = [Environment?, ...unknown[]] & {
     cl?: string[];
@@ -64,15 +62,14 @@ export interface Store {
     setItem(key: string, value: string): void;
 }
 export declare class RV<T = unknown> {
-    name?: string;
+    $name?: string;
     _v: T;
-    constructor(_v?: T | Promise<T>);
-    private _Imm;
-    _Subs: Set<Range<ChildNode> | Subscriber<T>>;
-    _UpdTo: Array<RV>;
+    constructor(t?: T | Promise<T>);
+    private $imm;
+    $subs: Set<Range<ChildNode> | Subscriber<T>>;
+    $upd: Array<RV>;
     get V(): T;
     set V(v: T);
-    get v(): T;
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
     $SR({ parR, parN }: Area, b: DOMBuilder, r: Range, bR?: boolean): void;
@@ -86,7 +83,8 @@ export declare class RV<T = unknown> {
     valueOf(): Object | "";
 }
 export type RVAR<T = unknown> = RV<T>;
-export declare function RVAR<T>(nm?: string, value?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: Array<RV>): RVAR<T>;
+export type ROBJ<T extends object> = RV<T> & T;
+export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: RV): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T) => unknown);
 type OES = {
     e: Handler;
