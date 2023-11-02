@@ -67,7 +67,6 @@ export declare class RV<T = unknown> {
     constructor(t?: T | Promise<T>);
     private $imm;
     $subs: Set<Range<ChildNode> | Subscriber<T>>;
-    $upd: Array<RV>;
     get V(): T;
     set V(v: T);
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;

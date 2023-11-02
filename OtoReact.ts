@@ -535,8 +535,6 @@ export class RV<T = unknown> {
     // Deferred subscribers
     public $subs = new Set<Subscriber<T> | Range>();
 
-    public $upd: Array<RV>;
-
     // Use var.V to get or set its value
     get V() {
         // Mark as used
@@ -601,10 +599,7 @@ export class RV<T = unknown> {
     public SetDirty() {
         this.$imm?.forEach(s => s(this._v));
 
-        this.$upd?.forEach(rv => rv.SetDirty());
-
-        if (this.$subs.size)
-            AJ(this);
+        this.$subs.size && AJ(this);
     }
 
     public async Exec() {
@@ -666,15 +661,15 @@ export function RVAR<T>(
     }
 
     let rv = new RV(val).Subscribe(subs, T);
+    rv.$name = nm || storeNm;
 
-    if (store)
+    store &&
         rv.Subscribe(v => 
             store.setItem(sNm, JSON.stringify(v ?? N))
         );
 
-    rv.$name = nm || storeNm;
-    if (updTo)            
-        rv.$upd = [updTo];
+    updTo &&      
+        rv.Subscribe(()=>updTo.SetDirty(),T)
     
     if (typeof val == 'object')
         rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
@@ -711,7 +706,7 @@ let
     arVars: Map<RV, booly>,
     arAdd = (rv: RV, bA?: booly) => 
         arA && (arVars ||= new Map).set(rv, bA || arVars?.get(rv)),
-    arCheck = () => {
+    arChk = () => {
         if (arA && (arR || arVars)) {
             if(<any>arR===T) throw 'arCheck!'
             arR ||= arA.prR;
@@ -1239,7 +1234,7 @@ class RComp {
         return !L ? N
             //: l < 2 ? bs[0]
             : async function Iter(ar: Area)
-            {   arA && arCheck(); 
+            {   
                 for (let b of bs)
                     await b(ar);
             };
@@ -1270,14 +1265,15 @@ class RComp {
                         , getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
                         bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
-                                arVars = N;
-                                arR = ar.r;
-                                arB=bl;                      
-                                
-                                PrepData(arA = ar, getText(), bC);
+                            arA && arChk(); 
+                            arVars = N;
+                            arR = ar.r;
+                            arB=bl;                      
+                            
+                            PrepData(arA = ar, getText(), bC);
 
-                                arCheck();
-                            }
+                            arA && arChk();
+                        }
                         
                         // Update the compiler whitespace mode
                         if (!bC && this.ws < WSpc.preserve)
@@ -1391,7 +1387,7 @@ class RComp {
 
                         bA = async function DEF(ar, bR?) {
                             let {cr} = PrepRng(ar, srcE)
-                                , v: unknown, upd: RVAR;
+                                , v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
                             // bUpd : 'updating' was specified
@@ -1411,10 +1407,10 @@ class RComp {
                                             RVAR(N, v,
                                                 dSto?.(),
                                                 dSet?.(), 
-                                                dSNm?.() || rv
+                                                dSNm?.() || rv,
+                                                dUpd?.()
                                             )
                                         )
-                                        .Subscribe((upd = dUpd?.()) && (()=>upd.SetDirty()))
                                         .Subscribe(onMod?.());
                                     else
                                         vGet().Set(v);
@@ -1870,7 +1866,7 @@ class RComp {
                                 arAdd(rv, bA);
                             }  
                         ar = PrepRng(ar, srcE).sub;
-                        arCheck();
+                        ///arCheck();
                         return b(ar, bR);
                     }
                 }
@@ -1935,29 +1931,33 @@ class RComp {
                 r.eN = U;
             }
             try {
+                arA && arChk();
                 arVars = N;
                 arR = ar.r;
                 arB = bl;
                 let prom = b(arA = ar, bR);
 
-                arA && arCheck();
+                arA && arChk();
 
                 await prom;
             } 
             catch (m) {
-                let msg = 
-                    srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
-                    , e = oes.e;
+                if (m) {
+                    let msg = 
+                        srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
+                        , e = oes.e;
 
-                if (this.S.bAbortOnError || bA)
-                    throw msg;
+                    if (this.S.bAbortOnError)
+                        throw msg;
 
-                this.log(msg);
-                e ? e(m)
-                : this.S.bShowErrors ?
-                    (r||{} as typeof r).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
-                : U;
-                return bA;
+                    this.log(msg);
+                    e ? e(m)
+                    : this.S.bShowErrors ?
+                        (r||{} as typeof r).eN = ar.parN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
+                    : U;
+                    if (bA)
+                        throw Q;
+                }
             }
         });
 
@@ -1987,7 +1987,7 @@ class RComp {
 
                 return async function INCL(ar) {
                     PrepRng(ar, srcE);
-                    arCheck();
+                    arChk();
                     let {sub,EF} = SF(ar);
                     await (await NoTime(task))(sub).finally(EF);
                 };
@@ -2091,7 +2091,7 @@ class RComp {
 
             return async function SCRIPT(ar: Area) {
                 PrepRng(ar,srcE);
-                bU || arCheck();
+                bU || arChk();
                 if (!ar.r || bU) {
                     let obj = await ex();
                     if (lvars)
@@ -2112,7 +2112,7 @@ class RComp {
                 body?: Iterable<ChildNode>,
             }> = [],
             body: ChildNode[] = [],
-            bE: booly;
+            bE: booly, bW: booly;
         
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement) 
@@ -2127,13 +2127,14 @@ class RComp {
                         bE = T;
                         // Fall through!
                     case 'WHEN':
-                        cases.push({n, ats: new Atts(n as HTMLElement)});
+                        cases.push({n, ats: new Atts(n)});
+                        bW = !bE
                         continue;
                 }
             body.push(n);
         }
         if (srcE.tagName == 'IF' && !bThen)
-            cases.unshift({n: srcE, ats, body});
+            bW ? thro("<IF> contains <WHEN>") : cases.unshift({n: srcE, ats, body});
 
         let 
             caseList: Array<{
@@ -2474,7 +2475,7 @@ class RComp {
                             EC();
                             if (prR) prR.nx = N; else r.ch = N;
                         };
-                    arCheck();
+                    arChk();
 
                     if (iter instanceof Promise)
                         // The iteration is a Promise, so we can't execute the FOR just now, and we don't want to wait for it.
@@ -2757,7 +2758,7 @@ class RComp {
                         else
                             args[nm] = dG();
                     
-                    arCheck();
+                    arChk();
                     env = cdef.env;
 
                     for (let tmpl of cdef.tmps) 
@@ -3398,7 +3399,7 @@ export {DL as docLocation, reroute}
 
 if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
 
-let globs = {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur};
+let globs = {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur, debug: Ev('()=>{debugger}')};
 // Define global constants
 ass(G, globs);
 
