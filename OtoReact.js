@@ -453,7 +453,6 @@ let iRC = 0, iLS = 0;
 class RComp {
     constructor(RC, FP, settings, CT = RC?.CT) {
         this.num = iRC++;
-        this.cRvars = {};
         this.rActs = [];
         this.sPRE = new Set(['PRE']);
         this.ws = 1;
@@ -592,9 +591,9 @@ class RComp {
                     if (fx !== Q) {
                         bl = async (ar) => {
                             arVars = N;
-                            arR = (arA = ar).r;
+                            arR = ar.r;
                             arB = bl;
-                            PrepData(ar, getText(), bC);
+                            PrepData(arA = ar, getText(), bC);
                             arCheck();
                         };
                         if (!bC && this.ws < 4)
@@ -624,7 +623,7 @@ class RComp {
                                     : m[8]
                                         ? this.CAttExp(ats, at)
                                         :
-                                            this.CAttExpList(ats, at, T)
+                                            this.CAttExpList(ats, at)
                             });
                     else {
                         let txt = ats.g(at);
@@ -1671,13 +1670,10 @@ class RComp {
             throw m + E;
         }
     }
-    CAttExpList(ats, attNm, bReacts) {
+    CAttExpList(ats, attNm) {
         let L = ats.g(attNm, F, T);
         if (L == N)
             return N;
-        if (bReacts)
-            for (let nm of split(L))
-                this.cRvars[nm] = N;
         return this.CExpr(`[${L}\n]`, attNm);
     }
     gsc(exp) {
@@ -1724,9 +1720,12 @@ class Atts extends Map {
                 super.set(a.name, a.value);
     }
     g(nm, bReq, bHash, bI) {
-        let m = nm, v = super.get(m);
+        let m, gg = (nm) => {
+            let v = super.get(m = nm);
+            return v == N ? Ev(super.get(m = '%' + nm)) : v;
+        }, v = gg(nm);
         if (v == N && bHash)
-            v = super.get(m = '#' + nm);
+            v = gg('#' + nm);
         if (v != N)
             super.delete(m);
         else if (bReq)
@@ -1829,8 +1828,8 @@ class DocLoc extends RV {
         return U.href;
     }
     RVAR(fld, df, nm = fld) {
-        let rv = RVAR(nm, N, N, v => this.query[fld] = v);
-        this.Subscribe(_ => rv.V = this.query[fld] ?? df, T, T);
+        let g = () => this.query[fld], rv = RVAR(nm, g(), N, v => this.query[fld] = v);
+        this.Subscribe(_ => rv.V = g() ?? df, T);
         return rv;
     }
 }

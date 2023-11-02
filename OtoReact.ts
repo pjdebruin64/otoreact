@@ -1010,9 +1010,6 @@ class RComp {
 
     public CT: Context         // Compile-time context
 
-    private cRvars: {[nm: string]: booly}
-         = {}; //RVAR names that were named in a 'reacton' attribute, so they surely don't need auto-subscription
-
     private doc: Document;
 
     // During compilation: node to which all static stylesheets are moved
@@ -1274,9 +1271,10 @@ class RComp {
                     if (fx !== Q) { // Either nonempty or undefined
                         bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
                                 arVars = N;
-                                arR = (arA=ar).r; arB=bl;                      
+                                arR = ar.r;
+                                arB=bl;                      
                                 
-                                PrepData(ar, getText(), bC);
+                                PrepData(arA = ar, getText(), bC);
 
                                 arCheck();
                             }
@@ -1346,7 +1344,7 @@ class RComp {
                                         : m[8] // if
                                             ? this.CAttExp(ats, at)
                                         :   // reacton, hash
-                                          this.CAttExpList<RVAR>(ats, at, T)
+                                          this.CAttExpList<RVAR>(ats, at)
                                 });
                     else { 
                         let txt = ats.g(at);
@@ -3105,12 +3103,9 @@ class RComp {
         catch (m) {throw m+E; } // Compiletime error
     }
 
-    private CAttExpList<T>(ats: Atts, attNm: string, bReacts?: boolean): Dep<T[]> {
+    private CAttExpList<T>(ats: Atts, attNm: string): Dep<T[]> {
         let L = ats.g(attNm, F, T);
         if (L==N) return N;
-        if (bReacts)
-            for (let nm of split(L))
-                this.cRvars[nm] = N;
         return this.CExpr<T[]>(`[${L}\n]`, attNm);
     }
 
@@ -3186,9 +3181,14 @@ class Atts extends Map<string,string> {
         bHash?: booly,      // Is an optional hashtag allowed
         bI?: booly          // If it is specified without value, should the attribute name be treated as its implicit value
     ) {
-        let m = nm, v = super.get(m);
+        let m: string,
+            gg = (nm:string) => {
+                let v= super.get(m = nm);
+                return v==N ? Ev(super.get(m = '%'+nm)) : v;
+            },
+            v = gg(nm);
         if (v==N && bHash)
-            v = super.get(m = '#' + nm);
+            v = gg('#' + nm);
         if (v != N)
             super.delete(m);
         else if (bReq)
@@ -3372,8 +3372,9 @@ class DocLoc extends RV<string> {
             return U.href;
         }
         RVAR(fld: string, df?: string, nm: string = fld) {
-            let rv = RVAR<string>(nm, N, N, v => this.query[fld] = v);
-            this.Subscribe(_ => rv.V = this.query[fld] ?? df, T, T);
+            let g = () => this.query[fld],
+                rv = RVAR<string>(nm, g(), N, v => this.query[fld] = v);
+            this.Subscribe(_ => rv.V = g() ?? df, T);
             return rv;
         }
     }
