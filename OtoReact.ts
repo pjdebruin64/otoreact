@@ -953,7 +953,7 @@ function ApplyMods(
                             !(e as HTMLAnchorElement).download
                             && !(e as HTMLAnchorElement).target
                             // and the (initial) href starts with the current basepath
-                            && (e as HTMLAnchorElement).href.startsWith(L.origin + DL.basepath)
+                            && (e as HTMLAnchorElement).href.startsWith(L.origin + rvu.basepath)
                         )
                             // Then we add the 'reroute' onclick-handler
                             e.addEventListener('click', reroute);
@@ -1225,25 +1225,15 @@ class RComp {
     // Compile some stretch of childnodes
     private async CIter(iter: Iterable<ChildNode>): Promise<DOMBuilder> {
         let {rt} = this     // Indicates whether the output may be right-trimmed
-            , arr = Array.from(iter);
-        while(rt && arr.length && !/[^ \t\n\r]/.test(arr[arr.length - 1]?.nodeValue)) 
-            arr.pop();
-        
-        let bs = await this.CArr(arr, rt), L=bs.length;
-
-        return !L ? N
-            //: l < 2 ? bs[0]
-            : async function Iter(ar: Area)
-            {   
-                for (let b of bs)
-                    await b(ar);
-            };
-    }
-
-    private async CArr(arr: Array<ChildNode>, rt: booly) : Promise<DOMBuilder[]> {
-        let bldrs = [] as Array< DOMBuilder >
-            , i=0, L = arr.length
+            , arr = Array.from(iter)
+            , L = arr.length
+            , bs = [] as Array< DOMBuilder >
+            , i=0
             ;
+        // When ' rt', then remove node at the end containing nothing but whitespace
+        while(rt && L && !/[^ \t\n\r]/.test(arr[L - 1]?.nodeValue)) 
+            L--;        
+
         while (i<L) {
             let srcN = arr[i++]
                 , bl: DOMBuilder;
@@ -1283,10 +1273,17 @@ class RComp {
             }
             
             if (bl) 
-                bldrs.push(bl);
+                bs.push(bl);
         }
-        
-        return bldrs;
+
+        return (L = bs.length) ?
+            L < 2 ? bs[0]
+                : async function Iter(ar: Area)
+                {   
+                    for (let b of bs)
+                        await b(ar);
+                }
+            : N;
     }
 
     // Compile any source element
@@ -1340,7 +1337,7 @@ class RComp {
                                         : m[8] // if
                                             ? this.CAttExp(ats, at)
                                         :   // reacton, hash
-                                          this.CAttExpList<RVAR>(ats, at)
+                                          this.CAttExps<RVAR>(ats, at)
                                 });
                     else { 
                         let txt = ats.g(at);
@@ -1540,7 +1537,7 @@ class RComp {
                             if (src != r.src) {
                                 let 
                                     sv = env
-                                    , C = ass( new RComp(N, L.origin+DL.basepath, s)
+                                    , C = ass( new RComp(N, L.origin + rvu.basepath, s)
                                             , {ws,rt})
                                     , parN = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
                                     , parR = r.pR ||= new Range(N, N, tag)
@@ -2112,38 +2109,45 @@ class RComp {
                 body?: Iterable<ChildNode>,
             }> = [],
             body: ChildNode[] = [],
-            bE: booly, bW: booly;
+            bI = srcE.tagName == 'IF',
+            bT: booly,
+            bE: booly;
         
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement) 
                 switch (n.tagName) {
                     case 'THEN':
-                        var bThen = T;
+                        // In this case 'srcE' holds the relevant attributes
+                        bT = cases.push({n, ats});
+                        // 'n' may not have attributes
                         new Atts(n as HTMLElement).None();
-                        cases.push({n, ats});
                         continue;
                     case 'ELSE':
-                        if (bE) throw "Double ELSE";
+                        if (bE) 
+                            throw "Double <ELSE>";
                         bE = T;
                         // Fall through!
                     case 'WHEN':
                         cases.push({n, ats: new Atts(n)});
-                        bW = !bE
+                        if (bI && !bE)
+                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (srcE.tagName == 'IF' && !bThen)
-            bW ? thro("<IF> contains <WHEN>") : cases.unshift({n: srcE, ats, body});
+        if (bI && !bT)
+            cases.unshift({n: srcE, ats, body});
 
+        type Alt = // represents an "alternative": a compiled WHEN/THEN/ELSE part
+        {
+            cond?: Dep<booly>,  // Condition
+            patt?: {lvars: LVar[], RE: RegExp, url?: boolean},  //Pattern
+            not: boolean,       // Negate
+            b: DOMBuilder,      // Builder
+            n: HTMLElement,     // Source node
+        };
         let 
-            caseList: Array<{
-                cond?: Dep<booly>,
-                not: boolean,
-                patt?: {lvars: LVar[], RE: RegExp, url?: boolean},
-                b: DOMBuilder, 
-                n: HTMLElement,
-            }> = [],
+            aList: Array<Alt> = [],
             {ws, rt, CT}= this,
             postCT = CT,
             postWs: WSpc = 0 // Highest whitespace mode to be reached after any alternative
@@ -2184,7 +2188,7 @@ class RComp {
                         // Fall through!
 
                     case 'ELSE':
-                        caseList.push({
+                        aList.push({
                             cond, not, patt
                             , b: await this.CIncl(n, ats, F, body) || dB
                             , n
@@ -2194,30 +2198,30 @@ class RComp {
                         postCT = postCT.max(this.CT);
                 }
             } 
-            catch (m) { throw n.tagName=='IF' ? m : ErrM(n, m); }
+            catch (m) { throw bI ? m : ErrM(n, m); }
             finally { ES(); }
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
 
-        return caseList.length && async function CASE(ar: Area, bR) {
+        return aList.length && async function CASE(ar: Area, bR) {
             let val = dV?.()
                 , RRE: RegExpExecArray
-                , cAlt: typeof caseList[0];
+                , cAlt: Alt;
             try {
                 // First determine which alternative is to be shown
-                for (var alt of caseList)
+                for (var alt of aList)
                     if ( !(
                         (!alt.cond || alt.cond()) 
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
                         ) == alt.not)
                     { cAlt = alt; break }
             }
-            catch (m) { throw alt.n.tagName=='IF' ? m : ErrM(alt.n, m); }
+            catch (m) { throw alt.n==srcE ? m : ErrM(alt.n, m); }
             finally {
                 if (bH) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
-                    for (let alt of caseList) {
+                    for (let alt of aList) {
                         let {r, sub, cr} = PrepElm(ar, 'WHEN');
                         if ( !(r.n.hidden = alt != cAlt) && !bR
                             || cr
@@ -2248,19 +2252,21 @@ class RComp {
     private CFor(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
 
         // Three unknown but distinguished types, used by the <FOR> construct
-        interface Item {}
-        interface Key {}
-        interface Hash {}        
+        interface Item {}   // Iteration items
+        interface Key {}    // Iteration keys
+        interface Hash {}   // Iteration hash values
 
+        // A ForRange is a range with extra props to hold FOR iteration info
         interface ForRange extends Range {
-            pv?: ForRange;
-            nx: ForRange;
-            key?: Key;
-            hash?: Hash; 
-            moving?: booly;
-            rv?: RVAR<Item>;
-            ix?: RVAR<number>;
+            pv?: ForRange;      // Previous range, for we want FOR ranges doubly linked
+            nx: ForRange;       // Next range is a ForRange too
+            key?: Key;          // Key value
+            hash?: Hash;        // Hash value
+            mov?: booly;        // Used while reordering ranges, to mark ranges to be moved
+            rv?: RVAR<Item>;    // When reactive, the created RVAR for the current item
+            ix?: RVAR<number>;  // Index number
         }
+        // We'll start with collecting the following item information
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = ats.g('let')
@@ -2290,7 +2296,7 @@ class RComp {
                     vNx = this.LV<Item>(nxNm),
 
                     dKey = this.CAttExp<Key>(ats, 'key'),
-                    dHash = this.CAttExpList<Hash>(ats, 'hash'),
+                    dHash = this.CAttExps<Hash>(ats, 'hash'),
 
                     // Compile all childNodes
                     b = await this.CIter(srcE.childNodes);
@@ -2313,10 +2319,10 @@ class RComp {
                                 throw `[of] Value (${iter}) is not iterable`;
 
                             // Map of the current set of child ranges
-                            let keyMap: Map<Key, ForRange> = r.v ||= new Map
+                            let kMap: Map<Key, ForRange> = r.v ||= new Map
 
                             // Map of the newly obtained data
-                                , nwMap = new Map<Key, ItemInfo>()
+                                , nMap = new Map<Key, ItemInfo>()
 
                             // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
                             // Note that a Map remembers the order in which items are added.
@@ -2330,29 +2336,29 @@ class RComp {
                                     vIx(ix);
                                     let hash = dHash?.()
                                         , key = dKey?.() ?? hash?.[0];
-                                    if (key != N && nwMap.has(key))
+                                    if (key != N && nMap.has(key))
                                         throw `Duplicate key '${key}'`;
 
-                                    nwMap.set(key ?? {}, {item, key, hash, ix: ix++});
+                                    nMap.set(key ?? {}, {item, key, hash, ix: ix++});
                                 }
                             }
                             finally { EF() }
 
                             // Now we will either create or re-order and update the DOM
                             let
-                                L = nwMap.size, x: number
+                                L = nMap.size, x: number
                                 , nxR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
                                 , bf: ChildNode
-                                , iter2 =  nwMap.values()
+                                , iter2 =  nMap.values()
                                 , nxIR = iter2.next()       // Next iteration result
                                 , prIt: Item
                                 , prR: Range
                                 , k: Key
                                 , EC = ()=>{
                                     // Erase childranges at the current point with a key that is not in 'nwMap'
-                                    while (nxR && !nwMap.has(k = nxR.key)) {
+                                    while (nxR && !nMap.has(k = nxR.key)) {
                                         if (k != N)
-                                            keyMap.delete(k);
+                                            kMap.delete(k);
                                         nxR.erase(parN);
                                         if (nxR.rv)
                                             nxR.rv.$subs.delete(nxR);
@@ -2367,7 +2373,7 @@ class RComp {
                                 // Inspect the next item
                                 let {item, key, hash, ix} = <ItemInfo>nxIR.value
                                     // See if it already occured in the previous iteration
-                                    , chR = keyMap.get(key)
+                                    , chR = kMap.get(key)
                                     , cr = !chR
                                     , chAr: Area;
 
@@ -2378,18 +2384,18 @@ class RComp {
                                     sub.bfor = bf;
                                     ({r: chR, sub: chAr} = PrepRng(sub));
                                     if (key != N)
-                                        keyMap.set(key, chR);
+                                        kMap.set(key, chR);
                                     chR.key = key;
                                 }
                                 else {
                                     // Item already occurs in the series; chR points to the respective child range
                                     while (nxR != chR)
                                     {
-                                        if (!chR.moving) {
+                                        if (!chR.mov) {
                                             // Item has to be moved; we use two methods
-                                            if ( (x = nwMap.get(nxR.key).ix - ix) * x > L) {
+                                            if ( (x = nMap.get(nxR.key).ix - ix) * x > L) {
                                                 // Either mark the range at the current point to be moved later on, and continue looking
-                                                nxR.moving = T;
+                                                nxR.mov = T;
                                                 
                                                 nxR = nxR.nx;
                                                 EC()
@@ -2404,7 +2410,7 @@ class RComp {
                                         // Move the range ofnodes
                                         for (let n of chR.Nodes())
                                             parN.insertBefore(n, bf);
-                                        chR.moving = F;
+                                        chR.mov = F;
                                         chR.nx = nxR;
                                         break;
                                     }
@@ -3104,7 +3110,7 @@ class RComp {
         catch (m) {throw m+E; } // Compiletime error
     }
 
-    private CAttExpList<T>(ats: Atts, attNm: string): Dep<T[]> {
+    private CAttExps<T>(ats: Atts, attNm: string): Dep<T[]> {
         let L = ats.g(attNm, F, T);
         if (L==N) return N;
         return this.CExpr<T[]>(`[${L}\n]`, attNm);
@@ -3343,46 +3349,49 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 //#endregion
 
 //#region Routing
-class DocLoc extends RV<string> {
-        constructor() {
-            super(L.href);
-            W.addEventListener('popstate', _ => this.V = L.href );
+class RVU extends RV<URL>{
+    query: {[fld: string]: string};
+    constructor() {
+        super(new URL(L.href));
 
-            this.query = <any>new Proxy<DocLoc>(this, {
-               get( DL, key: string) { return DL.url.searchParams.get(key); },
-               set( DL, key: string, val: string) { DL.V = DL.search(key, val); return T}
-           });
+        // Let the RV react on user-triggered browser-URL changes
+        W.addEventListener('popstate', _ => this.U.href = L.href );
+        // Let the browser URL react on RV-changes
+        this.Subscribe(url => {
+            url.href == L.href || history.pushState(N, N, url.href);    // Change URL withour reloading the page
+            S2Hash(); // Scroll to hash, even when URL remains the same
+        });
 
-            this.Subscribe(loc => {
-                let h = (this.url = new URL(loc)).href;
-                h == L.href || history.pushState(N, N, h);    // Change URL withour reloading the page
-                S2Hash(); // Scroll to hash, even when URL remains the same
-            },T,T);
-        }
-        basepath: string;
-        url: URL;
-        get subpath() {return L.pathname.slice(this.basepath.length); }
-        set subpath(s) {
-            this.url.pathname = this.basepath + s;
-            this.V = this.url.href;
-        }
-        query: {[fld: string]: string};
-        search(fld: string, val: string) {
-            let U = new URL(this._v);
-            mapSet(U.searchParams as any, fld, val);
-            return U.href;
-        }
-        RVAR(fld: string, df?: string, nm: string = fld) {
-            let g = () => this.query[fld],
-                rv = RVAR<string>(nm, g(), N, v => this.query[fld] = v);
-            this.Subscribe(_ => rv.V = g() ?? df, T);
-            return rv;
-        }
+        this.query = <any>new Proxy<RVU>(this, {
+            get( rl, key: string) { return rl.V.searchParams.get(key); },
+            set( rl, key: string, val: string) {
+                if (val != rl.V.searchParams.get(key))
+                    mapSet(rl.U.searchParams as any, key, val); 
+                return T;
+            }
+       });
     }
-let
-    _ur = import.meta.url,
-    R: RComp,
-    DL = new DocLoc,
+    
+    basepath: string = U;
+    get subpath()  { return rvu.pathname.slice(this.basepath.length); }
+    set subpath(s) { rvu.pathname = this.basepath + s; }
+
+    search(fld: string, val: string) {
+        let U = new URL(this.V);
+        mapSet(U.searchParams as any, fld, val);
+        return U.href;
+    }
+    RVAR(fld: string, df?: string, nm: string = fld) {
+        let g = () => this.query[fld],
+            rv = RVAR<string>(nm, g(), N, v => this.query[fld] = v);
+        this.Subscribe(_ => rv.V = g() ?? df, T);
+        return rv;
+    }
+}
+
+const rvu = new Proxy<RVU>( new RVU, ProxH ) as RVU & URL;
+export const
+    docLocation = rvu,
     reroute: (arg: MouseEvent | string) => void = 
         arg => {
             if (typeof arg == 'object') {
@@ -3391,17 +3400,19 @@ let
                 arg.preventDefault();
                 arg = (arg.currentTarget as HTMLAnchorElement).href;
             }
-            DL.U = new URL(arg, DL.V).href;
+            rvu.V = new URL(arg, L.href);
         };
-export {DL as docLocation, reroute}
 //#endregion
 
-
+let
+    _ur = import.meta.url,
+    R: RComp;
 if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
 
-let globs = {RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur, debug: Ev('()=>{debugger}')};
 // Define global constants
-ass(G, globs);
+ass(G, {RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}')
+, _ur
+});
 
 export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
@@ -3414,7 +3425,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
                 m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
                 , C = new RComp(
                     N
-                    , L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
+                    , L.origin + (rvu.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
                     , setts
                 );
             /*

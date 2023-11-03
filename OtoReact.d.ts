@@ -95,21 +95,20 @@ type DOMBuilder<RT = void | boolean> = ((ar: Area, bR?: boolean) => Promise<RT>)
 };
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-declare class DocLoc extends RV<string> {
-    constructor();
-    basepath: string;
-    url: URL;
-    get subpath(): string;
-    set subpath(s: string);
+declare class RVU extends RV<URL> {
     query: {
         [fld: string]: string;
     };
+    constructor();
+    basepath: string;
+    get subpath(): string;
+    set subpath(s: string);
     search(fld: string, val: string): string;
     RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
 }
-declare let DL: DocLoc, reroute: (arg: MouseEvent | string) => void;
-export { DL as docLocation, reroute };
+export declare const docLocation: RVU & URL, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {
     b?: booly;
 }, setts?: string | Settings): Promise<void>;
 export declare function DoUpdate(): Promise<void>;
+export {};

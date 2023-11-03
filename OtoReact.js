@@ -434,7 +434,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                     case 10:
                         if (!e.download
                             && !e.target
-                            && e.href.startsWith(L.origin + DL.basepath))
+                            && e.href.startsWith(L.origin + rvu.basepath))
                             e.addEventListener('click', reroute);
                 }
             }
@@ -558,18 +558,9 @@ class RComp {
         return this.CIter(nodes).finally(ES);
     }
     async CIter(iter) {
-        let { rt } = this, arr = Array.from(iter);
-        while (rt && arr.length && !/[^ \t\n\r]/.test(arr[arr.length - 1]?.nodeValue))
-            arr.pop();
-        let bs = await this.CArr(arr, rt), L = bs.length;
-        return !L ? N
-            : async function Iter(ar) {
-                for (let b of bs)
-                    await b(ar);
-            };
-    }
-    async CArr(arr, rt) {
-        let bldrs = [], i = 0, L = arr.length;
+        let { rt } = this, arr = Array.from(iter), L = arr.length, bs = [], i = 0;
+        while (rt && L && !/[^ \t\n\r]/.test(arr[L - 1]?.nodeValue))
+            L--;
         while (i < L) {
             let srcN = arr[i++], bl;
             this.rt = i == L && rt;
@@ -599,9 +590,15 @@ class RComp {
                     }
             }
             if (bl)
-                bldrs.push(bl);
+                bs.push(bl);
         }
-        return bldrs;
+        return (L = bs.length) ?
+            L < 2 ? bs[0]
+                : async function Iter(ar) {
+                    for (let b of bs)
+                        await b(ar);
+                }
+            : N;
     }
     async CElm(srcE, bUH) {
         try {
@@ -621,7 +618,7 @@ class RComp {
                                     : m[8]
                                         ? this.CAttExp(ats, at)
                                         :
-                                            this.CAttExpList(ats, at)
+                                            this.CAttExps(ats, at)
                             });
                     else {
                         let txt = ats.g(at);
@@ -741,7 +738,7 @@ class RComp {
                             bl = async function RHTML(ar) {
                                 let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : dSrc?.();
                                 if (src != r.src) {
-                                    let sv = env, C = ass(new RComp(N, L.origin + DL.basepath, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                    let sv = env, C = ass(new RComp(N, L.origin + rvu.basepath, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
                                     (C.doc = D.createDocumentFragment()).appendChild(tmp);
                                     parR.erase(parN);
                                     parN.innerHTML = Q;
@@ -1100,29 +1097,29 @@ class RComp {
         }
     }
     async CCase(srcE, ats) {
-        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bE, bW;
+        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bI = srcE.tagName == 'IF', bT, bE;
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement)
                 switch (n.tagName) {
                     case 'THEN':
-                        var bThen = T;
+                        bT = cases.push({ n, ats });
                         new Atts(n).None();
-                        cases.push({ n, ats });
                         continue;
                     case 'ELSE':
                         if (bE)
-                            throw "Double ELSE";
+                            throw "Double <ELSE>";
                         bE = T;
                     case 'WHEN':
                         cases.push({ n, ats: new Atts(n) });
-                        bW = !bE;
+                        if (bI && !bE)
+                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (srcE.tagName == 'IF' && !bThen)
-            bW ? thro("<IF> contains <WHEN>") : cases.unshift({ n: srcE, ats, body });
-        let caseList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
+        if (bI && !bT)
+            cases.unshift({ n: srcE, ats, body });
+        let aList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
         for (let { n, ats, body } of cases) {
             let ES = ass(this, { ws, rt, CT: new Context(CT) })
                 .SS();
@@ -1146,7 +1143,7 @@ class RComp {
                         if (patt?.lvars.length && (bH || not))
                             throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
                     case 'ELSE':
-                        caseList.push({
+                        aList.push({
                             cond, not, patt,
                             b: await this.CIncl(n, ats, F, body) || dB,
                             n
@@ -1157,7 +1154,7 @@ class RComp {
                 }
             }
             catch (m) {
-                throw n.tagName == 'IF' ? m : ErrM(n, m);
+                throw bI ? m : ErrM(n, m);
             }
             finally {
                 ES();
@@ -1165,10 +1162,10 @@ class RComp {
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
-        return caseList.length && async function CASE(ar, bR) {
+        return aList.length && async function CASE(ar, bR) {
             let val = dV?.(), RRE, cAlt;
             try {
-                for (var alt of caseList)
+                for (var alt of aList)
                     if (!((!alt.cond || alt.cond())
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
@@ -1176,11 +1173,11 @@ class RComp {
                     }
             }
             catch (m) {
-                throw alt.n.tagName == 'IF' ? m : ErrM(alt.n, m);
+                throw alt.n == srcE ? m : ErrM(alt.n, m);
             }
             finally {
                 if (bH) {
-                    for (let alt of caseList) {
+                    for (let alt of aList) {
                         let { r, sub, cr } = PrepElm(ar, 'WHEN');
                         if (!(r.n.hidden = alt != cAlt) && !bR
                             || cr)
@@ -1206,30 +1203,30 @@ class RComp {
         if (letNm != N) {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = ats.gB('reacting') || ats.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
-                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExpList(ats, 'hash'), b = await this.CIter(srcE.childNodes);
+                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar) {
                     let iter = dOf() || E, { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
                         ({ env, oes } = sEnv);
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                             throw `[of] Value (${iter}) is not iterable`;
-                        let keyMap = r.v || (r.v = new Map), nwMap = new Map(), ix = 0, { EF } = SF(N, {});
+                        let kMap = r.v || (r.v = new Map), nMap = new Map(), ix = 0, { EF } = SF(N, {});
                         try {
                             for await (let item of iter) {
                                 vLet(item);
                                 vIx(ix);
                                 let hash = dHash?.(), key = dKey?.() ?? hash?.[0];
-                                if (key != N && nwMap.has(key))
+                                if (key != N && nMap.has(key))
                                     throw `Duplicate key '${key}'`;
-                                nwMap.set(key ?? {}, { item, key, hash, ix: ix++ });
+                                nMap.set(key ?? {}, { item, key, hash, ix: ix++ });
                             }
                         }
                         finally {
                             EF();
                         }
-                        let L = nwMap.size, x, nxR = r.ch, bf, iter2 = nwMap.values(), nxIR = iter2.next(), prIt, prR, k, EC = () => {
-                            while (nxR && !nwMap.has(k = nxR.key)) {
+                        let L = nMap.size, x, nxR = r.ch, bf, iter2 = nMap.values(), nxIR = iter2.next(), prIt, prR, k, EC = () => {
+                            while (nxR && !nMap.has(k = nxR.key)) {
                                 if (k != N)
-                                    keyMap.delete(k);
+                                    kMap.delete(k);
                                 nxR.erase(parN);
                                 if (nxR.rv)
                                     nxR.rv.$subs.delete(nxR);
@@ -1241,21 +1238,21 @@ class RComp {
                         sub.parR = r;
                         while (!nxIR.done) {
                             EC();
-                            let { item, key, hash, ix } = nxIR.value, chR = keyMap.get(key), cr = !chR, chAr;
+                            let { item, key, hash, ix } = nxIR.value, chR = kMap.get(key), cr = !chR, chAr;
                             if (cr) {
                                 sub.r = N;
                                 sub.prR = prR;
                                 sub.bfor = bf;
                                 ({ r: chR, sub: chAr } = PrepRng(sub));
                                 if (key != N)
-                                    keyMap.set(key, chR);
+                                    kMap.set(key, chR);
                                 chR.key = key;
                             }
                             else {
                                 while (nxR != chR) {
-                                    if (!chR.moving) {
-                                        if ((x = nwMap.get(nxR.key).ix - ix) * x > L) {
-                                            nxR.moving = T;
+                                    if (!chR.mov) {
+                                        if ((x = nMap.get(nxR.key).ix - ix) * x > L) {
+                                            nxR.mov = T;
                                             nxR = nxR.nx;
                                             EC();
                                             continue;
@@ -1266,7 +1263,7 @@ class RComp {
                                     }
                                     for (let n of chR.Nodes())
                                         parN.insertBefore(n, bf);
-                                    chR.moving = F;
+                                    chR.mov = F;
                                     chR.nx = nxR;
                                     break;
                                 }
@@ -1671,7 +1668,7 @@ class RComp {
             throw m + E;
         }
     }
-    CAttExpList(ats, attNm) {
+    CAttExps(ats, attNm) {
         let L = ats.g(attNm, F, T);
         if (L == N)
             return N;
@@ -1804,27 +1801,28 @@ export async function RFetch(input, init) {
         throw `${init?.method || 'GET'} ${input}: ` + e;
     }
 }
-class DocLoc extends RV {
+class RVU extends RV {
     constructor() {
-        super(L.href);
-        W.addEventListener('popstate', _ => this.V = L.href);
-        this.query = new Proxy(this, {
-            get(DL, key) { return DL.url.searchParams.get(key); },
-            set(DL, key, val) { DL.V = DL.search(key, val); return T; }
-        });
-        this.Subscribe(loc => {
-            let h = (this.url = new URL(loc)).href;
-            h == L.href || history.pushState(N, N, h);
+        super(new URL(L.href));
+        this.basepath = U;
+        W.addEventListener('popstate', _ => this.U.href = L.href);
+        this.Subscribe(url => {
+            url.href == L.href || history.pushState(N, N, url.href);
             S2Hash();
-        }, T, T);
+        });
+        this.query = new Proxy(this, {
+            get(rl, key) { return rl.V.searchParams.get(key); },
+            set(rl, key, val) {
+                if (val != rl.V.searchParams.get(key))
+                    mapSet(rl.U.searchParams, key, val);
+                return T;
+            }
+        });
     }
-    get subpath() { return L.pathname.slice(this.basepath.length); }
-    set subpath(s) {
-        this.url.pathname = this.basepath + s;
-        this.V = this.url.href;
-    }
+    get subpath() { return rvu.pathname.slice(this.basepath.length); }
+    set subpath(s) { rvu.pathname = this.basepath + s; }
     search(fld, val) {
-        let U = new URL(this._v);
+        let U = new URL(this.V);
         mapSet(U.searchParams, fld, val);
         return U.href;
     }
@@ -1834,29 +1832,31 @@ class DocLoc extends RV {
         return rv;
     }
 }
-let _ur = import.meta.url, R, DL = new DocLoc, reroute = arg => {
+const rvu = new Proxy(new RVU, ProxH);
+export const docLocation = rvu, reroute = arg => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
         arg.preventDefault();
         arg = arg.currentTarget.href;
     }
-    DL.U = new URL(arg, DL.V).href;
+    rvu.V = new URL(arg, L.href);
 };
-export { DL as docLocation, reroute };
+let _ur = import.meta.url, R;
 if (G._ur) {
     alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`);
     throw Q;
 }
-let globs = { RVAR, range, reroute, RFetch, DoUpdate, docLocation: DL, _ur, debug: Ev('()=>{debugger}') };
-ass(G, globs);
+ass(G, { RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}'),
+    _ur
+});
 export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
             if (typeof setts == 'string')
                 setts = Ev(`({${setts}})`);
             srcN.b = T;
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (DL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
+            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (rvu.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             srcN.innerHTML = Q;
             AJ({ Exec: () => C.Build({
