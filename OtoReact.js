@@ -4,7 +4,8 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     preformatted: E,
     storePrefix: "RVAR_",
     version: 1,
-}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; };
+}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, K = x => () => x, dr = v => v instanceof RV ? v.V : v;
+;
 class Context {
     constructor(C, a) {
         ass(this, C || {
@@ -216,9 +217,16 @@ class Signat {
 }
 export class RV {
     constructor(t) {
+        this.$name = U;
+        this._v = U;
         this.$imm = N;
         this.$subs = new Set();
-        this.Set(t);
+        if (t instanceof Promise) {
+            this._v = U;
+            t.then(v => this.V = v, oes.e);
+        }
+        else
+            this._v = t;
     }
     get V() {
         arAdd(this);
@@ -296,6 +304,9 @@ const ProxH = {
         return T;
     },
     deleteProperty(rv, p) { return delete rv.U[p]; },
+    has(rv, p) {
+        return p in rv || rv.V != N && p in rv._v;
+    }
 };
 export function RVAR(nm, val, store, subs, storeNm, updTo) {
     if (store) {
@@ -312,8 +323,7 @@ export function RVAR(nm, val, store, subs, storeNm, updTo) {
         rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
     updTo &&
         rv.Subscribe(() => updTo.SetDirty(), T);
-    if (typeof val == 'object')
-        rv = new Proxy(rv, ProxH);
+    rv = new Proxy(rv, ProxH);
     if (nm)
         G[nm] = rv;
     return rv;
@@ -331,7 +341,7 @@ let env, pn, oes = { e: N, s: N }, arR, arA, arB, arVars, arAdd = (rv, bA) => ar
     arA = arVars = N;
 }, Jobs = new Set(), hUpd, ro = F, upd = 0, nodeCnt = 0, start, chWins = new Set(), OMods = new Map(), NoTime = (prom) => {
     let t = now();
-    return prom.finally(() => { start += now() - t; });
+    return prom.finally(() => start += now() - t);
 }, AJ = (job) => {
     Jobs.add(job);
     hUpd || (hUpd = setTimeout(DoUpdate, 1));
@@ -350,6 +360,9 @@ class Hndlr {
                 (e || thro)(er);
             }
     }
+    setTarget(ev) {
+        this.S(ev.currentTarget[this.c || (this.c = ChkNm(ev.currentTarget, this.nm))]);
+    }
 }
 function ApplyMods(r, cr, ms, k = 0, xs) {
     ro = T;
@@ -363,6 +376,16 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         e.setAttribute(nm, x);
                         break;
                     case 1:
+                        if (x instanceof RV && x != r[k]) {
+                            let S = ms[i + 1];
+                            if (S?.mt == 8 && S.nm == nm)
+                                if (xs)
+                                    xs[i + 1] = x.Set;
+                                else
+                                    S.d = K(x.Set);
+                            r[k] = x;
+                            x = x.V;
+                        }
                         if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
                             : nm == 'valueasnumber' && e.type == 'number'
                                 ? 'value'
@@ -370,6 +393,16 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                             x = x == N ? Q : x.toString();
                         if (x !== e[nm = M.c])
                             e[nm] = x;
+                        break;
+                    case 8:
+                        if (cr) {
+                            (H = r[k] = new Hndlr).oes = oes;
+                            e.addEventListener(M.ev, H.setTarget.bind(H));
+                            H.nm = nm;
+                        }
+                        else
+                            H = r[k];
+                        H.S = x;
                         break;
                     case 7:
                         if (cr) {
@@ -424,14 +457,14 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                             for (let v of p)
                                 e.classList.remove(v);
                         break;
-                    case 8:
+                    case 9:
                         if (x)
                             k = ApplyMods(r, cr, x.ms, k, x.xs);
                         break;
-                    case 9:
+                    case 10:
                         x.call(e);
                         break;
-                    case 10:
+                    case 11:
                         if (!e.download
                             && !e.target
                             && e.href.startsWith(L.origin + rvu.basepath))
@@ -1069,12 +1102,10 @@ class RComp {
                 let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
-            else if (m[4] || m[11]) {
-                let pArr = (src
+            else if (m[4] || m[11])
+                ex = K(src
                     ? import(this.gURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g, (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
-                ex = () => pArr;
-            }
             else {
                 let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), V;
                 ex = async () => V || (V = Ev(await pTxt));
@@ -1166,7 +1197,7 @@ class RComp {
             let val = dV?.(), RRE, cAlt;
             try {
                 for (var alt of aList)
-                    if (!((!alt.cond || alt.cond())
+                    if (!((!alt.cond || dr(alt.cond()))
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
                         break;
@@ -1205,7 +1236,7 @@ class RComp {
             return this.Framed(async (SF) => {
                 let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar) {
-                    let iter = dOf() || E, { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
+                    let iter = dr(dOf()) || E, { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
                         ({ env, oes } = sEnv);
                         if (!(Symbol.iterator in iter || Symbol.asyncIterator in iter))
                             throw `[of] Value (${iter}) is not iterable`;
@@ -1296,7 +1327,7 @@ class RComp {
                                 vNx(nxIR.value?.item);
                                 if (cr || !hash || hash.some((h, i) => h != chR.hash[i]))
                                     if (rv)
-                                        rv.SetDirty();
+                                        AJ(rv);
                                     else {
                                         await b(iSub);
                                         chR.rv?.$SR(iSub, b, chR.ch);
@@ -1487,7 +1518,7 @@ class RComp {
         if (postWs)
             this.ws = postWs;
         if (nm == 'A' && this.S.bAutoReroute && bf.every(({ nm }) => nm != 'click'))
-            af.push({ mt: 10, d: dU, cu: 1 });
+            af.push({ mt: 11, d: dU, cu: 1 });
         if (bUH)
             af.push({ mt: 1, nm: 'hidden', d: dU, cu: 1 });
         bf.length || (bf = U);
@@ -1508,16 +1539,17 @@ class RComp {
         };
     }
     CAtts(ats) {
-        let bf = [], af = [], m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu) => {
+        let bf = [], af = [], m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu, ev) => {
             let M = { mt, nm, d,
                 cu: cu ||
-                    (d.fx != N ? 1 : 3)
+                    (d.fx != N ? 1 : 3),
+                ev
             };
             if (ap && mt == 7)
                 M.ap = nm == 'click';
             if (mt == 6)
                 M.fp = this.fp;
-            (mt < 8 && nm != 'value' ? bf : af).push(M);
+            (mt < 9 && nm != 'value' ? bf : af).push(M);
         };
         for (let [A, V] of ats)
             if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) {
@@ -1545,14 +1577,14 @@ class RComp {
                     if (m = /[@#](#)?/.exec(t))
                         addM(1, k, this.CExpr(V, k), m[1] && 1);
                     if (cu = /\*/.test(t) + /\+/.test(t) * 2)
-                        addM(9, k, dSet, cu);
+                        addM(10, k, dSet, cu);
                     if (m = /([@!])(\1)?/.exec(t))
-                        addM(7, m[2] ? 'change' : 'input', dSet, 1);
+                        addM(8, k, dS, 5, m[2] ? 'change' : 'input');
                 }
                 else {
                     if (V)
                         throw 'A rest parameter cannot have a value';
-                    addM(8, A, this.CT.getLV(r));
+                    addM(9, A, this.CT.getLV(r));
                 }
                 ats.delete(A);
             }
@@ -1813,8 +1845,10 @@ class RVU extends RV {
         this.query = new Proxy(this, {
             get(rl, key) { return rl.V.searchParams.get(key); },
             set(rl, key, val) {
-                if (val != rl.V.searchParams.get(key))
-                    mapSet(rl.U.searchParams, key, val);
+                if (val != rl.V.searchParams.get(key)) {
+                    mapSet(rl.V.searchParams, key, val);
+                    rl.SetDirty();
+                }
                 return T;
             }
         });
@@ -1893,7 +1927,5 @@ export async function DoUpdate() {
     }
 }
 W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
-setTimeout(() => {
-    for (let src of D.querySelectorAll('*[rhtml]'))
-        RCompile(src, src.getAttribute('rhtml'));
-}, 0);
+setTimeout(() => D.querySelectorAll('*[rhtml]')
+    .forEach(src => RCompile(src, src.getAttribute('rhtml'))), 0);

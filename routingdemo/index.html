@@ -30,7 +30,7 @@
     </script>
   </head>
 
-  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden reacton="docLocation">
+  <body rhtml="basePattern: 'routingdemo/', bAutoReroute: true" hidden>
 
     <main>    
       <menu>
@@ -38,15 +38,15 @@
         <a href="{docLocation.basepath}inventory">Inventory</a>
       </menu>
       
-      <case #value="docLocation.subpath">
+      <CASE #value="docLocation.subpath">
   
-        <when urlmatch="customers">
+        <WHEN urlmatch="customers">
           <title>Customer list</title>
           <h1>Customer list</h1>
 
           <table.>
             <tr.><th.>No.</th.><th.>Name</th.></tr.>
-            <FOR let="cust" of="customers.V">
+            <FOR let="cust" of="customers">
               <tr.>
                 <td.><a href="customer/{cust.no}">{cust.no}</a></td.>
                 <td.>{cust.name}</td.>
@@ -55,9 +55,9 @@
           </table.>
 
           <p>Click a customer no. to see details.</p>
-        </when>
+        </WHEN>
   
-        <when urlmatch="customer/{customerNo}">
+        <WHEN urlmatch="customer/{customerNo}">
           <title>Customer {customerNo}</title>
           <h1>Customer details</h1>
 
@@ -66,7 +66,7 @@
             td:nth-child(2) { min-width: 10em;   }
           </style>
 
-          <def var="cust" #value="customers.V.find(cust => cust.no == customerNo)"></def>
+          <def var="cust" #value="customers.find(cust => cust.no == customerNo)"></def>
           <table #if="cust">
             <tbody>
               <tr><td>No</td>     <td>{cust.no}</td></tr>
@@ -75,34 +75,37 @@
             </tbody>
           </table>
 
-          <p>You can click the 'back' button or select a menu item.</p>
-        </when>
+          <p>You can click the browser 'back' button or select a menu item.</p>
+        </WHEN>
   
-        <when urlmatch="inventory" src="inventory.html"></when>
+        <WHEN urlmatch="inventory" src="inventory.html"></WHEN>
   
-        <else>
+        <ELSE>
           <h1>Routing demo</h1>
           <title>Routing demo</title>
 
-          Please choose from the menu bar.
-        </else>
+          <p>Please choose from the menu bar.</p>
+          <p>Note how you can navigate these pages without any server interaction.</p>
+        </ELSE>
   
-      </case>
-    </main>
+      </CASE>
+    </main>     <!-- Here ends the main application -->
 
     <p>Current values of:</p>
     <table>
       <tbody>
-        <tr> <th>location.origin</th>   <th>location.pathname</th>   <th>docLocation.basepath</th>   <th>docLocation.subpath</th>   </tr>
-        <tr> <td>{location.origin}</td> <td>{location.pathname}</td> <td>{docLocation.basepath}</td> <td>{docLocation.subpath}</td> </tr>
+        <tr><th colspan=2>docLocation.href</th></tr>
+        <tr><td colspan=2>{docLocation.href}</td></tr>
+        <tr> <th>docLocation.origin</th>   <th>docLocation.pathname</th>   <th>docLocation.basepath</th>   <th>docLocation.subpath</th>   </tr>
+        <tr> <td>{docLocation.origin}</td> <td>{docLocation.pathname}</td> <td>{docLocation.basepath}</td> <td>{docLocation.subpath}</td> </tr>
       </tbody>
     </table>
 
-    <p>Full source code of the current application:</p>
+    <p><u>Full</u> source code of the current application:</p>
     
-    <def rvar="sourceCode" #value="RFetch(location.href).then(response => response.text())"></def>
+    <DEF rvar="sourceCode" #value="RFetch(location.href).then(response => response.text())"></DEF>
     <pre>
-{sourceCode.V}
+{sourceCode}
     </pre>
   </body>
 </html>

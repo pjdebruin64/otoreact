@@ -35,6 +35,8 @@ const
                 <T extends {}>(obj: T, props: {}) => T
     , now = () => performance.now()
     , thro = (err: any) => {throw err}
+    , K = x => () => x
+    , dr = v => v instanceof RV ? v.V : v;
     ;
 
 // Type used for truthy / falsy values
@@ -523,12 +525,17 @@ export interface Store {
     setItem(key: string, value: string): void;
 }
 export class RV<T = unknown> {
-    public $name?: string;
+    public $name?: string = U;
     // The value of the variable
-    _v: T;
+    _v: T = U;
 
     constructor(t?: T | Promise<T>) {
-        this.Set(t);
+        if (t instanceof Promise) {
+            this._v = U;
+            t.then(v => this.V = v, oes.e);
+        }
+        else
+            this._v = t;
     }
     // Immediate subscribers
     private $imm: Set<Subscriber<T>> = N;
@@ -637,6 +644,10 @@ const
         },
 
         deleteProperty(rv, p) { return delete rv.U[p]; },
+
+        has(rv, p) {
+            return p in rv || rv.V != N && p in rv._v;
+        }
         /* // This doesn't work with proxies:
         ownKeys(rv) { return Reflect.ownKeys(rv.V); }
         */
@@ -671,7 +682,7 @@ export function RVAR<T>(
     updTo &&      
         rv.Subscribe(()=>updTo.SetDirty(),T)
     
-    if (typeof val == 'object')
+    //if (typeof val == 'object')
         rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
     
     if (nm) 
@@ -739,7 +750,7 @@ let
         // Just await for the given promise, but increment 'start' time with the time the promise has taken,
         // so that this time isn't counted for the calling (runtime) task.
         let t= now();
-        return prom.finally(() => { start += now()-t; })
+        return prom.finally(() => start += now()-t )
     }
     , AJ = (job: Job) => {
         Jobs.add(job);
@@ -757,6 +768,7 @@ type Modifier = {
     cu: CU,             // on create/update
     ap?: booly,         // Truthy when auto-pointer should be handled
     fp?: string,        // File path, when needed
+    ev?: string,
 
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
@@ -771,6 +783,7 @@ const enum MType {
     , SetProps    // Set/update multiple props
     , Src           // Set the src attribute, relative to the current source document, which need not be the current HTML document
     , Event         // Set/update an event handler
+    , Target
     
     // The following modifier types are set áfter element contents has been created/updated.
     , RestParam  // Apply multiple modifiers
@@ -778,7 +791,7 @@ const enum MType {
     , AutoReroute
 }
 type RestArg = {ms: Modifier[], xs: unknown[]};
-type ModifierData = { [k: number]: Set<string>|Hndlr};
+type ModifierData = { [k: number]: any};
 
 // Object to supply DOM event handlers with error handling and 'this' binding.
 // It allows the handler and onerror handlers to be updated without creating a new closure
@@ -805,6 +818,13 @@ class Hndlr {
                     // Call onerror handler or retrow the error
                     (e || thro)(er);
                 }        
+    }
+
+    nm?: string;
+    c?: string;
+    S?: (v: unknown) => void;
+    setTarget(ev: Event) {
+        this.S(ev.currentTarget[this.c ||= ChkNm(ev.currentTarget, this.nm)])
     }
 }
 
@@ -836,6 +856,16 @@ function ApplyMods(
                         break;
 
                     case MType.Prop:
+                        if (x instanceof RV && x != r[k]) {
+                            let S = ms[i+1];
+                            if (S?.mt == MType.Target && S.nm == nm)
+                                if (xs)
+                                    xs[i+1] = x.Set;
+                                else
+                                    S.d = K(x.Set);
+                            r[k] = x;
+                            x = x.V;
+                        }
                         // For string properties, make sure val is a string
                         if (M.isS ??= typeof e[
                             // And (in any case) determine properly cased name
@@ -852,7 +882,20 @@ function ApplyMods(
                             e[nm] = x;
                         break;
 
-                    case MType.Event:                        
+                    case MType.Target:
+                        // Set and remember new handler
+                        if (cr) {
+                            (H = r[k] = new Hndlr).oes = oes;
+                            e.addEventListener(M.ev, H.setTarget.bind(H));
+                            H.nm = nm;
+                        }
+                        else
+                            H = <Hndlr>r[k];
+
+                        H.S = x as (v: unknown) => void;
+                        break;
+
+                    case MType.Event:
                         // Set and remember new handler
                         if (cr) {
                             (H = r[k] = new Hndlr).oes = oes;
@@ -2046,10 +2089,10 @@ class RComp {
                     )();
                 ex = async() => (await prom)(env);
             } 
-            else if (m[4] || m[11]) {
+            else if (m[4] || m[11])
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
-                let pArr: Promise<object>
-                    = ( src 
+                ex = K(
+                     src 
                     ?   import(this.gURL(src)) // External script
                     :   import(
                             // For internal scripts, we must create an "ObjectURL"
@@ -2067,8 +2110,6 @@ class RComp {
                             // And the ObjectURL has to be revoked
                         ).finally(() => URL.revokeObjectURL(src))
                     );
-                ex = () => pArr;
-            }
             else {
                 // Classic or otoreact/static or otoreact/global script
                 let pTxt: Promise<string>
@@ -2212,7 +2253,7 @@ class RComp {
                 // First determine which alternative is to be shown
                 for (var alt of aList)
                     if ( !(
-                        (!alt.cond || alt.cond()) 
+                        (!alt.cond || dr(alt.cond())) 
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
                         ) == alt.not)
                     { cAlt = alt; break }
@@ -2306,7 +2347,7 @@ class RComp {
                 return b && async function FOR(ar: Area /* , bR: booly */ ) {
                     let 
                         iter: Iterable<Item> | Promise<Iterable<Item>>
-                            = dOf() || E
+                            = dr(dOf()) || E
                         , {r, sub} = PrepRng<{v:Map<Key, ForRange>}>(ar, srcE, Q)
                         , {parN} = sub
                         , bfor = sub.bfor !== U ? sub.bfor : r.Nxt
@@ -2464,7 +2505,7 @@ class RComp {
                                     if (cr || !hash || hash.some((h,i) => h != chR.hash[i])
                                     )
                                         if (rv)
-                                            rv.SetDirty();
+                                            AJ(rv);
                                         else 
                                         {   // Build
                                             await b(iSub);
@@ -2861,12 +2902,14 @@ class RComp {
             (mt: MType, nm: string
                 , d: Dep<unknown> & {fx?: string}
                 , cu?: CU  // Has this modifier to be executed on create / update / both
+                , ev?: string
             ) => {
                 let M: Modifier = 
                     {mt, nm, d
                         , cu: cu ||
                             // When the attribute value is a string constant, then it need only be set on create
                             (d.fx != N ? 1 : 3)
+                        , ev
                     };
                 if (ap && mt == MType.Event) M.ap = nm == 'click';
                 if (mt == MType.Src) M.fp = this.fp;
@@ -2929,7 +2972,8 @@ class RComp {
                         addM(MType.exec, k, dSet, cu);
 
                     if (m=/([@!])(\1)?/.exec(t))
-                        addM(MType.Event, m[2] ? 'change' : 'input', dSet, 1);
+                        //addM(MType.Event, m[2] ? 'change' : 'input', dSet, 1);
+                        addM(MType.Target, k, dS, 5 as CU, m[2] ? 'change' : 'input')
                 }
 
                 else //if (n) 
@@ -3365,8 +3409,10 @@ class RVU extends RV<URL>{
         this.query = <any>new Proxy<RVU>(this, {
             get( rl, key: string) { return rl.V.searchParams.get(key); },
             set( rl, key: string, val: string) {
-                if (val != rl.V.searchParams.get(key))
-                    mapSet(rl.U.searchParams as any, key, val); 
+                if (val != rl.V.searchParams.get(key)) {
+                    mapSet(rl.V.searchParams as any, key, val);
+                    rl.SetDirty();
+                }
                 return T;
             }
        });
@@ -3478,7 +3524,7 @@ export async function DoUpdate() {
 W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
 
 // Initiate compilation of marked elements
-setTimeout(() => {
-    for (let src of <NodeListOf<HTMLElement>>D.querySelectorAll('*[rhtml]'))
-        RCompile(src, src.getAttribute('rhtml'))  // Options
-}, 0);
+setTimeout(() => 
+    (D.querySelectorAll('*[rhtml]') as NodeListOf<HTMLElement>)
+    .forEach(src => RCompile(src, src.getAttribute('rhtml')))  // Options
+, 0);

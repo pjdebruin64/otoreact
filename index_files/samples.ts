@@ -66,15 +66,15 @@ const sampleGreeting=
 <p>
     What's your name?
     <!-- The value of the RVAR ('yourName.V') is bound to the value of the input element -->
-    <input type=text @value="yourName.V">
+    <input type=text @value="yourName">
 </p>
 
 <!-- If yourName.V is nonempty, -->
-<IF cond="yourName != '' ">
+<IF cond="yourName">
     <!-- then we show: -->
     <p>
         Nice to meet you, {yourName}. <!-- yourName.V is inserted here -->
-        <br>By the way, your name consists of {yourName.V.length} characters.
+        <br>By the way, your name consists of {yourName.length} characters.
     </p>
 </IF>`;
 
@@ -111,8 +111,8 @@ const sampleTicTacToe =
   defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
 >
     let
-      board =    RVAR(),           // State of the board
-      toMove =   RVAR(null, '✕'), // Player to move: '◯' or '✕'
+      board =    RVAR(),    // State of the board
+      toMove =   RVAR(null, '✕'),  // Player to move: '◯' or '✕'
       outcome =  RVAR(),    // Player that has won, or boolean true when it's a draw
       count = 0;            // Number of moves made
 
@@ -166,7 +166,7 @@ const sampleTicTacToe =
   <!-- Show the board -->
   <table.>
           <!-- This table should react on the RVAR 'board'. -->
-    <for let=row of="board.V">
+    <for let=row of="board">
       <tr.>
         <for let=cell of="row" reacting>
           <td. onclick="Move(cell)"
@@ -283,7 +283,7 @@ function StartStop() {
     'hash=C' tells OtoReact that it doesn't need to update the body of each iteration if 'C' remains the same object.
   -->
   <tbody.>
-    <FOR let=C of="ColorTable.V" hash=C>
+    <FOR let=C of="ColorTable" hash=C>
       <tr. 
         style.backgroundColor="rgb({C.red},{C.green},{C.blue})" 
         #style.color = "C.green<148 ? 'white' : 'black'"
@@ -333,22 +333,22 @@ const sampleGreeting2 =
 <define rvar='yourName' store=sessionStorage></define>
 
 <p>What's your name?
-  <input type=text @value="yourName.V">
+  <input type=text @value="yourName">
   <!-- The "@" introduces a two-way binding for the input element.
   Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
-<if cond="yourName.V">
-  <p> Nice to meet you, {yourName.V}.
-    <br>By the way, your name consists of {yourName.V.length} 
+<if cond="yourName">
+  <p> Nice to meet you, {yourName}.
+    <br>By the way, your name consists of {yourName.length} 
         characters.
   </p>
 </if>`;
 
 const sampleSqrt=
 `<define rvar=x #value=2></define>
-<p  title="sqrt({x.V}) = {Math.sqrt(x.V)}"
+<p  title="sqrt({x}) = {Math.sqrt(x)}"
 >
-    What is sqrt({x.V})? Check the tooltip.
+    What is sqrt({x})? Check the tooltip.
 </p>
 <button onclick="x.V += 1">Increment</button>`;
 
@@ -372,7 +372,7 @@ const sampleParticipants=
 
 <b>Participants:</b>
 <ul>
-    <for let=participant of="Participants.V">
+    <for let=participant of="Participants">
         <li>{participant}</li>
     </for>
 </ul>
@@ -412,11 +412,11 @@ const sampleTODO=
     <template>
         <p><b>{caption}</b></p>
         <p>
-            <for let=item of=TODO.V key=item reactive>
+            <for let=item of=TODO key=item updates=TODO>
                 <!-- 'bdone' must be in lowercase -->
                 <if cond='item[1] == bdone'>
                     <label style="display: block">
-                      <input type=checkbox @checked='item.U[1]'> 
+                      <input type=checkbox @checked='item[1]'> 
                       {item[0]}
                     </label>
                 </if>
@@ -478,7 +478,7 @@ const sampleRecursion=
 ></define>
 
 <p>
-    JavaScript list: <input type=text @value="list.V" size=30>
+    JavaScript list: <input type=text @value="list" size=30>
 </p>
 
 <ShowList #arg="eval(list.V)"></ShowList>
@@ -573,11 +573,11 @@ const sampleRHTML =
 `<define rvar=sourcecode
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
-<textarea @value="sourcecode.V" rows=3 cols=50></textarea>
+<textarea @value="sourcecode" rows=3 cols=50></textarea>
 <p>
 <RHTML #srctext=sourcecode.V></RHTML>
 <p>
-<RHTML>{srctext.V}</RHTML>`;
+<RHTML>{srctext}</RHTML>`;
 
 const sampleStyleTemplate =
 `<def rvar=Hue value="0.0"></def>
@@ -591,7 +591,7 @@ const sampleStyleTemplate =
 Section contents
 <h2>Another section head</h2>
 <button onclick="Hue.V = (Math.random() * 360).toFixed(1)">Change hue</button>
-Current hue is: {Hue.V}.`;
+Current hue is: {Hue}.`;
 
 const C1=
 `<!-- Component signature with parameter -->
@@ -736,8 +736,8 @@ const sampleRadioGroup=
   <radiobutton value=OtoReact>OtoReact</radiobutton>
 </radiogroup>
 
-<p #if="answer.V">
-  You answered <b>{answer.V}</b>.
+<p #if="answer">
+  You answered <b>{answer}</b>.
 </p>`
 
 const demoRendering=
@@ -760,22 +760,22 @@ const demoRendering=
 <ul> <li> x = \\{x\\} </ul>
 <comment> x = \\{x\\} </comment>"
 ></def>
-<textarea rows=5 cols=50 @value=source.V></textarea>
+<textarea rows=5 cols=50 @value=source></textarea>
 
 <h5>Source DOM tree:</h5>
 <def rvar=SourceDOM></def>
-<div hidden #innerhtml=source.V 
+<div hidden #innerhtml=source 
     *+innerhtml= "SourceDOM.V"
 ></div>
-<pre>{SourceDOM.V}</pre>
+<pre>{SourceDOM}</pre>
 
 <h5>RHTML rendered output:</h5>
 <def rvar=Result></def>
 <rhtml oncreateupdate= "Result.V = this.shadowRoot.innerHTML"
->{source.V}</rhtml>
+>{source}</rhtml>
 
 <h5>Created DOM tree:</h5>
-<pre>{Result.V}</pre>`;
+<pre>{Result}</pre>`;
 
 const demoScoping=
 `(Look at the source code please)
@@ -825,7 +825,7 @@ const demoRadiogroup=
   <radiobutton value="None">I don't have a favorite</radiobutton>
 </radiogroup>
 
-<case #value="favColor.V">
+<case #value="favColor">
   <when match="None">
     <p>Oh, I'm sorry to hear that.</p>
   </when>
@@ -879,9 +879,9 @@ const demoTables =
 </div>
 
 <div class=multi>
-  <FOR let=y of="range(1,maxY)">
+  <FOR let=y of="range(1,maxY.V)">
       <div>
-          <FOR let=x of="range(1,maxX)">
+          <FOR let=x of="range(1,maxX.V)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>
@@ -901,13 +901,13 @@ const demoTwoWayRVAR = `
 
 Please enter some numbers:
 <for let="i" of="range(5)">
-  <DEFINE RVAR="num" @VALUE="data.U[i]"></DEFINE>
+  <DEFINE RVAR="num" @VALUE="data[i]"></DEFINE>
 
   <input type="number" @valueasnumber="num.V">
 </for>
 
 <p>
-  The sum is \{data.V.reduce((a,b)=>a+b,0)}
+  The sum is \{data.reduce((a,b)=>a+b,0)}
 </p>`
 
 const demoAutoSubscribtion = `
