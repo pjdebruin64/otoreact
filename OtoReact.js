@@ -621,7 +621,7 @@ class RComp {
                                     : m[8]
                                         ? this.CAttExp(ats, at)
                                         :
-                                            this.CAttExpList(ats, at)
+                                            this.CAttExps(ats, at)
                             });
                     else {
                         let txt = ats.g(at);
@@ -1100,29 +1100,29 @@ class RComp {
         }
     }
     async CCase(srcE, ats) {
-        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bE, bW;
+        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bI = srcE.tagName == 'IF', bT, bE;
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement)
                 switch (n.tagName) {
                     case 'THEN':
-                        var bThen = T;
+                        bT = cases.push({ n, ats });
                         new Atts(n).None();
-                        cases.push({ n, ats });
                         continue;
                     case 'ELSE':
                         if (bE)
-                            throw "Double ELSE";
+                            throw "Double <ELSE>";
                         bE = T;
                     case 'WHEN':
                         cases.push({ n, ats: new Atts(n) });
-                        bW = !bE;
+                        if (bI && !bE)
+                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (srcE.tagName == 'IF' && !bThen)
-            bW ? thro("<IF> contains <WHEN>") : cases.unshift({ n: srcE, ats, body });
-        let caseList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
+        if (bI && !bT)
+            cases.unshift({ n: srcE, ats, body });
+        let aList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
         for (let { n, ats, body } of cases) {
             let ES = ass(this, { ws, rt, CT: new Context(CT) })
                 .SS();
@@ -1146,7 +1146,7 @@ class RComp {
                         if (patt?.lvars.length && (bH || not))
                             throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
                     case 'ELSE':
-                        caseList.push({
+                        aList.push({
                             cond, not, patt,
                             b: await this.CIncl(n, ats, F, body) || dB,
                             n
@@ -1157,7 +1157,7 @@ class RComp {
                 }
             }
             catch (m) {
-                throw n.tagName == 'IF' ? m : ErrM(n, m);
+                throw bI ? m : ErrM(n, m);
             }
             finally {
                 ES();
@@ -1165,10 +1165,10 @@ class RComp {
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
-        return caseList.length && async function CASE(ar, bR) {
+        return aList.length && async function CASE(ar, bR) {
             let val = dV?.(), RRE, cAlt;
             try {
-                for (var alt of caseList)
+                for (var alt of aList)
                     if (!((!alt.cond || alt.cond())
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
@@ -1176,11 +1176,11 @@ class RComp {
                     }
             }
             catch (m) {
-                throw alt.n.tagName == 'IF' ? m : ErrM(alt.n, m);
+                throw alt.n == srcE ? m : ErrM(alt.n, m);
             }
             finally {
                 if (bH) {
-                    for (let alt of caseList) {
+                    for (let alt of aList) {
                         let { r, sub, cr } = PrepElm(ar, 'WHEN');
                         if (!(r.n.hidden = alt != cAlt) && !bR
                             || cr)
@@ -1206,7 +1206,7 @@ class RComp {
         if (letNm != N) {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = ats.gB('reacting') || ats.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
-                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExpList(ats, 'hash'), b = await this.CIter(srcE.childNodes);
+                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar) {
                     let iter = dOf() || E, { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
                         ({ env, oes } = sEnv);
@@ -1253,9 +1253,9 @@ class RComp {
                             }
                             else {
                                 while (nxR != chR) {
-                                    if (!chR.moving) {
+                                    if (!chR.mov) {
                                         if ((x = nwMap.get(nxR.key).ix - ix) * x > L) {
-                                            nxR.moving = T;
+                                            nxR.mov = T;
                                             nxR = nxR.nx;
                                             EC();
                                             continue;
@@ -1266,7 +1266,7 @@ class RComp {
                                     }
                                     for (let n of chR.Nodes())
                                         parN.insertBefore(n, bf);
-                                    chR.moving = F;
+                                    chR.mov = F;
                                     chR.nx = nxR;
                                     break;
                                 }
@@ -1671,7 +1671,7 @@ class RComp {
             throw m + E;
         }
     }
-    CAttExpList(ats, attNm) {
+    CAttExps(ats, attNm) {
         let L = ats.g(attNm, F, T);
         if (L == N)
             return N;

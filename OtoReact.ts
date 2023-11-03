@@ -1340,7 +1340,7 @@ class RComp {
                                         : m[8] // if
                                             ? this.CAttExp(ats, at)
                                         :   // reacton, hash
-                                          this.CAttExpList<RVAR>(ats, at)
+                                          this.CAttExps<RVAR>(ats, at)
                                 });
                     else { 
                         let txt = ats.g(at);
@@ -2112,38 +2112,45 @@ class RComp {
                 body?: Iterable<ChildNode>,
             }> = [],
             body: ChildNode[] = [],
-            bE: booly, bW: booly;
+            bI = srcE.tagName == 'IF',
+            bT: booly,
+            bE: booly;
         
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement) 
                 switch (n.tagName) {
                     case 'THEN':
-                        var bThen = T;
+                        // In this case 'srcE' holds the relevant attributes
+                        bT = cases.push({n, ats});
+                        // 'n' may not have attributes
                         new Atts(n as HTMLElement).None();
-                        cases.push({n, ats});
                         continue;
                     case 'ELSE':
-                        if (bE) throw "Double ELSE";
+                        if (bE) 
+                            throw "Double <ELSE>";
                         bE = T;
                         // Fall through!
                     case 'WHEN':
                         cases.push({n, ats: new Atts(n)});
-                        bW = !bE
+                        if (bI && !bE)
+                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (srcE.tagName == 'IF' && !bThen)
-            bW ? thro("<IF> contains <WHEN>") : cases.unshift({n: srcE, ats, body});
+        if (bI && !bT)
+            cases.unshift({n: srcE, ats, body});
 
+        type Alt = // represents an "alternative": a compiled WHEN/THEN/ELSE part
+        {
+            cond?: Dep<booly>,  // Condition
+            patt?: {lvars: LVar[], RE: RegExp, url?: boolean},  //Pattern
+            not: boolean,       // Negate
+            b: DOMBuilder,      // Builder
+            n: HTMLElement,     // Source node
+        };
         let 
-            caseList: Array<{
-                cond?: Dep<booly>,
-                not: boolean,
-                patt?: {lvars: LVar[], RE: RegExp, url?: boolean},
-                b: DOMBuilder, 
-                n: HTMLElement,
-            }> = [],
+            aList: Array<Alt> = [],
             {ws, rt, CT}= this,
             postCT = CT,
             postWs: WSpc = 0 // Highest whitespace mode to be reached after any alternative
@@ -2184,7 +2191,7 @@ class RComp {
                         // Fall through!
 
                     case 'ELSE':
-                        caseList.push({
+                        aList.push({
                             cond, not, patt
                             , b: await this.CIncl(n, ats, F, body) || dB
                             , n
@@ -2194,30 +2201,30 @@ class RComp {
                         postCT = postCT.max(this.CT);
                 }
             } 
-            catch (m) { throw n.tagName=='IF' ? m : ErrM(n, m); }
+            catch (m) { throw bI ? m : ErrM(n, m); }
             finally { ES(); }
         }
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
 
-        return caseList.length && async function CASE(ar: Area, bR) {
+        return aList.length && async function CASE(ar: Area, bR) {
             let val = dV?.()
                 , RRE: RegExpExecArray
-                , cAlt: typeof caseList[0];
+                , cAlt: Alt;
             try {
                 // First determine which alternative is to be shown
-                for (var alt of caseList)
+                for (var alt of aList)
                     if ( !(
                         (!alt.cond || alt.cond()) 
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
                         ) == alt.not)
                     { cAlt = alt; break }
             }
-            catch (m) { throw alt.n.tagName=='IF' ? m : ErrM(alt.n, m); }
+            catch (m) { throw alt.n==srcE ? m : ErrM(alt.n, m); }
             finally {
                 if (bH) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
-                    for (let alt of caseList) {
+                    for (let alt of aList) {
                         let {r, sub, cr} = PrepElm(ar, 'WHEN');
                         if ( !(r.n.hidden = alt != cAlt) && !bR
                             || cr
@@ -2248,19 +2255,21 @@ class RComp {
     private CFor(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
 
         // Three unknown but distinguished types, used by the <FOR> construct
-        interface Item {}
-        interface Key {}
-        interface Hash {}        
+        interface Item {}   // Iteration items
+        interface Key {}    // Iteration keys
+        interface Hash {}   // Iteration hash values
 
+        // A ForRange is a range with extra props to hold FOR iteration info
         interface ForRange extends Range {
-            pv?: ForRange;
-            nx: ForRange;
-            key?: Key;
-            hash?: Hash; 
-            moving?: booly;
-            rv?: RVAR<Item>;
-            ix?: RVAR<number>;
+            pv?: ForRange;      // Previous range, for we want FOR ranges doubly linked
+            nx: ForRange;       // Next range is a ForRange too
+            key?: Key;          // Key value
+            hash?: Hash;        // Hash value
+            mov?: booly;        // Used while reordering ranges, to mark ranges to be moved
+            rv?: RVAR<Item>;    // When reactive, the created RVAR for the current item
+            ix?: RVAR<number>;  // Index number
         }
+        // We'll start with collecting the following item information
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = ats.g('let')
@@ -2290,7 +2299,7 @@ class RComp {
                     vNx = this.LV<Item>(nxNm),
 
                     dKey = this.CAttExp<Key>(ats, 'key'),
-                    dHash = this.CAttExpList<Hash>(ats, 'hash'),
+                    dHash = this.CAttExps<Hash>(ats, 'hash'),
 
                     // Compile all childNodes
                     b = await this.CIter(srcE.childNodes);
@@ -2385,11 +2394,11 @@ class RComp {
                                     // Item already occurs in the series; chR points to the respective child range
                                     while (nxR != chR)
                                     {
-                                        if (!chR.moving) {
+                                        if (!chR.mov) {
                                             // Item has to be moved; we use two methods
                                             if ( (x = nwMap.get(nxR.key).ix - ix) * x > L) {
                                                 // Either mark the range at the current point to be moved later on, and continue looking
-                                                nxR.moving = T;
+                                                nxR.mov = T;
                                                 
                                                 nxR = nxR.nx;
                                                 EC()
@@ -2404,7 +2413,7 @@ class RComp {
                                         // Move the range ofnodes
                                         for (let n of chR.Nodes())
                                             parN.insertBefore(n, bf);
-                                        chR.moving = F;
+                                        chR.mov = F;
                                         chR.nx = nxR;
                                         break;
                                     }
@@ -3104,7 +3113,7 @@ class RComp {
         catch (m) {throw m+E; } // Compiletime error
     }
 
-    private CAttExpList<T>(ats: Atts, attNm: string): Dep<T[]> {
+    private CAttExps<T>(ats: Atts, attNm: string): Dep<T[]> {
         let L = ats.g(attNm, F, T);
         if (L==N) return N;
         return this.CExpr<T[]>(`[${L}\n]`, attNm);
