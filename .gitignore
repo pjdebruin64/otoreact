@@ -1,3 +1,4 @@
 publish.bat
 tsconfig.2015.json
 tsconfig.2015.tsbuildinfo
+*.tsbuildinfo
