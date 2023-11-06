@@ -70,7 +70,7 @@ const sampleGreeting=
 </p>
 
 <!-- If yourName.V is nonempty, -->
-<IF cond="yourName">
+<IF cond="yourName.V">
     <!-- then we show: -->
     <p>
         Nice to meet you, {yourName}. <!-- yourName.V is inserted here -->
@@ -253,7 +253,7 @@ function StartStop() {
   }
   else
     // Modify the data array every 330ms; the DOM table will automatically be updated accordingly.
-    handle.V = setInterval( () => ColorTable.U.push(ColorTable.V.shift()) , 350)
+    handle.V = setInterval( () => ColorTable.U.push(ColorTable.shift()) , 350)
 }
 </script>
 
@@ -337,7 +337,7 @@ const sampleGreeting2 =
   <!-- The "@" introduces a two-way binding for the input element.
   Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
-<if cond="yourName">
+<if cond="yourName.V">
   <p> Nice to meet you, {yourName}.
     <br>By the way, your name consists of {yourName.length} 
         characters.
@@ -570,14 +570,14 @@ td { text-align: center }
 `;
 
 const sampleRHTML =
-`<define rvar=sourcecode
+`<define rvar=source
         value="1 + 1 = <b>\\{1+1\\}</b>"
 ></define>
-<textarea @value="sourcecode" rows=3 cols=50></textarea>
+<textarea @value="source" rows=3 cols=50></textarea>
 <p>
-<RHTML #srctext=sourcecode.V></RHTML>
+<RHTML #srctext=source.V></RHTML>
 <p>
-<RHTML>{srctext}</RHTML>`;
+<RHTML reacton=source>{source}</RHTML>`;
 
 const sampleStyleTemplate =
 `<def rvar=Hue value="0.0"></def>
@@ -674,7 +674,7 @@ h3 {color: green}
     </style>
     <h3>This is a separate document.</h3>
     <label>
-        <input type=checkbox @checked=check.V> Check me!
+        <input type=checkbox @checked=check> Check me!
     </label>
 </document>
 
@@ -690,7 +690,7 @@ and note how the checkbox in the popup browser window is synchronized with the c
 
 <p>
 <label>
-    <input type=checkbox @checked=check.V> Checked.
+    <input type=checkbox @checked=check> Checked.
 </label>
 <p>
 
@@ -736,7 +736,7 @@ const sampleRadioGroup=
   <radiobutton value=OtoReact>OtoReact</radiobutton>
 </radiogroup>
 
-<p #if="answer">
+<p #if="answer.V">
   You answered <b>{answer}</b>.
 </p>`
 
@@ -871,17 +871,17 @@ const demoTables =
 
 <div class=multi>
   <label>Number of tables:
-    <input type=number @valueAsNumber=maxY.V>
+    <input type=number @valueAsNumber=maxY>
   </label>
   <label>Number of rows:
-    <input type=number @valueAsNumber=maxX.V>
+    <input type=number @valueAsNumber=maxX>
   </label>
 </div>
 
 <div class=multi>
-  <FOR let=y of="range(1,maxY.V)">
+  <FOR let=y of="range(1,maxY)">
       <div>
-          <FOR let=x of="range(1,maxX.V)">
+          <FOR let=x of="range(1,maxX)">
               <div>{x} x {y} = {x * y}</div>
           </FOR>
       </div>
@@ -903,7 +903,7 @@ Please enter some numbers:
 <for let="i" of="range(5)">
   <DEFINE RVAR="num" @VALUE="data[i]"></DEFINE>
 
-  <input type="number" @valueasnumber="num.V">
+  <input type="number" @valueasnumber="num">
 </for>
 
 <p>

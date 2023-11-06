@@ -346,6 +346,12 @@ let env, pn, oes = { e: N, s: N }, arR, arA, arB, arVars, arAdd = (rv, bA) => ar
     Jobs.add(job);
     hUpd || (hUpd = setTimeout(DoUpdate, 1));
 };
+let evM = (M) => {
+    let v = M.d();
+    if (v instanceof RV && M.T)
+        arAdd(v);
+    return v;
+};
 class Hndlr {
     hndl(ev, ...r) {
         if (this.h)
@@ -376,14 +382,11 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         e.setAttribute(nm, x);
                         break;
                     case 1:
-                        if (x instanceof RV && x != r[k]) {
-                            let S = ms[i + 1];
-                            if (S?.mt == 8 && S.nm == nm)
-                                if (xs)
-                                    xs[i + 1] = x.Set;
-                                else
-                                    S.d = K(x.Set);
-                            r[k] = x;
+                        if (x instanceof RV) {
+                            if (M.T && x != r[k]) {
+                                M.T.d = K(xs ? xs[i + 1] = x.Set : x.Set);
+                                r[k] = x;
+                            }
                             x = x.V;
                         }
                         if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
@@ -1197,7 +1200,7 @@ class RComp {
             let val = dV?.(), RRE, cAlt;
             try {
                 for (var alt of aList)
-                    if (!((!alt.cond || dr(alt.cond()))
+                    if (!((!alt.cond || alt.cond())
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
                         break;
@@ -1474,7 +1477,7 @@ class RComp {
             ro = T;
             gArgs.push({
                 nm: RP,
-                dG: () => ({ ms: bf, xs: bf.map(M => M.d()) })
+                dG: () => ({ ms: bf, xs: bf.map(evM) })
             });
             ro = F;
         }
@@ -1484,11 +1487,13 @@ class RComp {
             if (cdef)
                 try {
                     ro = T;
-                    for (let { nm, dG, dS } of gArgs)
+                    for (let { nm, dG, dS } of gArgs) {
+                        let v = dG();
                         if (dS)
-                            (args[nm] || (args[nm] = RVAR(U, U, U, dS())))._v = dG();
+                            (args[nm] || (args[nm] = RVAR(U, U, U, v instanceof RV ? v.Set : dS())))._v = dr(v);
                         else
-                            args[nm] = dG();
+                            args[nm] = v;
+                    }
                     arChk();
                     env = cdef.env;
                     for (let tmpl of cdef.tmps)
@@ -1524,7 +1529,7 @@ class RComp {
         bf.length || (bf = U);
         af.length || (af = U);
         return async function ELM(ar, bR) {
-            let { r, sub, cr } = PrepElm(ar, nm || dTag()), k = bf && ApplyMods(r, cr, bf), xs = (ro = af)?.map(M => M.d());
+            let { r, sub, cr } = PrepElm(ar, nm || dTag()), k = bf && ApplyMods(r, cr, bf), xs = (ro = af)?.map(evM);
             ro = F;
             if (cr) {
                 for (let nm of lscl)
@@ -1549,7 +1554,8 @@ class RComp {
                 M.ap = nm == 'click';
             if (mt == 6)
                 M.fp = this.fp;
-            (mt < 9 && nm != 'value' ? bf : af).push(M);
+            (mt >= 9 || nm == 'value' && ats.elm.tagName == 'SELECT' ? af : bf).push(M);
+            return M;
         };
         for (let [A, V] of ats)
             if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) {
@@ -1568,18 +1574,18 @@ class RComp {
                         : dV, (e && !p || h) && 1);
                 }
                 else if (t) {
-                    let cu, dS = this.CTarget(V), cnm, dSet = () => {
-                        let S = dS();
-                        return k ?
-                            function () { S(this[cnm || (cnm = ChkNm(this, k))]); }
-                            : function () { S(this); };
-                    };
-                    if (m = /[@#](#)?/.exec(t))
-                        addM(1, k, this.CExpr(V, k), m[1] && 1);
-                    if (cu = /\*/.test(t) + /\+/.test(t) * 2)
-                        addM(10, k, dSet, cu);
+                    let cu, dS = this.CTarget(V), cnm, M = (m = /[@#](#)?/.exec(t))
+                        ? addM(1, k, this.CExpr(V, k), m[1] && 1)
+                        : {};
                     if (m = /([@!])(\1)?/.exec(t))
-                        addM(8, k, dS, 5, m[2] ? 'change' : 'input');
+                        M.T = addM(8, k, dS, 3, m[2] ? 'change' : 'input');
+                    if (cu = /\*/.test(t) + /\+/.test(t) * 2)
+                        addM(10, k, () => {
+                            let S = dS();
+                            return k ?
+                                function () { S(this[cnm || (cnm = ChkNm(this, k))]); }
+                                : function () { S(this); };
+                        }, cu);
                 }
                 else {
                     if (V)
@@ -1745,6 +1751,7 @@ class RComp {
 class Atts extends Map {
     constructor(elm) {
         super();
+        this.elm = elm;
         for (let a of elm.attributes)
             if (!/^_/.test(a.name))
                 super.set(a.name, a.value);

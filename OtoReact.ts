@@ -772,6 +772,12 @@ type Modifier = {
 
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
+    T?: Modifier,       // For TWO-way properties, the corresponding Target modifier
+}
+let evM = (M: Modifier) => {
+    let v = M.d();
+    if (v instanceof RV && M.T) arAdd(v);
+    return v;
 }
 // Modifier Types
 const enum MType {
@@ -856,14 +862,13 @@ function ApplyMods(
                         break;
 
                     case MType.Prop:
-                        if (x instanceof RV && x != r[k]) {
-                            let S = ms[i+1];
-                            if (S?.mt == MType.Target && S.nm == nm)
-                                if (xs)
-                                    xs[i+1] = x.Set;
-                                else
-                                    S.d = K(x.Set);
-                            r[k] = x;
+                        if (x instanceof RV) {
+                            if (M.T && x != r[k]) {
+                                M.T.d = K(
+                                    xs ? xs[i+1] = x.Set : x.Set
+                                );
+                                r[k] = x;
+                            }
                             x = x.V;
                         }
                         // For string properties, make sure val is a string
@@ -2253,7 +2258,7 @@ class RComp {
                 // First determine which alternative is to be shown
                 for (var alt of aList)
                     if ( !(
-                        (!alt.cond || dr(alt.cond())) 
+                        (!alt.cond || alt.cond()) 
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
                         ) == alt.not)
                     { cAlt = alt; break }
@@ -2783,7 +2788,7 @@ class RComp {
             ro=T;
             gArgs.push({
                 nm: RP, 
-                dG: () => <RestArg>{ms: bf, xs: bf.map(M => M.d())}
+                dG: () => <RestArg>{ms: bf, xs: bf.map(evM)}
             });
             ro=F;
         }
@@ -2799,12 +2804,18 @@ class RComp {
             if (cdef)  //Just in case of an async imported component where the client signature has less slots than the real signature
                 try {
                     ro = T;
-                    for (let {nm, dG, dS} of gArgs)
+                    for (let {nm, dG, dS} of gArgs) {
+                        let v = dG();
                         if (dS)
-                            ( (<RV> args[nm]) ||= RVAR(U,U,U,dS()) )._v = dG();
+                            // For TWO-way parameters, create an RVAR
+                            ( (<RV> args[nm]) ||= RVAR(U,U,U
+                                // When the supplied value is an RVAR too, we'll use the setter of that RVAR
+                                , v instanceof RV ? v.Set : dS()
+                                ) )._v = dr(v); // and dereference it
                         else
-                            args[nm] = dG();
-                    
+                            // For one-way parameters, do not dereference
+                            args[nm] = v;
+                    }
                     arChk();
                     env = cdef.env;
 
@@ -2869,7 +2880,7 @@ class RComp {
                         nm || dTag()
                     )
                     , k = bf && ApplyMods(r, cr, bf)
-                    , xs = (ro=af)?.map(M => M.d());
+                    , xs = (ro=af)?.map(evM);
                 ro = F;
                 //arCheck();
 
@@ -2898,6 +2909,7 @@ class RComp {
             , af: Modifier[] = []
             , m: RegExpExecArray
             , ap = this.S.bAutoPointer
+
             , addM =
             (mt: MType, nm: string
                 , d: Dep<unknown> & {fx?: string}
@@ -2915,7 +2927,8 @@ class RComp {
                 if (mt == MType.Src) M.fp = this.fp;
 
                 // Either the 'before' or 'after' list
-                (mt < MType.RestParam && nm!='value' ? bf : af).push(M);
+                (mt >= MType.RestParam || nm=='value' && ats.elm.tagName=='SELECT' ? af : bf).push(M);
+                return M;
             };
 
         for (let [A, V] of ats)
@@ -2957,23 +2970,28 @@ class RComp {
                         cu: CU                    
                         , dS = this.CTarget(V)
                         , cnm: string    // Stores the properly capitalized version of 'nm'
-                        , dSet = () => {
+                        , M: Modifier =
+                        
+
+                    // Set prop value
+                    (m=/[@#](#)?/.exec(t))
+                        ? addM(MType.Prop, k, this.CExpr<Handler>(V, k), m[1] && 1)
+                        : {} as Modifier
+
+                    // Get on change or input
+                    if (m=/([@!])(\1)?/.exec(t))
+                        //addM(MType.Event, m[2] ? 'change' : 'input', dSet, 1);
+                        M.T = addM(MType.Target, k, dS, 3, m[2] ? 'change' : 'input')
+
+                    // Get on create and/or update
+                    if (cu = <number><any>/\*/.test(t) + <number><any>/\+/.test(t) * 2 as CU)
+                        addM(MType.exec, k, () => {
                             let S = dS();
                             return k ? 
                                 function(this: HTMLElement) { S(this[cnm ||= ChkNm(this, k)]); }
                             // Handle the attribute " *=target "
                                 : function(this: HTMLElement) { S(this); }
-                        };
-
-                    if (m=/[@#](#)?/.exec(t))
-                        addM(MType.Prop, k, this.CExpr<Handler>(V, k), m[1] && 1);
-
-                    if (cu = <number><any>/\*/.test(t) + <number><any>/\+/.test(t) * 2 as CU)
-                        addM(MType.exec, k, dSet, cu);
-
-                    if (m=/([@!])(\1)?/.exec(t))
-                        //addM(MType.Event, m[2] ? 'change' : 'input', dSet, 1);
-                        addM(MType.Target, k, dS, 5 as CU, m[2] ? 'change' : 'input')
+                        }, cu);
                 }
 
                 else //if (n) 
@@ -3095,6 +3113,8 @@ class RComp {
     {   
         return this.CRout<T>(`(${LHS})=$` , '$', `\nin assigment target "${LHS}"`);
     }
+
+    //private cTwoWay<T = unknown>(LHS: string) {}
     
     private CHandlr(
         txt: string
@@ -3218,7 +3238,7 @@ class RComp {
 
 // Class to manage the set of attributes of an HTML source element.
 class Atts extends Map<string,string> {
-    constructor(elm: HTMLElement) {
+    constructor(public elm: HTMLElement) {
         super();
         for (let a of elm.attributes)
             if (!/^_/.test(a.name)) // Ignore attributes starting with '_'
