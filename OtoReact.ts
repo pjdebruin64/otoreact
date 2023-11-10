@@ -2740,6 +2740,7 @@ class RComp {
                 nm: string,             // The parameter name
                 G: Dep<unknown>,       // A getter routine
                 S?: Dep<Handler>,      // A setter routine, in case of a two-way parameter
+                bT?: booly,             // 
             }> = [],
             SBldrs = new Map<string, Template[]>(
                 mapI(Slots, ([nm]) => [nm, []])
@@ -2749,6 +2750,7 @@ class RComp {
             if (nm!=RP) {
                 let {G,S} = this.cAny(ats, nm, rq);
                 //if (S && mode!='@') throw ``
+                mode=='@' && !S && (S=K(F));
                 if (G)
                     gArgs.push( {nm,G,S} );
             }
@@ -2795,12 +2797,12 @@ class RComp {
                     ro = T;
                     for (let {nm, G, S} of gArgs) {
                         let v = G();
-                        if (S && !(v instanceof RV))
-                            // For TWO-way parameters, create an RVAR
-                            ( (<RV> args[nm]) ||= RVAR(U,v,U,S()) ).V = v;
-                        else
+                        if (!S || v instanceof RV)
                             // For one-way parameters, do not dereference
                             args[nm] = v;
+                        else
+                            // For TWO-way parameters, create an RVAR
+                            ( (<RV> args[nm]) ||= RVAR(U,v,U,S()) ).V = v;
                     }
                     arChk();
                     env = cdef.env;
@@ -2914,7 +2916,7 @@ class RComp {
                 if (mt == MType.Src) M.fp = this.fp;
 
                 // Either the 'before' or 'after' list
-                (mt >= MType.RestParam || nm=='value' && ats.elm.tagName=='SELECT' ? af : bf).push(M);
+                (mt >= MType.RestParam || nm=='value' ? af : bf).push(M);
                 return M;
             };
 
@@ -3454,7 +3456,7 @@ export const
 let
     _ur = import.meta.url,
     R: RComp;
-if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
+if (G._ur) {alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`); throw Q;}
 
 // Define global constants
 ass(G, {RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}')

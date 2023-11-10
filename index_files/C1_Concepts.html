@@ -257,7 +257,7 @@ Global variables are visible in RHTML inline scripts, of course.
                         The <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</a> and <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/toString">toString</a> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead:
                         <ul>
                             <li>
-                                As the argument of a math or string operator or function: <code>x+1</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
+                                As the argument of a math or string operator or function: <code>x+1</code>, <code>x > y</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
                             </li>
                             <li>
                                 When comparing with a literal value: <code>x == 1</code>, <code>x != 'hello'</code>.
@@ -308,7 +308,7 @@ Global variables are visible in RHTML inline scripts, of course.
 
     <dt><code class=sourcecode>x._v</code></dt>
     <dd>
-        Using <code>x._v</code> gets or sets the value of <code>x</code> <u>without</u> subscribing and without marking it dirty.
+        Using <code>x._v</code> gets or sets the value of <code>x</code> <u>without</u> subscribing to it and without marking it dirty.
     </dd>
 
     <dt><code class=sourcecode>x.SetDirty()</code></dt>
@@ -420,7 +420,7 @@ OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translat
         Each time a builder routine is called to build a DOM node, or a range of DOM nodes, it creates a so-called 'Range' object that refers to the created range of nodes and contains other meta-information as needed. This information is used when the builder routine is called again to update the same range of nodes.
     </li>
     <li>
-        While building, any part of the resulting DOM tree which is marked to react on some RVAR, is registered with the RVAR <i>together</i> with its local 'environment' containing the value of all local variables at that point, <i>and</i> a local builder routine which can update just that part of the DOM tree.
+        While building, any part of the resulting DOM tree that either evaluated the value of some RVAR, or that is marked to react on some RVAR, is registered with the RVAR <i>together</i> with its local 'environment' containing the value of all local variables at that point, <i>and</i> the local builder routine, which can update just that part of the DOM tree.
     </li>
     <li>
         After the DOM tree has been built, the browser engine will compute the graphical document layout and graphically render its contents.

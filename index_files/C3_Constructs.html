@@ -433,7 +433,7 @@ These are two forms of JavaScript modules with OtoReact features.
 <h3>Signatures, templates, and instances</h3>
 
 <script type="otoreact" defines="signat,templ,compTimes,demoTimes">
-let signat=`<TimesTable #rows #factor></TimesTable>`,
+let signat=`<TimesTable @rows @factor></TimesTable>`,
     templ=
 `<div>
     <FOR let=x of="range(1, R)">
@@ -447,7 +447,7 @@ let signat=`<TimesTable #rows #factor></TimesTable>`,
         ${signat}
     </SIGNATURE>
 
-    <TEMPLATE #rows=R #factor=F>
+    <TEMPLATE rows=R factor=F>
 ${Indent(templ,8)}
     </TEMPLATE>
 
@@ -459,13 +459,13 @@ demoTimes =
 Here you have a small times table:
 <TimesTable #rows="5" #factor="2"></TimesTable>
 
-<def rvar=factor store=sessionStorage></def>
+<def rvar=factor #value="NaN" store=sessionStorage></def>
 <p>
     What other times table do you want?
-    <input type=number style="width:8ex" @value="factor.V">
+    <input type=number style="width:8ex" @valueasnumber="factor.V">
 </p>
 
-<if cond="factor.V > 0">
+<if cond="! isNaN(factor.V)">
     <TimesTable #rows="10" #factor="factor.V"></TimesTable>
 </if>
 `;

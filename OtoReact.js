@@ -1447,6 +1447,7 @@ class RComp {
         for (let { mode, nm, rq } of S.Pams)
             if (nm != RP) {
                 let { G, S } = this.cAny(ats, nm, rq);
+                mode == '@' && !S && (S = K(F));
                 if (G)
                     gArgs.push({ nm, G, S });
             }
@@ -1477,10 +1478,10 @@ class RComp {
                     ro = T;
                     for (let { nm, G, S } of gArgs) {
                         let v = G();
-                        if (S && !(v instanceof RV))
-                            (args[nm] || (args[nm] = RVAR(U, v, U, S()))).V = v;
-                        else
+                        if (!S || v instanceof RV)
                             args[nm] = v;
+                        else
+                            (args[nm] || (args[nm] = RVAR(U, v, U, S()))).V = v;
                     }
                     arChk();
                     env = cdef.env;
@@ -1543,7 +1544,7 @@ class RComp {
                 M.ap = nm == 'click';
             if (mt == 6)
                 M.fp = this.fp;
-            (mt >= 9 || nm == 'value' && ats.elm.tagName == 'SELECT' ? af : bf).push(M);
+            (mt >= 9 || nm == 'value' ? af : bf).push(M);
             return M;
         };
         for (let [A, V] of ats)
@@ -1869,7 +1870,7 @@ export const docLocation = rvu, reroute = arg => {
 };
 let _ur = import.meta.url, R;
 if (G._ur) {
-    alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`);
+    alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`);
     throw Q;
 }
 ass(G, { RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}'),
