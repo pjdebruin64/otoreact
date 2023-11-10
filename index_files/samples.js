@@ -93,7 +93,7 @@ const sampleTicTacToe = `<style>
         // Play a move, when allowed
         if (outcome.V || cell.P) // Move not allowed
           return;
-        cell.U.P = toMove.V; // Update the cell
+        cell.P = toMove.V; // Update the cell
         toMove.V = (toMove.V=='✕' ? '◯' : '✕'); // Set next player to move
         count++;   // Count moves
         outcome.V = CheckWinner(board.V) || count==9; // Check end of game
@@ -670,8 +670,9 @@ const demoRendering = `<style>
 
 <h5>RHTML rendered output:</h5>
 <def rvar=Result></def>
-<rhtml oncreateupdate= "Result.V = this.shadowRoot.innerHTML"
->{source}</rhtml>
+<rhtml #srcText="source.V"
+    oncreateupdate= "Result.V = this.shadowRoot.innerHTML"
+></rhtml>
 
 <h5>Created DOM tree:</h5>
 <pre>{Result}</pre>`;
@@ -797,20 +798,6 @@ Please enter some numbers:
 <p>
   The sum is \{data.reduce((a,b)=>a+b,0)}
 </p>`;
-const demoAutoSubscribtion = `
-<p>
-	<def rvar=a #value=0></def>
-	<!-- Both these elements are auto-subscribed to a: -->
-	<button onclick="a.V++">{a}</button>
-	<span>a = {a}</span>
-</p>
-
-<p>
-	<def rvar=b #value=0></def>
-	<!-- Here only the <span> reacts on b: -->
-	<button onclick="b.V++">{b}</button>
-	<span>b = {b}</span>
-</p>`;
 const demoLocalRstyles = `<component>
   <T color></T>
 
@@ -842,14 +829,17 @@ const demoLocalRstyles = `<component>
 <p>
   <span>The style sheets above do not apply to this <{}span>.</span>
 <p>`;
-const demoModule = `<import async src="/hi" defines="pi">
-  <hi mark="?"></hi>
+const demoModule = `<!-- Let's import some variable and some construct -->
+<import async src="/hi" defines="pi">
+  <hi mark?></hi>
 </import>
 
+<!-- See that it works -->
 <hi></hi>
 
 pi = {pi}
 
+<!-- Here follows the Module; normally it would be in a separate file -->
 <module id="/hi">
   <component>
     <hi mark="!"></hi>

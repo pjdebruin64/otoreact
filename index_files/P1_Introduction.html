@@ -89,18 +89,18 @@ See also <a href="#WhyOtoReact">Why OtoReact</a>.
     <li>
         <elm>DEFINE rvar='yourName'</elm> introduces a "reactive variable" <code>yourName</code>, that can contain state information of the application.
         <ul>
-            <li><code>yourName.V</code> denotes the value of the variable.</li>
-            <li>We have now added <code>store='sessionStorage'</code>, which makes the value persist when the application is reloaded.</li>
+            <li><code>yourName.V</code> denotes the value of the variable, and may in <a>many cases</a> be abbreviated to <code>yourName</code>.</li>
+            <li>We have now added <code>store='sessionStorage'</code>, which makes the value persist when the application is reloaded or recompiled.</li>
         </ul>
     </li>
     <li>
-        <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and all document content that reacts on it.
+        <code>@value="yourName"</code> or <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and all document content that reacts on it.
     </li>
     <li>
         <elm>IF cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
     </li>
     <li>
-        <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code> are embedded expressions. The rendered document will contain the value of the expression between the braces.
+        <code>\{yourName\}</code> and <code>\{yourName.length\}</code>, or <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code>, are embedded expressions. The rendered document will contain the value of the expression between the braces, and will be updated when needed.
     </li>
 </ul>
 In the bottom right corner, the compile and <i>initial</i> build time of the example are shown. The time used for <i>updates</i>, when data is entered into (or asynchronously received by) the application is not measured.
@@ -114,10 +114,10 @@ You might increment the numbers, and see how fast the DOM is updated.
         <elm>DEF rvar=maxY …</elm> is an abbreviation of <elm>DEFINE …</elm>. It declares a reactive variable <code>maxY</code> with initial value 10, to persist in <code>sessionStorage</code>.
     </li>
     <li>
-        Attributing <elm>INPUT type=number @valueAsNumber=maxY.V</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
+        Attributing <elm>INPUT type=number @valueAsNumber=maxY</elm> declares that, at any input event, the numeric value of the input element shall be assigned to maxY.V. The rest of the application shall react on the new value.
     </li>
     <li>
-        <elm>FOR let=y of="range(1,maxY.V)"</elm> lets local variable <code>y</code> iterate through the values of <code>range(1,maxY.V)</code>, which are the numbers 1 to maxY.V.
+        <elm>FOR let=y of="range(1,maxY)"</elm> lets local variable <code>y</code> iterate through the values of <code>range(1,maxY)</code>, which are the numbers 1 to maxY.V.
     </li>
 </ul>
 
@@ -277,27 +277,31 @@ items.map( item => (
 </div>
     </li>
     <li>
+        When updating the DOM tree, OtoReact will recompute and update just the nodes that need updating, i.e. that refer to modified state variables.
+        <br>Other client-side frameworks (React, Vue without a build step) will recompute the whole DOM tree (I think).
+    </li>
+    <li>
         There are several small nifty features you won't find in other frameworks. E.g. the simple fact that <code>null</code> and <code>undefined</code> are not rendered simplifies many embedded expressions.
     </li>
 </ol>
-<p>Some drawbacks are:</p>
+<p>Drawbacks are:</p>
 <ol>
     <li>
-        OtoReact does not yet do dependency analysis. Depending on the size and complexity of your application, it may be desirable or required to insert hints (attributes <code>reacton</code> and <code>hash</code>) that tell OtoReact which RHTML parts should react on which state variables.
-    </li>
-    <li>
-        The HTML parser does not allow OtoReacts control structures inside <elm>table</elm>, <elm>select</elm>, and <elm>datalist</elm> (see <a href="docu#Limitations">Parser limitations</a>), so one has to use alternative element names <elm>table.</elm>, <elm>select.</elm>, etc. instead.
+        OtoReact does not have a user community or developer community, yet.
     </li>
     <li>
         Runtime compilation is theoretically slower than serving a precompiled application. However:
         <ul>
             <li>
-                Compilation time, usually ranging from 5 - 100 milliseconds, is quite small in relation to the overall load time of a web application.
+                Compilation time, usually ranging from 5 - 50 milliseconds, is quite small in relation to the overall load time of a web application.
             </li>
             <li>
                 In many or most cases, compilation can be done while the application waits for other resources like images or data, so it doesn't increase the overall load time <i>at all</i>.
             </li>
         </ul>
+    </li>
+    <li>
+        The HTML parser does not allow OtoReacts control structures inside <elm>table</elm>, <elm>select</elm>, and <elm>datalist</elm> (see <a href="docu#Limitations">Parser limitations</a>), so one has to use alternative element names <elm>table.</elm>, <elm>select.</elm>, etc. instead.
     </li>
 </ol>
 

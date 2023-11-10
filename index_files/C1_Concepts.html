@@ -118,6 +118,10 @@ The OtoReact module makes the following functions available for import. They are
     <li>
         <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
     </li>
+    <li>
+        <code>debug()</code> is a very simple utility to insert a breakpoint within a JavaScript expression, using the <a href="{MDN}Web/JavaScript/Reference/Operators/Comma_operator">comma operator</a> like <code>debug(),<i>expr</i></code>.
+        <br>The routine executes the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, so that one can e.g. inspect the value of local variables just before <i>expr</i> is evaluated.
+    </li>
     <li id=RFetch>
         * <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
     </li>
@@ -232,28 +236,86 @@ Global variables are visible in RHTML inline scripts, of course.
     <br>For RVAR's created by <elm>DEFINE rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code following the <elm>DEFINE rvar</elm>, i.e. the range where the RVAR is visible, <u>will implicitly react</u> on the RVAR.
 </p>
 
-<h4>Properties and methods</h4>
+<h4 id="RVAR-props">Properties and methods</h4>
 <p>An RVAR <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
 <dl>
     <dt><code class=sourcecode>x.V</code></dt>
     <dd>
         To get or set the value of an RVAR <code>x</code>, one writes <code>x.V</code>.
-        <br>When <code>x.V</code> is set to a different value than it had before, then the RVAR is marked as dirty, and all RHTML code that reacts on it will be updated.
-    </dd>
-    <dt><code class=sourcecode>x.U</code></dt>
-    <dd>
-        When you modify not the value of a RVAR, but properties of the value, you may want the RVAR to be marked as dirty as well.
-        <br>You can do this by writing <code class=sourcecode>x.U</code> to get the value of the RVAR.
-        <p>E.g., if <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> or <code>x.U[i] = e</code> to add an or modify an array element, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.</p>
-        <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the RVAR as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the RVAR will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
-        <p>
-            Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty even when the value is equal to the previous value.
+        <ul>
+            <li>
+                When <code>x.V</code> is invoked while creating or updating a DOM node or OtoReact construct, then that node or construct will be subscribed to the RVAR so it will be updated whenever the RVAR has been marked as changed (i.e. has been "set dirty").
+                <br>When during an update the same RVAR isn't invoked anymore, or when the node or construct is removed from the DOM tree, it will be unsubscribed from the RVAR.
+            </li>
+            <li>
+                When <code>x.V</code> is set to a different (not <a href="{MDN}Web/JavaScript/Reference/Operators/Strict_equality">strictly equal</a>) value than it had before, then the RVAR is marked as dirty, and all RHTML code that is subscribed to it will get updated.
+            </li>
+            <li>
+                In many cases one can abbreviate <code>x.V</code> to just <code>x</code>:
+                <ol>
+                    <li>
+                        The <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</a> and <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/toString">toString</a> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead:
+                        <ul>
+                            <li>
+                                As the argument of a math or string operator or function: <code>x+1</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
+                            </li>
+                            <li>
+                                When comparing with a literal value: <code>x == 1</code>, <code>x != 'hello'</code>.
+                            </li>
+                            <li>In OtoReact and JavaScript interpolated strings: <code>x = \{ x \}</code>, <code>`x = $\{x}`</code></li>.
+                        </ul>
+                    </li>
+                    <li>
+                        RVAR's are created as <a href="">Proxy objects</a>, so that one can get, set, and delete properties of RVAR values without writing <code>.V</code>: <code>x.prop</code>, <code>x[i]</code>, <code>x.prop = value;</code>, <code>delete x.prop;</code>.
+                        <br>When setting a property, <code>x</code> will be marked dirty only when the new property value is not strictly equal to its old value.
+                    </li>
+                    <li>
+                        RVAR's may be supplied as targets for all sorts of two-way properties: <code>@value="x"</code>.
+                    </li>
+                    <li>
+                        The <elm>FOR</elm> construct accepts RVARs: <elm>FOR let="i" of="x"</elm>
+                    </li>
+                </ol>
+            </li>
+            <li>
+                <code>x.V</code> may not be abbreviated in all other cases, like:
+                <ul>
+                    <li>When assigning to it: <code>x.V = <i>expr</i></code></li>
+                    <li>When comparing with an object (including another RVAR): <code>x.V == <i>expr</i></code></li>
+                    <li>When used as a condition: <code>if (x.V) ...</code>, <code>(x.V ? <i>a</i> : <i>b</i>)</code></li>
+                    <li>When passing it to a function that accepts objects: <code>f(x.V)</code></li>
+                </ul>
+            </li>
+        </ul>
         </p>
     </dd>
+
+    <dt><code class=sourcecode>x.U</code></dt>
+    <dd>
+        Using <code>x.U</code> gets or sets the value of <code>x</code> while <u>forcing</u> it to be marked dirty.
+        <ul>
+            <li>
+                In some cases one needs to refer to the value of an RVAR and set it dirty, without changing its value.
+                <br>E.g. when calling a method that modifies the value, or when setting the property of a property of the RVAR.
+                <p>E.g., if <code>x.V</code> is an array, you can write <code>x.U.push(e)</code> to add an array element, or <code>x.U[i].p = q</code> to modify a property of an array element, and the DOM will react on the modified array. So you don't have to assign to <code>x.V</code> to trigger a reaction.</p>
+                <p>Exception: within an HTML attribute or property definition, accessing <code>x.U</code> does not mark the RVAR as dirty. This is so that one can use <code>x.U</code> within RHTML two-way bindings, and the RVAR will only be marked dirty when the property is modified by an event, not when it is being set by the RHTML engine.</p>
+            </li>
+            <li>
+                Setting <code>x.U</code> sets the value of <code>x</code> and marks it as dirty even when the value is strictly equal to the previous value.
+            </li>
+        </ul>
+    </dd>
+
+    <dt><code class=sourcecode>x._v</code></dt>
+    <dd>
+        Using <code>x._v</code> gets or sets the value of <code>x</code> <u>without</u> subscribing and without marking it dirty.
+    </dd>
+
     <dt><code class=sourcecode>x.SetDirty()</code></dt>
     <dd>
         The RVAR can be explicitly set dirty by calling <code>x.SetDirty()</code>.
     </dd>
+
     <dt id=Subscribe><code class=sourcecode>x.Subscribe(<i>subs</i>, <i>bImmediate</i>?, <i>bInit</i>?)</code> *</dt>
     <dd>
         Routine <code><i>subs</i></code>, when not null, is registered as a subscriber to <code>x</code>, so <code><i>subs</i>(x.V)</code> will be executed whenever <code>x</code> has been set dirty.
@@ -263,10 +325,12 @@ Global variables are visible in RHTML inline scripts, of course.
             The return value is <code>x</code>, so calls to <code>Subscribe</code> can be chained.
         </p>
     </dd>
+
     <dt><code class=sourcecode>x.Unsubscribe(<i>subs</i>)</code> *</dt>
     <dd>
         Unregisters a routine <code><i>subs</i></code> previously registered as a subscriber to <code>x</code>.
     </dd>
+
     <dt><code class=sourcecode>x.Set(value)</code> *</dt>
     <dd>
         Sets <code>x.V</code> either synchronously, or asynchronously when <code>value</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
@@ -274,6 +338,7 @@ Global variables are visible in RHTML inline scripts, of course.
             When it is a Promise, then <code>x.V</code> will initially be <code>undefined</code>, and when the promise resolves to a value, then <code>x.V</code> will be set to that value.
         </p>
     </dd>
+
     <dt><code class=sourcecode>x.Set</code> *</dt>
     <dd>
         Provides a routine that sets the value of <code>x</code>, i.e. <code>v => x.Set(v)</code>.
@@ -281,6 +346,7 @@ Global variables are visible in RHTML inline scripts, of course.
             This is handy to create an errorhandler. E.g., if <code>errMsg</code> is an RVAR that should receive error messages, then you can write <code>doSomething().catch(errMsg.Set)</code> to catch the errors of some asynchronous routine, or you can add an attribute <code>#onerror="errMsg.Set"</code> to catch all errors within a block of RHTML.
         </p>
     </dd>
+
     <dt><code class=sourcecode>x.Clear</code> *</dt>
     <dd>
         Provides a routine that clears the value of <code>x</code>, <i>except</i> when <code>x</code> has just been set dirty in the same event loop.

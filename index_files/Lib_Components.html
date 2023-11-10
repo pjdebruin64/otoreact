@@ -18,8 +18,7 @@
         <RHTML srctext onç?></RHTML>
         <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
         <template onç="oc">
-<RHTML #onç="oc">{prefix}
-{srctext}</RHTML>
+<RHTML #onç="oc" #srctext="prefix + srctext"></RHTML>
         </template>
     </component>
 
@@ -81,7 +80,8 @@
             span.otored     { color: var(--OtoRed); }
         </style>
 
-        <script defines="regDemo">
+        <script type="otoreact/static" defines="numFormat,regDemo">
+            let numFormat = new Intl.NumberFormat('en',{minimumFractionDigits: 1,maximumFractionDigits: 1}).format;
             let regComment = `<!--(?:[^-]|-[^-]|--[^>])*?-->`,
                 fRegElement =
                     (tagname) => `((?:${regComment}\\s*)*<${tagname}[^]*?<\\/${tagname}\\s*>\\s*)`,
@@ -159,11 +159,12 @@
                             beforecreateupdate="tsStart.V = performance.now()"
                             onç="tsCompiled.V = performance.now()"
                             aftercreateupdate="tsBuilt.V = performance.now()"
+                            reacton="srcText"
                         ></RHTML>
                     </td.>
                 </tr.>
                 <tr.><td. colspan="2">
-                    Compiled in {(tsCompiled.V - tsStart.V).toFixed(1)}ms + built in {(tsBuilt.V - tsCompiled.V).toFixed(1)}ms = {(tsBuilt.V - tsStart.V).toFixed(1)}ms
+                    Compiled in {numFormat(tsCompiled.V - tsStart.V)}ms + built in {numFormat(tsBuilt.V - tsCompiled.V)}ms = {numFormat(tsBuilt.V - tsStart.V)}ms
                 </td.></tr.>
             </table.>
         </template>
@@ -180,6 +181,7 @@
                 <h1 id?><content></content></h1>
                 <h2 id?><content></content></h2>
                 <h3 id?><content></content></h3>
+                <h4 id?><content></content></h4>
             </content>
         </pageLayout>
 
@@ -246,7 +248,7 @@
                 grid-row: 3;
             }
 
-            h1>a,h2>a,h3>a,h4,
+            h1>a,h2>a,h3>a,h4>a,
             nav a
             {
                 color: rgb(0, 123, 145); 
@@ -336,7 +338,7 @@
         <template>
             <script type="otoreact/local" defines="pNum, contents, getNr, addContent">
                 let pNum = ++num.V,
-                    numbers = [0,0,0],
+                    numbers = [0,0,0,0],
                     contents = RVAR(null, []);
                     
                 function getNr(level) {
@@ -419,6 +421,11 @@
                         <h3 id>
                             <HDR tagname="H3" #id="id" #level="2"><content></content></HDR>
                         </h3>
+                        <h4 id>
+                            <def var=nr #value="getNr(3)"></def>
+                            <def var=hash #value="id||`s${pNum}.${nr}`"></def>
+                            <h4. #id="hash"><a href="#{hash}"><content></content></a></h4.>
+                        </h4>
                     </content>
                 </main>
                 <nav id=TOC class="TOC">
@@ -434,7 +441,7 @@
                     <center style="background-color: var(--TC);">
                         <b><i>Table of Contents</i></b>
                     </center>
-                    <for let=item of=contents.V key="item">
+                    <for let=item of=contents key="item">
                         <if cond="item.subs.length">
                             <then>
                                 <details>

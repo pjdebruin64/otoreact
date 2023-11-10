@@ -348,15 +348,7 @@ let env, pn, oes = { e: N, s: N }, arR, arA, arB, arVars, arAdd = (rv, bA) => ar
     Jobs.add(job);
     hUpd || (hUpd = setTimeout(DoUpdate, 1));
 };
-let evM = (M) => {
-    let v = M.d();
-    if (v instanceof RV) {
-        if (M.T)
-            M.T.d = K(v.Set);
-        v = v.V;
-    }
-    return v;
-};
+let evM = (M) => M.d();
 class Hndlr {
     hndl(ev, ...r) {
         if (this.h)
@@ -381,7 +373,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
     try {
         for (let M of ms) {
             if (M.cu & cu) {
-                let nm = M.nm, x = xs ? xs[i] : evM(M);
+                let nm = M.nm, x = xs ? xs[i] : M.d();
                 switch (M.mt) {
                     case 0:
                         e.setAttribute(nm, x);
@@ -1447,6 +1439,8 @@ class RComp {
         for (let { mode, nm, rq } of S.Pams)
             if (nm != RP) {
                 let { G, S } = this.cAny(ats, nm, rq);
+                if (mode == '@' && !S)
+                    S = K(F);
                 if (G)
                     gArgs.push({ nm, G, S });
             }
@@ -1565,9 +1559,8 @@ class RComp {
                 else if (t) {
                     let mP = /[@#](#)?/.exec(t), mT = /([@!])(\1)?/.exec(t), cu = /\*/.test(t)
                         + /\+/.test(t) * 2, { G, S } = this.cTwoWay(V, k, mT || cu);
-                    (mP ? addM(1, k, G, mP[1] && 1) : {})
-                        .T =
-                        mT && addM(8, k, S, 1, mT[2] ? 'change' : 'input');
+                    mP && addM(1, k, G, mP[1] && 1);
+                    mT && addM(8, k, S, 1, mT[2] ? 'change' : 'input');
                     cu && addM(10, k, S, cu);
                 }
                 else {

@@ -775,17 +775,8 @@ type Modifier = {
 
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
-    T?: Modifier,       // For TWO-way properties, the corresponding Target modifier
 }
-let evM = (M: Modifier) => {
-    let v = M.d();
-    if (v instanceof RV) {
-        if (M.T)
-            M.T.d = K(v.Set)
-        v = v.V
-    }
-    return v;
-}
+let evM = (M: Modifier) => M.d();
 
 // Modifier Types
 const enum MType {
@@ -862,7 +853,7 @@ function ApplyMods(
         for (let M of ms) {
             if (M.cu & cu)
             {
-                let nm = M.nm, x = xs ? xs[i] : evM(M);
+                let nm = M.nm, x = xs ? xs[i] : M.d();
                 /* Apply modifier 'M' with actual value 'x' to element 'e'. */
                 switch (M.mt) {
                     case MType.Attr:
@@ -2749,6 +2740,7 @@ class RComp {
             if (nm!=RP) {
                 let {G,S} = this.cAny(ats, nm, rq);
                 //if (S && mode!='@') throw ``
+                if (mode=='@' && !S) S = K(F);  // A dummy setter
                 if (G)
                     gArgs.push( {nm,G,S} );
             }
@@ -2962,10 +2954,10 @@ class RComp {
                         ;
 
                     // Set prop value
-                    (mP ? addM(MType.Prop, k, G, mP[1] && 1) : <Modifier>{})
-                    .T =
-                        // Get on change or input
-                        mT && addM(MType.Target, k, S, 1, mT[2] ? 'change' : 'input');
+                    mP && addM(MType.Prop, k, G, mP[1] && 1);
+
+                    // Get on change or input
+                    mT && addM(MType.Target, k, S, 1, mT[2] ? 'change' : 'input');
 
                     // Get on create and/or update
                     cu && addM(MType.GetProp, k, S, cu);
@@ -3086,20 +3078,19 @@ class RComp {
     }
 
     private cAny<T = unknown>(ats: Atts, nm: string, rq?: booly)
-        : {G: Dep<T>, S?: Dep<(v:T) => void>}
-    {
+    : {G: Dep<T>, S?: Dep<(v:T) => void>}
+     {
         let exp = ats.g('@' + nm);
         return exp != N ? this.cTwoWay(exp, '@'+nm)
             : {
                 G: this.CPam(<Atts>ats, nm, rq)
             };
     }
-
     private cTwoWay<T = unknown>(exp: string, nm: string, bT: booly=T) {
         return {
             G: this.CExpr<T>(exp, nm),
             S: bT && this.CRout<T>(`(${exp})=$` , '$', `\nin assigment target "${exp}"`)
-        };
+        }
     }
     
     private CHandlr(

@@ -284,8 +284,8 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
                 When <i>expression</i> evaluates to a string <code>"&hellip;"</code>, then this is equivalent to setting the <a href="{MDN}Web/API/Element/className"><code>#className</code> property</a>: the string is split into words, and each word is added to the list of class names;
             </li>
             <li>
-                When it evaluates to an array <code>[ &hellip; ]</code>, then each array element is processed just like the <i>expression</i> value.
-                <br>In particular, when it is a word, it is added to the list of class names.
+                When it evaluates to an array <code>[ &hellip; ]</code>, then each array element is processed just like an <i>expression</i> value.
+                <br>In particular, when the elements are words, they are added to the list of class names.
             </li>
             <li>
                 Otherwise, when it evaluates to an object <code>\{ <i>name</i>: <i>condition</i>, &hellip; \}</code>, then each (enumerable) property <i>name</i> of the object is included in the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
@@ -323,7 +323,8 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
     </dd>
     <dt><code class=sourcecode>#style.<i>name</i>="<i>expression</i>"</code></dt>
     <dd>
-        Style property <i>name</i> (with proper capitalization) will be set to the value of <code><i>expression</i></code>.
+        Style property <i>name</i> will be set to the value of <code><i>expression</i></code>.
+        <br>OtoReact will find the proper capitalization for <i>name</i>.
         <p>When the value is <code>null</code>, empty, or <code>undefined</code>, then the style property will be reset.
         <p>When the value is <code>false</code>, then the style property will also be reset.
             <br>This allows you to abbreviate a conditional style setting like <code>#style.<i>name</i>="<i>cond</i> ? <i>expr</i> : '' "</code> to <code>#style.<i>name</i>="<i>cond</i> &amp;&amp; <i>expr</i>"</code>
