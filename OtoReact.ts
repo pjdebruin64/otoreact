@@ -125,7 +125,7 @@ class Context {
             let D = this.d;
             return (e:Environment = env) => {
                 let {d,i} = k;
-                for(;d < D; d++)
+                while(d++ < D)
                     e = e[0];
                 return e[i] as T;
             }
@@ -875,14 +875,14 @@ function ApplyMods(
                             // And (in any case) determine properly cased name
                             M.c = ChkNm(e,
                                 nm=='for' ? 'htmlFor'
-                                : nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
+                                : nm=='valueasnumber' //&& (e as HTMLInputElement).type == 'number'
                                         ? 'value' 
                                 : nm)
                         ]=='string')
-                            // replace null and undefined by the empty string
-                            x = x==N ? Q : x.toString();
+                            // replace null, undefined and NaN by the empty string
+                            x = x==N || x!=x ? Q : x.toString();
                         // Avoid unnecessary property assignments; they may have side effects
-                        if (x !== e[nm=M.c])
+                        if (x != e[nm=M.c])
                             e[nm] = x;
                         break;
 
@@ -1416,7 +1416,7 @@ class RComp {
                         NoChilds(srcE);
                         let rv      = ats.g('rvar'), // An RVAR
                             {G,S} = this.cAny(ats, 'value'),
-                            bU    = ats.gB('reacting') || ats.gB('updating') || S,
+                            bU    = ats.gB('reacting') || ats.gB('updating'),
                             dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates'),
                             dSto    = rv   && this.CAttExp<Store>(ats, 'store'),
                             dSNm    = dSto && this.CPam<string>(ats, 'storename'),
@@ -1425,12 +1425,15 @@ class RComp {
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
                         bA = async function DEF(ar, bR?) {
-                            let {cr} = PrepRng(ar, srcE)
+                            let {cr,r} = PrepRng<{rv: RV}>(ar, srcE)
                                 , v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
-                            // bUpd : 'updating' was specified
-                            // re:  : The routine is called because of a 'reacton' subscribtion
+                            // bU   : 'updating' was specified
+                            // bR not null: The routine is called because of a 'reacton' subscribtion
+
+                            // Note that when !bU, then arChk() is called /before/ G() is evaluated,
+                            // so that the construct won't react on RVARS used by G().
                             if ( bU || arChk() || cr || bR != N){
                                 try {
                                     ro=T;
@@ -1440,19 +1443,21 @@ class RComp {
                                     ro = F; 
                                 }
 
-                                if (rv)
+                                if (rv) {
+                                    r.rv = v instanceof RV && v;
                                     if (cr)
                                         (vLet as LVar<RVAR>)(
-                                            RVAR(N, v,
+                                            RVAR(N, dr(v),
                                                 dSto?.(),
-                                                S?.(), 
+                                                r.rv ? x => {r.rv.V = x} : S?.(),
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
                                         )
                                         .Subscribe(onMod?.());
                                     else
-                                        vGet().Set(v);
+                                        vGet().Set(dr(v));
+                                }
                                 else
                                     vLet(v);
                             }
