@@ -22,7 +22,7 @@ class Context {
             let D = this.d;
             return (e = env) => {
                 let { d, i } = k;
-                for (; d < D; d++)
+                while (d++ < D)
                     e = e[0];
                 return e[i];
             };
@@ -388,11 +388,11 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         break;
                     case 1:
                         if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
-                            : nm == 'valueasnumber' && e.type == 'number'
+                            : nm == 'valueasnumber'
                                 ? 'value'
                                 : nm)] == 'string'))
-                            x = x == N ? Q : x.toString();
-                        if (x !== e[nm = M.c])
+                            x = x == N || x != x ? Q : x.toString();
+                        if (x != e[nm = M.c])
                             e[nm] = x;
                         break;
                     case 8:
@@ -677,9 +677,9 @@ class RComp {
                     case 'DEFINE':
                         {
                             NoChilds(srcE);
-                            let rv = ats.g('rvar'), { G, S } = this.cAny(ats, 'value'), bU = ats.gB('reacting') || ats.gB('updating') || S, dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
+                            let rv = ats.g('rvar'), { G, S } = this.cAny(ats, 'value'), bU = ats.gB('reacting') || ats.gB('updating'), dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
                             bA = async function DEF(ar, bR) {
-                                let { cr } = PrepRng(ar, srcE), v;
+                                let { cr, r } = PrepRng(ar, srcE), v;
                                 if (bU || arChk() || cr || bR != N) {
                                     try {
                                         ro = T;
@@ -688,12 +688,14 @@ class RComp {
                                     finally {
                                         ro = F;
                                     }
-                                    if (rv)
+                                    if (rv) {
+                                        r.rv = v instanceof RV && v;
                                         if (cr)
-                                            vLet(RVAR(N, v, dSto?.(), S?.(), dSNm?.() || rv, dUpd?.()))
+                                            vLet(RVAR(N, dr(v), dSto?.(), r.rv ? x => { r.rv.V = x; } : S?.(), dSNm?.() || rv, dUpd?.()))
                                                 .Subscribe(onMod?.());
                                         else
-                                            vGet().Set(v);
+                                            vGet().Set(dr(v));
+                                    }
                                     else
                                         vLet(v);
                                 }

@@ -125,7 +125,7 @@ class Context {
             let D = this.d;
             return (e:Environment = env) => {
                 let {d,i} = k;
-                for(;d < D; d++)
+                while(d++ < D)
                     e = e[0];
                 return e[i] as T;
             }
@@ -545,7 +545,7 @@ export class RV<T = unknown> {
     // Use var.V to get or set its value
     get V() {
         // Mark as used
-        arAdd(this);
+        AR(this);
         return this._v;
      }
     // When setting, it will be marked dirty.
@@ -718,7 +718,7 @@ let
     arB: DOMBuilder,
 
     arVars: Map<RV, booly>,
-    arAdd = (rv: RV, bA?: booly) => 
+    AR = (rv: RV, bA?: booly) => 
         arA && (arVars ||= new Map).set(rv, bA || arVars?.get(rv)),
     arChk = () => {
         if (arA && (arR || arVars)) {
@@ -860,7 +860,7 @@ function ApplyMods(
         ;
     try {
         for (let M of ms) {
-            if (M.cu & cu)
+            if (M.cu & cu)      // '&' = Bitwise AND
             {
                 let nm = M.nm, x = xs ? xs[i] : evM(M);
                 /* Apply modifier 'M' with actual value 'x' to element 'e'. */
@@ -875,14 +875,14 @@ function ApplyMods(
                             // And (in any case) determine properly cased name
                             M.c = ChkNm(e,
                                 nm=='for' ? 'htmlFor'
-                                : nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
+                                : nm=='valueasnumber' //&& (e as HTMLInputElement).type == 'number'
                                         ? 'value' 
                                 : nm)
                         ]=='string')
-                            // replace null and undefined by the empty string
-                            x = x==N ? Q : x.toString();
+                            // replace null, undefined and NaN (note that NaN!=NaN) by the empty string
+                            x = x==N || x!=x ? Q : x.toString();
                         // Avoid unnecessary property assignments; they may have side effects
-                        if (x !== e[nm=M.c])
+                        if (x != e[nm=M.c])
                             e[nm] = x;
                         break;
 
@@ -1416,7 +1416,7 @@ class RComp {
                         NoChilds(srcE);
                         let rv      = ats.g('rvar'), // An RVAR
                             {G,S} = this.cAny(ats, 'value'),
-                            bU    = ats.gB('reacting') || ats.gB('updating') || S,
+                            bU    = ats.gB('reacting') || ats.gB('updating'),
                             dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates'),
                             dSto    = rv   && this.CAttExp<Store>(ats, 'store'),
                             dSNm    = dSto && this.CPam<string>(ats, 'storename'),
@@ -1425,12 +1425,15 @@ class RComp {
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
                         bA = async function DEF(ar, bR?) {
-                            let {cr} = PrepRng(ar, srcE)
+                            let {cr,r} = PrepRng<{rv: RV}>(ar, srcE)
                                 , v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
-                            // bUpd : 'updating' was specified
-                            // re:  : The routine is called because of a 'reacton' subscribtion
+                            // bU   : 'updating' was specified
+                            // bR not null: The routine is called because of a 'reacton' subscribtion
+
+                            // Note that when !bU, then arChk() is called /before/ G() is evaluated,
+                            // so that the construct won't react on RVARS used by G().
                             if ( bU || arChk() || cr || bR != N){
                                 try {
                                     ro=T;
@@ -1440,19 +1443,21 @@ class RComp {
                                     ro = F; 
                                 }
 
-                                if (rv)
+                                if (rv) {
+                                    r.rv = v instanceof RV && v;
                                     if (cr)
                                         (vLet as LVar<RVAR>)(
-                                            RVAR(N, v,
+                                            RVAR(N, dr(v),
                                                 dSto?.(),
-                                                S?.(), 
+                                                r.rv ? x => {r.rv.V = x} : S?.(),
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
                                         )
                                         .Subscribe(onMod?.());
                                     else
-                                        vGet().Set(v);
+                                        vGet().Set(dr(v));
+                                }
                                 else
                                     vLet(v);
                             }
@@ -1903,7 +1908,7 @@ class RComp {
                                 if (rv) {
                                     if (!rv.$SR)
                                         throw `This is not an RVAR\nat '${at}'`; 
-                                    arAdd(rv, bA);
+                                    AR(rv, bA);
                                 }  
                             
                             return b(PrepRng(ar, srcE).sub, bR);
@@ -2896,6 +2901,7 @@ class RComp {
 
         let bf: Modifier[] = []
             , af: Modifier[] = []
+            , k = 0
             , m: RegExpExecArray
             , ap = this.S.bAutoPointer
 
@@ -2917,14 +2923,15 @@ class RComp {
 
                 // Either the 'before' or 'after' list
                 (mt >= MType.RestParam || nm=='value' ? af : bf).push(M);
+                k++;
                 return M;
             };
 
         for (let [A, V] of ats)
             if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) 
-            //           op     h-h p dyc---------------c     -y       i---id    e---e    s            a---a   -o t-           -tk---k       r---r
+            //           op     h-h p dyc---------------c     -y       i---id    e---e    s----------s a---a   -o t-------------tw---w       r---r
             {
-                let [,o,p,h,d,y,c,i,e,s,a,t,k,r] = m;
+                let [,o,p,h,d,y,c,i,e,s,a,t,w,r] = m;
                 if (o) {
                     // One-way attributes/properties/handlers
                     let 
@@ -2960,17 +2967,17 @@ class RComp {
                         , mT = /([@!])(\1)?/.exec(t)
                         , cu: CU = <any>/\*/.test(t) 
                                 + <any>/\+/.test(t) * 2               
-                        ,  {G,S} = this.cTwoWay(V, k, mT||cu )
+                        ,  {G,S} = this.cTwoWay(V, w, mT||cu )
                         ;
 
                     // Set prop value
-                    (mP ? addM(MType.Prop, k, G, mP[1] && 1) : <Modifier>{})
+                    (mP ? addM(MType.Prop, w, G, mP[1] && 1) : <Modifier>{})
                     .T =
                         // Get on change or input
-                        mT && addM(MType.Target, k, S, 1, mT[2] ? 'change' : 'input');
+                        mT && addM(MType.Target, w, S, 1, mT[2] ? 'change' : 'input');
 
                     // Get on create and/or update
-                    cu && addM(MType.GetProp, k, S, cu);
+                    cu && addM(MType.GetProp, w, S, cu);
                 }
 
                 else //if (n) 
