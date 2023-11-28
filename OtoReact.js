@@ -2,10 +2,8 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     bShowErrors: T,
     bAutoPointer: T,
     preformatted: E,
-    storePrefix: "RVAR_",
     version: 1,
-}, P = new DOMParser, Ev = eval, ass = Object.assign, now = () => performance.now(), thro = (err) => { throw err; }, K = x => () => x, dr = v => v instanceof RV ? v.V : v;
-;
+}, K = x => () => x, Ev = eval, ass = Object.assign, P = new DOMParser, dr = (v) => v instanceof RV ? v.V : v, thro = (err) => { throw err; }, now = () => performance.now();
 class Context {
     constructor(C, a) {
         ass(this, C || {
@@ -229,7 +227,7 @@ export class RV {
             this._v = t;
     }
     get V() {
-        arAdd(this);
+        AR(this);
         return this._v;
     }
     set V(v) {
@@ -330,7 +328,7 @@ export function RVAR(nm, val, store, subs, storeNm, updTo) {
         G[nm] = rv;
     return rv;
 }
-let env, pn, oes = { e: N, s: N }, arR, arA, arB, arVars, arAdd = (rv, bA) => arA && (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
+let env, pn, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA && (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
     if (arA && (arR || arVars)) {
         if (arR === T)
             throw 'arCheck!';
@@ -426,7 +424,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                         e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
                         break;
                     case 6:
-                        e[nm] = x.replace(/(.+?)(,|$)/gs, (_, u, r) => new URL(u, M.fp).href + r);
+                        e[nm] = x.replace(M.ev ? /(.+?)(,|$)/gs : /(.+)()/s, (_, u, r) => new URL(u, M.fp).href + r);
                         break;
                     case 5:
                         ass(e, x);
@@ -468,7 +466,7 @@ function ApplyMods(r, cr, ms, k = 0, xs) {
                     case 11:
                         if (!e.download
                             && !e.target
-                            && e.href.startsWith(L.origin + rvu.basepath))
+                            && e.href.startsWith(L.origin + dL.basepath))
                             e.addEventListener('click', reroute);
                 }
             }
@@ -677,7 +675,7 @@ class RComp {
                     case 'DEFINE':
                         {
                             NoChilds(srcE);
-                            let rv = ats.g('rvar'), { G, S } = this.cAny(ats, 'value'), bU = ats.gB('reacting') || ats.gB('updating'), dUpd = rv && this.CAttExp(ats, 'updates'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), onMod = rv && this.CPam(ats, 'onmodified');
+                            let rv = ats.g('rvar'), vLet = this.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && this.CT.getLV(rv), { G, S } = this.cAny(ats, 'value'), bU = ats.gB('updating') || rv, dUpd = rv && this.CAttExp(ats, 'updates'), onMod = rv && this.CPam(ats, 'onmodified'), dSto = rv && this.CAttExp(ats, 'store'), dSNm = dSto && this.CPam(ats, 'storename');
                             bA = async function DEF(ar, bR) {
                                 let { cr, r } = PrepRng(ar, srcE), v;
                                 if (bU || arChk() || cr || bR != N) {
@@ -770,11 +768,12 @@ class RComp {
                         break;
                     case 'RHTML':
                         {
-                            let { ws, rt } = this, S = this.CPam(ats, 'srctext'), b = S ? NoChilds(srcE) : await this.CUncN(srcE), dO = this.CPam(ats, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
+                            let { ws, rt } = this, S = this.CPam(ats, 'srctext', T), dO = this.CPam(ats, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
+                            NoChilds(srcE);
                             bl = async function RHTML(ar) {
-                                let { r, sub } = PrepElm(ar, 'r-html'), src = b ? (await b(sub)).innerText : S?.();
+                                let { r } = PrepElm(ar, 'r-html'), src = S();
                                 if (src != r.src) {
-                                    let sv = env, C = ass(new RComp(N, L.origin + rvu.basepath, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                    let sv = env, C = ass(new RComp(N, L.origin + dL.basepath, s), { ws, rt }), parN = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
                                     (C.doc = D.createDocumentFragment()).appendChild(tmp);
                                     parR.erase(parN);
                                     parN.innerHTML = Q;
@@ -992,7 +991,7 @@ class RComp {
                             if (rv) {
                                 if (!rv.$SR)
                                     throw `This is not an RVAR\nat '${at}'`;
-                                arAdd(rv, bA);
+                                AR(rv, bA);
                             }
                         return b(PrepRng(ar, srcE).sub, bR);
                     }, srcE);
@@ -1229,12 +1228,12 @@ class RComp {
         };
     }
     CFor(srcE, ats) {
-        let letNm = ats.g('let'), ixNm = ats.g('index', F, F, T), rixNm = ats.g('rindex', F, F, T);
+        let letNm = ats.g('let'), ixNm = ats.g('index', F, F, T) || ats.g('rindex', F, F, T);
         this.rt = F;
         if (letNm != N) {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = ats.gB('reacting') || ats.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
-                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vRix = this.LV(rixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
+                let vLet = this.LV(letNm), vIx = this.LV(ixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(ar) {
                     let iter = dr(dOf()) || E, { r, sub } = PrepRng(ar, srcE, Q), { parN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
                         ({ env, oes } = sEnv);
@@ -1313,9 +1312,8 @@ class RComp {
                             nxIR = iter2.next();
                             let { sub: iSub, EF } = SF(chAr, chR), rv = chR.rv;
                             try {
-                                vIx(ix);
-                                if (rixNm)
-                                    vRix(chR.ix || (chR.ix = new RV)).V = ix;
+                                if (ixNm)
+                                    vIx(chR.ix || (chR.ix = new RV)).V = ix;
                                 if (bRe)
                                     if (rv)
                                         vLet(rv)._v = item;
@@ -1480,10 +1478,15 @@ class RComp {
                     ro = T;
                     for (let { nm, G, S } of gArgs) {
                         let v = G();
-                        if (!S || v instanceof RV)
+                        if (!S
+                            || v instanceof RV) {
+                            bR && (bR = v == args[nm]);
                             args[nm] = v;
+                        }
+                        else if (cr)
+                            args[nm] = RVAR(U, v, U, S());
                         else
-                            (args[nm] || (args[nm] = RVAR(U, v, U, S()))).V = v;
+                            args[nm].V = v;
                     }
                     arChk();
                     env = cdef.env;
@@ -1536,7 +1539,7 @@ class RComp {
         };
     }
     CAtts(ats) {
-        let bf = [], af = [], m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu, ev) => {
+        let bf = [], af = [], k = 0, m, ap = this.S.bAutoPointer, addM = (mt, nm, d, cu, ev) => {
             let M = { mt, nm, d,
                 cu: cu ||
                     (d.fx != N ? 1 : 3),
@@ -1547,11 +1550,12 @@ class RComp {
             if (mt == 6)
                 M.fp = this.fp;
             (mt >= 9 || nm == 'value' ? af : bf).push(M);
+            k++;
             return M;
         };
         for (let [A, V] of ats)
-            if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) {
-                let [, o, p, h, d, y, c, i, e, s, a, t, k, r] = m;
+            if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src(set)?)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) {
+                let [, o, p, h, d, y, c, i, e, s, ss, a, t, w, r] = m;
                 if (o) {
                     let dV = p ? this.CExpr(V, A)
                         : e ? this.CHandlr(V, A)
@@ -1563,15 +1567,15 @@ class RComp {
                                     : p ? d ? 1 : 5
                                         : 0, a || e || i || d, i && c
                         ? () => Object.fromEntries([[i, dV()]])
-                        : dV, (e && !p || h) && 1);
+                        : dV, (e && !p || h) && 1, ss);
                 }
                 else if (t) {
                     let mP = /[@#](#)?/.exec(t), mT = /([@!])(\1)?/.exec(t), cu = /\*/.test(t)
-                        + /\+/.test(t) * 2, { G, S } = this.cTwoWay(V, k, mT || cu);
-                    (mP ? addM(1, k, G, mP[1] && 1) : {})
+                        + /\+/.test(t) * 2, { G, S } = this.cTwoWay(V, w, mT || cu);
+                    (mP ? addM(1, w, G, mP[1] && 1) : {})
                         .T =
-                        mT && addM(8, k, S, 1, mT[2] ? 'change' : 'input');
-                    cu && addM(10, k, S, cu);
+                        mT && addM(8, w, S, 1, mT[2] ? 'change' : 'input');
+                    cu && addM(10, w, S, cu);
                 }
                 else {
                     if (V)
@@ -1827,7 +1831,7 @@ export async function RFetch(input, init) {
         throw `${init?.method || 'GET'} ${input}: ` + e;
     }
 }
-class RVU extends RV {
+class DL extends RV {
     constructor() {
         super(new URL(L.href));
         this.basepath = U;
@@ -1847,8 +1851,8 @@ class RVU extends RV {
             }
         });
     }
-    get subpath() { return rvu.pathname.slice(this.basepath.length); }
-    set subpath(s) { rvu.pathname = this.basepath + s; }
+    get subpath() { return dL.pathname.slice(this.basepath.length); }
+    set subpath(s) { dL.pathname = this.basepath + s; }
     search(fld, val) {
         let U = new URL(this.V);
         mapSet(U.searchParams, fld, val);
@@ -1860,15 +1864,15 @@ class RVU extends RV {
         return rv;
     }
 }
-const rvu = new Proxy(new RVU, ProxH);
-export const docLocation = rvu, reroute = arg => {
+const dL = new Proxy(new DL, ProxH);
+export const docLocation = dL, reroute = arg => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
         arg.preventDefault();
         arg = arg.currentTarget.href;
     }
-    rvu.V = new URL(arg, L.href);
+    dL.V = new URL(arg, L.href);
 };
 let _ur = import.meta.url, R;
 if (G._ur) {
@@ -1884,7 +1888,7 @@ export async function RCompile(srcN, setts) {
             if (typeof setts == 'string')
                 setts = Ev(`({${setts}})`);
             srcN.b = T;
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (rvu.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
+            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             srcN.innerHTML = Q;
             AJ({ Exec: () => C.Build({

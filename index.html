@@ -46,11 +46,11 @@
     <link rel=preload href="demo/dayjs.min.js"           as=fetch crossorigin>
     
 </head>
-<body hidden
+<body hidden="until-found"
     rhtml="bTiming:true,version:1,bAutoReroute:true,headers:[['Cache-Control','no-cache']], bAutoSubscribe:0"
     oncreate="this.onclick = popup.Clear; // This avoids bAutoPointer"
     >
-    <title. reacton="docLocation">{
+    <title.>{
         /^(index.s?html)?$/.test(docLocation.subpath) ? "The OtoReact Framework"
         : /^docu$/i.test(docLocation.subpath) ? "OtoReact Documentation"
         : /^components$/i.test(docLocation.subpath) ? "OtoReact Components"
@@ -65,7 +65,7 @@
         <a href? #target? ...rest><content></content></a>
         
         <!-- Component to demonstrate RHTML -->
-        <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
+        <demo srctext?="''" #tab=4 #editable=true #bDollarRequired?></demo>
         
         <!-- Component that builds a page with header and table of contents-->
         <pageLayout></pageLayout>
@@ -73,7 +73,7 @@
         <RHTML #srctext></RHTML>
     </import>
 
-    <case hiding #value="docLocation.subpath" thisreactson=docLocation>
+    <case hiding #value="docLocation.subpath">
         <when regmatch="^(index\.|$)">
             <pageLayout subpath="">
                 <pageHead>

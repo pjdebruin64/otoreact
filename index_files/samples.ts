@@ -575,9 +575,7 @@ const sampleRHTML =
 ></define>
 <textarea @value="source" rows=3 cols=50></textarea>
 <p>
-<RHTML #srctext=source.V></RHTML>
-<p>
-<RHTML reacton=source>{source}</RHTML>`;
+<RHTML #srctext=source.V></RHTML>`;
 
 const sampleStyleTemplate =
 `<def rvar=Hue value="0.0"></def>
@@ -756,15 +754,15 @@ const demoRendering=
 <h5>Editable RHTML source:</h5>
 <def rvar=source store=sessionStorage value=
 "<!-- Source code -->
-<def var=x value=A></def>
-<ul> <li> x = \\{x\\} </ul>
-<comment> x = \\{x\\} </comment>"
+<DEF var=x #VALUE=1+1></DEF>
+<ul>  <li> x = \\{x\\} </ul>
+<comment > x = \\{x\\} </comment>"
 ></def>
 <textarea rows=5 cols=50 @value=source></textarea>
 
 <h5>Source DOM tree:</h5>
 <def rvar=SourceDOM></def>
-<div hidden #innerhtml=source 
+<div hidden #innerhtml=source.V
     *+innerhtml= "SourceDOM.V"
 ></div>
 <pre>{SourceDOM}</pre>

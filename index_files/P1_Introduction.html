@@ -342,7 +342,7 @@ Here you have a playground to enter your own Reactive HTML.
 <def rvar=playCount #value=1 store=localStorage></def>
 <def rvar=Playgrounds #value="Array.from(range(playCount)).map(i => RVAR(`Playground${i}`,'',localStorage))" updating></def>
 <for let=rvar of="Playgrounds" index key=index>
-    <demo #rvar="rvar"></demo>
+    <demo @srctext="rvar"></demo>
 </for>
 <button onclick="playCount.V++">
     Add another playground

@@ -15,17 +15,17 @@
 
     <!-- This component gives all <RHTML> constructs some default styling. -->
     <component>
-        <RHTML srctext onç?></RHTML>
+        <RHTML srctext onç></RHTML>
         <def var="prefix" value="<style>button,input,textarea \{font-size: 90%}</style>"></def>
-        <template onç="oc">
-<RHTML #onç="oc" #srctext="prefix + srctext"></RHTML>
+        <template srctext onç="onc">
+<RHTML #srctext="prefix + srctext"  #onç="onc"></RHTML>
         </template>
     </component>
 
         
     <!-- Component to demonstrate RHTML -->
     <component>
-        <demo srctext?="''" #tab=4 #editable=true rvar? #bDollarRequired?></demo>
+        <demo @srctext?="''" #tab=4 #editable=true #bDollarRequired?></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
         <style scope="local">
@@ -89,8 +89,7 @@
                     new RegExp(`^\\s*${fRegElement('style')}?${fRegElement('script')}?${fRegElement('component')}?([^]*?)\\s*$`, 'i');
         </script>
 
-        <template srctext=source #bDollarRequired="bDollarRequired" #tab>
-            <define var=srcText #value="rvar || RVAR('', source.trim())"></define>
+        <template @srctext=srcText #bDollarRequired="bDollarRequired" #tab>
             <define rvar="texts" #value="regDemo.exec(srcText.V)"
                 #onmodified="([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')}"
             ></define>
@@ -159,7 +158,6 @@
                             beforecreateupdate="tsStart.V = performance.now()"
                             onç="tsCompiled.V = performance.now()"
                             aftercreateupdate="tsBuilt.V = performance.now()"
-                            reacton="srcText"
                         ></RHTML>
                     </td.>
                 </tr.>

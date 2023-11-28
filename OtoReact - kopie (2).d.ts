@@ -96,7 +96,7 @@ type DOMBuilder<RT = void | boolean> = ((ar: Area, bR?: boolean) => Promise<RT>)
 };
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
 export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
-declare class RVU extends RV<URL> {
+declare class DL extends RV<URL> {
     query: {
         [fld: string]: string;
     };
@@ -107,7 +107,7 @@ declare class RVU extends RV<URL> {
     search(fld: string, val: string): string;
     RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
 }
-export declare const docLocation: RVU & URL, reroute: (arg: MouseEvent | string) => void;
+export declare const docLocation: DL & URL, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {
     b?: booly;
 }, setts?: string | Settings): Promise<void>;

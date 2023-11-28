@@ -23,20 +23,19 @@ const
         //basePattern:    '/',
         bAutoPointer:   T,
         preformatted:   E as string[],
-        storePrefix:    "RVAR_",
+        //storePrefix:    "RVAR_",
         version:        1,
         //bGlobs:         true,
     }
     
     // Some utilities
-    , P = new DOMParser
-    , Ev = eval                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
-    , ass = Object.assign as
-                <T extends {}>(obj: T, props: {}) => T
-    , now = () => performance.now()
-    , thro = (err: any) => {throw err}
     , K = x => () => x
-    , dr = v => v instanceof RV ? v.V : v;
+    , Ev = eval                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
+    , ass = Object.assign as <T extends {}>(obj: T, props: {}) => T
+    , P = new DOMParser
+    , dr = (v: unknown) => v instanceof RV ? v.V : v
+    , thro = (err: any) => {throw err}
+    , now = () => performance.now()
     ;
 
 // Type used for truthy / falsy values
@@ -125,7 +124,7 @@ class Context {
             let D = this.d;
             return (e:Environment = env) => {
                 let {d,i} = k;
-                for(;d < D; d++)
+                while(d++ < D)
                     e = e[0];
                 return e[i] as T;
             }
@@ -545,7 +544,7 @@ export class RV<T = unknown> {
     // Use var.V to get or set its value
     get V() {
         // Mark as used
-        arAdd(this);
+        AR(this);
         return this._v;
      }
     // When setting, it will be marked dirty.
@@ -630,6 +629,9 @@ export type RVAR<T = unknown> = RV<T>;
 export type ROBJ<T extends object> = RV<T> & T;
 
 const
+    // ProxH is the proxyhandler on RV objects rv, that channels all property access either
+    // to rv itself or to rv.V / rv.U.
+    // Used by the RVAR function and also for the docLocation object.
     ProxH: ProxyHandler<RV<object>> = 
     {
         get(rv: RV, p) {
@@ -718,7 +720,7 @@ let
     arB: DOMBuilder,
 
     arVars: Map<RV, booly>,
-    arAdd = (rv: RV, bA?: booly) => 
+    AR = (rv: RV, bA?: booly) => 
         arA && (arVars ||= new Map).set(rv, bA || arVars?.get(rv)),
     arChk = () => {
         if (arA && (arR || arVars)) {
@@ -759,6 +761,7 @@ let
         Jobs.add(job);
         hUpd ||= setTimeout(DoUpdate, 1);
     }
+    //, AP =  async <T> (f: (x:T)=>void, x: T | Promise<T>) => x instanceof Promise ? x.then(x => AJ({Exec: async() => f(x)})) : await f(x)
 ;
 //#endregion
 
@@ -772,11 +775,21 @@ type Modifier = {
     ap?: booly,         // Truthy when auto-pointer should be handled
     fp?: string,        // File path, when needed
     ev?: string,
+    S?: Dep<(x:unknown) => void>,
 
     c?: string,         // properly cased name
     isS?: booly,        // Truthy when the property type is string
+    T?: Modifier,       // For TWO-way properties, the corresponding Target modifier
 }
-let evM = (M: Modifier) => M.d();
+let evM = (M: Modifier) => {
+    let v = M.d?.();
+    if (v instanceof RV) {
+        if (M.T)
+            M.T.d = K(v.Set)
+        v = v.V
+    }
+    return v;
+}
 
 // Modifier Types
 const enum MType {
@@ -851,9 +864,9 @@ function ApplyMods(
         ;
     try {
         for (let M of ms) {
-            if (M.cu & cu)
+            if (M.cu & cu)      // '&' = Bitwise AND
             {
-                let nm = M.nm, x = xs ? xs[i] : M.d();
+                let nm = M.nm, x = xs ? xs[i] : evM(M);
                 /* Apply modifier 'M' with actual value 'x' to element 'e'. */
                 switch (M.mt) {
                     case MType.Attr:
@@ -861,20 +874,28 @@ function ApplyMods(
                         break;
 
                     case MType.Prop:
+                        r[k] = x;
                         // For string properties, make sure val is a string
                         if (M.isS ??= typeof e[
                             // And (in any case) determine properly cased name
                             M.c = ChkNm(e,
                                 nm=='for' ? 'htmlFor'
-                                : nm=='valueasnumber' && (e as HTMLInputElement).type == 'number'
+                                : nm=='valueasnumber' //&& (e as HTMLInputElement).type == 'number'
                                         ? 'value' 
                                 : nm)
                         ]=='string')
-                            // replace null and undefined by the empty string
-                            x = x==N ? Q : x.toString();
+                            // replace null, undefined and NaN (note that NaN!=NaN) by the empty string
+                            x = x==N || x!=x ? Q : x.toString();
                         // Avoid unnecessary property assignments; they may have side effects
-                        if (x !== e[nm=M.c])
+                        if (x != e[nm=M.c])
                             e[nm] = x;
+
+                        if (cr && M.S) {
+                            let S = M.S(), kk =k, c = M.c;
+                            e.addEventListener(M.ev,
+                                () => (r[kk] instanceof RV ? r[kk].Set : S)(e[c])
+                            )
+                        }
                         break;
 
                     case MType.Target:
@@ -928,10 +949,11 @@ function ApplyMods(
 
                     case MType.Src:
                         // 'nm' may be "src" or "srcset".
+                        // In case of "srcset", M.ev is truthy.
                         // 'M.fp' is the URL of the source document.
                         // Each URL in attribute value 'x' is to be interpreted as relative to 'M.fp'.
                         e[nm] = (x as string).replace(
-                            /(.+?)(,|$)/gs,
+                            M.ev ? /(.+?)(,|$)/gs : /(.+)()/s,
                             (_,u,r) => new URL(u, M.fp).href + r
                             );
                         break;
@@ -991,7 +1013,7 @@ function ApplyMods(
                             !(e as HTMLAnchorElement).download
                             && !(e as HTMLAnchorElement).target
                             // and the (initial) href starts with the current basepath
-                            && (e as HTMLAnchorElement).href.startsWith(L.origin + rvu.basepath)
+                            && (e as HTMLAnchorElement).href.startsWith(L.origin + dL.basepath)
                         )
                             // Then we add the 'reroute' onclick-handler
                             e.addEventListener('click', reroute);
@@ -1407,7 +1429,7 @@ class RComp {
                         NoChilds(srcE);
                         let rv      = ats.g('rvar'), // An RVAR
                             {G,S} = this.cAny(ats, 'value'),
-                            bU    = ats.gB('reacting') || ats.gB('updating') || S,
+                            bU    = ats.gB('reacting') || ats.gB('updating') || rv,
                             dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates'),
                             dSto    = rv   && this.CAttExp<Store>(ats, 'store'),
                             dSNm    = dSto && this.CPam<string>(ats, 'storename'),
@@ -1416,12 +1438,15 @@ class RComp {
                             onMod   = rv && this.CPam<Handler>(ats, 'onmodified');
 
                         bA = async function DEF(ar, bR?) {
-                            let {cr} = PrepRng(ar, srcE)
+                            let {cr,r} = PrepRng<{rv: RV}>(ar, srcE)
                                 , v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
-                            // bUpd : 'updating' was specified
-                            // re:  : The routine is called because of a 'reacton' subscribtion
+                            // bU   : 'updating' was specified
+                            // bR not null: The routine is called because of a 'reacton' subscribtion
+
+                            // Note that when !bU, then arChk() is called /before/ G() is evaluated,
+                            // so that the construct won't react on RVARS used by G().
                             if ( bU || arChk() || cr || bR != N){
                                 try {
                                     ro=T;
@@ -1431,19 +1456,21 @@ class RComp {
                                     ro = F; 
                                 }
 
-                                if (rv)
+                                if (rv) {
+                                    r.rv = v instanceof RV && v;
                                     if (cr)
                                         (vLet as LVar<RVAR>)(
-                                            RVAR(N, v,
+                                            RVAR(N, dr(v),
                                                 dSto?.(),
-                                                S?.(), 
+                                                r.rv ? x => {r.rv.V = x} : S?.(),
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
                                         )
                                         .Subscribe(onMod?.());
                                     else
-                                        vGet().Set(v);
+                                        vGet().Set(dr(v));
+                                }
                                 else
                                     vLet(v);
                             }
@@ -1555,23 +1582,22 @@ class RComp {
                     case 'RHTML': {
                         let 
                             {ws,rt} = this
-                            , S = this.CPam<string>(ats, 'srctext')
-                            , b = S ? NoChilds(srcE) : await this.CUncN(srcE)
+                            , S = this.CPam<string>(ats, 'srctext',T)
                             // Undocumented feature: a pseudo-event fired after the compile phase
                             , dO = this.CPam<Handler>(ats, "onç")
                             , s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
-                       
+                        NoChilds(srcE);
                         bl = async function RHTML(ar) {
                             let 
-                                {r, sub} = PrepElm<{pR: Range, src: string}>(ar, 'r-html')
-                                , src = b ? (await b(sub)).innerText : S?.()
+                                {r} = PrepElm<{pR: Range, src: string}>(ar, 'r-html')
+                                , src = S()
                                 ;
 
                             if (src != r.src) {
                                 let 
                                     sv = env
-                                    , C = ass( new RComp(N, L.origin + rvu.basepath, s)
+                                    , C = ass( new RComp(N, L.origin + dL.basepath, s)
                                             , {ws,rt})
                                     , parN = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
                                     , parR = r.pR ||= new Range(N, N, tag)
@@ -1894,7 +1920,7 @@ class RComp {
                                 if (rv) {
                                     if (!rv.$SR)
                                         throw `This is not an RVAR\nat '${at}'`; 
-                                    arAdd(rv, bA);
+                                    AR(rv, bA);
                                 }  
                             
                             return b(PrepRng(ar, srcE).sub, bR);
@@ -2302,8 +2328,7 @@ class RComp {
         type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = ats.g('let')
-            , ixNm = ats.g('index',F,F,T)
-            , rixNm = ats.g('rindex',F,F,T)
+            , ixNm = ats.g('index',F,F,T) || ats.g('rindex',F,F,T)
             ;
         this.rt = F;
 
@@ -2322,8 +2347,7 @@ class RComp {
                     // Add the loop-variable to the context, and keep a routine to set its value
                     vLet = this.LV(letNm),
                     // The same for 'index', 'previous' and 'next' variables
-                    vIx = this.LV<number>(ixNm),
-                    vRix = this.LV<RV<number>>(rixNm),
+                    vIx = this.LV<RV<number>>(ixNm),
                     vPv = this.LV<Item>(pvNm),
                     vNx = this.LV<Item>(nxNm),
 
@@ -2365,7 +2389,7 @@ class RComp {
                                     // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
                                     // Later on, we set them again.
                                     vLet(item);
-                                    vIx(ix);
+                                    vIx(<any>ix);
                                     let hash = dHash?.()
                                         , key = dKey?.() ?? hash?.[0];
                                     if (key != N && nMap.has(key))
@@ -2474,10 +2498,8 @@ class RComp {
                                 try {
                                     // Set bound variables
 
-                                    vIx(ix);
-
-                                    if(rixNm)
-                                        vRix(chR.ix ||= new RV<number>) .V = ix;
+                                    if(ixNm)
+                                        vIx(chR.ix ||= new RV<number>) .V = ix;
 
                                     if (bRe)
                                         if(rv)
@@ -2731,6 +2753,7 @@ class RComp {
                 nm: string,             // The parameter name
                 G: Dep<unknown>,       // A getter routine
                 S?: Dep<Handler>,      // A setter routine, in case of a two-way parameter
+                bT?: booly,             // 
             }> = [],
             SBldrs = new Map<string, Template[]>(
                 mapI(Slots, ([nm]) => [nm, []])
@@ -2740,7 +2763,7 @@ class RComp {
             if (nm!=RP) {
                 let {G,S} = this.cAny(ats, nm, rq);
                 //if (S && mode!='@') throw ``
-                if (mode=='@' && !S) S = K(F);  // A dummy setter
+                mode=='@' && !S && (S=K(F));
                 if (G)
                     gArgs.push( {nm,G,S} );
             }
@@ -2787,12 +2810,19 @@ class RComp {
                     ro = T;
                     for (let {nm, G, S} of gArgs) {
                         let v = G();
-                        if (S && !(v instanceof RV))
-                            // For TWO-way parameters, create an RVAR
-                            ( (<RV> args[nm]) ||= RVAR(U,v,U,S()) ).V = v;
-                        else
-                            // For one-way parameters, do not dereference
+                        if (!S 
+                            || v instanceof RV  // For one-way parameters, do not dereference
+                            ) {
+                            // when a one-way parameter changes, then update the whole instance
+                            bR &&= v == args[nm];
+                            
                             args[nm] = v;
+                        }
+                        else if (cr)
+                            // For TWO-way parameters, create an RVAR
+                            (args[nm] as RV) = RVAR(U,v,U,S());
+                        else
+                            (args[nm] as RV).V = v;
                     }
                     arChk();
                     env = cdef.env;
@@ -2886,6 +2916,7 @@ class RComp {
 
         let bf: Modifier[] = []
             , af: Modifier[] = []
+            , k = 0
             , m: RegExpExecArray
             , ap = this.S.bAutoPointer
 
@@ -2896,25 +2927,25 @@ class RComp {
                 , ev?: string
             ) => {
                 let M: Modifier = 
-                    {mt, nm, d
+                    {mt, nm, d, ev
                         , cu: cu ||
                             // When the attribute value is a string constant, then it need only be set on create
                             (d.fx != N ? 1 : 3)
-                        , ev
                     };
                 if (ap && mt == MType.Event) M.ap = nm == 'click';
                 if (mt == MType.Src) M.fp = this.fp;
 
                 // Either the 'before' or 'after' list
-                (mt >= MType.RestParam || nm=='value' && ats.elm.tagName=='SELECT' ? af : bf).push(M);
+                (mt >= MType.RestParam || nm=='value' ? af : bf).push(M);
+                k++;
                 return M;
             };
 
         for (let [A, V] of ats)
-            if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src|srcset)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) 
-            //           op     h-h p dyc---------------c     -y       i---id    e---e    s            a---a   -o t-           -tk---k       r---r
+            if (m = /^(?:(([#+.](#)?)?(((class|classname)|style)(?:[.:](\w+))?|on(\w+)\.*|(src(set)?)|(\w*)\.*))|([\*\+#!]+|@@?)(\w*)|\.\.\.(\w+))$/.exec(A)) 
+            //           op     h-h p dyc---------------c     -y       i---id    e---e    s-  ss-ss s a---a   -o t-------------tw---w       r---r
             {
-                let [,o,p,h,d,y,c,i,e,s,a,t,k,r] = m;
+                let [,o,p,h,d,y,c,i,e,s,ss,a,t,w,r] = m;
                 if (o) {
                     // One-way attributes/properties/handlers
                     let 
@@ -2940,6 +2971,7 @@ class RComp {
                         // Undocumented feature: when the source attribute contains a DOUBLE hash,
                         // then the modifier is executed only on create
                         , (e && !p || h) && 1
+                        , ss
                         );
                 }
                 else if (t) {
@@ -2950,17 +2982,20 @@ class RComp {
                         , mT = /([@!])(\1)?/.exec(t)
                         , cu: CU = <any>/\*/.test(t) 
                                 + <any>/\+/.test(t) * 2               
-                        ,  {G,S} = this.cTwoWay(V, k, mT||cu )
+                        ,  {G,S} = this.cTwoWay(V, w, mT||cu )
+                        , M ={mt: MType.Prop
+                            , nm: w
+                            , d: mP && G
+                            , cu: !mP || mP[1] ? 1 : 3 as CU
+                            , S
+                            , ev: mT?.[2] ? 'change' : 'input'
+                        }
                         ;
-
-                    // Set prop value
-                    mP && addM(MType.Prop, k, G, mP[1] && 1);
-
-                    // Get on change or input
-                    mT && addM(MType.Target, k, S, 1, mT[2] ? 'change' : 'input');
+                    (w=='value' ? af : bf).push(M);
+                    k++;
 
                     // Get on create and/or update
-                    cu && addM(MType.GetProp, k, S, cu);
+                    cu && addM(MType.GetProp, w, S, cu);
                 }
 
                 else //if (n) 
@@ -3078,19 +3113,20 @@ class RComp {
     }
 
     private cAny<T = unknown>(ats: Atts, nm: string, rq?: booly)
-    : {G: Dep<T>, S?: Dep<(v:T) => void>}
-     {
+        : {G: Dep<T>, S?: Dep<(v:T) => void>}
+    {
         let exp = ats.g('@' + nm);
         return exp != N ? this.cTwoWay(exp, '@'+nm)
             : {
                 G: this.CPam(<Atts>ats, nm, rq)
             };
     }
+
     private cTwoWay<T = unknown>(exp: string, nm: string, bT: booly=T) {
         return {
             G: this.CExpr<T>(exp, nm),
             S: bT && this.CRout<T>(`(${exp})=$` , '$', `\nin assigment target "${exp}"`)
-        }
+        };
     }
     
     private CHandlr(
@@ -3385,7 +3421,7 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 //#endregion
 
 //#region Routing
-class RVU extends RV<URL>{
+class DL extends RV<URL>{
     query: {[fld: string]: string};
     constructor() {
         super(new URL(L.href));
@@ -3398,7 +3434,7 @@ class RVU extends RV<URL>{
             S2Hash(); // Scroll to hash, even when URL remains the same
         });
 
-        this.query = <any>new Proxy<RVU>(this, {
+        this.query = <any>new Proxy<DL>(this, {
             get( rl, key: string) { return rl.V.searchParams.get(key); },
             set( rl, key: string, val: string) {
                 if (val != rl.V.searchParams.get(key)) {
@@ -3411,8 +3447,8 @@ class RVU extends RV<URL>{
     }
     
     basepath: string = U;
-    get subpath()  { return rvu.pathname.slice(this.basepath.length); }
-    set subpath(s) { rvu.pathname = this.basepath + s; }
+    get subpath()  { return dL.pathname.slice(this.basepath.length); }
+    set subpath(s) { dL.pathname = this.basepath + s; }
 
     search(fld: string, val: string) {
         let U = new URL(this.V);
@@ -3427,9 +3463,9 @@ class RVU extends RV<URL>{
     }
 }
 
-const rvu = new Proxy<RVU>( new RVU, ProxH ) as RVU & URL;
+const dL = new Proxy( new DL, ProxH ) as DL & URL;
 export const
-    docLocation = rvu,
+    docLocation = dL,
     reroute: (arg: MouseEvent | string) => void = 
         arg => {
             if (typeof arg == 'object') {
@@ -3438,14 +3474,14 @@ export const
                 arg.preventDefault();
                 arg = (arg.currentTarget as HTMLAnchorElement).href;
             }
-            rvu.V = new URL(arg, L.href);
+            dL.V = new URL(arg, L.href);
         };
 //#endregion
 
 let
     _ur = import.meta.url,
     R: RComp;
-if (G._ur) {alert(`OtoReact loaded twice, from: "${G._ur}"\nand from: "${_ur}".`); throw Q;}
+if (G._ur) {alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`); throw Q;}
 
 // Define global constants
 ass(G, {RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}')
@@ -3463,7 +3499,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
                 m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
                 , C = new RComp(
                     N
-                    , L.origin + (rvu.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
+                    , L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
                     , setts
                 );
             /*
