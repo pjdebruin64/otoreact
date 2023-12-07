@@ -805,7 +805,7 @@ class RComp {
                             let vNm = this.LV(ats.g('name', T)), bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LV(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
                             bA = async function DOCUMENT(ar) {
                                 if (PrepRng(ar).cr) {
-                                    let { doc, hd } = PC, docEnv = env, wins = new Set();
+                                    let { doc, hd } = PC, docEnv = env, wins = new Set;
                                     vNm({
                                         async render(w, cr, args) {
                                             let s = env, Cdoc = RC.doc = w.document;
@@ -1879,7 +1879,9 @@ if (G._ur) {
     alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`);
     throw Q;
 }
-ass(G, { RVAR, range, reroute, RFetch, DoUpdate, docLocation, debug: Ev('()=>{debugger}'),
+ass(G, {
+    RVAR, range, reroute, RFetch, DoUpdate, docLocation,
+    debug: Ev('()=>{debugger}'),
     _ur
 });
 export async function RCompile(srcN, setts) {
