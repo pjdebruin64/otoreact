@@ -188,7 +188,7 @@ type Area<RT = {}, T = true> = {
 
     /* When !r, i.e. when the DOM has to be created: */
     srcN?: ChildNode;     // Optional source node to be replaced by the new DOM 
-    parR?: Range;         // The new range shall either be the first child this parent range,
+    pR?: Range;         // The new range shall either be the first child this parent range,
     prR?: Range;        // Or the next sibling of this previous range
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
@@ -206,7 +206,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
     ch: Range;         // Linked list of child ranges (null=empty)
     nx: Range;         // Next range in linked list
 
-    parR?: Range;       // Parent range, only when both belong to the SAME DOM node
+    pR?: Range;       // Parent range, only when both belong to the SAME DOM node
     pN?: false | Node;        // Parent node, only when this range has a DIFFERENT parent node than its parent range
 
     constructor(
@@ -216,10 +216,10 @@ class Range<NodeType extends ChildNode = ChildNode>{
     ) {
         this.n = n;
         if (ar) {
-            let {parR: p, prR: q} = ar;
+            let {pR: p, prR: q} = ar;
             if (p && !p.n)
                 // Set the parent range, only when that range isn't a DOM node
-                this.parR = p;
+                this.pR = p;
             
             // Insert this range in a linked list, as indicated by 'ar'
             if (q) 
@@ -253,7 +253,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
         ,   p: Range
         ;
         do {
-            p = r.parR;
+            p = r.pR;
             while (r = r.nx)
                 if (n = r.Fst) return n;
         } while (r = p)
@@ -313,14 +313,14 @@ class Range<NodeType extends ChildNode = ChildNode>{
         }
     }
     // info how to update this range, when it is used as a subscriber
-    uInfo?: {b: DOMBuilder, env: Environment, oes: OES, pN: ParentNode, parR: Range, bR: boolean};
+    uInfo?: {b: DOMBuilder, env: Environment, oes: OES, pN: ParentNode, pR: Range, bR: boolean};
 
     async update() {
-        let b: DOMBuilder, bR: boolean, parR: Range;
-        ({env, oes, pN, b, bR, parR} = this.uInfo);
+        let b: DOMBuilder, bR: boolean, pR: Range;
+        ({env, oes, pN, b, bR, pR} = this.uInfo);
         
         if (this.upd != upd)
-            await b({r: this, pN, parR}, bR);
+            await b({r: this, pN, pR}, bR);
     }
 }
 /* The following function prepares a sub area of a given 'area', 
@@ -350,7 +350,7 @@ const PrepRng = <RT>(
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
         
-        r = sub.parR = new Range(ar, N
+        r = sub.pR = new Range(ar, N
             , srcE ? srcE.tagName + (text && ' ' + text) : text
             );
     }
@@ -359,7 +359,7 @@ const PrepRng = <RT>(
         ar.r = r.nx || T;
 
         if (cr = nWipe && (nWipe>1 || res != r.res)) {
-            (sub.parR = r).erase(pN); 
+            (sub.pR = r).erase(pN); 
             sub.r = N;
             sub.bfor = r.Nxt;
         }
@@ -397,7 +397,7 @@ const PrepRng = <RT>(
             pN: pN = r.n, 
             r: r.ch, 
             bfor: N,
-            parR: r
+            pR: r
         },
         cr
     };
@@ -589,8 +589,8 @@ export class RV<T = unknown> {
         this.$subs.delete(s);
     }
     // Subscribe range
-    $SR({parR, pN}: Area, b: DOMBuilder, r: Range, bR:boolean = true) {
-        r.uInfo ||= {b, env, oes, pN, parR, bR};
+    $SR({pR, pN}: Area, b: DOMBuilder, r: Range, bR:boolean = true) {
+        r.uInfo ||= {b, env, oes, pN, pR, bR};
         this.$subs.add(r);
         (r.rvars ||= new Set).add(this);
     }
@@ -1603,7 +1603,7 @@ class RComp {
                                 ,   C = ass( new RComp(N, L.origin + dL.basepath, s)
                                             , {ws,rt})
                                 ,   sh = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
-                                ,   parR = r.pR ||= new Range(N, N, tag)
+                                ,   pR = r.pR ||= new Range(N, N, tag)
                                 ,   tmp = D.createElement(tag)
                                     ;
 
@@ -1611,7 +1611,7 @@ class RComp {
                                 // Modules are saved in OMod so they don't react on updates, though
                                 (C.doc = D.createDocumentFragment() as Document).appendChild(tmp)
 
-                                parR.erase(sh); 
+                                pR.erase(sh); 
                                 sh.innerHTML = Q;
 
                                 try {
@@ -1621,7 +1621,7 @@ class RComp {
                                     await C.Compile(tmp, tmp.childNodes);
                                     dO && dO()(U);
                                     // Building
-                                    await C.Build({ pN: sh, parR });
+                                    await C.Build({ pN: sh, pR });
                                 }
                                 catch(e) { 
                                     sh.appendChild(crErrN(e))
@@ -2430,7 +2430,7 @@ class RComp {
                                     }
                                     bf = nxR?.FstOrNxt || bfor;
                                 }
-                            sub.parR = r;
+                            sub.pR = r;
                             while(!nxIR.done) {
                                 EC();
                                 // Inspect the next item
@@ -2484,7 +2484,7 @@ class RComp {
                                     // Prepare child range
                                     chAr = PrepRng(sub).sub;
 
-                                    sub.parR = N;
+                                    sub.pR = N;
                                 }
                                 chR.pv = prR;
                                 chR.text = `${letNm}(${ix})`;
