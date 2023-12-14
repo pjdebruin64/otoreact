@@ -223,31 +223,31 @@ class Signat {
 export class RV {
     constructor(t) {
         this.$name = U;
-        this._v = U;
+        this.$V = U;
         this.$imm = N;
         this.$subs = new Set;
         if (t instanceof Promise) {
-            this._v = U;
+            this.$V = U;
             t.then(v => this.V = v, oes.e);
         }
         else
-            this._v = t;
+            this.$V = t;
     }
     get V() {
         AR(this);
-        return this._v;
+        return this.$V;
     }
     set V(v) {
-        if (v !== this._v) {
-            let p = this._v;
-            this._v = v;
+        if (v !== this.$V) {
+            let p = this.$V;
+            this.$V = v;
             this.SetDirty(p);
         }
     }
     Subscribe(s, bImm, cr) {
         if (s) {
             if (cr)
-                s(this._v);
+                s(this.$V);
             (bImm ? this.$imm || (this.$imm = new Set) : this.$subs).add(s);
         }
         return this;
@@ -267,7 +267,7 @@ export class RV {
     }
     get Set() {
         return t => t instanceof Promise ?
-            (this._v = U,
+            (this.$V = U,
                 t.then(v => this.V = v, oes.e))
             : (this.V = t);
     }
@@ -276,11 +276,11 @@ export class RV {
     }
     get U() {
         ro || this.SetDirty();
-        return this._v;
+        return this.$V;
     }
-    set U(t) { this._v = t; this.SetDirty(); }
+    set U(t) { this.$V = t; this.SetDirty(); }
     SetDirty(prev) {
-        this.$imm?.forEach(s => s(this._v, prev));
+        this.$imm?.forEach(s => s(this.$V, prev));
         this.$subs.size && AJ(this);
     }
     async Exec() {
@@ -289,7 +289,7 @@ export class RV {
                 if (subs instanceof Range)
                     await subs.update();
                 else
-                    subs(this._v);
+                    subs(this.$V);
             }
             catch (e) {
                 console.log(e = `ERROR: ` + Abbr(e, 1000));
@@ -306,15 +306,15 @@ const ProxH = {
     set(rv, p, v) {
         if (p in rv)
             rv[p] = v;
-        else if (v !== rv._v[p])
+        else if (v !== rv.$V[p])
             rv.U[p] = v;
         return T;
     },
     deleteProperty(rv, p) {
-        return p in rv._v ? delete rv.U[p] : T;
+        return p in rv.$V ? delete rv.U[p] : T;
     },
     has(rv, p) {
-        return p in rv || rv.V != N && p in rv._v;
+        return p in rv || rv.V != N && p in rv.$V;
     }
 };
 export function RVAR(nm, val, store, imm, storeNm, updTo) {
@@ -1330,7 +1330,7 @@ class RComp {
                                     vIx(chR.ix || (chR.ix = new RV)).V = ix;
                                 if (bRe)
                                     if (rv)
-                                        vLet(rv)._v = item;
+                                        vLet(rv).$V = item;
                                     else
                                         vLet(chR.rv = RVAR(N, item, N, N, N, dUpd?.()));
                                 else

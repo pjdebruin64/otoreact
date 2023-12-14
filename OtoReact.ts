@@ -541,15 +541,15 @@ export interface Store {
 export class RV<T = unknown> {
     public $name?: string = U;
     // The value of the variable
-    _v: T = U;
+    $V: T = U;
 
     constructor(t?: T | Promise<T>) {
         if (t instanceof Promise) {
-            this._v = U;
+            this.$V = U;
             t.then(v => this.V = v, oes.e);
         }
         else
-            this._v = t;
+            this.$V = t;
     }
     // Immediate subscribers
     private $imm: Set<Subscriber<T>> = N;
@@ -560,13 +560,13 @@ export class RV<T = unknown> {
     get V() {
         // Mark as used
         AR(this);
-        return this._v;
+        return this.$V;
      }
     // When setting, it will be marked dirty.
     set V(v: T) {
-        if (v !== this._v) {
-            let p = this._v;
-            this._v = v;
+        if (v !== this.$V) {
+            let p = this.$V;
+            this.$V = v;
             this.SetDirty(p);
         }
     }
@@ -578,7 +578,7 @@ export class RV<T = unknown> {
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean) {
         if (s) {
             if (cr)
-                s(this._v);
+                s(this.$V);
             (bImm ? this.$imm ||= new Set<Subscriber<T>>
                 : this.$subs).add(s);
         }
@@ -603,7 +603,7 @@ export class RV<T = unknown> {
     {
         return t =>
             t instanceof Promise ?
-                (this._v = U, 
+                (this.$V = U, 
                     t.then(v => this.V = v, oes.e)
                 )
                 : (this.V = t);
@@ -617,11 +617,11 @@ export class RV<T = unknown> {
     // Set var.U to to set the value and mark the rvar as dirty, even when the value has not changed.
     get U() { 
         ro || this.SetDirty();  
-        return this._v }
-    set U(t: T) { this._v = t; this.SetDirty(); }
+        return this.$V }
+    set U(t: T) { this.$V = t; this.SetDirty(); }
 
     public SetDirty(prev?: T) {
-        this.$imm?.forEach(s => s(this._v, prev));
+        this.$imm?.forEach(s => s(this.$V, prev));
 
         this.$subs.size && AJ(this);
     }
@@ -632,7 +632,7 @@ export class RV<T = unknown> {
                 if (subs instanceof Range)
                     await subs.update();
                 else
-                    subs(this._v);
+                    subs(this.$V);
             }
             catch (e) {    
                 console.log(e = `ERROR: ` + Abbr(e,1000));
@@ -658,17 +658,17 @@ const
         set(rv: RV, p, v) {
             if (p in rv)
                 rv[p] = v;
-            else if (v !== rv._v[p])
+            else if (v !== rv.$V[p])
                 rv.U[p] = v;
             return T
         },
 
         deleteProperty(rv, p) {
-            return p in rv._v ? delete rv.U[p] : T;
+            return p in rv.$V ? delete rv.U[p] : T;
         },
 
         has(rv, p) {
-            return p in rv || rv.V != N && p in rv._v;
+            return p in rv || rv.V != N && p in rv.$V;
         }
         /* // This doesn't work with proxies:
         ownKeys(rv) { return Reflect.ownKeys(rv.V); }
@@ -2510,7 +2510,7 @@ class RComp {
 
                                     if (bRe)
                                         if(rv)
-                                            (vLet(rv) as RVAR)._v = item;
+                                            (vLet(rv) as RV).$V = item;
                                         else
                                             // Turn 'item' into an RVAR
                                             vLet(chR.rv = RVAR(N,item,N,N,N, dUpd?.()));                                    
