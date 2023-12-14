@@ -23,7 +23,7 @@ type Environment = [Environment?, ...unknown[]] & {
 };
 type Area<RT = {}, T = true> = {
     r?: Range & RT | T;
-    parN: ParentNode;
+    pN: ParentNode;
     bfor?: ChildNode;
     srcN?: ChildNode;
     parR?: Range;
@@ -35,7 +35,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     ch: Range;
     nx: Range;
     parR?: Range;
-    parN?: false | Node;
+    pN?: false | Node;
     constructor(ar: Area, n?: NodeType, text?: string);
     toString(): string;
     get Fst(): ChildNode;
@@ -51,7 +51,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
         b: DOMBuilder;
         env: Environment;
         oes: OES;
-        pn: ParentNode;
+        pN: ParentNode;
         parR: Range;
         bR: boolean;
     };
@@ -71,21 +71,20 @@ export declare class RV<T = unknown> {
     set V(v: T);
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
-    $SR({ parR, parN }: Area, b: DOMBuilder, r: Range, bR?: boolean): void;
+    $SR({ parR, pN }: Area, b: DOMBuilder, r: Range, bR?: boolean): void;
     $UR(r: Range): void;
     get Set(): (t: T | Promise<T>) => void;
     get Clear(): () => true;
     get U(): T;
     set U(t: T);
-    SetDirty(): void;
+    SetDirty(prev?: T): void;
     Exec(): Promise<void>;
     valueOf(): Object;
     toString(): string;
 }
-export type RVAR<T = unknown> = RV<T>;
-export type ROBJ<T extends object> = RV<T> & T;
-export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, subs?: (t: T) => void, storeNm?: string, updTo?: RV): RVAR<T>;
-type Subscriber<T = unknown> = ((t?: T) => unknown);
+export type RVAR<T = any, U = T> = RV<T> & U;
+export declare function RVAR<T, U = T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RV<T> & U;
+type Subscriber<T = unknown> = ((t?: T, prev?: T) => unknown);
 type OES = {
     e: Handler;
     s: Handler;
@@ -104,8 +103,8 @@ declare class DL extends RV<URL> {
     basepath: string;
     get subpath(): string;
     set subpath(s: string);
-    search(fld: string, val: string): string;
-    RVAR(fld: string, df?: string, nm?: string): RVAR<string>;
+    search(key: string, val: string): string;
+    RVAR(key: string, df?: string, nm?: string): RV<string> & string;
 }
 export declare const docLocation: DL & URL, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {

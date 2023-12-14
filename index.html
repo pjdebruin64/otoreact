@@ -72,6 +72,12 @@
 
         <RHTML #srctext></RHTML>
     </import>
+    <component>
+        <MDN href><content></content></MDN>
+        <template>
+            <a href="{MDN}Web/{href}"><code><content></content></code></a>
+        </template>
+    </component>
 
     <case hiding #value="docLocation.subpath">
         <when regmatch="^(index\.|$)">

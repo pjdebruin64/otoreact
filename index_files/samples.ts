@@ -80,82 +80,82 @@ const sampleGreeting=
 
 const sampleTicTacToe = 
 `<style>
-    main {
-        display:grid;
-        grid-template-columns: auto 120pt;
-        background-color: white;
-    }
-    header {
-        grid-column: 1/3;
-        text-align: center;
-    }
-    table {
-        width: fit-content;
-        margin:1ex
-    }
-    td {
-        height: 4ex; width: 4ex;
-        padding: 0px;
-        border: 2px solid;
-        line-height: 1;
-        text-align: center;
-        vertical-align: middle;
-    }
-    button {
-        font-size: 80%;
-    }
+  main {
+      display: grid;
+      grid-template-columns: auto 120pt;
+      background-color: white;
+  }
+  header {
+      grid-column: 1/3;
+      text-align: center;
+  }
+  table {
+      width: fit-content;
+      margin:1ex
+  }
+  td {
+      height: 4ex; width: 4ex;
+      padding: 0px;
+      border: 2px solid;
+      line-height: 1;
+      text-align: center;
+      vertical-align: middle;
+  }
+  button {
+      font-size: 80%;
+  }
 </style>
 
 <!-- By using a local script, multiple instances of this game will have their own state -->
 <script type="otoreact/local" 
-  defines="board,toMove,outcome,ClearAll,Move,CheckWinner"
+  defines="board,toMove,outcome, ClearAll,Move"
 >
-    let
-      board =    RVAR(),    // State of the board
-      toMove =   RVAR(null, '✕'),  // Player to move: '◯' or '✕'
-      outcome =  RVAR(),    // Player that has won, or boolean true when it's a draw
-      count = 0;            // Number of moves made
+let
+  board =    RVAR(),             // State of the board
+  toMove =   RVAR(null, '✕'),    // Player to move: '◯' or '✕'
+  outcome =  RVAR(null, false),  // Player that has won, or boolean true when it's a draw
+  count = 0;            // Number of moves made
 
-    function ClearAll() {
-        // Initialize the board as an array of arrays of objects {P: '◯' | '✕'}
-        board.V = Board();
-        // Reset the outcome
-        outcome.V = null;
-        count = 0;
-        
-        function Cell() {return {P: null}; }
-        function Row()  {return [Cell(), Cell(), Cell()]; }
-        function Board(){return [Row(), Row(), Row()]; }
+function ClearAll() {
+    // Initialize the board as an array of arrays of RVARs '◯' | '✕'
+    board.V = Board();
+    // Reset the outcome
+    outcome.V = false;
+    count = 0;
+    
+    function Cell() {return RVAR(); }
+    function Row()  {return [Cell(), Cell(), Cell()]; }
+    function Board(){return [Row(), Row(), Row()]; }
+}
+
+ClearAll();
+
+function Move(cell) {
+    // Play a move, when allowed
+    if (outcome.V || cell.V)  // Move not allowed
+      return;
+    cell.V = toMove.V;        // Update the cell
+    toMove.V = (toMove.V=='✕' ? '◯' : '✕');   // Set next player to move
+    count++;   // Count moves
+    outcome.V = CheckWinner(board.V) || count==9; // Check end of game
+}
+
+function CheckWinner(b) {
+    // Check if there is a winner
+    let w = false;
+    for (let i=0; i<3; i++) {
+        w = w || CheckRow(...b[i]);   // Horizontal row
+        w = w || CheckRow(b[0][i], b[1][i], b[2][i]); // Vertical row
     }
+    for (let i=-1; i<=1; i+=2)
+        w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]); // Diagonal row
+    return w;
 
-    ClearAll();
-
-    function Move(cell) {
-        // Play a move, when allowed
-        if (outcome.V || cell.P) // Move not allowed
-          return;
-        cell.P = toMove.V; // Update the cell
-        toMove.V = (toMove.V=='✕' ? '◯' : '✕'); // Set next player to move
-        count++;   // Count moves
-        outcome.V = CheckWinner(board.V) || count==9; // Check end of game
+    function CheckRow(c1, c2, c3) {
+        // Return the result when the three cells have the same state
+        return (c1.V == c2.V && c2.V == c3.V && c1.V);
     }
-
-    function CheckWinner(b) {
-        // Check if there is a winner
-        let w = null;
-        for (let i=0;i<3;i++) {
-            w = w || CheckRow(...b[i]);   // Horizontal row
-            w = w || CheckRow(b[0][i], b[1][i], b[2][i]); // Vertical row
-        }
-        for (let i=-1;i<=1;i+=2)
-            w = w || CheckRow(b[0][1+i], b[1][1], b[2][1-i]); // Diagonal row
-        return w;
-
-        function CheckRow(c1, c2, c3) {
-            // Return the result when the three cells have the same state
-            return (c1.P == c2.P && c2.P == c3.P && c1.P);
-        }
-  }
+}
 </script>
 
 <main>
@@ -165,25 +165,23 @@ const sampleTicTacToe =
 
   <!-- Show the board -->
   <table.>
-          <!-- This table should react on the RVAR 'board'. -->
     <for let=row of="board">
       <tr.>
-        <for let=cell of="row" reacting>
-          <td. onclick="Move(cell)"
-           >{cell.P}</td.>
+        <for let=cell of="row">
+          <td. onclick="Move(cell)" >{cell}</td.>
         </for>
       </tr.>
     </for>
   </table.>
-  
+
   <!-- Show either the outcome, or the player to move -->
   <div>
     <p>
       <case>
-        <when cond="outcome == false">
+        <when cond="!outcome.V">
           Player to move: {toMove}
         </when>
-        <when cond="outcome == true">
+        <when cond="outcome.V == true">
           <b>It's a draw.</b>
         </when>
         <else>
@@ -191,7 +189,7 @@ const sampleTicTacToe =
         </else>
       </case>
     </p>
-    <button onclick="ClearAll()">Clear</button>
+    <button onclick="ClearAll()" >Clear</button>
   </div>
 </main>`;
 

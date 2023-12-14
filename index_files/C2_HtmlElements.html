@@ -1,5 +1,5 @@
 <h1>HTML elements</h1>
-<p>All source elements that are not RHTML or user-defined constructs, build HTML elements.</p>
+<p>All source elements that are not RHTML constructs or user-defined constructs, build HTML elements.</p>
 <p>All trailing dots in the tag name are removed.</p>
 <p>Source attributes are compiled as described below.</p>
 
@@ -33,7 +33,6 @@
 <p>
     Note that while attributes always have string values, even when the content of the string is numeric, properties can have any type.
     <br>So by setting a property rather than an attribute, you avoid unnecessary type conversions, and you spare an attribute node in the created DOM tree.
-    <br>Furthermore, there are some DOM properties that are not available as HTML attributes at all.
 </p>
 <p>
     Documentation of all properties can be found at <a href="{MDN}Web/API#interfaces">MDN</a> or partly at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
@@ -49,16 +48,34 @@
 </p>
 <ul>
     <li>
-        Both <code>#class</code> and <code>#classname</code> accept arrays and objects as values, to specify multiple and conditional classnames; see <a href="#classnames">Class names</a>.
+        Both <code class=sourcecode>#class</code> and <code>#classname</code> accept arrays and objects as values, to specify multiple and conditional classnames; see <a href="#classnames">Class names</a>.
     </li>
     <li>
-        DOM property <code>valueAsNumber</code> returns the numeric value of an <elm>input type=number</elm> element, but <a href="{MDN}Web/API/HTMLInputElement">cannot be set</a> in some browsers, which would make it unusable for two-way binding.
-        <br>RHTML however allows you to set <code>#valueasnumber</code>, which translates to setting <code>#value</code> for this element, so one can use two-way binding on this property.
-    </li>
-    <li>HTML attribute <code>for</code> corresponds to DOM property <code>htmlFor</code>; RHTML recognizes both <code>#for</code> and <code>#htmlfor</code>
+        <code class=sourcecode>#style</code>gets special treatment too, see <a href="#InlineStyles">Inline Styles</a>.
     </li>
     <li>
-        <i>propertyName</i> may be empty; in that case <i>expression</i> should evaluate to an object, and <i>all</i> enumerable properties of that object will be set on the DOM object:
+        DOM property <MDN href="API/HTMLInputElement#instance_properties">valueAsNumber</MDN> <i>returns</i> the numeric value of an <elm>input type=number</elm> element, but <i>cannot be set</i>, which would make it unusable for two-way binding.
+        <br>RHTML however allows you to <u>set</u> <code class=sourcecode>#valueasnumber</code>, which translates to setting <code>#value</code>, so that one can use two-way binding on this property.
+    </li>
+    <li>
+        HTML attribute <MDN href="HTML/Attributes/for">for</MDN> corresponds to DOM property <MDN href="API/HTMLLabelElement/htmlFor">htmlFor</MDN>;
+        <br>RHTML recognizes simply <code class=sourcecode>#for</code> that translates into setting <code>#htmlfor</code>.
+    </li>
+    <li>
+        HTML has an attribute and property <MDN href="HTML/Global_attributes/hidden">hidden</MDN> to <i>hide</i> elements and their contents.
+        <br>In web applications the opposite is more often useful: a way to <i>show</i> elements only under certain conditions.
+        <br>So RHTML adds a boolean propery <code class=sourcecode>#shown</code> that's the inverse of <code>#hidden</code>.
+        <p>
+            Note that browsers may and do implement <code>hidden</code> by setting the <MDN href="CSS/display">display</MDN> CSS property of the target element to 'hidden'.
+            <br>As a consequence one cannot use either <code>#hidden</code> or <code>#shown</code> in combination with styling rules that set the <MDN href="CSS/display">display</MDN> CSS property, or with HTML elements that require a specific <code>display</code> value, like <elm>table</elm>.
+        </p>
+    </li>
+    <li>
+        Another way to show or hide an HTML element is by setting the <MDN href="CSS/visibility">visibility</MDN> CSS property to either 'visible' or 'hidden'. In this case the element is hidden without changing the layout of the document, possibly leaving an empty space.
+        <br>RHTML facilitates this too by adding a boolean property <code class=sourcecode>#visible</code> that translates into setting the <code>visibility</code> CSS property to either 'visible' or 'hidden'.
+    </li>
+    <li>
+        <i>propertyName</i> may be empty; in that case <i>expression</i> should evaluate to an object, and all (enumerable) properties of that object will be set on the target DOM element itself:
         <demo srcText=
 "<def var=props 
     #value=&quot;\{height: 50, width: 250, style: 'background-color: lightblue'}&quot;>
@@ -117,9 +134,25 @@ HTML has a very small number of events, notably <a href="{MDN}Web/API/Element/fo
 </p>
 
 
-<h2 id="GlobalAtts">RHTML global attributes: reacton, thisreactson, #if, hash, renew</h2>
-RHTML recognizes the following global attributes on every element and construct.
-<dl>
+<h2 id="GlobalAtts">Global attributes</h2>
+RHTML has a number of 'global attributes' that can be applied to every element and construct.
+<p>
+    Global attributes are handled befóre other (node specific) attributes.
+</p>
+<p>
+    * When a source element has multiple global attributes, then attributes on the left are treated as "inner" to attributes on the right.
+    <br>If, e.g., an <code>#if</code> condition on some element should be re-evaluated when <code><i>RV</i></code> is dirty though it does not evaluate <code><i>RVAR</i>.V</code>, then one should write <elm>elm #if="<i>condition</i>" thisreactson="<i>RV</i>"</elm>, not the other way around.
+</p>
+<h3>'#if'</h3>
+An element or construct with
+<code class=sourcecode>#if="<i>condition</i>"</code>
+will be built only when the given condition evaluates to a truthy value.
+<br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
+
+<h3>'reacton', 'thisreactson'</h3>
+In most cases, OtoReact detects automatically when a node 
+
+
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code class=sourcecode>reactson="<i>RVAR-list</i>"</code></dt>
     <dd>
         This tells OtoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
@@ -130,56 +163,28 @@ RHTML recognizes the following global attributes on every element and construct.
         <p>
             The items in <i>RVAR-list</i> may be expressions rather than just names.
         </p>
-        <p>
-            Samples of using <code>reacton</code> are in the <a href="#TicTacToe">Tic-Tac-Toe demo</a>.
-        </p>
        
     </dd>
     <dt><code class=sourcecode>thisreactson="<i>RVAR-list</i>"</code></dt>
     <dd>
         This tells OtoReact that <i>only the current node itself</i> should react on the listed RVAR's. Not its contents, unless specified otherwise.
     </dd>
-    <dt><code class=sourcecode>#if="<i>condition</i>"</code></dt>
-    <dd>
-        The element or construct with this attribute will be built only when the given condition evaluates to a truthy value.
-        <br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
-    </dd>
-    <dt><code class=sourcecode>hash="<i>hashExpressionList</i>"</code></dt>
-    <dd>
-        This attribute exists in order to speed up processing. <br>
-        Whenever the element or construct is to be updated, all expressions in <i>hashExpressionList</i> are evaluated, and when they all have the same value as before, the update will not take place.
-        <ul>
-            <li><i>hashExpressionList</i> may be empty. In that case "all expressions" have always the same value as before, so an update will never take place.</li>
-            <li>
-                With the <elm>FOR</elm> construct, the <code>hash</code> attribute applies to individual repetitions of the <elm>FOR</elm> body part, not to the whole construct.
-            </li>
-        </ul>
-    </dd>
-    <dt><code class=sourcecode>renew</code></dt>
-    <dd>
-        When attribute <code>renew</code> is specified, then on every update request, the node and its content will be removed and rebuilt.
-    </dd>
-</dl>
 
-When you want to apply these attributes to a <i>range</i> of nodes at once, you can enclose the range in <a href=#REACT><elm>REACT &hellip;</elm></a>.
-<p>
-    When multiple global attributes are applied to the same node, then these are handled in order of appearance: global attributes appearing on the LEFT are treated as "inner to" global attributes appearing on the RIGHT.
-    <br>For example:
-    <ul>
-        <li>
-            In <elm>elm #if="<i>condition</i>" reacton="<i>rvar</i>"</elm>, <i>condition</i> will be reevaluated every time <i>rvar</i> is set dirty.
-            <br>It is equivalent to:
-            <pre>
-<{}react reacton="<i>rvar</i>">
-    <{}elm #if="<i>condition</i>"> ... <{}/elm>
-<{}/react>
-</pre>
-        </li>
-        <li>In <elm>elm reacton="<i>rvar</i>" #if="<i>condition</i>"</elm>, <i>condition</i> is not necessarily reevaluated when <i>rvar</i> is set dirty;</li>
-        <li>In <elm>elm reacton="<i>rvar</i>" hash="<i>hash</i>"</elm>, the element content will be updated when <i>rvar</i> is dirty, even when <i>hash</i> has not changed;</li>
-        <li>In <elm>elm hash="<i>hash</i>" reacton="<i>rvar</i>"</elm>, the element content will not be updated when <i>rvar</i> is dirty but <i>hash</i> has not changed.</li>
-    </ul>
-</p>
+<h3>'hash'</h3>
+Attribute <code class=sourcecode>hash="<i>hashExpressionList</i>"</code> exists in order to speed up processing. <br>
+Whenever the element or construct is to be updated, all expressions in <i>hashExpressionList</i> are evaluated, and when they all have the same value as before, the update will not take place.
+<ul>
+    <li>
+        <i>hashExpressionList</i> may be empty. In that case "all expressions" necessarily have the same value as before, so an update will never take place.
+    </li>
+    <li>
+        With the <elm>FOR</elm> construct, the <code>hash</code> attribute applies to individual repetitions of the <elm>FOR</elm> body part, not to the whole construct.
+    </li>
+</ul>
+
+<h3>'renew'</h3>
+When attribute <code class=sourcecode>renew</code> is specified, then on every update request, the node with all its content will be fully removed and rebuilt.
+
 
 <h2 id="PseudoEvents">RHTML pseudo-events: oncreate, onupdate, ondestroy*, oncompile*</h2>
 RHTML implements some additional event-like properties that are not triggered by browser engine but by the OtoReact engine:
@@ -281,11 +286,11 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
     <dd>
         <ul>
             <li>
-                When <i>expression</i> evaluates to a string <code>"&hellip;"</code>, then this is equivalent to setting the <a href="{MDN}Web/API/Element/className"><code>#className</code> property</a>: the string is split into words, and each word is added to the list of class names;
+                When <i>expression</i> evaluates to a string <code>"&hellip;"</code>, then this is similar to setting the <a href="{MDN}Web/API/Element/className">className property</a>: the string is split into words, and each word is added to the list of class names of the target element.
             </li>
             <li>
                 When it evaluates to an array <code>[ &hellip; ]</code>, then each array element is processed just like an <i>expression</i> value.
-                <br>In particular, when the elements are words, they are added to the list of class names.
+                <br>In particular, when the elements are strings, then the words in these strings are added to the list of class names.
             </li>
             <li>
                 Otherwise, when it evaluates to an object <code>\{ <i>name</i>: <i>condition</i>, &hellip; \}</code>, then each (enumerable) property <i>name</i> of the object is included in the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
@@ -304,9 +309,10 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
         , but the latter works for names containing uppercase characters as well.
     </dd>
 </dl>
-Just like other DOM properties, these attributes are recomputed at every update of the element, and the class list is updated accordingly.
+* Unlike the native <a href="{MDN}Web/API/Element/className">className property</a>, setting <code>class</code>, <code>#class</code>, or <code>#classname</code> is nondestructive: class names already added by other sources (other source attributes, JavaScript code, the OtoReact <a href="#STYLE">local styling</a> engine) won't be removed.
+<br>Still, when at an update a class name that was added by one of these source attributes, is no longer present in the result, then that class name is removed from the target element.
 
-<h2>Inline styles</h2>
+<h2 id="InlineStyles">Inline styles</h2>
 HTML, and hence RHTML, allow you set style properties of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> global attribute</a>. These are called "inline styles".
 <br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
 <br>One can, however, set its properties. RHTML recognizes the following attributes:
@@ -355,7 +361,7 @@ DOM properties are not static but can change. RHTML allows four variants of outp
         <pre>oncreate="<i>target</i> = this.<i>propertyName</i>"</pre>
 
         <p><i>propertyName</i> may be empty; in that case the HTMLElement object itself is assigned to the target.
-        So <code class=sourcecode>*="<i>target</i>"</code> is the same as:
+        <br>So <code class=sourcecode>*="<i>target</i>"</code> is the same as:
         <pre>oncreate="<i>target</i> = this"</pre>
         See <a href="#BindHTMLElement">Binding an HTMLElement to a name</a>.
     </dd>

@@ -85,8 +85,7 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
         <br>This is used in the demo component you see on this page.
     </li>
     <li>
-        <a href=#REACT><elm>REACT on</elm></a> optionally allows you to specify which blocks of RHTML should react on which variables, optimizing your application.
-        <br>The RHTML attribute <code>reacton</code> does the same thing.
+        <a href=#REACT><elm>REACT</elm></a> allows <a href="#GlobalAtts">RHTML global attributes</a> to be applied to a range of nodes, without creating an HTML element node.
     </li>
     <li>
         <a href="#DOCUMENT"><elm>DOCUMENT name</elm></a> defines a separate reactive child document that can be opened in separate (popup) windows, or can be printed without being opened.
@@ -180,10 +179,13 @@ Global variables are visible in RHTML inline scripts, of course.
     <li>
         Either as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
         <pre>globalThis.<i>varName</i> = <i>value</i>;</pre>
-        In web browsers, the global object is commonly named "<code>window</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code>.
+        In web browsers, the global object is commonly named "<code>window</code>" or "<code>self</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code> or <code>self</code>.
     </li>
     <li>
         Or by writing <a href="#SCRIPT"><elm>SCRIPT type="otoreact/global" defines=&hellip;</elm></a>.
+    </li>
+    <li>
+        or by calling <code>RVAR(<i>name</i>)</code>.
     </li>
 </ul>
     
@@ -197,7 +199,7 @@ Global variables are visible in RHTML inline scripts, of course.
     RVAR's are created:
 </p>
 <ul>
-    <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename?)</code> from JavaScript,</li>
+    <li>either by calling <code class=sourcecode>RVAR(name?, initialValue?, store?, subscriber?, storename?, updTo?)</code> from JavaScript,</li>
     <li>or by using the <a href=#DEFINE><elm>define rvar</elm></a> construct.</li>
 </ul>
 
@@ -226,8 +228,14 @@ Global variables are visible in RHTML inline scripts, of course.
     <dd>
         A routine which is <a href="#Subscribe">subscribed</a> to the RVAR for immediate execution, as by <code>x.Subscribe(subscriber, true)</code>.
     </dd>
+
     <dt><code>storename</code>*</dt>
     <dd>See <a href="#Persistence">Persistence</a>.</dd>
+
+    <dt><code>updTo</code>*</dt>
+    <dd>
+        This can be another RVAR, that will be set dirty whenever the created RVAR is set dirty, as by <code>x.Subscribe(() => updTo.SetDirty(), true)</code>
+    </dd>
 </dl>
 
 <p>
@@ -254,7 +262,7 @@ Global variables are visible in RHTML inline scripts, of course.
                 In many cases one can abbreviate <code>x.V</code> to just <code>x</code>:
                 <ol>
                     <li>
-                        The <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</a> and <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/toString">toString</a> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead:
+                        The <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</a> and <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/toString">toString</a> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead, e.g.:
                         <ul>
                             <li>
                                 As the argument of a math or string operator or function: <code>x+1</code>, <code>x > y</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
@@ -266,8 +274,12 @@ Global variables are visible in RHTML inline scripts, of course.
                         </ul>
                     </li>
                     <li>
-                        RVAR's are created as <a href="">Proxy objects</a>, so that one can get, set, and delete properties of RVAR values without writing <code>.V</code>: <code>x.prop</code>, <code>x[i]</code>, <code>x.prop = value;</code>, <code>delete x.prop;</code>.
-                        <br>When setting a property, <code>x</code> will be marked dirty only when the new property value is not strictly equal to its old value.
+                        When the initial value of an RVAR is not a literal value (number, string or boolean), then the RVAR is created as a <a href="">Proxy object</a>, so that one can get, set, and delete properties of its value without writing <code>.V</code>:
+                        <pre>
+let x = RVAR(null, \{});
+x.prop = 1;         // Same as: x.V.prop = 1, except that x will be set dirty when x.V.prop !== 1
+let a = x.prop;     // Same as: let a = x.V.prop
+delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty</pre>
                     </li>
                     <li>
                         RVAR's may be supplied as targets for all sorts of two-way properties: <code>@value="x"</code>.
@@ -319,8 +331,10 @@ Global variables are visible in RHTML inline scripts, of course.
     <dt id=Subscribe><code class=sourcecode>x.Subscribe(<i>subs</i>, <i>bImmediate</i>?, <i>bInit</i>?)</code> *</dt>
     <dd>
         Routine <code><i>subs</i></code>, when not null, is registered as a subscriber to <code>x</code>, so <code><i>subs</i>(x.V)</code> will be executed whenever <code>x</code> has been set dirty.
-        <p>When <code><i>bImmediate</i></code> is truthy, <code><i>subs</i></code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
-        <p>When <code><i>bInit</i></code> is truthy, then <code><i>subs</i></code> will initially be called when it is registered. The default value for <code>bInit</code> is the value of <code>bImmediate</code>.
+        <p>
+            When <code><i>bImmediate</i></code> is truthy, <code><i>subs</i></code> will be called <i>immediately</i> every time <code>x</code> is being set dirty; otherwise it will be called once at the next event cycle.
+            <br>One should be very careful when using this: there is the possibility that <code>x</code> has an outdated value, when one is using <code>x.U</code> to set a property of <code>x</code> or to call a method that modifies <code>x</code>, because <code>x.U</code> sets <code>x</code> dirty <i>before</i> <code>x</code> is modified.
+        <p>When <code><i>bInit</i></code> is truthy, then <code><i>subs</i></code> will initially be called when it is registered.
         <p>
             The return value is <code>x</code>, so calls to <code>Subscribe</code> can be chained.
         </p>
@@ -509,21 +523,30 @@ Using the browser HTML parser inflicts on us some limitations, as the parser isn
     <ol>
         <li>Outcomment or remove your compiler invocation, like <code>_RHTML</code> or <code>// RCompile(&hellip;)</code></li>
         <li>Reload your application</li>
-        <li>Inspect the parsed DOM-tree using your browsers development tools. Either:
+        <li>Inspect the parsed DOM-tree using your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools">developer tools</a>. Either:
             <ul>
                 <li>Right click in your document and select 'Inspect'</li>
-                <li>Press F12 or Ctrl-Shift-I and select tab 'Elements' (Chrome) or 'Inspector' (Firefox)</li>
+                <li>Press F12 or Ctrl-Shift-I or Cmd-Option-I and select tab 'Elements' (Chrome) or 'Inspector' (Firefox)</li>
             </ul>
         </li>
     </ol>
     </li>
     <li>
-        When your application doesn't react on events, you may have forgotten some <code>reacton</code> attribute.
+        When your application doesn't react on changes to some RVAR, you may need to add some <code>reacton</code> attribute.
     </li>
     <li>
         Errors while building the DOM are by default inserted into the DOM output, but may sometimes be invisible or get overlooked. Look in the development console to be sure you haven't missed any error messages, or enable option <code>bAbortOnError</code>.
     </li>
     <li>
-        When an event handler or some other piece of JavaScript doesn't work as expected, you might insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, to get a breakpoint at that point when the browser development tool is opened.
+        When some JavaScript code doesn't work as expected, you may want to insert a breakpoint:
+        <ul>
+            <li>
+                Inside an event handler or some other block of JavaScript statements, insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>.
+                <br>Then when you open your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools">developer tools</a> as above, the JavaScript engine will enter break mode when the statement is hit.
+            </li>
+            <li>
+                A breakpoint may be placed before a JavaScript expression by prefixing it with a call to OtoReacts <code>debug</code> function, like: <code>debug(),<i>expr</i></code>.
+            </li>
+        </ul>
     </li>
 </ul>
