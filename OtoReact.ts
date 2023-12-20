@@ -16,6 +16,24 @@ const
 ,   D = document
 ,   L = location    
 ,   US = "'use strict';"
+,   ass = Object.assign as <T extends {}>(obj: T, props: {}) => T
+    
+// Some utilities
+,   K   = x => () => x
+,   B   = (f, g) => x => f(g(x))
+,   P   = new DOMParser
+,   Ev  = eval                  // Note: 'eval(txt)' can access variables from this file, while 'Ev(txt)' cannot!
+,   thro= (e: any) => {throw e}
+,   dr  = (v: unknown) => v instanceof RV ? v.V : v
+,   now = () => performance.now()
+,   TryV = (e: string, m: string, s = '\nin ') => {
+        try {
+            return Ev(e);
+        }
+        catch (x) {
+            throw x + s + m;
+        }
+    }
 
     // Default settings 
 ,   dflts: Settings = {
@@ -26,26 +44,6 @@ const
         preformatted:   E as string[],
         //storePrefix:    "RVAR_",
         version:        1,
-        //bGlobs:         true,
-    }
-    
-    // Some utilities
-,   K   = x => () => x
-,   B   = (f, g) => x => f(g(x))
-,   Ev  = eval                  // Note: 'eval(txt)' could access variables from this file, while 'Ev(txt)' cannot.
-,   ass = Object.assign as <T extends {}>(obj: T, props: {}) => T
-,   P   = new DOMParser
-,   dr  = (v: unknown) => v instanceof RV ? v.V : v
-,   thro= (err: any) => {throw err}
-,   debug= Ev('()=>{debugger}')
-,   now = () => performance.now()
-,   TryEv = (e: string, m: string, s = '\nin ') => {
-        try {
-            return Ev(e);
-        }
-        catch (x) {
-            throw x + s + m;
-        }
     }
     ;
 
@@ -60,11 +58,9 @@ type Settings = Partial<{
     bAbortOnError:  boolean,    // Abort processing on runtime errors,
                                 // When false, only the element producing the error will be skipped
     bShowErrors:    boolean,    // Show runtime errors as text in the DOM output
-    bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
     basePattern:    string,
     bAutoPointer:   boolean,
     bAutoReroute:   boolean,
-    bNoGlobals:     boolean,
     bDollarRequired: boolean,
     bKeepWhiteSpace: boolean,
     bKeepComments:  boolean,
@@ -72,7 +68,9 @@ type Settings = Partial<{
     storePrefix:    string,
     version:        number,
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
-    //bGlobs:         boolean,
+
+    // For internal use
+    bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
 }>;
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
@@ -181,7 +179,7 @@ class Context {
 type Area<RT = {}, T = true> = {
     r?: Range & RT | T,          // Existing piece of DOM
     // When falsy (undefined or null), the DOM has to be CREATED
-    // When truthy (defined or true), the DOM has to be UPDATED
+    // When truthy (a Range or true), the DOM has to be UPDATED
 
     pN: ParentNode;            // DOM parent node
     bfor?: ChildNode;     // DOM node before which new nodes are to be inserted
@@ -1321,10 +1319,13 @@ class RComp {
                     ,   getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
                         bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
-                            arA && arChk(); 
+                            // Perform auto-react check on previous node, when needed
+                            arA && arChk();
+
+                            // Set the scene for auto-react check on this node
                             arVars = N;
                             arR = ar.r;
-                            arB=bl;                      
+                            arB = bl;                      
                             
                             PrepData(arA = ar, getText(), bC);
 
@@ -1422,7 +1423,7 @@ class RComp {
                             });
                         if (/m/.test(at))    // oncompile
                             // Execute now, with 'srcE' as 'this'
-                            TryEv(`(function(){${txt}\n})`, at).call(srcE);
+                            TryV(`(function(){${txt}\n})`, at).call(srcE);
                     }
 
             if (constr)
@@ -1594,7 +1595,7 @@ class RComp {
                             ;
                         NoChilds(srcE);
                         bl = async function RHTML(ar) {
-                            let {r} = PrepElm<{pR: Range, src: string}>(ar, 'r-html')
+                            let {r} = PrepElm<{rR: Range, src: string}>(ar, 'r-html')
                             ,   src = S()
                                 ;
 
@@ -1603,7 +1604,7 @@ class RComp {
                                 ,   C = ass( new RComp(N, L.origin + dL.basepath, s)
                                             , {ws,rt})
                                 ,   sh = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
-                                ,   pR = r.pR ||= new Range(N, N, tag)
+                                ,   pR = r.rR ||= new Range(N, N, tag)
                                 ,   tmp = D.createElement(tag)
                                     ;
 
@@ -1982,7 +1983,8 @@ class RComp {
     private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
-        // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled
+        // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled.
+        // This routine also handles auto-react checking.
         let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
             let r = ar.r;
             if (r?.eN) {
@@ -1991,14 +1993,22 @@ class RComp {
                 r.eN = U;
             }
             try {
+                // First perform auto-react checking on the parent node, when needed
                 arA && arChk();
+
+                // Then set the scene for auto-react checking on the current node
                 arVars = N;
                 arR = ar.r;
                 arB = bl;
+                // Initiate the node builder, without awaiting the result.
+                // It is required that auto-react checking is done BEFORE awaiting any promise, and before 'env' is set to a different value.
+                // All code paths should respect that.
                 let prom = b(arA = ar, bR);
 
+                // Now do the check, if still needed
                 arA && arChk();
 
+                // Then we can await the builder result.
                 await prom;
             } 
             catch (m) {
@@ -2134,9 +2144,9 @@ class RComp {
                 // Classic or otoreact/static or otoreact/global script
                 let pTxt: Promise<string>
                     = (async() => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
-                ,   V: Array<unknown>;
+                ,   Xs: Array<unknown>;
                 // Routine to initiate execution, at most once
-                ex = async() => V ||= Ev(await pTxt);
+                ex = async() => Xs ||= Ev(await pTxt);
 
                 if (src && async)
                     // Exec asynchronously as soon as the script is fetched
@@ -3149,7 +3159,7 @@ class RComp {
     ,   x: string
     ,   e: string): DepE<(v: V) => any> {
         let ct = this.gsc(txt)
-        ,   C = TryEv(`${US}(function(${x},${ct}){${txt}\n})`, e, Q)
+        ,   C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, e, Q)
         return (e: Environment = env) =>
                 function($) {
                     try { return C.call(this,$,e); }
@@ -3169,7 +3179,7 @@ class RComp {
         e.trim() || thro(`${nm}: Empty expression`);
         
         var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
-        ,   f = TryEv(
+        ,   f = TryV(
                 `${US}(function(${this.gsc(e)}){return(${e}\n)})`  // Expression evaluator
                 , m, Q
             ) as (e:Environment) => T
@@ -3265,7 +3275,7 @@ class Atts extends Map<string,string> {
                 let v= super.get(m = nm);
                 return v!=N ? v : 
                     // Undocumented feature: compile-time expression evaluation
-                    TryEv(super.get(m = '%'+nm), m);
+                    TryV(super.get(m = '%'+nm), m);
             }
         ,   v = gg(nm)
         ;
@@ -3490,7 +3500,7 @@ if (G._ur) {alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`); throw 
 // Define global constants
 ass(G, {
         RVAR, range, reroute, RFetch, DoUpdate, docLocation
-        , debug
+        , debug: Ev('()=>{debugger}')
         , _ur
 });
 
@@ -3498,7 +3508,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {            
             if (typeof setts == 'string')
-                setts = <Settings>TryEv(`({${setts}})`, `settings '${setts}'`);
+                setts = <Settings>TryV(`({${setts}})`, `settings '${setts}'`);
 
             srcN.b = T;   // No duplicate compilation
 

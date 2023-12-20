@@ -5,11 +5,9 @@ type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
     bShowErrors: boolean;
-    bSubf: boolean | 2;
     basePattern: string;
     bAutoPointer: boolean;
     bAutoReroute: boolean;
-    bNoGlobals: boolean;
     bDollarRequired: boolean;
     bKeepWhiteSpace: boolean;
     bKeepComments: boolean;
@@ -17,6 +15,7 @@ type Settings = Partial<{
     storePrefix: string;
     version: number;
     headers: HeadersInit;
+    bSubf: boolean | 2;
 }>;
 type Environment = [Environment?, ...unknown[]] & {
     cl?: string[];
@@ -26,7 +25,7 @@ type Area<RT = {}, T = true> = {
     pN: ParentNode;
     bfor?: ChildNode;
     srcN?: ChildNode;
-    parR?: Range;
+    pR?: Range;
     prR?: Range;
 };
 declare class Range<NodeType extends ChildNode = ChildNode> {
@@ -34,7 +33,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     n: NodeType;
     ch: Range;
     nx: Range;
-    parR?: Range;
+    pR?: Range;
     pN?: false | Node;
     constructor(ar: Area, n?: NodeType, text?: string);
     toString(): string;
@@ -52,7 +51,7 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
         env: Environment;
         oes: OES;
         pN: ParentNode;
-        parR: Range;
+        pR: Range;
         bR: boolean;
     };
     update(): Promise<void>;
@@ -71,7 +70,7 @@ export declare class RV<T = unknown> {
     set V(v: T);
     Subscribe(s: Subscriber<T>, bImm?: boolean, cr?: boolean): this;
     Unsubscribe(s: Subscriber<T>): void;
-    $SR({ parR, pN }: Area, b: DOMBuilder, r: Range, bR?: boolean): void;
+    $SR({ pR, pN }: Area, b: DOMBuilder, r: Range, bR?: boolean): void;
     $UR(r: Range): void;
     get Set(): (t: T | Promise<T>) => void;
     get Clear(): () => true;

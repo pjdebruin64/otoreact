@@ -1,15 +1,15 @@
-const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", dflts = {
-    bShowErrors: T,
-    bAutoPointer: T,
-    preformatted: E,
-    version: 1,
-}, K = x => () => x, B = (f, g) => x => f(g(x)), Ev = eval, ass = Object.assign, P = new DOMParser, dr = (v) => v instanceof RV ? v.V : v, thro = (err) => { throw err; }, debug = Ev('()=>{debugger}'), now = () => performance.now(), TryEv = (e, m, s = '\nin ') => {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, Ev = eval, thro = (e) => { throw e; }, dr = (v) => v instanceof RV ? v.V : v, now = () => performance.now(), TryV = (e, m, s = '\nin ') => {
     try {
         return Ev(e);
     }
     catch (x) {
         throw x + s + m;
     }
+}, dflts = {
+    bShowErrors: T,
+    bAutoPointer: T,
+    preformatted: E,
+    version: 1,
 };
 class Context {
     constructor(C, a) {
@@ -51,9 +51,9 @@ class Range {
         this.text = text;
         this.n = n;
         if (ar) {
-            let { parR: p, prR: q } = ar;
+            let { pR: p, prR: q } = ar;
             if (p && !p.n)
-                this.parR = p;
+                this.pR = p;
             if (q)
                 q.nx = this;
             else if (p)
@@ -75,7 +75,7 @@ class Range {
     get Nxt() {
         let r = this, n, p;
         do {
-            p = r.parR;
+            p = r.pR;
             while (r = r.nx)
                 if (n = r.Fst)
                     return n;
@@ -111,10 +111,10 @@ class Range {
         }
     }
     async update() {
-        let b, bR, parR;
-        ({ env, oes, pN, b, bR, parR } = this.uInfo);
+        let b, bR, pR;
+        ({ env, oes, pN, b, bR, pR } = this.uInfo);
         if (this.upd != upd)
-            await b({ r: this, pN, parR }, bR);
+            await b({ r: this, pN, pR }, bR);
     }
 }
 const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
@@ -122,13 +122,13 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
     if (cr = !r) {
         sub.srcN = ar.srcN;
         sub.bfor = ar.bfor;
-        r = sub.parR = new Range(ar, N, srcE ? srcE.tagName + (text && ' ' + text) : text);
+        r = sub.pR = new Range(ar, N, srcE ? srcE.tagName + (text && ' ' + text) : text);
     }
     else {
         sub.r = r.ch || T;
         ar.r = r.nx || T;
         if (cr = nWipe && (nWipe > 1 || res != r.res)) {
-            (sub.parR = r).erase(pN);
+            (sub.pR = r).erase(pN);
             sub.r = N;
             sub.bfor = r.Nxt;
         }
@@ -149,7 +149,7 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
             pN: pN = r.n,
             r: r.ch,
             bfor: N,
-            parR: r
+            pR: r
         },
         cr
     };
@@ -256,8 +256,8 @@ export class RV {
         this.$imm?.delete(s);
         this.$subs.delete(s);
     }
-    $SR({ parR, pN }, b, r, bR = true) {
-        r.uInfo || (r.uInfo = { b, env, oes, pN, parR, bR });
+    $SR({ pR, pN }, b, r, bR = true) {
+        r.uInfo || (r.uInfo = { b, env, oes, pN, pR, bR });
         this.$subs.add(r);
         (r.rvars || (r.rvars = new Set)).add(this);
     }
@@ -674,7 +674,7 @@ class RComp {
                                 h: m[9] && this.CHandlr(txt, at)
                             });
                         if (/m/.test(at))
-                            TryEv(`(function(){${txt}\n})`, at).call(srcE);
+                            TryV(`(function(){${txt}\n})`, at).call(srcE);
                     }
             if (constr)
                 bl = await this.CInst(srcE, ats, constr);
@@ -782,15 +782,15 @@ class RComp {
                             bl = async function RHTML(ar) {
                                 let { r } = PrepElm(ar, 'r-html'), src = S();
                                 if (src != r.src) {
-                                    let sv = env, C = ass(new RComp(N, L.origin + dL.basepath, s), { ws, rt }), sh = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), parR = r.pR || (r.pR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                    let sv = env, C = ass(new RComp(N, L.origin + dL.basepath, s), { ws, rt }), sh = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), pR = r.rR || (r.rR = new Range(N, N, tag)), tmp = D.createElement(tag);
                                     (C.doc = D.createDocumentFragment()).appendChild(tmp);
-                                    parR.erase(sh);
+                                    pR.erase(sh);
                                     sh.innerHTML = Q;
                                     try {
                                         tmp.innerHTML = r.src = src;
                                         await C.Compile(tmp, tmp.childNodes);
                                         dO && dO()(U);
-                                        await C.Build({ pN: sh, parR });
+                                        await C.Build({ pN: sh, pR });
                                     }
                                     catch (e) {
                                         sh.appendChild(crErrN(e));
@@ -1114,8 +1114,8 @@ class RComp {
                     ? import(this.gURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g, (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
             else {
-                let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), V;
-                ex = async () => V || (V = Ev(await pTxt));
+                let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), Xs;
+                ex = async () => Xs || (Xs = Ev(await pTxt));
                 if (src && async)
                     ex();
                 else if (!m[5] && !defer)
@@ -1279,7 +1279,7 @@ class RComp {
                             }
                             bf = nxR?.FstOrNxt || bfor;
                         };
-                        sub.parR = r;
+                        sub.pR = r;
                         while (!nxIR.done) {
                             EC();
                             let { item, key, hash, ix } = nxIR.value, chR = kMap.get(key), cr = !chR, chAr;
@@ -1314,7 +1314,7 @@ class RComp {
                                 nxR = chR.nx;
                                 sub.r = chR;
                                 chAr = PrepRng(sub).sub;
-                                sub.parR = N;
+                                sub.pR = N;
                             }
                             chR.pv = prR;
                             chR.text = `${letNm}(${ix})`;
@@ -1683,7 +1683,7 @@ class RComp {
             : this.CRout(txt, 'event', `\nat ${nm}="${Abbr(txt)}"`);
     }
     CRout(txt, x, e) {
-        let ct = this.gsc(txt), C = TryEv(`${US}(function(${x},${ct}){${txt}\n})`, e, Q);
+        let ct = this.gsc(txt), C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, e, Q);
         return (e = env) => function ($) {
             try {
                 return C.call(this, $, e);
@@ -1697,7 +1697,7 @@ class RComp {
         if (e == N)
             return e;
         e.trim() || thro(`${nm}: Empty expression`);
-        var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1], f = TryEv(`${US}(function(${this.gsc(e)}){return(${e}\n)})`, m, Q);
+        var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1], f = TryV(`${US}(function(${this.gsc(e)}){return(${e}\n)})`, m, Q);
         return () => {
             try {
                 return f.call(pN, env);
@@ -1761,7 +1761,7 @@ class Atts extends Map {
         let m, gg = (nm) => {
             let v = super.get(m = nm);
             return v != N ? v :
-                TryEv(super.get(m = '%' + nm), m);
+                TryV(super.get(m = '%' + nm), m);
         }, v = gg(nm);
         if (v == N && bHash)
             v = gg('#' + nm);
@@ -1892,14 +1892,14 @@ if (G._ur) {
 }
 ass(G, {
     RVAR, range, reroute, RFetch, DoUpdate, docLocation,
-    debug,
+    debug: Ev('()=>{debugger}'),
     _ur
 });
 export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
             if (typeof setts == 'string')
-                setts = TryEv(`({${setts}})`, `settings '${setts}'`);
+                setts = TryV(`({${setts}})`, `settings '${setts}'`);
             srcN.b = T;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);

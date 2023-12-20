@@ -46,43 +46,55 @@
 <p>
     * There are some special cases:
 </p>
-<ul>
-    <li>
-        Both <code class=sourcecode>#class</code> and <code>#classname</code> accept arrays and objects as values, to specify multiple and conditional classnames; see <a href="#classnames">Class names</a>.
-    </li>
-    <li>
-        <code class=sourcecode>#style</code>gets special treatment too, see <a href="#InlineStyles">Inline Styles</a>.
-    </li>
-    <li>
+<dl>
+    <dt><code class=sourcecode>#class</code></dt>
+    <dd>
+        Both <code>#class</code> and <code>#classname</code> accept arrays and objects as values, to specify multiple and conditional classnames; see <a href="#classnames">Class names</a>.
+    </dd>
+    <dt><code class=sourcecode>#style</code></dt>
+    <dd>
+        <code>#style</code> gets special treatment too, see <a href="#InlineStyles">Inline Styles</a>.
+    </dd>
+    <dt><code class=sourcecode>#valueasnumber</code></dt>
+    <dd>
         DOM property <MDN href="API/HTMLInputElement#instance_properties">valueAsNumber</MDN> <i>returns</i> the numeric value of an <elm>input type=number</elm> element, but <i>cannot be set</i>, which would make it unusable for two-way binding.
-        <br>RHTML however allows you to <u>set</u> <code class=sourcecode>#valueasnumber</code>, which translates to setting <code>#value</code>, so that one can use two-way binding on this property.
-    </li>
-    <li>
-        HTML attribute <MDN href="HTML/Attributes/for">for</MDN> corresponds to DOM property <MDN href="API/HTMLLabelElement/htmlFor">htmlFor</MDN>;
-        <br>RHTML recognizes simply <code class=sourcecode>#for</code> that translates into setting <code>#htmlfor</code>.
-    </li>
-    <li>
+        <br>RHTML however allows you to <u>set</u> <code>#valueasnumber</code>, which translates to setting <code>#value</code>, so that one can use two-way binding on this property.
+    </dd>
+    <dt><code class=sourcecode>#for</code></dt>
+    <dd>
+        HTML attribute <MDN href="HTML/Attributes/for">for</MDN> on <elm>label</elm> and <elm>output</elm> elements corresponds to DOM property <MDN href="API/HTMLLabelElement/htmlFor">htmlFor</MDN>;
+        <br>RHTML recognizes simply <code>#for</code> that translates into setting <code>#htmlfor</code>, i.e. the value of attribute <code>for</code>.
+    </dd>
+    <dt><code class=sourcecode>#shown</code></dt>
+    <dd>
         HTML has an attribute and property <MDN href="HTML/Global_attributes/hidden">hidden</MDN> to <i>hide</i> elements and their contents.
         <br>In web applications the opposite is more often useful: a way to <i>show</i> elements only under certain conditions.
-        <br>So RHTML adds a boolean propery <code class=sourcecode>#shown</code> that's the inverse of <code>#hidden</code>.
+        <br>So RHTML adds a boolean propery <code>#shown</code> that's the inverse of <code>#hidden</code>.
         <p>
             Note that browsers may and do implement <code>hidden</code> by setting the <MDN href="CSS/display">display</MDN> CSS property of the target element to 'hidden'.
             <br>As a consequence one cannot use either <code>#hidden</code> or <code>#shown</code> in combination with styling rules that set the <MDN href="CSS/display">display</MDN> CSS property, or with HTML elements that require a specific <code>display</code> value, like <elm>table</elm>.
         </p>
-    </li>
-    <li>
+    </dd>
+    <dt><code class=sourcecode>#visible</code></dt>
+    <dd>
         Another way to show or hide an HTML element is by setting the <MDN href="CSS/visibility">visibility</MDN> CSS property to either 'visible' or 'hidden'. In this case the element is hidden without changing the layout of the document, possibly leaving an empty space.
-        <br>RHTML facilitates this too by adding a boolean property <code class=sourcecode>#visible</code> that translates into setting the <code>visibility</code> CSS property to either 'visible' or 'hidden'.
-    </li>
-    <li>
+        <br>RHTML facilitates this too by adding a boolean property <code>#visible</code> that translates into setting the <code>visibility</code> CSS property to either 'visible' or 'hidden'.
+    </dd>
+    <dt><code class=sourcecode>#enabled</code></dt>
+    <dd>
+        Input elements like <elm>INPUT</elm> and <elm>SELECT</elm> have a property <code>disabled</code> to disable them.
+        <br>RHTML adds a boolean property <code>#enabled</code> that's the inverse of <code>#disabled</code>.
+    </dd>
+    <dt><code class=sourcecode>#</code></dt>
+    <dd>
         <i>propertyName</i> may be empty; in that case <i>expression</i> should evaluate to an object, and all (enumerable) properties of that object will be set on the target DOM element itself:
         <demo srcText=
 "<def var=props 
     #value=&quot;\{height: 50, width: 250, style: 'background-color: lightblue'}&quot;>
 </def>
 <canvas #=props></canvas>"></demo>
-    </li>
-</ul>
+    </dd>
+</dl>
 Notes:
 <ul>
     <li>For properties with string values, setting <code>#<i>name</i>="<i>expr</i>"</i></code> has usually the same effect as <code><i>name</i>="\{<i>expr</i>\}"</code>.</li>
