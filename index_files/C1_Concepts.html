@@ -238,12 +238,6 @@ Global variables are visible in RHTML inline scripts, of course.
     </dd>
 </dl>
 
-<p>
-    You may or must inform OtoReact which fragments of RHTML should react on which RVAR's, by using the <a href=#REACT><elm>REACT</elm> element</a> or the <a href=#GlobalAtts><code>reacton</code> attribute</a>, see below.
-    <br>For RVAR's created by calling <code>RVAR()</code>, this is necessary.
-    <br>For RVAR's created by <elm>DEFINE rvar</elm>, if there are no explicit react's <u>and</u> no other subscribers, then all RHTML code following the <elm>DEFINE rvar</elm>, i.e. the range where the RVAR is visible, <u>will implicitly react</u> on the RVAR.
-</p>
-
 <h4 id="RVAR-props">Properties and methods</h4>
 <p>An RVAR <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
 <dl>

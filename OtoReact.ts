@@ -5,7 +5,7 @@
 const
     // Some abbreviations
     // Please forgive me for trying to minimize the library file size
-    N = null
+    N = <null> null
 ,   T = <true> !0
 ,   F = <false>!T
 ,   U = <undefined> void 0
@@ -174,9 +174,11 @@ class Context {
 //#region DOMHandling: Area and Range
 
 /* An 'Area' is a (runtime) place to build or update a piece of DOM, with all required information a builder needs.
-    Area's are transitory objects; discarded after the builders are finished
+    Area's are transitory objects; discarded after the builders are finished.
+    <RT> can be an object type specifying additional properties of the .r Range object
+    <T> can be set to <never> to forbid .r being true
 */
-type Area<RT = {}, T = true> = {
+type Area<RT extends object = {}, T extends true = true> = {
     r?: Range & RT | T,          // Existing piece of DOM
     // When falsy (undefined or null), the DOM has to be CREATED
     // When truthy (a Range or true), the DOM has to be UPDATED
@@ -191,7 +193,7 @@ type Area<RT = {}, T = true> = {
 }
 /* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
-type AreaR<RT = object> = Area<RT, never>;
+type AreaR<RT extends object = {}> = Area<RT, never>;
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
     It can either be a single DOM node, with child nodes described by a linked list of child-ranges,
@@ -457,7 +459,7 @@ class Signat {
                         mode: (m as ''|'#'|'@'|'...'),
                         nm,
                         rq: !(q || pDf || rp),
-                        pDf: m=='@' ? () => RVAR(Q, pDf?.()) : pDf
+                        pDf: m=='@' ? () => RVAR(U, pDf?.()) : pDf
                     }
                 );
                 this.RP = rp && nm;
@@ -587,7 +589,9 @@ export class RV<T = unknown> {
         this.$subs.delete(s);
     }
     // Subscribe range
+    // bR = true means update just the root node, not the whole tree
     $SR({pR, pN}: Area, b: DOMBuilder, r: Range, bR:boolean = true) {
+        // Keep all info needed for the update in r.uInfo
         r.uInfo ||= {b, env, oes, pN, pR, bR};
         this.$subs.add(r);
         (r.rvars ||= new Set).add(this);
@@ -641,7 +645,9 @@ export class RV<T = unknown> {
     valueOf() { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
 }
-export type RVAR<T = any, U=T> = RV<T> & U;
+// An RVAR<T> is a (proxy to) an instance of RV<T>,
+// but when its T-value is an object or null or undefined, then it is also a proxy to that value
+export type RVAR<T = any> = T extends object ? RV<T> & T : RV<T>;
 
 const
     // ProxH is the proxyhandler on RV objects rv, that channels all property access either
@@ -674,14 +680,14 @@ const
     }
 
 /* A "reactive variable" is a variable that listeners can subscribe to. */
-export function RVAR<T, U=T>(
+export function RVAR<T>(
     nm?: string
 ,   val?: T | Promise<T>
 ,   store?: Store
 ,   imm?: Subscriber<T>
 ,   storeNm?: string
 ,   updTo?: RV
-): RV<T> & U {
+): RVAR<T> {
 
     if (store) {
         var sNm = storeNm || 'RVAR_' + nm
@@ -693,6 +699,11 @@ export function RVAR<T, U=T>(
 
     let rv = new RV(val).Subscribe(imm, T);
     rv.$name = nm || storeNm;
+    
+    // When val is some object (null included) or undefined
+    if (/^[uo]/.test(typeof val))
+        // Then make rv a Proxy
+        rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
 
     store &&
         rv.Subscribe(v => 
@@ -702,15 +713,10 @@ export function RVAR<T, U=T>(
     updTo &&      
         rv.Subscribe(()=>updTo.SetDirty(),T)
     
-    // When 'val' is 'undefined' or some object (null included)
-    if (/^[uo]/.test(typeof val))
-        // Then make rv a Proxy
-        rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
-    
     if (nm) 
         G[nm] = rv;
 
-    return rv as RV<T> & U;
+    return rv as RVAR<T>;
 }
 
 // A subscriber to an RV<T> is either any routine on T (not having a property .T),
@@ -730,19 +736,29 @@ let env: Environment       // Current runtime environment
 ,   pN: ParentNode         // Current html node
 ,   oes: OES = {e: N, s: N}    // Current onerror and onsuccess handlers
 
-    // Auto-react functionality
+/* Auto-react functionality */
+    // Range to be subscribed to any referenced RVARs
+    // In .uv we'll store the RVARs so that the range can be unsubscribed from them when needed
 ,   arR:Range & {uv?:Map<RV, booly>;}
-    //arPr: Range,
 ,   arA: AreaR
+    // Builder to be used for updating the range
 ,   arB: DOMBuilder
-
+    // Here we collect the referenced RVAR's
+    // The associated booly indicates whether (true) a full tree update is required or just a node update.
 ,   arVars: Map<RV, booly>
+    // Routine to add an RVAR to the collection
 ,   AR = (rv: RV, bA?: booly) => 
-        arA && (arVars ||= new Map).set(rv, bA || arVars?.get(rv))
+        arA && 
+            (arVars ||= new Map).set(
+                rv
+                , bA || arVars?.get(rv)
+            )
+    // Routine to check the collection and subscribe the Range when needed
 ,   arChk = () => {
         if (arA && (arR || arVars && (arR = arA.prR))) {
             if(<any>arR===T) throw 'arCheck!'
             arVars?.forEach((bA, rv) =>
+                // bA = true means update the whole tree
                 arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA)
             );
             arR.uv?.forEach((_,rv) => rv.$UR(arR) );
@@ -1467,7 +1483,7 @@ class RComp {
                                     r.rv = v instanceof RV && v;
                                     if (cr)
                                         (vLet as LVar<RVAR>)(
-                                            RVAR(N, dr(v),
+                                            RVAR(U, dr(v),
                                                 dSto?.(),
                                                 r.rv ? x => {r.rv.V = x} : S?.(),
                                                 dSNm?.() || rv,
@@ -1582,7 +1598,8 @@ class RComp {
                         b = await this.CChilds(srcE);
                         bl = b && function(ar, bR) {
                             //let {sub} = PrepRng(ar);
-                            return !(ar.r && bR) && b(ar)
+                            //return !(ar.r && bR) && b(ar);
+                            return !bR && b(ar);
                         }
                     break;
 
@@ -1590,14 +1607,14 @@ class RComp {
                         let {ws,rt} = this
                         ,   S = this.CPam<string>(ats, 'srctext',T)
                             // Undocumented feature: a pseudo-event fired after the compile phase
-                        ,   dO = this.CPam<Handler>(ats, "onç")
+                        ,   dO = this.CPam<Handler>(ats, "onc")
                         ,   s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                         NoChilds(srcE);
                         bl = async function RHTML(ar) {
                             let {r} = PrepElm<{rR: Range, src: string}>(ar, 'r-html')
                             ,   src = S()
-                                ;
+                            ;
 
                             if (src != r.src) {
                                 let sv = env
@@ -2523,7 +2540,7 @@ class RComp {
                                             (vLet(rv) as RV).$V = item;
                                         else
                                             // Turn 'item' into an RVAR
-                                            vLet(chR.rv = RVAR(N,item,N,N,N, dUpd?.()));                                    
+                                            vLet(chR.rv = RVAR(U,item,N,N,N, dUpd?.()));                                    
                                     else
                                         vLet(item);
 
