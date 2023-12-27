@@ -183,7 +183,7 @@ class Signat {
                     mode: m,
                     nm,
                     rq: !(q || pDf || rp),
-                    pDf: m == '@' ? () => RVAR(Q, pDf?.()) : pDf
+                    pDf: m == '@' ? () => RVAR(U, pDf?.()) : pDf
                 });
                 this.RP = rp && nm;
             }
@@ -328,17 +328,18 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
     }
     let rv = new RV(val).Subscribe(imm, T);
     rv.$name = nm || storeNm;
+    if (/^[uo]/.test(typeof val))
+        rv = new Proxy(rv, ProxH);
     store &&
         rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
     updTo &&
         rv.Subscribe(() => updTo.SetDirty(), T);
-    if (/^[uo]/.test(typeof val))
-        rv = new Proxy(rv, ProxH);
     if (nm)
         G[nm] = rv;
     return rv;
 }
-let env, pN, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA && (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
+let env, pN, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA &&
+    (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
     if (arA && (arR || arVars && (arR = arA.prR))) {
         if (arR === T)
             throw 'arCheck!';
@@ -698,7 +699,7 @@ class RComp {
                                     if (rv) {
                                         r.rv = v instanceof RV && v;
                                         if (cr)
-                                            vLet(RVAR(N, dr(v), dSto?.(), r.rv ? x => { r.rv.V = x; } : S?.(), dSNm?.() || rv, dUpd?.()))
+                                            vLet(RVAR(U, dr(v), dSto?.(), r.rv ? x => { r.rv.V = x; } : S?.(), dSNm?.() || rv, dUpd?.()))
                                                 .Subscribe(onMod?.());
                                         else
                                             vGet().Set(dr(v));
@@ -772,12 +773,12 @@ class RComp {
                     case 'REACT':
                         b = await this.CChilds(srcE);
                         bl = b && function (ar, bR) {
-                            return !(ar.r && bR) && b(ar);
+                            return !bR && b(ar);
                         };
                         break;
                     case 'RHTML':
                         {
-                            let { ws, rt } = this, S = this.CPam(ats, 'srctext', T), dO = this.CPam(ats, "onç"), s = { bSubf: 2, bTiming: this.S.bTiming };
+                            let { ws, rt } = this, S = this.CPam(ats, 'srctext', T), dO = this.CPam(ats, "onc"), s = { bSubf: 2, bTiming: this.S.bTiming };
                             NoChilds(srcE);
                             bl = async function RHTML(ar) {
                                 let { r } = PrepElm(ar, 'r-html'), src = S();
@@ -1332,7 +1333,7 @@ class RComp {
                                     if (rv)
                                         vLet(rv).$V = item;
                                     else
-                                        vLet(chR.rv = RVAR(N, item, N, N, N, dUpd?.()));
+                                        vLet(chR.rv = RVAR(U, item, N, N, N, dUpd?.()));
                                 else
                                     vLet(item);
                                 vPv(prIt);

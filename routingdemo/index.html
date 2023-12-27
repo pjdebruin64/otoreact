@@ -13,12 +13,12 @@
         border-collapse: collapse;
       }
       tr > * {
-        padding: 3px 6px; border: solid 1pt blue;
+        padding: 3px 6px; border: solid 1pt blue; text-align: center;
       }
     </style>
 
     <script type=module>
-      import {RVAR} from './OtoReact.js';
+      import {RVAR} from '../OtoReact.js';
 
       RVAR('customers', [
         {no: '001', name: "Mary", address: "Washington"},
@@ -94,10 +94,26 @@
     <p>Current values of:</p>
     <table>
       <tbody>
-        <tr><th colspan=2>docLocation.href</th></tr>
-        <tr><td colspan=2>{docLocation.href}</td></tr>
-        <tr> <th>docLocation.origin</th>   <th>docLocation.pathname</th>   <th>docLocation.basepath</th>   <th>docLocation.subpath</th>   </tr>
-        <tr> <td>{docLocation.origin}</td> <td>{docLocation.pathname}</td> <td>{docLocation.basepath}</td> <td>{docLocation.subpath}</td> </tr>
+        <tr><th colspan=4>docLocation.href</th></tr>
+        <tr><td colspan=4>{docLocation.href}</td></tr>
+
+        <tr> 
+          <th colspan=2>docLocation.origin</th>
+          <th colspan=2>docLocation.pathname</th>
+        </tr>
+        <tr> 
+          <td colspan=2>{docLocation.origin}</td> 
+          <td colspan=2>{docLocation.pathname}</td>  
+        </tr>
+
+        <tr>
+          <th>docLocation.protocol</th><th>docLocation.host</th>
+          <th>docLocation.basepath</th><th>docLocation.subpath</th>
+        </tr>
+        <tr>
+          <td>{docLocation.protocol}</td><td>{docLocation.host}</td>
+          <td>{docLocation.basepath}</td><td>{docLocation.subpath}</td>
+        </tr>
       </tbody>
     </table>
 

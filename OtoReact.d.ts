@@ -20,7 +20,7 @@ type Settings = Partial<{
 type Environment = [Environment?, ...unknown[]] & {
     cl?: string[];
 };
-type Area<RT = {}, T = true> = {
+type Area<RT extends object = {}, T extends true = true> = {
     r?: Range & RT | T;
     pN: ParentNode;
     bfor?: ChildNode;
@@ -81,8 +81,8 @@ export declare class RV<T = unknown> {
     valueOf(): Object;
     toString(): string;
 }
-export type RVAR<T = any, U = T> = RV<T> & U;
-export declare function RVAR<T, U = T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RV<T> & U;
+export type RVAR<T = any> = T extends object ? RV<T> & T : RV<T>;
+export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T, prev?: T) => unknown);
 type OES = {
     e: Handler;
@@ -103,7 +103,7 @@ declare class DL extends RV<URL> {
     get subpath(): string;
     set subpath(s: string);
     search(key: string, val: string): string;
-    RVAR(key: string, df?: string, nm?: string): RV<string> & string;
+    RVAR(key: string, df?: string, nm?: string): RV<string>;
 }
 export declare const docLocation: DL & URL, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {
