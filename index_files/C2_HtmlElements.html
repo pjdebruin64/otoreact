@@ -25,7 +25,7 @@
 </ul>
 
 
-<h2>DOM properties: #</h2>
+<h2>DOM properties: '#'</h2>
 <p>
     The browser translates attributes specified in HTML elements to <i>properties</i> of the corresponding DOM objects.
     <br>Rather than setting attributes, RHTML allows you to directly set the DOM properties, by prepending the property name with a hash mark and specifying a JavaScript expression: <code class=sourcecode>#<i>propertyName</i>="<i>expression</i>"</code>
@@ -55,16 +55,6 @@
     <dd>
         <code>#style</code> gets special treatment too, see <a href="#InlineStyles">Inline Styles</a>.
     </dd>
-    <dt><code class=sourcecode>#valueasnumber</code></dt>
-    <dd>
-        DOM property <MDN href="API/HTMLInputElement#instance_properties">valueAsNumber</MDN> <i>returns</i> the numeric value of an <elm>input type=number</elm> element, but <i>cannot be set</i>, which would make it unusable for two-way binding.
-        <br>RHTML however allows you to <u>set</u> <code>#valueasnumber</code>, which translates to setting <code>#value</code>, so that one can use two-way binding on this property.
-    </dd>
-    <dt><code class=sourcecode>#for</code></dt>
-    <dd>
-        HTML attribute <MDN href="HTML/Attributes/for">for</MDN> on <elm>label</elm> and <elm>output</elm> elements corresponds to DOM property <MDN href="API/HTMLLabelElement/htmlFor">htmlFor</MDN>;
-        <br>RHTML recognizes simply <code>#for</code> that translates into setting <code>#htmlfor</code>, i.e. the value of attribute <code>for</code>.
-    </dd>
     <dt><code class=sourcecode>#shown</code></dt>
     <dd>
         HTML has an attribute and property <MDN href="HTML/Global_attributes/hidden">hidden</MDN> to <i>hide</i> elements and their contents.
@@ -93,6 +83,16 @@
     #value=&quot;\{height: 50, width: 250, style: 'background-color: lightblue'}&quot;>
 </def>
 <canvas #=props></canvas>"></demo>
+    </dd>
+    <dt><code class=sourcecode>#valueasnumber</code></dt>
+    <dd>
+        DOM property <MDN href="API/HTMLInputElement#instance_properties">valueAsNumber</MDN> <i>returns</i> the numeric value of an <elm>input type=number</elm> element, but <i>cannot be set</i>, which would make it unusable for two-way binding.
+        <br>RHTML however allows you to <u>set</u> <code>#valueasnumber</code>, which translates to setting <code>#value</code>, so that one can use two-way binding on this property.
+    </dd>
+    <dt><code class=sourcecode>#for</code></dt>
+    <dd>
+        HTML attribute <MDN href="HTML/Attributes/for">for</MDN> on <elm>label</elm> and <elm>output</elm> elements corresponds to DOM property <MDN href="API/HTMLLabelElement/htmlFor">htmlFor</MDN>;
+        <br>RHTML recognizes simply <code>#for</code> that translates into setting <code>#htmlfor</code>, i.e. the value of attribute <code>for</code>.
     </dd>
 </dl>
 Notes:
@@ -153,7 +153,7 @@ RHTML has a number of 'global attributes' that can be applied to every element a
 </p>
 <p>
     * When a source element has multiple global attributes, then attributes on the left are treated as "inner" to attributes on the right.
-    <br>If, e.g., an <code>#if</code> condition on some element should be re-evaluated when <code><i>RV</i></code> is dirty though it does not evaluate <code><i>RVAR</i>.V</code>, then one should write <elm>elm #if="<i>condition</i>" thisreactson="<i>RV</i>"</elm>, not the other way around.
+    <br>If, e.g., an <code>#if</code> condition on some element should be re-evaluated when <code><i>RV</i></code> is dirty though it does not evaluate <code><i>RVAR</i>.V</code>, then one should write <elm>#if="<i>condition</i>" thisreactson="<i>RV</i>"</elm>, not the other way around.
 </p>
 <h3>'#if'</h3>
 An element or construct with
@@ -162,25 +162,33 @@ will be built only when the given condition evaluates to a truthy value.
 <br>So this is a shorter version of the <a href="#IF"><elm>IF</elm>-construct</a> with no elsepart.
 
 <h3>'reacton', 'thisreactson'</h3>
-In most cases, OtoReact detects automatically when a node 
-
-
+These global attributes can be used to trigger DOM updates when this doesn't happen automatically.
+<p>The items in <i>RVAR-list</i> may be expressions rather than just names.
+<dl>
     <dt><code class=sourcecode>reacton="<i>RVAR-list</i>"</code> or <code class=sourcecode>reactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-        This tells OtoReact that the whole DOM-tree built by this node should react on the listed comma-separated RVAR's.
-        <p>
-            For RVAR's created by calling <a href="#RVAR">RVAR()</a>, this is compulsory.
-            <br>For RVAR's created by <a href=#DEFINE><elm>DEFINE rvar</elm></a>, this is optional.
-        </p>
-        <p>
-            The items in <i>RVAR-list</i> may be expressions rather than just names.
-        </p>
-       
+        This tells OtoReact that <i>the whole DOM-tree</i> built by this node should be updated when some of the listed RVAR's have been set dirty.
     </dd>
     <dt><code class=sourcecode>thisreactson="<i>RVAR-list</i>"</code></dt>
     <dd>
-        This tells OtoReact that <i>only the current node itself</i> should react on the listed RVAR's. Not its contents, unless specified otherwise.
+        This tells OtoReact that (all attributes etc. of) <i>this node only</i> should be re-evaluated when some of the listed RVAR's have been set dirty.
     </dd>
+</dl>
+* Some situations in which this may be needed are the following.
+<ul>
+    <li>
+        Constructs <elm>DEF</elm> and <elm>FOR</elm> accept async function results (promises) as parameters. When the completion of such a promise depends on RVAR values, the automatic dependency analysis won't notice this, and you may need to attach a <code>thisreactson</code> attribute.
+    </li>
+    <li>
+        One can subscribe routines to an RVAR to update non-RVAR global variables or properties whenever the RVAR changes.
+        <br>Then DOM nodes that depend on these variables or properties won't automatically be updated when the RVAR changes.
+    </li>
+    <li>
+        When a user-defined construct has some non-RVAR parameter, but the parameter value in some instance of this construct depends on some RVAR, the parameter value will automatically be re-evaluated when that RVAR gets dirty.
+        <br>When the result is not strictly equal to the previous parameter value, then the whole instance DOM tree will be updated.
+        <br>But when the result remains the same object while some property has changed, the instance DOM won't be updated, and you must add a <code>reacton</code> if updating is needed.
+    </li>
+</ul>
 
 <h3>'hash'</h3>
 Attribute <code class=sourcecode>hash="<i>hashExpressionList</i>"</code> exists in order to speed up processing. <br>

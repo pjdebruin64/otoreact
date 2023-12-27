@@ -245,7 +245,9 @@ Global variables are visible in RHTML inline scripts, of course.
 </p>
 
 <h4 id="RVAR-props">Properties and methods</h4>
-<p>An RVAR <code>x</code> is an object, distinct from the value of the variable. It has the following properties and methods:</p>
+<p>An RVAR <code>x</code> is an object, distinct from the value of the variable. </p>
+<p>
+It has the following own properties and methods:</p>
 <dl>
     <dt><code class=sourcecode>x.V</code></dt>
     <dd>
@@ -274,12 +276,12 @@ Global variables are visible in RHTML inline scripts, of course.
                         </ul>
                     </li>
                     <li>
-                        When the initial value of an RVAR is not a literal value (number, string or boolean), then the RVAR is created as a <a href="">Proxy object</a>, so that one can get, set, and delete properties of its value without writing <code>.V</code>:
+                        When the initial value of an RVAR is an object or <code>null</code>, then the RVAR is created as a <a href="Web/JavaScript/Reference/Global_Objects/Proxy">Proxy object</a>, so that one can get, set, and delete properties of its value without writing <code>.V</code>:
                         <pre>
-let x = RVAR(null, \{});
-x.prop = 1;         // Same as: x.V.prop = 1, except that x will be set dirty when x.V.prop !== 1
+let x = RVAR( '', \{prop: 0} );
 let a = x.prop;     // Same as: let a = x.V.prop
-delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty</pre>
+x.prop = 1;         // Same as: x.V.prop = 1, except that x will be set dirty if (and only if) x.V.prop !== 1
+delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty if x.V</pre>
                     </li>
                     <li>
                         RVAR's may be supplied as targets for all sorts of two-way properties: <code>@value="x"</code>.
@@ -295,7 +297,7 @@ delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty
                     <li>When assigning to it: <code>x.V = <i>expr</i></code></li>
                     <li>When comparing with an object (including another RVAR): <code>x.V == <i>expr</i></code></li>
                     <li>When used as a condition: <code>if (x.V) ...</code>, <code>(x.V ? <i>a</i> : <i>b</i>)</code></li>
-                    <li>When passing it to a function that accepts objects: <code>f(x.V)</code></li>
+                    <li>When passing it to any function that doesn't coerce to literal: <code>f(x.V)</code></li>
                 </ul>
             </li>
         </ul>
