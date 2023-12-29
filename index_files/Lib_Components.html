@@ -131,7 +131,7 @@
                             <td. class="pre"                          
                                 contenteditable="{editable}" spellcheck=false 
                                 #innerHTML="ColorCode(texts.$V[rShow.V] || '')"
-                                !innerText="texts.U[rShow.V]"
+                                !innerText="texts[rShow.V]"
                                 onkeydown="if (event.key=='Tab') {
                                     event.preventDefault();
                                     document.execCommand('insertText', false, '\t');

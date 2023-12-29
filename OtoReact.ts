@@ -1598,8 +1598,8 @@ class RComp {
                         b = await this.CChilds(srcE);
                         bl = b && function(ar, bR) {
                             //let {sub} = PrepRng(ar);
-                            //return !(ar.r && bR) && b(ar);
-                            return !bR && b(ar);
+                            return !(ar.r && bR) && b(ar);
+                            //return !bR && b(ar);
                         }
                     break;
 
@@ -2842,8 +2842,8 @@ class RComp {
                     ro = T;
                     for (let {nm, G, S} of gArgs) {
                         let v = G();
-                        if (!S 
-                            || v instanceof RV  // For one-way parameters, do not dereference
+                        if (!S  // one-way parameter
+                            || v instanceof RV
                             ) {
                             // when a one-way parameter changes, then update the whole instance
                             bR &&= v == args[nm];

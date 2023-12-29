@@ -773,7 +773,7 @@ class RComp {
                     case 'REACT':
                         b = await this.CChilds(srcE);
                         bl = b && function (ar, bR) {
-                            return !bR && b(ar);
+                            return !(ar.r && bR) && b(ar);
                         };
                         break;
                     case 'RHTML':
