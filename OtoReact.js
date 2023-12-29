@@ -1,4 +1,4 @@
-const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, Ev = eval, thro = (e) => { throw e; }, dr = (v) => v instanceof RV ? v.V : v, now = () => performance.now(), TryV = (e, m, s = '\nin ') => {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, Ev = eval, TryV = (e, m, s = '\nin ') => {
     try {
         return Ev(e);
     }
@@ -10,7 +10,7 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     bAutoPointer: T,
     preformatted: E,
     version: 1,
-};
+}, dr = (v) => v instanceof RV ? v.V : v;
 class Context {
     constructor(C, a) {
         ass(this, C || {
@@ -112,9 +112,9 @@ class Range {
     }
     async update() {
         let b, bR, pR;
-        ({ env, oes, pN, b, bR, pR } = this.uInfo);
-        if (this.upd != upd)
-            await b({ r: this, pN, pR }, bR);
+        if (this.upd < upd)
+            ({ env, oes, pN, b, bR, pR } = this.uInfo),
+                await b({ r: this, pN, pR }, bR);
     }
 }
 const PrepRng = (ar, srcE, text = Q, nWipe, res) => {

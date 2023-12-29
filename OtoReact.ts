@@ -22,10 +22,14 @@ const
 ,   K   = x => () => x
 ,   B   = (f, g) => x => f(g(x))
 ,   P   = new DOMParser
-,   Ev  = eval                  // Note: 'eval(txt)' can access variables from this file, while 'Ev(txt)' cannot!
-,   thro= (e: any) => {throw e}
-,   dr  = (v: unknown) => v instanceof RV ? v.V : v
 ,   now = () => performance.now()
+    // Throwing an error from within an expression
+,   thro= (e: any) => {throw e}
+    // The eval function.
+    // Note that calling 'Ev(txt)' triggers an INDIRECT eval, so that variables from this file cannot be accessed,
+    // while calling 'eval(txt)' CAN access variables from this file. See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#direct_and_indirect_eval
+,   Ev  = eval
+    // Try to eval
 ,   TryV = (e: string, m: string, s = '\nin ') => {
         try {
             return Ev(e);
@@ -34,7 +38,6 @@ const
             throw x + s + m;
         }
     }
-
     // Default settings 
 ,   dflts: Settings = {
         bShowErrors:    T,
@@ -45,6 +48,8 @@ const
         //storePrefix:    "RVAR_",
         version:        1,
     }
+    // Dereference if RVAR
+,   dr  = (v: unknown) => v instanceof RV ? v.V : v
     ;
 
 // Type used for truthy / falsy values
@@ -191,8 +196,8 @@ type Area<RT extends object = {}, T extends true = true> = {
     pR?: Range;         // The new range shall either be the first child this parent range,
     prR?: Range;        // Or the next sibling of this previous range
 }
-/* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 
+/* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
 type AreaR<RT extends object = {}> = Area<RT, never>;
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
@@ -284,7 +289,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
     // For reactive elements
     rvars?: Set<RV>;         // RVARs on which the element reacts
 
-    // Erase the range, i.e., destroy all child ranges and remove all nodes.
+    // Erase the range, i.e., destroy all child ranges, remove all nodes, unsubscribe from all RVARs, and call all before- and after-destroy handlers.
     // The range itself remains a child of its parent range.
     // The parent node must be specified, or a falsy value when nodes need not be removed.
     erase(par: false | Node) {
@@ -306,7 +311,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
             // Destroy 'ch'
             ch.erase(ch.pN ?? par);
 
-            // Call 'afterdestroy' handler
+            // Call an 'afterdestroy' handler
             ch.aD?.call(ch.n || par);
 
             ch = ch.nx;
@@ -317,9 +322,9 @@ class Range<NodeType extends ChildNode = ChildNode>{
 
     async update() {
         let b: DOMBuilder, bR: boolean, pR: Range;
-        ({env, oes, pN, b, bR, pR} = this.uInfo);
         
-        if (this.upd != upd)
+        if (this.upd < upd)
+            ({env, oes, pN, b, bR, pR} = this.uInfo),
             await b({r: this, pN, pR}, bR);
     }
 }
