@@ -395,7 +395,7 @@ const PrepRng = <RT>(
     else
         ar.r = r.nx || T;
 
-    nodeCnt++
+    nodeCnt++;
     return { 
         r, 
         sub: {
