@@ -26,18 +26,20 @@ const
     // Throwing an error from within an expression
 ,   thro= (e: any) => {throw e}
     // The eval function.
-    // Note that calling 'Ev(txt)' triggers an INDIRECT eval, so that variables from this file cannot be accessed,
+    ,   V  = eval
+    // Note that calling 'V(txt)' triggers an INDIRECT eval, so that variables from this file cannot be accessed,
     // while calling 'eval(txt)' CAN access variables from this file. See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#direct_and_indirect_eval
-,   Ev  = eval
+
     // Try to eval
 ,   TryV = (e: string, m: string, s = '\nin ') => {
         try {
-            return Ev(e);
+            return V(e);
         }
         catch (x) {
             throw x + s + m;
         }
     }
+,   EL = (et: EventTarget, k: string, el: EventListenerOrEventListenerObject) => et.addEventListener(k, el)
     // Default settings 
 ,   dflts: Settings = {
         bShowErrors:    T,
@@ -56,7 +58,6 @@ const
 type booly = boolean|string|number|object|null|void;
 // Nodes that can have children
 type ParentNode = HTMLElement|DocumentFragment;
-type Handler = (ev:Event) => booly;
 
 type Settings = Partial<{
     bTiming:        boolean,
@@ -282,8 +283,8 @@ class Range<NodeType extends ChildNode = ChildNode>{
         })(this)
     }
 
-    bD?: Handler;   // Before destroy handler
-    aD?: Handler;   // After destroy handler
+    bD?: EventListener;   // Before destroy handler
+    aD?: EventListener;   // After destroy handler
     upd?: number;   // Update stamp
 
     // For reactive elements
@@ -733,7 +734,7 @@ type Subscriber<T = unknown> =
 //#endregion
 
 //#region Runtime data and utilities
-type OES = {e: Handler, s: Handler};     // Holder for onerror and onsuccess handlers
+type OES = {e: EventListener, s: EventListener};     // Holder for onerror and onsuccess handlers
 type Job = {Exec: () => Promise<unknown> }
 
 // Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
@@ -851,9 +852,14 @@ type ModifierData = { [k: number]: any};
 // and without replacing the target element event listener.
 class Hndlr {
     oes: OES;       // onerror and onsuccess handler
-    h: Handler;     // User-defined handler
+    h: EventListener;     // User-defined handler
 
-    hndl(ev: Event, ...r: any[]) {
+    constructor() {
+        this.oes = oes;
+    }
+
+
+    handleEvent(ev: Event, ...r: any[]) {
             if (this.h)
                 try {
                     var {e,s} = this.oes
@@ -870,14 +876,16 @@ class Hndlr {
                 catch (er) {
                     // Call onerror handler or retrow the error
                     (e || thro)(er);
-                }        
+                } 
     }
+}
+class Targ {
+    constructor(public nm?: string) {}
 
-    nm?: string;
     c?: string;
     S?: (v: unknown) => void;
-    setTarget(ev: Event) {
-        this.S(ev.currentTarget[this.c ||= ChkNm(ev.currentTarget, this.nm)])
+    handleEvent(ev: Event) {
+        this.S(ev.currentTarget[this.c ||= ChkNm(ev.currentTarget, this.nm)]);
     }
 }
 
@@ -926,27 +934,18 @@ function ApplyAtts(
 
                     case MType.Target:
                         // Set and remember new handler
-                        if (cr) {
-                            (H = r[k] = new Hndlr).oes = oes;
-                            e.addEventListener(M.ev, H.setTarget.bind(H));
-                            H.nm = nm;
-                        }
-                        else
-                            H = <Hndlr>r[k];
+                        cr && 
+                            EL(e, M.ev, (r[k] = new Targ(nm)));
 
-                        H.S = x as (v: unknown) => void;
+                        (r[k] as Targ).S = x as (v: unknown) => void;
                         break;
 
                     case MType.Event:
                         // Set and remember new handler
-                        if (cr) {
-                            (H = r[k] = new Hndlr).oes = oes;
-                            e.addEventListener(nm, H.hndl.bind(H));
-                        }
-                        else
-                            H = <Hndlr>r[k];
+                        cr &&
+                            EL(e, nm, r[k] = new Hndlr);
                             
-                        H.h = x as Handler;
+                        (r[k] as Hndlr).h = x as EventListener;
 
                         if (M.ap)
                             // Handle bAutoPointer
@@ -1041,7 +1040,7 @@ function ApplyAtts(
                             && (e as HTMLAnchorElement).href.startsWith(L.origin + dL.basepath)
                         )
                             // Then we add the 'reroute' onclick-handler
-                            e.addEventListener('click', reroute);
+                            EL(e, 'click', reroute as EventListener);
                 }
             }
             i++; k++
@@ -1150,7 +1149,7 @@ class RComp {
 
                 env = r.env ||= ass([nf ? e : e[0]], {cl: e.cl});
                 
-                return {sub, EF: () => {env = e;} }; // 'EndFrame' routine
+                return {sub, EF: () => env = e }; // 'EndFrame' routine
             }
         ).finally(() =>        
         {
@@ -1201,7 +1200,7 @@ class RComp {
                     if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
                         throw N;
                     // Check for reserved keywords
-                    Ev(`let ${nm}=0`); 
+                    V(`let ${nm}=0`); 
                 }
                 catch { throw `Invalid identifier '${nm}'`; }
             
@@ -1387,8 +1386,8 @@ class RComp {
             ,   ga: Array<{at: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = []
 
                 // Generic pseudo-event handlers to be handled at runtime BEFORE and AFTER building
-            ,   bf: Array<{at: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
-            ,   af: Array<{at: string, txt: string, h?: Dep<Handler>, C: boolean, U: boolean, D: boolean}> = []
+            ,   bf: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
+            ,   af: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
                                 
                 // The intermediate builder will be put here
             ,   bl: DOMBuilder
@@ -1460,13 +1459,13 @@ class RComp {
                         ,   {G,S}   = this.cAny(ats, 'value')
                         ,   bU      = ats.gB('updating') || rv
                         ,   dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates')
-                        ,   onMod   = rv && this.CPam<Handler>(ats, 'onmodified')
+                        ,   onMod   = rv && this.CPam<EventListener>(ats, 'onmodified')
                         ,   dSto    = rv   && this.CAttExp<Store>(ats, 'store')
                         ,   dSNm    = dSto && this.CPam<string>(ats, 'storename')
                         ;
 
                         bA = async function DEF(ar, bR?) {
-                            let {cr,r} = PrepRng<{rv: RV}>(ar, srcE)
+                            let {cr,r} = PrepRng<{rv: RV, om: Hndlr}>(ar, srcE)
                             ,   v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
@@ -1476,8 +1475,8 @@ class RComp {
                             // Note that when !bU, then arChk() is called /before/ G() is evaluated,
                             // so that the construct won't react on RVARS used by G().
                             if ( bU || arChk() || cr || bR != N){
+                                ro=T;
                                 try {
-                                    ro=T;
                                     v = G?.();
                                 }
                                 finally { 
@@ -1486,16 +1485,19 @@ class RComp {
 
                                 if (rv) {
                                     r.rv = v instanceof RV && v;
+                                    if (onMod)
+                                        (r.om ||= new Hndlr).h = onMod();
+                                    
                                     if (cr)
                                         (vLet as LVar<RVAR>)(
                                             RVAR(U, dr(v),
                                                 dSto?.(),
-                                                r.rv ? x => {r.rv.V = x} : S?.(),
+                                                r.rv ? r.rv.Set : S?.(),
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
                                         )
-                                        .Subscribe(onMod?.());
+                                        .Subscribe(r.om?.handleEvent?.bind(r.om));
                                     else
                                         vGet().Set(dr(v));
                                 }
@@ -1612,7 +1614,7 @@ class RComp {
                         let {ws,rt} = this
                         ,   S = this.CPam<string>(ats, 'srctext',T)
                             // Undocumented feature: a pseudo-event fired after the compile phase
-                        ,   dO = this.CPam<Handler>(ats, "onc")
+                        ,   dO = this.CPam<EventListener>(ats, "onc")
                         ,   s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                         NoChilds(srcE);
@@ -1711,12 +1713,11 @@ class RComp {
                                         let w = W.open(Q, target || Q, features)
                                         ,   cr = !chWins.has(w);
                                         if (cr) {
-                                            w.addEventListener('keydown', 
-                                                (event:KeyboardEvent) => {if(event.key=='Escape') w.close();}
+                                            EL(w, 'keydown', 
+                                                (ev:KeyboardEvent) => ev.key=='Escape' && w.close()
                                             );
-                                            w.addEventListener('close', 
-                                                () => chWins.delete(w), wins.delete(w));
-                                            //w.addEventListener('load', () => w.focus());
+                                            EL(w, 'close', 
+                                                _ => {chWins.delete(w); wins.delete(w);} );
                                             chWins.add(w); wins.add(w);
                                         }
                                         w.document.body.innerHTML=Q // Just in case an existing target was used
@@ -1892,7 +1893,7 @@ class RComp {
 
                 let b = bl;
                 bl = async function Pseu(ar: AreaR, bR) {                   
-                    let {r, sub, cr} = PrepRng<{bU: Handler, aU: Handler}>(ar, srcE)
+                    let {r, sub, cr} = PrepRng<{bU: EventListener, aU: EventListener}>(ar, srcE)
                     ,   sr = sub.r || T
 
                     ,   bD = ph(bf, 'bU', sr != T && sr.n || pN);
@@ -1913,7 +1914,7 @@ class RComp {
                         ass(rng, {bD,aD});
                     
                     // Call or save before-handlers
-                    function ph(hh: typeof bf, U: 'bU'|'aU', elm: Node): Handler {
+                    function ph(hh: typeof bf, U: 'bU'|'aU', elm: Node): EventListener {
                         if (cr) {
                             for (let g of hh) {
                                 let h = g.h();
@@ -2133,7 +2134,7 @@ class RComp {
                  = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`
+                    V(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`
                     ) as DepE<object>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
@@ -2168,7 +2169,7 @@ class RComp {
                     = (async() => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
                 ,   Xs: Array<unknown>;
                 // Routine to initiate execution, at most once
-                ex = async() => Xs ||= Ev(await pTxt);
+                ex = async() => Xs ||= V(await pTxt);
 
                 if (src && async)
                     // Exec asynchronously as soon as the script is fetched
@@ -2326,15 +2327,15 @@ class RComp {
                 else {
                     // This is the regular CASE  
                     let {sub, cr} = PrepRng(ar, srcE, Q, 1, cAlt);
-                    if (cAlt && (cr || !bR)) {
+                    if (cAlt) {
                         if (RRE)
                             RRE.shift(),
                             SetLVs(
                                 cAlt.patt.lvars,
                                 cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE                                                
                             );
-
-                        await cAlt.b(sub);
+                        if (cr || !bR)
+                            await cAlt.b(sub);
                     }
                 }
             }
@@ -2790,7 +2791,7 @@ class RComp {
         ,   gArgs: Array<{
                 nm: string,             // The parameter name
                 G: Dep<unknown>,       // A getter routine
-                S?: Dep<Handler>,      // A setter routine, in case of a two-way parameter
+                S?: Dep<EventListener>,      // A setter routine, in case of a two-way parameter
                 bT?: booly,             // 
             }> = []
         ,   SBldrs = new Map<string, Template[]>(
@@ -3463,7 +3464,7 @@ class DL extends RV<URL>{
         super(new URL(L.href));
 
         // Let the RV react on user-triggered browser-URL changes
-        W.addEventListener('popstate', _ => this.U.href = L.href );
+        EL(W, 'popstate', _ => this.U.href = L.href );
         // Let the browser URL react on RV-changes
         this.Subscribe(url => {
             url.href == L.href || history.pushState(N, N, url.href);    // Change URL withour reloading the page
@@ -3493,9 +3494,9 @@ class DL extends RV<URL>{
     }
     RVAR(key: string, df?: string, nm: string = key) {
         let g = () => this.query[key]
-        ,   rv = RVAR<string>(nm, g(), N, v => this.query[key] = v)
+        ,   rv = RVAR<string>(nm, Q, N, v => this.query[key] = v)
         ;
-        this.Subscribe(_ => rv.V = g() ?? df, T);
+        this.Subscribe(_ => rv.V = g() ?? df, T,T);
         return rv;
     }
 }
@@ -3503,8 +3504,8 @@ class DL extends RV<URL>{
 const dL = new Proxy( new DL, ProxH ) as DL & URL;
 export const
     docLocation = dL
-,   reroute: (arg: MouseEvent | string) => void = 
-        arg => {
+,   reroute = 
+        (arg: MouseEvent | string) => {
             if (typeof arg == 'object') {
                 if (arg.ctrlKey)
                     return;
@@ -3522,7 +3523,7 @@ if (G._ur) {alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`); throw 
 // Define global constants
 ass(G, {
         RVAR, range, reroute, RFetch, DoUpdate, docLocation
-        , debug: Ev('()=>{debugger}')
+        , debug: V('()=>{debugger}')
         , _ur
 });
 
@@ -3555,11 +3556,11 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
                     pN: srcN.parentElement,
                     srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
                     bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
-                }).then(S2Hash).finally(() => {srcN.hidden = F;})
+                }).then(S2Hash).finally(() => srcN.hidden = F)
             });
         }
         catch (e) {    
-            alert(`OtoReact compile error: ` + Abbr(e, 1000));
+            alert('OtoReact compile error: '+Abbr(e, 1000));
         }
 }
 
@@ -3586,10 +3587,10 @@ export async function DoUpdate() {
 }
 
 // Close registered child windows on page hide (= window close)
-W.addEventListener('pagehide', () => chWins.forEach(w=>w.close()));
+EL(W, 'pagehide', _ => chWins.forEach(w=>w.close()));
 
 // Initiate compilation of marked elements
-setTimeout(() => 
+setTimeout(_ => 
     (D.querySelectorAll('*[rhtml]') as NodeListOf<HTMLElement>)
     .forEach(src => RCompile(src, src.getAttribute('rhtml')))  // Options
 , 0);

@@ -1,11 +1,11 @@
-const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, Ev = eval, TryV = (e, m, s = '\nin ') => {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, V = eval, TryV = (e, m, s = '\nin ') => {
     try {
-        return Ev(e);
+        return V(e);
     }
     catch (x) {
         throw x + s + m;
     }
-}, dflts = {
+}, EL = (et, k, el) => et.addEventListener(k, el), dflts = {
     bShowErrors: T,
     bAutoPointer: T,
     preformatted: E,
@@ -366,7 +366,10 @@ let evM = (M) => {
     return v;
 };
 class Hndlr {
-    hndl(ev, ...r) {
+    constructor() {
+        this.oes = oes;
+    }
+    handleEvent(ev, ...r) {
         if (this.h)
             try {
                 var { e, s } = this.oes, a = this.h.call(ev.currentTarget, ev, ...r);
@@ -379,7 +382,12 @@ class Hndlr {
                 (e || thro)(er);
             }
     }
-    setTarget(ev) {
+}
+class Targ {
+    constructor(nm) {
+        this.nm = nm;
+    }
+    handleEvent(ev) {
         this.S(ev.currentTarget[this.c || (this.c = ChkNm(ev.currentTarget, this.nm))]);
     }
 }
@@ -404,23 +412,14 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                             e[nm] = x;
                         break;
                     case 8:
-                        if (cr) {
-                            (H = r[k] = new Hndlr).oes = oes;
-                            e.addEventListener(M.ev, H.setTarget.bind(H));
-                            H.nm = nm;
-                        }
-                        else
-                            H = r[k];
-                        H.S = x;
+                        cr &&
+                            EL(e, M.ev, (r[k] = new Targ(nm)));
+                        r[k].S = x;
                         break;
                     case 7:
-                        if (cr) {
-                            (H = r[k] = new Hndlr).oes = oes;
-                            e.addEventListener(nm, H.hndl.bind(H));
-                        }
-                        else
-                            H = r[k];
-                        H.h = x;
+                        cr &&
+                            EL(e, nm, r[k] = new Hndlr);
+                        r[k].h = x;
                         if (M.ap)
                             e.style.cursor = (hc || (hc = x && !e.disabled)) ? 'pointer' : Q;
                         break;
@@ -477,7 +476,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                         if (!e.download
                             && !e.target
                             && e.href.startsWith(L.origin + dL.basepath))
-                            e.addEventListener('click', reroute);
+                            EL(e, 'click', reroute);
                 }
             }
             i++;
@@ -516,7 +515,7 @@ class RComp {
             let e = env;
             r || ({ r, sub } = PrepRng(sub));
             env = r.env || (r.env = ass([nf ? e : e[0]], { cl: e.cl }));
-            return { sub, EF: () => { env = e; } };
+            return { sub, EF: () => env = e };
         }).finally(() => {
             this.CT = ass(CT, { ct, d, L, M });
             while (rActs.length > A)
@@ -537,7 +536,7 @@ class RComp {
             try {
                 if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
                     throw N;
-                Ev(`let ${nm}=0`);
+                V(`let ${nm}=0`);
             }
             catch {
                 throw `Invalid identifier '${nm}'`;
@@ -689,8 +688,8 @@ class RComp {
                             bA = async function DEF(ar, bR) {
                                 let { cr, r } = PrepRng(ar, srcE), v;
                                 if (bU || arChk() || cr || bR != N) {
+                                    ro = T;
                                     try {
-                                        ro = T;
                                         v = G?.();
                                     }
                                     finally {
@@ -698,9 +697,11 @@ class RComp {
                                     }
                                     if (rv) {
                                         r.rv = v instanceof RV && v;
+                                        if (onMod)
+                                            (r.om || (r.om = new Hndlr)).h = onMod();
                                         if (cr)
-                                            vLet(RVAR(U, dr(v), dSto?.(), r.rv ? x => { r.rv.V = x; } : S?.(), dSNm?.() || rv, dUpd?.()))
-                                                .Subscribe(onMod?.());
+                                            vLet(RVAR(U, dr(v), dSto?.(), r.rv ? r.rv.Set : S?.(), dSNm?.() || rv, dUpd?.()))
+                                                .Subscribe(r.om?.handleEvent?.bind(r.om));
                                         else
                                             vGet().Set(dr(v));
                                     }
@@ -843,9 +844,8 @@ class RComp {
                                         open(target, features, ...args) {
                                             let w = W.open(Q, target || Q, features), cr = !chWins.has(w);
                                             if (cr) {
-                                                w.addEventListener('keydown', (event) => { if (event.key == 'Escape')
-                                                    w.close(); });
-                                                w.addEventListener('close', () => chWins.delete(w), wins.delete(w));
+                                                EL(w, 'keydown', (ev) => ev.key == 'Escape' && w.close());
+                                                EL(w, 'close', _ => { chWins.delete(w); wins.delete(w); });
                                                 chWins.add(w);
                                                 wins.add(w);
                                             }
@@ -1107,7 +1107,7 @@ class RComp {
         if (m[5] && (!m[10] || thro("Invalid script type"))
             || m[2] != N && this.S.bSubf) {
             if (m[9]) {
-                let prom = (async () => Ev(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
+                let prom = (async () => V(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
             else if (m[4] || m[11])
@@ -1116,7 +1116,7 @@ class RComp {
                     : import(src = URL.createObjectURL(new Blob([text.replace(/\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g, (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
             else {
                 let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), Xs;
-                ex = async () => Xs || (Xs = Ev(await pTxt));
+                ex = async () => Xs || (Xs = V(await pTxt));
                 if (src && async)
                     ex();
                 else if (!m[5] && !defer)
@@ -1226,11 +1226,12 @@ class RComp {
                 }
                 else {
                     let { sub, cr } = PrepRng(ar, srcE, Q, 1, cAlt);
-                    if (cAlt && (cr || !bR)) {
+                    if (cAlt) {
                         if (RRE)
                             RRE.shift(),
                                 SetLVs(cAlt.patt.lvars, cAlt.patt.url ? RRE.map(decodeURIComponent) : RRE);
-                        await cAlt.b(sub);
+                        if (cr || !bR)
+                            await cAlt.b(sub);
                     }
                 }
             }
@@ -1847,7 +1848,7 @@ class DL extends RV {
     constructor() {
         super(new URL(L.href));
         this.basepath = U;
-        W.addEventListener('popstate', _ => this.U.href = L.href);
+        EL(W, 'popstate', _ => this.U.href = L.href);
         this.Subscribe(url => {
             url.href == L.href || history.pushState(N, N, url.href);
             S2Hash();
@@ -1871,13 +1872,13 @@ class DL extends RV {
         return U.href;
     }
     RVAR(key, df, nm = key) {
-        let g = () => this.query[key], rv = RVAR(nm, g(), N, v => this.query[key] = v);
-        this.Subscribe(_ => rv.V = g() ?? df, T);
+        let g = () => this.query[key], rv = RVAR(nm, Q, N, v => this.query[key] = v);
+        this.Subscribe(_ => rv.V = g() ?? df, T, T);
         return rv;
     }
 }
 const dL = new Proxy(new DL, ProxH);
-export const docLocation = dL, reroute = arg => {
+export const docLocation = dL, reroute = (arg) => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
@@ -1893,7 +1894,7 @@ if (G._ur) {
 }
 ass(G, {
     RVAR, range, reroute, RFetch, DoUpdate, docLocation,
-    debug: Ev('()=>{debugger}'),
+    debug: V('()=>{debugger}'),
     _ur
 });
 export async function RCompile(srcN, setts) {
@@ -1909,11 +1910,11 @@ export async function RCompile(srcN, setts) {
                     pN: srcN.parentElement,
                     srcN,
                     bfor: srcN
-                }).then(S2Hash).finally(() => { srcN.hidden = F; })
+                }).then(S2Hash).finally(() => srcN.hidden = F)
             });
         }
         catch (e) {
-            alert(`OtoReact compile error: ` + Abbr(e, 1000));
+            alert('OtoReact compile error: ' + Abbr(e, 1000));
         }
 }
 export async function DoUpdate() {
@@ -1938,6 +1939,6 @@ export async function DoUpdate() {
     }
     hUpd = N;
 }
-W.addEventListener('pagehide', () => chWins.forEach(w => w.close()));
-setTimeout(() => D.querySelectorAll('*[rhtml]')
+EL(W, 'pagehide', _ => chWins.forEach(w => w.close()));
+setTimeout(_ => D.querySelectorAll('*[rhtml]')
     .forEach(src => RCompile(src, src.getAttribute('rhtml'))), 0);

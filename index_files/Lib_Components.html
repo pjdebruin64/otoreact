@@ -25,7 +25,7 @@
         
     <!-- Component to demonstrate RHTML -->
     <component>
-        <demo @srctext?="''" #tab=4 #editable=true #bDollarRequired?></demo>
+        <demo @srctext?="''" #tab=4 #editable=true></demo>
         <!-- Beware: any braces in the content attribute must be prefixed with a '\' -->
 
         <style scope="local">
@@ -89,12 +89,12 @@
                     new RegExp(`^\\s*${fRegElement('style')}?${fRegElement('script')}?${fRegElement('component')}?([^]*?)\\s*$`, 'i');
         </script>
 
-        <template @srctext=srcText #bDollarRequired="bDollarRequired" #tab>
+        <template @srctext=srcText #tab>
             <define rvar="texts" #value="regDemo.exec(srcText.V)"
                 #onmodified="([,a,b,c,d]) => {srcText.V = (a||'')+(b||'')+(c||'')+(d||'')}"
             ></define>
 
-            <define rvar=rShow  #value="tab || 4"
+            <define rvar=rShow  #value="tab || 4" hash=""
                 onmodified="texts.V = regDemo.exec(srcText.V);"
                 ></define>
             <define rvar="tsStart"></define>
@@ -107,9 +107,8 @@
                         <div style="float:right">
                             <component><but #value><content></content></but>
                                 <template value=v >
-                                    <if cond="v<=0 || v==4 || texts.V[v]">
-                                    <button
-                                        #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
+                                    <if cond="v<=0 || v==4 || texts[v]">
+                                        <button #disabled="rShow.V == v" onclick="rShow.V = v"><content></content></button>
                                     </if>
                                 </template>
                             </component>
@@ -117,8 +116,8 @@
                             <but #value=1>Style</but>
                             <but #value=2>Script</but>
                             <but #value=3>Component</but>
-                            <but #value=4>{texts.V[3] ? 'Application' : 'HTML'}</but>
-                            <but #if="texts.V[1] || texts.V[2] || texts.V[3]"
+                            <but #value=4>{texts[3] ? 'Application' : 'HTML'}</but>
+                            <but #if="texts[1] || texts[2] || texts[3]"
                                 #value=-1>All</but>
                             <but #value=0>Hide</but>
                         </div>
@@ -128,7 +127,7 @@
                 <tr.>
                     <case>
                         <when cond="rShow.V > 0">
-                            <td. class="pre"                          
+                            <td. class="pre"                        
                                 contenteditable="{editable}" spellcheck=false 
                                 #innerHTML="ColorCode(texts.$V[rShow.V] || '')"
                                 !innerText="texts[rShow.V]"
@@ -139,7 +138,7 @@
                             ></td.>
                         </when>
                         <when cond="rShow.V < 0">
-                            <td. class="pre"                            
+                            <td. class="pre"
                                 contenteditable="{editable}" spellcheck=false 
                                 #innerHTML="ColorCode(srcText.$V)"
                                 !innerText="srcText.V"

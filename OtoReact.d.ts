@@ -1,6 +1,5 @@
 type booly = boolean | string | number | object | null | void;
 type ParentNode = HTMLElement | DocumentFragment;
-type Handler = (ev: Event) => booly;
 type Settings = Partial<{
     bTiming: boolean;
     bAbortOnError: boolean;
@@ -41,8 +40,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     get Nxt(): ChildNode;
     get FstOrNxt(): ChildNode;
     Nodes(): Generator<ChildNode>;
-    bD?: Handler;
-    aD?: Handler;
+    bD?: EventListener;
+    aD?: EventListener;
     upd?: number;
     rvars?: Set<RV>;
     erase(par: false | Node): void;
@@ -85,8 +84,8 @@ export type RVAR<T = any> = T extends object ? RV<T> & T : RV<T>;
 export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T, prev?: T) => unknown);
 type OES = {
-    e: Handler;
-    s: Handler;
+    e: EventListener;
+    s: EventListener;
 };
 type DOMBuilder<RT = void | boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) & {
     auto?: string;
