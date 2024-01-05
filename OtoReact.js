@@ -283,7 +283,7 @@ export class RV {
         this.$imm?.forEach(s => s(this.$V, prev));
         this.$subs.size && AJ(this);
     }
-    async Exec() {
+    async Ex() {
         for (let subs of this.$subs)
             try {
                 if (subs instanceof Range)
@@ -292,7 +292,7 @@ export class RV {
                     subs(this.$V);
             }
             catch (e) {
-                console.log(e = `ERROR: ` + Abbr(e, 1000));
+                console.log(e = 'ERROR: ' + Abbr(e, 1000));
                 alert(e);
             }
     }
@@ -328,12 +328,11 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
     }
     let rv = new RV(val).Subscribe(imm, T);
     rv.$name = nm || storeNm;
-    if (/^[uo]/.test(typeof val))
-        rv = new Proxy(rv, ProxH);
     store &&
         rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
     updTo &&
         rv.Subscribe(() => updTo.SetDirty(), T);
+    rv = new Proxy(rv, ProxH);
     if (nm)
         G[nm] = rv;
     return rv;
@@ -1297,7 +1296,8 @@ class RComp {
                             else {
                                 while (nxR != chR) {
                                     if (!chR.mov) {
-                                        if ((x = nMap.get(nxR.key).ix - ix) * x > L) {
+                                        if ((x = nMap.get(nxR.key).ix - ix)
+                                            * x > L) {
                                             nxR.mov = T;
                                             nxR = nxR.nx;
                                             EC();
@@ -1331,10 +1331,10 @@ class RComp {
                                 if (ixNm)
                                     vIx(chR.ix || (chR.ix = new RV)).V = ix;
                                 if (bRe)
-                                    if (rv)
-                                        vLet(rv).$V = item;
-                                    else
+                                    if (cr)
                                         vLet(chR.rv = RVAR(U, item, N, N, N, dUpd?.()));
+                                    else
+                                        vLet(rv).$V = item;
                                 else
                                     vLet(item);
                                 vPv(prIt);
@@ -1360,7 +1360,7 @@ class RComp {
                             r.ch = N;
                     };
                     if (iter instanceof Promise)
-                        iter.then(it => AJ({ Exec: () => pIter(it) }), sEnv.oes.e);
+                        iter.then(it => AJ({ Ex: () => pIter(it) }), sEnv.oes.e);
                     else
                         await pIter(iter);
                 };
@@ -1906,7 +1906,7 @@ export async function RCompile(srcN, setts) {
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             srcN.innerHTML = Q;
-            AJ({ Exec: () => C.Build({
+            AJ({ Ex: () => C.Build({
                     pN: srcN.parentElement,
                     srcN,
                     bfor: srcN
@@ -1931,7 +1931,7 @@ export async function DoUpdate() {
                 break;
             }
             for (let j of J)
-                await j.Exec();
+                await j.Ex();
         }
         if (nodeCnt)
             R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);

@@ -76,11 +76,11 @@ export declare class RV<T = unknown> {
     get U(): T;
     set U(t: T);
     SetDirty(prev?: T): void;
-    Exec(): Promise<void>;
+    Ex(): Promise<void>;
     valueOf(): Object;
     toString(): string;
 }
-export type RVAR<T = any> = T extends object ? RV<T> & T : RV<T>;
+export type RVAR<T = any> = T extends [any] ? RV<T> & [T] : RV<T> & T;
 export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RVAR<T>;
 type Subscriber<T = unknown> = ((t?: T, prev?: T) => unknown);
 type OES = {
@@ -102,7 +102,7 @@ declare class DL extends RV<URL> {
     get subpath(): string;
     set subpath(s: string);
     search(key: string, val: string): string;
-    RVAR(key: string, df?: string, nm?: string): RV<string>;
+    RVAR(key: string, df?: string, nm?: string): RV<string> & string;
 }
 export declare const docLocation: DL & URL, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {

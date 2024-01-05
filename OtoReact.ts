@@ -563,7 +563,7 @@ export class RV<T = unknown> {
     public $subs = new Set<Subscriber<T> | Range>;
 
     // Use var.V to get or set its value
-    get V() {
+    get V(): T {
         // Mark as used
         AR(this);
         return this.$V;
@@ -625,7 +625,8 @@ export class RV<T = unknown> {
     // Set var.U to to set the value and mark the rvar as dirty, even when the value has not changed.
     get U() { 
         ro || this.SetDirty();  
-        return this.$V }
+        return this.$V;
+    }
     set U(t: T) { this.$V = t; this.SetDirty(); }
 
     public SetDirty(prev?: T) {
@@ -634,7 +635,7 @@ export class RV<T = unknown> {
         this.$subs.size && AJ(this);
     }
 
-    public async Exec() {
+    public async Ex() {
         for (let subs of this.$subs)
             try { 
                 if (subs instanceof Range)
@@ -643,17 +644,22 @@ export class RV<T = unknown> {
                     subs(this.$V);
             }
             catch (e) {    
-                console.log(e = `ERROR: ` + Abbr(e,1000));
+                console.log(e = 'ERROR: ' + Abbr(e,1000));
                 alert(e);
             }
     }
 
-    valueOf() { return this.V?.valueOf(); }
+    valueOf()  { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
 }
-// An RVAR<T> is a (proxy to) an instance of RV<T>,
-// but when its T-value is an object or null or undefined, then it is also a proxy to that value
-export type RVAR<T = any> = T extends object ? RV<T> & T : RV<T>;
+// An RVAR<T> is a proxy to an instance of RV<T>, that also supports the properties of T itself.
+export type RVAR<T = any> = // RV<T> & T
+        // Unfortunately, the type expression above somehow causes errors in the TypeScript engine 
+        // when  T is a distributive type like boolean and one tries to assign to rvar.V.
+        
+        // Workaround (see https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types):
+        T extends [any] ? RV<T> & [T] : RV<T> & T
+        ;
 
 const
     // ProxH is the proxyhandler on RV objects rv, that channels all property access either
@@ -705,11 +711,6 @@ export function RVAR<T>(
 
     let rv = new RV(val).Subscribe(imm, T);
     rv.$name = nm || storeNm;
-    
-    // When val is some object (null included) or undefined
-    if (/^[uo]/.test(typeof val))
-        // Then make rv a Proxy
-        rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
 
     store &&
         rv.Subscribe(v => 
@@ -717,7 +718,12 @@ export function RVAR<T>(
         );
 
     updTo &&      
-        rv.Subscribe(()=>updTo.SetDirty(),T)
+        rv.Subscribe(()=>updTo.SetDirty(),T);
+    
+    // When val is some object (null included) or undefined
+    //if (/^[uo]/.test(typeof val))
+        // Then make rv a Proxy
+        rv = new Proxy<RV<T>>( rv, <ProxyHandler<RV<T>>>ProxH );
     
     if (nm) 
         G[nm] = rv;
@@ -735,7 +741,7 @@ type Subscriber<T = unknown> =
 
 //#region Runtime data and utilities
 type OES = {e: EventListener, s: EventListener};     // Holder for onerror and onsuccess handlers
-type Job = {Exec: () => Promise<unknown> }
+type Job = {Ex: () => Promise<unknown> }
 
 // Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
 let env: Environment       // Current runtime environment
@@ -2465,8 +2471,9 @@ class RComp {
                                 }
                             sub.pR = r;
                             while(!nxIR.done) {
+                                // Erase unneeded child ranges, and set 'bf'
                                 EC();
-                                // Inspect the next item
+                                // Inspect the next wanted item
                                 let {item, key, hash, ix} = <ItemInfo>nxIR.value
                                     // See if it already occured in the previous iteration
                                 ,   chR = kMap.get(key)
@@ -2488,22 +2495,25 @@ class RComp {
                                     while (nxR != chR)
                                     {
                                         if (!chR.mov) {
-                                            // Item has to be moved; we use two methods
-                                            if ( (x = nMap.get(nxR.key).ix - ix) * x > L) {
-                                                // Either mark the range at the current point to be moved later on, and continue looking
+                                            // Item has to be moved; we use two methods.
+                                            // If the wanted range is relatively close to its wanted position,
+                                            if ( (x = nMap.get(nxR.key).ix - ix)
+                                                  * x > L) {
+                                                // Then mark the range at the current point to be moved later on,
                                                 nxR.mov = T;
-                                                
+                                                // and continue looking
                                                 nxR = nxR.nx;
-                                                EC()
+                                                // Erase unneeded child ranges, and set 'bf'
+                                                EC();
                                                 continue;
                                             }
-                                            // Or move the nodes corresponding to the new next item to the current point
+                                            // Or else move the nodes corresponding to the new next item to the current point
                                             // First unlink:
                                             chR.pv.nx = chR.nx;
                                             if (chR.nx)
                                                 chR.nx.pv = chR.pv;
                                         }
-                                        // Move the range ofnodes
+                                        // Move the wanted range to the current position
                                         for (let n of chR.Nodes())
                                             pN.insertBefore(n, bf);
                                         chR.mov = F;
@@ -2536,34 +2546,35 @@ class RComp {
                                 let {sub: iSub, EF} = SF(chAr, chR)
                                 ,   rv = chR.rv;
                                 try {
-                                    // Set bound variables
-
+                                    // Set bound variables (even if the range doesn't need updating!)
                                     if(ixNm)
                                         vIx(chR.ix ||= new RV<number>) .V = ix;
 
                                     if (bRe)
-                                        if(rv)
-                                            (vLet(rv) as RV).$V = item;
-                                        else
+                                        if(cr)
                                             // Turn 'item' into an RVAR
                                             vLet(chR.rv = RVAR(U,item,N,N,N, dUpd?.()));                                    
+                                        else
+                                            // Update the RVAR but don't set it dirty yet; that may depend on the hash
+                                            (vLet(rv) as RV).$V = item;
                                     else
                                         vLet(item);
 
-                                    vPv(prIt);
-                                    vNx( (<ItemInfo>nxIR.value)?.item );
+                                    vPv( prIt );
+                                    vNx( nxIR.value?.item );
 
                                     
                                     // Does current range need building or updating?
                                     if (cr || !hash || hash.some((h,i) => h != chR.hash[i])
                                     )
-                                        if (rv)
+                                        if (rv) // I.e. when !cr && bRe
+                                            // Then set the RVAR dirty
                                             AJ(rv);
                                         else 
-                                        {   // Build
+                                        {   // Else build
                                             await b(iSub);
 
-                                            // Subscribe the range to the new RVAR_Light
+                                            // Subscribe the range to the new RVAR
                                             chR.rv?.$SR(iSub, b, chR.ch);
                                         }
                                 }
@@ -2580,7 +2591,7 @@ class RComp {
                             
                     if (iter instanceof Promise)
                         // The iteration is a Promise, so we can't execute the FOR just now, and we don't want to wait for it.
-                        iter.then(it => AJ({Exec: () => pIter(it)}) , sEnv.oes.e)
+                        iter.then(it => AJ({Ex: () => pIter(it)}) , sEnv.oes.e)
                     else
                         await pIter(iter);
                 };
@@ -3551,7 +3562,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
 
             // Initial build
             srcN.innerHTML = Q;
-            AJ({Exec: () =>
+            AJ({Ex: () =>
                 C.Build({
                     pN: srcN.parentElement,
                     srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
@@ -3577,7 +3588,7 @@ export async function DoUpdate() {
             if (upd++ - u0 > 25)
             { alert('Infinite react-loop'); break; }
             for (let j of J)
-                await j.Exec();
+                await j.Ex();
         }
         if (nodeCnt)
             R?.log(`Updated ${nodeCnt} nodes in ${(now() - start).toFixed(1)} ms`);
