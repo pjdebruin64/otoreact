@@ -336,7 +336,7 @@ class Range<NodeType extends ChildNode = ChildNode>{
     It can assign some custom result value to the range,
     and on updating it can optionally erase the range, either when the result value has changed or always.
 */
-const PrepRng = <RT>(
+const PrepRng = <RT extends object>(
     ar: Area            // Given area
 ,   srcE?: HTMLElement  // Source element, just for error messages
 ,   text: string = Q    // Optional text for error messages
@@ -378,7 +378,7 @@ const PrepRng = <RT>(
 /*  When creating, build a new range containing a new HTMLElement.
     When updating, return the the range created before.
     Also returns a subarea to build or update the elements childnodes. */
-, PrepElm = <RT>(
+, PrepElm = <RT extends object>(
     ar: Area 
 ,   tag: string
 ): {
@@ -651,6 +651,10 @@ export class RV<T = unknown> {
 
     valueOf()  { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
+    // Just in case this.V is a RegEp
+    test(x: string) {
+        return (this.V as RegExp).test(x);
+    }
 }
 // An RVAR<T> is a proxy to an instance of RV<T>, that also supports the properties of T itself.
 export type RVAR<T = any> = // RV<T> & T
@@ -869,7 +873,7 @@ class Hndlr {
             if (this.h)
                 try {
                     var {e,s} = this.oes
-                    ,   a = this.h.call(ev.currentTarget, ev, ...r);
+                    ,   a = this.h.call(ev?.currentTarget, ev, ...r);
                     // Mimic return value treatment of 'onevent' attribute/property
                     a === false && ev.preventDefault();
 
@@ -1494,7 +1498,8 @@ class RComp {
                                     if (onMod)
                                         (r.om ||= new Hndlr).h = onMod();
                                     
-                                    if (cr)
+                                    if (cr) {
+                                        let lr =
                                         (vLet as LVar<RVAR>)(
                                             RVAR(U, dr(v),
                                                 dSto?.(),
@@ -1502,8 +1507,9 @@ class RComp {
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
-                                        )
-                                        .Subscribe(r.om?.handleEvent?.bind(r.om));
+                                        );
+                                        r.om && lr.Subscribe(x => r.om.handleEvent(x));
+                                    }
                                     else
                                         vGet().Set(dr(v));
                                 }
@@ -3191,13 +3197,13 @@ class RComp {
     private CRout<V>(
         txt: string
     ,   x: string
-    ,   e: string): DepE<(v: V) => any> {
+    ,   i: string): DepE<(v: V) => any> {
         let ct = this.gsc(txt)
-        ,   C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, e, Q)
+        ,   C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, i, Q)
         return (e: Environment = env) =>
                 function($) {
                     try { return C.call(this,$,e); }
-                    catch(m) {throw m+e;}
+                    catch(m) {throw m+i;}
                 };
     }
 
@@ -3560,8 +3566,11 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
             */
             await C.Compile(srcN);
 
-            // Initial build
+            // Clear source node content and atts
             srcN.innerHTML = Q;
+            for (let a of srcN.attributes) a.value=Q;
+            
+            // Initial build
             AJ({Ex: () =>
                 C.Build({
                     pN: srcN.parentElement,

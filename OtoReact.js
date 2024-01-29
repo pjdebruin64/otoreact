@@ -298,6 +298,9 @@ export class RV {
     }
     valueOf() { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
+    test(x) {
+        return this.V.test(x);
+    }
 }
 const ProxH = {
     get(rv, p) {
@@ -371,7 +374,7 @@ class Hndlr {
     handleEvent(ev, ...r) {
         if (this.h)
             try {
-                var { e, s } = this.oes, a = this.h.call(ev.currentTarget, ev, ...r);
+                var { e, s } = this.oes, a = this.h.call(ev?.currentTarget, ev, ...r);
                 a === false && ev.preventDefault();
                 a instanceof Promise
                     ? a.then(_ => s?.(ev), e)
@@ -698,9 +701,10 @@ class RComp {
                                         r.rv = v instanceof RV && v;
                                         if (onMod)
                                             (r.om || (r.om = new Hndlr)).h = onMod();
-                                        if (cr)
-                                            vLet(RVAR(U, dr(v), dSto?.(), r.rv ? r.rv.Set : S?.(), dSNm?.() || rv, dUpd?.()))
-                                                .Subscribe(r.om?.handleEvent?.bind(r.om));
+                                        if (cr) {
+                                            let lr = vLet(RVAR(U, dr(v), dSto?.(), r.rv ? r.rv.Set : S?.(), dSNm?.() || rv, dUpd?.()));
+                                            r.om && lr.Subscribe(x => r.om.handleEvent(x));
+                                        }
                                         else
                                             vGet().Set(dr(v));
                                     }
@@ -1684,14 +1688,14 @@ class RComp {
             this.CExpr(txt, nm, txt)
             : this.CRout(txt, 'event', `\nat ${nm}="${Abbr(txt)}"`);
     }
-    CRout(txt, x, e) {
-        let ct = this.gsc(txt), C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, e, Q);
+    CRout(txt, x, i) {
+        let ct = this.gsc(txt), C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, i, Q);
         return (e = env) => function ($) {
             try {
                 return C.call(this, $, e);
             }
             catch (m) {
-                throw m + e;
+                throw m + i;
             }
         };
     }
@@ -1906,6 +1910,8 @@ export async function RCompile(srcN, setts) {
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q), setts);
             await C.Compile(srcN);
             srcN.innerHTML = Q;
+            for (let a of srcN.attributes)
+                a.value = Q;
             AJ({ Ex: () => C.Build({
                     pN: srcN.parentElement,
                     srcN,

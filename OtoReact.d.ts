@@ -79,6 +79,7 @@ export declare class RV<T = unknown> {
     Ex(): Promise<void>;
     valueOf(): Object;
     toString(): string;
+    test(x: string): boolean;
 }
 export type RVAR<T = any> = T extends [any] ? RV<T> & [T] : RV<T> & T;
 export declare function RVAR<T>(nm?: string, val?: T | Promise<T>, store?: Store, imm?: Subscriber<T>, storeNm?: string, updTo?: RV): RVAR<T>;
