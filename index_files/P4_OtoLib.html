@@ -6,14 +6,14 @@
   <h2>OtoLib.html</h2>
   <p>"OtoLib.html" is a small module containing a few general-purpose components:</p>
 
-  <h3><{}a></h3>
-  The <elm>a</elm> component redefines the <elm>a</elm> DOM element, so that any absolute, presumably external, link with no <code>target</code> gets a <code>target='_blank'</code> attribute, so it opens in a new window.
+  <h3><{}A></h3>
+  The <elm>A</elm> component redefines the <elm>a</elm> DOM element, so that any absolute, presumably external, link with no <code>target</code> gets a <code>target='_blank'</code> attribute, so it opens in a new window.
   <br>It also adds rerouting to any relative, presumably internal, link with no <code>target</code>.
 
   <p>Sample usage:</p>
   <demo #srctext=sampleA></demo>
 
-  <h3><{}radiogroup></h3>
+  <h3><{}RADIOGROUP></h3>
   In HTML, individual radiobuttons (<a href="{MDN}Web/HTML/Element/input/radio"><elm>input type='radio'</elm></a>) are grouped by giving them the same <i>name</i>. When they are on a <elm>form</elm>, and when the form is submitted, then among its formdata will an entry <i>name</i> bound to the value of the radiobutton selected at the moment of submission.
 
   <p>This is not quite suited for reactive applications, as there is no single property that provides at any moment the value of the currently selected radiobutton.
@@ -21,18 +21,18 @@
   </p>
 
   <p>
-    The <elm>radiogroup</elm> component resolves this by grouping radiobuttons and providing a single reactive two-way property <code>@value</code> to get or set the currently selected radiobutton.
+    The <elm>RADIOGROUP</elm> component resolves this by grouping radiobuttons and providing a single reactive two-way property <code>@value</code> to get or set the currently selected radiobutton.
     <br>It also copies the group name to each button, so you have to provide it only once. Or, if you don't use form submission, then no name is needed at all; the group generates its own group name.
   </p>
 
   <h4>Sample usage:</h4>
   <demo #srcText="demoRadiogroup"></demo>
 
-  <h3><{}checkbox></h3>
+  <h3><{}CHECKBOX></h3>
   In HTML, a checkbox (<a href="{MDN}Web/HTML/Element/input/checkbox"><elm>input type='checkbox'</elm></a>) can have three states: checked, unchecked, and indeterminate, but it doesn't have a single property that in all three cases provides its current state. Instead, it has separate properties <code>checked</code> and <code>indeterminate</code> that are true just when the current state is checked, or indeterminate.
 
   <p>
-    The <elm>checkbox</elm> component resolves this by providing a single two-way reactive property <code>@value</code> that can have three values:
+    The <elm>CHECKBOX</elm> component resolves this by providing a single two-way reactive property <code>@value</code> that can have three values:
   </p>
   <ul>
     <li><code>true</code> when the checkbox state is checked</li>
@@ -42,6 +42,45 @@
 
   <h4>Sample usage:</h4>
   <demo #srcText="demoCheckbox"></demo>
+
+  <h3><{}RFORM></h3>
+  The <a href="{MDN}Web/HTML/Element/form"><elm>form</elm></a> element in HTML, when it is submitted, by default sends all entered data to the web server and reloads the page.
+  <p>
+    Reactive applications can call <code>event.preventDefault()</code> to prevent this, but still need nontrivial coding to access the entered form data. That requires adding a separate <code>onformdata</code> handler, and triggering it by creating a <code>FormData</code> object.
+  </p>
+
+  <p>
+    The <elm>RFORM onsubmit</elm> component alleviates this by directly providing the entered form data as a plain object <code>event.data</code> to the provided <code>onsubmit</code> handler.
+    <br>It also automatically calls <code>event.preventDefault()</code>, so you can't forget this.
+  </p>
+
+  <import src="../OtoLib.html"><RFORM onsubmit?></RFORM></import>
+  <def rvar="list" #value="[]"></def>
+
+  <rform 
+    style="padding:1em; border: solid 1px"
+    onsubmit="
+      list.U.push(event.data); 
+      this.reset();" 
+  >
+    <label>Name <input type=text name=name></label>
+    
+    <label><input type="radio" name="sex" value="F">Female</label>
+    <label><input type="radio" name="sex" value="M">Male</label>
+    <label><input type="radio" name="sex" value="X">Other</label>
+
+    <input type="submit">
+  </rform>
+
+  <table.>
+    <tr.><th.>Name</th.> <th.>Sex</th.></tr.>
+    <for let="rec" of="list">
+      <tr.>
+        <td.>{rec.name}</td.>
+        <td.>{rec.sex}</td.>
+      </tr.>
+    </for>
+  </table.>
 
   <h2>Source code</h2>
   This is the actual library file:

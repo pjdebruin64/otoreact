@@ -62,6 +62,7 @@ export interface Store {
 export declare class RV<T = unknown> {
     $name?: string;
     $V: T;
+    private $C;
     constructor(t?: T | Promise<T>);
     private $imm;
     $subs: Set<Range<ChildNode> | Subscriber<T>>;

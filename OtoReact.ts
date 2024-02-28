@@ -548,12 +548,13 @@ export class RV<T = unknown> {
     public $name?: string = U;
     // The value of the variable
     $V: T = U;
+    private $C: number = 0;
 
     constructor(t?: T | Promise<T>) {
-        if (t instanceof Promise) {
-            this.$V = U;
-            t.then(v => this.V = v, oes.e);
-        }
+        if (t instanceof Promise)
+            this.Set(t)
+            //this.$V = U;
+            //t.then(v => this.V = v, oes.e);
         else
             this.$V = t;
     }
@@ -570,6 +571,7 @@ export class RV<T = unknown> {
      }
     // When setting, it will be marked dirty.
     set V(v: T) {
+        this.$C++;
         if (v !== this.$V) {
             let p = this.$V;
             this.$V = v;
@@ -609,12 +611,17 @@ export class RV<T = unknown> {
     }
     get Set() : (t:T | Promise<T>) => void
     {
-        return t =>
-            t instanceof Promise ?
-                (this.$V = U, 
-                    t.then(v => this.V = v, oes.e)
-                )
-                : (this.V = t);
+        return t => {
+            if (t instanceof Promise) {
+                this.$V = U;
+                let c = ++this.$C;
+                t.then(
+                    v => this.$C == c && (this.V = v)
+                    , oes.e);
+            }
+            else
+                this.V = t;
+        }
     }
     get Clear() {
         return () => 
@@ -771,17 +778,19 @@ let env: Environment       // Current runtime environment
             )
     // Routine to check the collection and subscribe the Range when needed
 ,   arChk = () => {
-        if (arA && (arR || arVars && (arR = arA.prR))) {
-            if(<any>arR===T) throw 'arCheck!'
-            arVars?.forEach((bA, rv) =>
-                // bA = true means update the whole tree
-                arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA)
-            );
-            arR.uv?.forEach((_,rv) => rv.$UR(arR) );
-            arR.uv = arVars;
-            arR.upd = upd;
+        if (arA){
+            if (arR || arVars && (arR = arA.prR)) {
+                //if(<any>arR===T) throw 'arCheck!'
+                arVars?.forEach((bA, rv) =>
+                    // bA = true means update the whole tree
+                    arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA)
+                );
+                arR.uv?.forEach((_,rv) => rv.$UR(arR) );
+                arR.uv = arVars;
+                arR.upd = upd;
+            }
+            arA = arVars = N;
         }
-        arA = arVars = N;
     }
 
     // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
@@ -910,9 +919,8 @@ function ApplyAtts(
     ro= T;
     let e = r.n
     ,   cu = cr ? 1 : 2
-    ,   hc: booly = F
+    ,   hc: booly //When autopointer is enabled: truthy when some onclick-handler is set
     ,   i = 0
-    ,   H: Hndlr
         ;
     try {
         for (let M of ms) {
@@ -959,7 +967,7 @@ function ApplyAtts(
 
                         if (M.ap)
                             // Handle bAutoPointer
-                            e.style.cursor = (hc ||= x && !(e as HTMLButtonElement).disabled) ? 'pointer' : Q;   
+                            hc ||= x as EventListener;  
                         break;
 
                     case MType.Style:
@@ -1057,6 +1065,8 @@ function ApplyAtts(
         }
     }
     finally { ro = F; }
+    if (hc !== U)
+        e.style.cursor = hc && !(e as HTMLButtonElement).disabled ? 'pointer' : Q; 
     return k;
 }
 //#endregion
@@ -1353,13 +1363,11 @@ class RComp {
                             arA && arChk();
 
                             // Set the scene for auto-react check on this node
-                            arVars = N;
-                            arR = ar.r;
-                            arB = bl;                      
+                            arR = ar.r; arB = bl;                      
                             
                             PrepData(arA = ar, getText(), bC);
 
-                            arA && arChk();
+                            arChk();
                         }
                         
                         // Update the compiler whitespace mode
@@ -2032,9 +2040,7 @@ class RComp {
                 arA && arChk();
 
                 // Then set the scene for auto-react checking on the current node
-                arVars = N;
-                arR = ar.r;
-                arB = bl;
+                arR = ar.r; arB = bl;
                 // Initiate the node builder, without awaiting the result.
                 // It is required that auto-react checking is done BEFORE awaiting any promise, and before 'env' is set to a different value.
                 // All code paths should respect that.
@@ -2258,9 +2264,10 @@ class RComp {
         ,   postWs: WSpc = 0 // Highest whitespace mode to be reached after any alternative
         ;
         for (let {n, ats, body} of cases) {
+            if (!bH)
+                this.CT = new Context(CT);
             let ES = 
-                ass(this, {ws, rt, CT: new Context(CT)})
-                .SS();
+                ass(this, {ws, rt}).SS();
             try {
                 let cond: Dep<booly>
                 ,   not: boolean = F
@@ -2404,202 +2411,202 @@ class RComp {
                 ;
                 // Dit wordt de runtime routine voor het updaten:
                 // bR = update root only
-                return b && async function FOR(ar: Area /* , bR: booly */ ) {
+                return b && async function FOR(ar: Area, bR: booly) {
                     let iter: Iterable<Item> | Promise<Iterable<Item>>
                             = dr(dOf()) || E
-                    ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>}>(ar, srcE, Q)
-                    ,   {pN} = sub
-                    ,   bfor = sub.bfor !== U ? sub.bfor : r.Nxt
+                    ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>, u:number}>(ar, srcE, Q)
                     ,   sEnv = {env, oes}
-                    ,   pIter = async (iter: Iterable<Item>) => {
-                            ({env, oes} = sEnv);                            
-
-                            // Map of the current set of child ranges
-                            let 
-                                si: booly =
-                                    // Check for being iterable
-                                    Symbol.iterator in iter
-                                    || (Symbol.asyncIterator in iter ? arChk() 
-                                        : thro(`[of] Value (${iter}) is not iterable`)
-                                    )
-                            ,   kMap: Map<Key, ForRange> = r.v ||= new Map
-
-                            // Map of the newly obtained data
-                            ,   nMap = new Map<Key, ItemInfo>
-
-                            // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
-                            // Note that a Map remembers the order in which items are added.
-                            ,   ix=0
-                            ,   {EF} = SF(N, <Range>{})
-                            ,   ci = (item: Item) => {
-                                    // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
-                                    // Later on, we set them again.
-                                    vLet(item);
-                                    vIx(<any>ix);
-                                    let hash = dHash?.()
-                                    ,   key = dKey?.() ?? hash?.[0];
-                                    if (key != N && nMap.has(key))
-                                        throw `Duplicate key '${key}'`;
-
-                                    nMap.set(key ?? {}, {item, key, hash, ix: ix++});
-                                }
-                            try {
-                                if (si)
-                                    for (let i of iter) ci(i);
-                                else
-                                    for await (let i of iter) ci(i);
-                            }
-                            finally { EF() }
-                            
-                            arChk();
-
-                            // Now we will either create or re-order and update the DOM
-                            let L = nMap.size, x: number
-                            ,   nxR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
-                            ,   bf: ChildNode
-                            ,   iter2 =  nMap.values()
-                            ,   nxIR = iter2.next()       // Next iteration result
-                            ,   prIt: Item
-                            ,   prR: Range
-                            ,   k: Key
-                            ,   EC = ()=>{
-                                    // Erase childranges at the current point with a key that is not in 'nwMap'
-                                    while (nxR && !nMap.has(k = nxR.key)) {
-                                        if (k != N)
-                                            kMap.delete(k);
-                                        nxR.erase(pN);
-                                        if (nxR.rv)
-                                            nxR.rv.$subs.delete(nxR);
-                                        nxR.pv = N;
-                                        nxR = nxR.nx;
-                                    }
-                                    bf = nxR?.FstOrNxt || bfor;
-                                }
-                            sub.pR = r;
-                            while(!nxIR.done) {
-                                // Erase unneeded child ranges, and set 'bf'
-                                EC();
-                                // Inspect the next wanted item
-                                let {item, key, hash, ix} = <ItemInfo>nxIR.value
-                                    // See if it already occured in the previous iteration
-                                ,   chR = kMap.get(key)
-                                ,   cr = !chR
-                                ,   chAr: Area;
-
-                                if (cr) {
-                                    // Range has to be newly created
-                                    sub.r = N;
-                                    sub.prR = prR;
-                                    sub.bfor = bf;
-                                    ({r: chR, sub: chAr} = PrepRng(sub));
-                                    if (key != N)
-                                        kMap.set(key, chR);
-                                    chR.key = key;
-                                }
-                                else {
-                                    // Item already occurs in the series; chR points to the respective child range
-                                    while (nxR != chR)
-                                    {
-                                        if (!chR.mov) {
-                                            // Item has to be moved; we use two methods.
-                                            // If the wanted range is relatively close to its wanted position,
-                                            if ( (x = nMap.get(nxR.key).ix - ix)
-                                                  * x > L) {
-                                                // Then mark the range at the current point to be moved later on,
-                                                nxR.mov = T;
-                                                // and continue looking
-                                                nxR = nxR.nx;
-                                                // Erase unneeded child ranges, and set 'bf'
-                                                EC();
-                                                continue;
-                                            }
-                                            // Or else move the nodes corresponding to the new next item to the current point
-                                            // First unlink:
-                                            chR.pv.nx = chR.nx;
-                                            if (chR.nx)
-                                                chR.nx.pv = chR.pv;
-                                        }
-                                        // Move the wanted range to the current position
-                                        for (let n of chR.Nodes())
-                                            pN.insertBefore(n, bf);
-                                        chR.mov = F;
-                                        chR.nx = nxR;
-                                        break;
-                                    }
-
-                                    nxR = chR.nx;
-                                    sub.r = chR;
-
-                                    // Prepare child range
-                                    chAr = PrepRng(sub).sub;
-
-                                    sub.pR = N;
-                                }
-                                chR.pv = prR;
-                                chR.text = `${letNm}(${ix})`;
-
-                                // Update pointers
-                                if (prR) 
-                                    prR.nx = chR;
-                                else
-                                    r.ch = chR;
-                                prR = chR;
-
-                                // Look ahead to next iteration result
-                                nxIR = iter2.next();
- 
-                                // Environment instellen
-                                let {sub: iSub, EF} = SF(chAr, chR)
-                                ,   rv = chR.rv;
-                                try {
-                                    // Set bound variables (even if the range doesn't need updating!)
-                                    if(ixNm)
-                                        vIx(chR.ix ||= new RV<number>) .V = ix;
-
-                                    if (bRe)
-                                        if(cr)
-                                            // Turn 'item' into an RVAR
-                                            vLet(chR.rv = RVAR(U,item,N,N,N, dUpd?.()));                                    
-                                        else
-                                            // Update the RVAR but don't set it dirty yet; that may depend on the hash
-                                            (vLet(rv) as RV).$V = item;
-                                    else
-                                        vLet(item);
-
-                                    vPv( prIt );
-                                    vNx( nxIR.value?.item );
-
-                                    
-                                    // Does current range need building or updating?
-                                    if (cr || !hash || hash.some((h,i) => h != chR.hash[i])
-                                    )
-                                        if (rv) // I.e. when !cr && bRe
-                                            // Then set the RVAR dirty
-                                            AJ(rv);
-                                        else 
-                                        {   // Else build
-                                            await b(iSub);
-
-                                            // Subscribe the range to the new RVAR
-                                            chR.rv?.$SR(iSub, b, chR.ch);
-                                        }
-                                }
-                                finally { EF(); }
-
-                                chR.hash = hash;
-                                prIt = item;
-                            }
-                            EC();
-                            if (prR) prR.nx = N; else r.ch = N;
-                        };
-
-                    //arChk();
-                            
+                    ,   u = r.u = r.u+1||0;
+                    ;                            
                     if (iter instanceof Promise)
-                        // The iteration is a Promise, so we can't execute the FOR just now, and we don't want to wait for it.
-                        iter.then(it => AJ({Ex: () => pIter(it)}) , sEnv.oes.e)
+                        // The iteration is a Promise, so we can't execute the FOR just now, and we don't want to wait for it.                        
+                        iter.then(it => AJ({Ex: () => r.u == u && updFor(it)}) , sEnv.oes.e);
                     else
-                        await pIter(iter);
+                        await updFor(iter);
+
+                    async function updFor(iter: Iterable<Item>) {
+                        ({env, oes} = sEnv);                            
+
+                        // Map of the current set of child ranges
+                        let 
+                            si: booly =
+                                // Check for being iterable
+                                Symbol.iterator in iter
+                                || (Symbol.asyncIterator in iter ? arChk() 
+                                    : thro(`[of] Value (${iter}) is not iterable`)
+                                )
+                        ,   kMap: Map<Key, ForRange> = r.v ||= new Map
+
+                        // Map of the newly obtained data
+                        ,   nMap = new Map<Key, ItemInfo>
+
+                        // First we fill nwMap, so we know which items have disappeared, and can look ahead to the next item.
+                        // Note that a Map remembers the order in which items are added.
+                        ,   ix=0
+                        ,   {EF} = SF(N, <Range>{})
+                        ,   ci = (item: Item) => {
+                                // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
+                                // Later on, we set them again.
+                                vLet(item);
+                                vIx(<any>ix);
+                                let hash = dHash?.()
+                                ,   key = dKey?.() ?? hash?.[0];
+                                if (key != N && nMap.has(key))
+                                    throw `Duplicate key '${key}'`;
+
+                                nMap.set(key ?? {}, {item, key, hash, ix: ix++});
+                            }
+                        try {
+                            if (si)
+                                for (let i of iter) ci(i);
+                            else
+                                for await (let i of iter) ci(i);
+                        }
+                        finally { EF() }
+                        
+                        arChk();
+
+                        // Now we will either create or re-order and update the DOM
+                        let L = nMap.size, x: number
+                        ,   {pN} = sub
+                        ,   bfor = sub.bfor !== U ? sub.bfor : r.Nxt
+                        ,   nxR = <ForRange>r.ch    // This is a pointer into the created list of child ranges
+                        ,   bf: ChildNode
+                        ,   iter2 =  nMap.values()
+                        ,   nxIR = iter2.next()       // Next iteration result
+                        ,   prIt: Item
+                        ,   prR: Range
+                        ,   k: Key
+                        ,   EC = ()=>{
+                                // Erase childranges at the current point with a key that is not in 'nwMap'
+                                while (nxR && !nMap.has(k = nxR.key)) {
+                                    if (k != N)
+                                        kMap.delete(k);
+                                    nxR.erase(pN);
+                                    if (nxR.rv)
+                                        nxR.rv.$subs.delete(nxR);
+                                    nxR.pv = N;
+                                    nxR = nxR.nx;
+                                }
+                                bf = nxR?.FstOrNxt || bfor;
+                            }
+                        sub.pR = r;
+                        while(!nxIR.done) {
+                            // Erase unneeded child ranges, and set 'bf'
+                            EC();
+                            // Inspect the next wanted item
+                            let {item, key, hash, ix} = <ItemInfo>nxIR.value
+                                // See if it already occured in the previous iteration
+                            ,   chR = kMap.get(key)
+                            ,   cr = !chR
+                            ,   chAr: Area;
+
+                            if (cr) {
+                                // Range has to be newly created
+                                sub.r = N;
+                                sub.prR = prR;
+                                sub.bfor = bf;
+                                ({r: chR, sub: chAr} = PrepRng(sub));
+                                if (key != N)
+                                    kMap.set(key, chR);
+                                chR.key = key;
+                            }
+                            else {
+                                // Item already occurs in the series; chR points to the respective child range
+                                while (nxR != chR)
+                                {
+                                    if (!chR.mov) {
+                                        // Item has to be moved; we use two methods.
+                                        // If the wanted range is relatively close to its wanted position,
+                                        if ( (x = nMap.get(nxR.key).ix - ix)
+                                                * x > L) {
+                                            // Then mark the range at the current point to be moved later on,
+                                            nxR.mov = T;
+                                            // and continue looking
+                                            nxR = nxR.nx;
+                                            // Erase unneeded child ranges, and set 'bf'
+                                            EC();
+                                            continue;
+                                        }
+                                        // Or else move the nodes corresponding to the new next item to the current point
+                                        // First unlink:
+                                        chR.pv.nx = chR.nx;
+                                        if (chR.nx)
+                                            chR.nx.pv = chR.pv;
+                                    }
+                                    // Move the wanted range to the current position
+                                    for (let n of chR.Nodes())
+                                        pN.insertBefore(n, bf);
+                                    chR.mov = F;
+                                    chR.nx = nxR;
+                                    break;
+                                }
+
+                                nxR = chR.nx;
+                                sub.r = chR;
+
+                                // Prepare child range
+                                chAr = PrepRng(sub).sub;
+
+                                sub.pR = N;
+                            }
+                            chR.pv = prR;
+                            chR.text = `${letNm}(${ix})`;
+
+                            // Update pointers
+                            if (prR) 
+                                prR.nx = chR;
+                            else
+                                r.ch = chR;
+                            prR = chR;
+
+                            // Look ahead to next iteration result
+                            nxIR = iter2.next();
+
+                            // Environment instellen
+                            let {sub: iSub, EF} = SF(chAr, chR)
+                            ,   rv = chR.rv;
+                            try {
+                                // Set bound variables.
+                                // Even if the range doesn't need updating! For reacting sub-elements may need them.
+                                if(ixNm)
+                                    vIx(chR.ix ||= new RV<number>) .V = ix;
+
+                                if (bRe) // if 'reacting'
+                                    if(cr)
+                                        // Turn 'item' into an RVAR
+                                        vLet(chR.rv = RVAR(U,item,N,N,N, dUpd?.()));                                    
+                                    else
+                                        // Update the RVAR but don't set it dirty yet; that may depend on the hash
+                                        (vLet(rv) as RV).$V = item;
+                                else
+                                    vLet(item);
+
+                                vPv( prIt );
+                                vNx( nxIR.value?.item );
+                                
+                                // Does current range need building or updating?
+                                if (cr || !hash || hash.some((h,i) => h != chR.hash[i])
+                                )
+                                    if (rv) // I.e. when !cr && bRe
+                                        // Then set the RVAR dirty
+                                        AJ(rv);
+                                    else if (cr || !bR)
+                                    {   // Else build
+                                        await b(iSub);
+
+                                        // Subscribe the range to the new RVAR
+                                        chR.rv?.$SR(iSub, b, chR.ch);
+                                    }
+                            }
+                            finally { EF(); }
+
+                            chR.hash = hash;
+                            prIt = item;
+                        }
+                        EC();
+                        if (prR) prR.nx = N; else r.ch = N;
+                    };
                 };
             });
         }
@@ -3005,7 +3012,8 @@ class RComp {
                             : this.CText(V, A)
                     ,   aa: string
                     ;
-                    if (aa = a == 'shown' ? 'hidden' 
+                    if (aa = 
+                            a == 'shown' ? 'hidden' 
                          : a == 'enabled' ? 'disabled' : N) {
                         a = aa;
                         dV = B((b : booly) => !b, dV);

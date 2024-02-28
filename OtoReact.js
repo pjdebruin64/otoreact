@@ -224,12 +224,11 @@ export class RV {
     constructor(t) {
         this.$name = U;
         this.$V = U;
+        this.$C = 0;
         this.$imm = N;
         this.$subs = new Set;
-        if (t instanceof Promise) {
-            this.$V = U;
-            t.then(v => this.V = v, oes.e);
-        }
+        if (t instanceof Promise)
+            this.Set(t);
         else
             this.$V = t;
     }
@@ -238,6 +237,7 @@ export class RV {
         return this.$V;
     }
     set V(v) {
+        this.$C++;
         if (v !== this.$V) {
             let p = this.$V;
             this.$V = v;
@@ -266,10 +266,15 @@ export class RV {
         r.rvars.delete(this);
     }
     get Set() {
-        return t => t instanceof Promise ?
-            (this.$V = U,
-                t.then(v => this.V = v, oes.e))
-            : (this.V = t);
+        return t => {
+            if (t instanceof Promise) {
+                this.$V = U;
+                let c = ++this.$C;
+                t.then(v => this.$C == c && (this.V = v), oes.e);
+            }
+            else
+                this.V = t;
+        };
     }
     get Clear() {
         return () => Jobs.has(this) || (this.V = U);
@@ -342,15 +347,15 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
 }
 let env, pN, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA &&
     (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
-    if (arA && (arR || arVars && (arR = arA.prR))) {
-        if (arR === T)
-            throw 'arCheck!';
-        arVars?.forEach((bA, rv) => arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA));
-        arR.uv?.forEach((_, rv) => rv.$UR(arR));
-        arR.uv = arVars;
-        arR.upd = upd;
+    if (arA) {
+        if (arR || arVars && (arR = arA.prR)) {
+            arVars?.forEach((bA, rv) => arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA));
+            arR.uv?.forEach((_, rv) => rv.$UR(arR));
+            arR.uv = arVars;
+            arR.upd = upd;
+        }
+        arA = arVars = N;
     }
-    arA = arVars = N;
 }, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, chWins = new Set, OMods = new Map, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => start += now() - t);
@@ -395,7 +400,7 @@ class Targ {
 }
 function ApplyAtts(r, cr, ms, k = 0, xs) {
     ro = T;
-    let e = r.n, cu = cr ? 1 : 2, hc = F, i = 0, H;
+    let e = r.n, cu = cr ? 1 : 2, hc, i = 0;
     try {
         for (let M of ms) {
             if (M.cu & cu) {
@@ -423,7 +428,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                             EL(e, nm, r[k] = new Hndlr);
                         r[k].h = x;
                         if (M.ap)
-                            e.style.cursor = (hc || (hc = x && !e.disabled)) ? 'pointer' : Q;
+                            hc || (hc = x);
                         break;
                     case 4:
                         if (x)
@@ -488,6 +493,8 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
     finally {
         ro = F;
     }
+    if (hc !== U)
+        e.style.cursor = hc && !e.disabled ? 'pointer' : Q;
     return k;
 }
 let iRC = 0, iLS = 0;
@@ -622,11 +629,10 @@ class RComp {
                     if (fx !== Q) {
                         bl = async (ar) => {
                             arA && arChk();
-                            arVars = N;
                             arR = ar.r;
                             arB = bl;
                             PrepData(arA = ar, getText(), bC);
-                            arA && arChk();
+                            arChk();
                         };
                         if (!bC && this.ws < 4)
                             this.ws = / $/.test(str) ? 2 : 3;
@@ -1054,7 +1060,6 @@ class RComp {
             }
             try {
                 arA && arChk();
-                arVars = N;
                 arR = ar.r;
                 arB = bl;
                 let prom = b(arA = ar, bR);
@@ -1163,8 +1168,9 @@ class RComp {
             cases.unshift({ n: srcE, ats, body });
         let aList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
         for (let { n, ats, body } of cases) {
-            let ES = ass(this, { ws, rt, CT: new Context(CT) })
-                .SS();
+            if (!bH)
+                this.CT = new Context(CT);
+            let ES = ass(this, { ws, rt }).SS();
             try {
                 let cond, not = F, patt, p;
                 switch (n.tagName) {
@@ -1247,8 +1253,14 @@ class RComp {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = ats.gB('reacting') || ats.gB('reactive') || dUpd;
             return this.Framed(async (SF) => {
                 let vLet = this.LV(letNm), vIx = this.LV(ixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
-                return b && async function FOR(ar) {
-                    let iter = dr(dOf()) || E, { r, sub } = PrepRng(ar, srcE, Q), { pN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, sEnv = { env, oes }, pIter = async (iter) => {
+                return b && async function FOR(ar, bR) {
+                    let iter = dr(dOf()) || E, { r, sub } = PrepRng(ar, srcE, Q), sEnv = { env, oes }, u = r.u = r.u + 1 || 0;
+                    ;
+                    if (iter instanceof Promise)
+                        iter.then(it => AJ({ Ex: () => r.u == u && updFor(it) }), sEnv.oes.e);
+                    else
+                        await updFor(iter);
+                    async function updFor(iter) {
                         ({ env, oes } = sEnv);
                         let si = Symbol.iterator in iter
                             || (Symbol.asyncIterator in iter ? arChk()
@@ -1272,7 +1284,7 @@ class RComp {
                             EF();
                         }
                         arChk();
-                        let L = nMap.size, x, nxR = r.ch, bf, iter2 = nMap.values(), nxIR = iter2.next(), prIt, prR, k, EC = () => {
+                        let L = nMap.size, x, { pN } = sub, bfor = sub.bfor !== U ? sub.bfor : r.Nxt, nxR = r.ch, bf, iter2 = nMap.values(), nxIR = iter2.next(), prIt, prR, k, EC = () => {
                             while (nxR && !nMap.has(k = nxR.key)) {
                                 if (k != N)
                                     kMap.delete(k);
@@ -1346,7 +1358,7 @@ class RComp {
                                 if (cr || !hash || hash.some((h, i) => h != chR.hash[i]))
                                     if (rv)
                                         AJ(rv);
-                                    else {
+                                    else if (cr || !bR) {
                                         await b(iSub);
                                         chR.rv?.$SR(iSub, b, chR.ch);
                                     }
@@ -1362,11 +1374,8 @@ class RComp {
                             prR.nx = N;
                         else
                             r.ch = N;
-                    };
-                    if (iter instanceof Promise)
-                        iter.then(it => AJ({ Ex: () => pIter(it) }), sEnv.oes.e);
-                    else
-                        await pIter(iter);
+                    }
+                    ;
                 };
             });
         }
@@ -1576,8 +1585,9 @@ class RComp {
                     let dV = p ? this.CExpr(V, A)
                         : e ? this.CHandlr(V, A)
                             : this.CText(V, A), aa;
-                    if (aa = a == 'shown' ? 'hidden'
-                        : a == 'enabled' ? 'disabled' : N) {
+                    if (aa =
+                        a == 'shown' ? 'hidden'
+                            : a == 'enabled' ? 'disabled' : N) {
                         a = aa;
                         dV = B((b) => !b, dV);
                     }
