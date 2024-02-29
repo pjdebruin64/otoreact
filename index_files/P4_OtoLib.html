@@ -68,7 +68,7 @@
   <h3><{}RFORM></h3>
   The <a href="{MDN}Web/HTML/Element/form"><elm>form</elm></a> element in HTML, when it is submitted, by default sends all entered data to the web server and reloads the page.
   <p>
-    Reactive applications can call <code>event.preventDefault()</code> to prevent this, but still need nontrivial coding to access the entered form data. That requires adding a separate <code>onformdata</code> handler, and triggering it by creating a <code>FormData</code> object.
+    Reactive applications can call <code>event.preventDefault()</code> to prevent this, but still need nontrivial coding to access the entered form data. That requires adding a separate <code>onformdata</code> handler, and triggering it by creating a <MDN href="API/FormData">FormData</MDN> object.
   </p>
 
   <p>
@@ -80,7 +80,7 @@
     </li>
     <li>
       It directly provides the entered form data as a plain object <code>event.data</code> to the given <code>onsubmit</code> handler.
-      <br>So you don't have to write an <code>onformdata</code> handler, and don't need to know the <code>FormData</code>interface.
+      <br>So you don't have to write an <code>onformdata</code> handler, and you don't need the <code>FormData</code> API.
     </li>
     <li>
       The full <code>Formdata</code> object is still available as <code>event.formData</code>.

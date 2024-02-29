@@ -70,7 +70,7 @@ const sampleGreeting=
 </p>
 
 <!-- If yourName.V is nonempty, -->
-<IF cond="yourName.V">
+<IF cond="yourName">
     <!-- then we show: -->
     <p>
         Nice to meet you, {yourName}. <!-- yourName.V is inserted here -->
@@ -335,7 +335,7 @@ const sampleGreeting2 =
   <!-- The "@" introduces a two-way binding for the input element.
   Anytime an input event happens, 'yourName.V' will be updated, and the DOM as well  -->
 </p>
-<if cond="yourName.V">
+<if cond="yourName">
   <p> Nice to meet you, {yourName}.
     <br>By the way, your name consists of {yourName.length} 
         characters.

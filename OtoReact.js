@@ -1213,7 +1213,7 @@ class RComp {
             let val = dr(dV?.()), RRE, cAlt;
             try {
                 for (var alt of aList)
-                    if (!((!alt.cond || alt.cond())
+                    if (!((!alt.cond || dr(alt.cond()))
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
                         break;

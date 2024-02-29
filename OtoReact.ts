@@ -2328,10 +2328,12 @@ class RComp {
             try {
                 // First determine which alternative is to be shown
                 for (var alt of aList)
-                    if ( !(
-                        (!alt.cond || alt.cond()) 
-                        && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
-                        ) == alt.not)
+                    if (
+                        !(
+                            (!alt.cond || dr(alt.cond()))
+                            && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
+                        ) == alt.not
+                    )
                     { cAlt = alt; break }
             }
             catch (m) { throw alt.n==srcE ? m : ErrM(alt.n, m); }
