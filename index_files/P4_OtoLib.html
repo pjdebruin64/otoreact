@@ -10,7 +10,12 @@
   The <elm>A</elm> component redefines the <elm>a</elm> DOM element, so that any absolute, presumably external, link with no <code>target</code> gets a <code>target='_blank'</code> attribute, so it opens in a new window.
   <br>It also adds rerouting to any relative, presumably internal, link with no <code>target</code>.
 
-  <p>Sample usage:</p>
+  <h4>Signature:</h4>
+<pre class="sourcecode">
+<{}A href target? ...rest><{}content><{}/content><{}/A>
+</pre>
+
+  <h4>Sample usage:</h4>
   <demo #srctext=sampleA></demo>
 
   <h3><{}RADIOGROUP></h3>
@@ -24,6 +29,15 @@
     The <elm>RADIOGROUP</elm> component resolves this by grouping radiobuttons and providing a single reactive two-way property <code>@value</code> to get or set the currently selected radiobutton.
     <br>It also copies the group name to each button, so you have to provide it only once. Or, if you don't use form submission, then no name is needed at all; the group generates its own group name.
   </p>
+
+  <h4>Signature:</h4>
+<pre class="sourcecode">
+<{}RADIOGROUP name? @value? required? onclick? #disabled?>
+  <{}content>
+    <{}RADIOBUTTON value? #disabled? ...rest><{}content><{}/content><{}/RADIOBUTTON>
+  <{}/content>
+<{}/RADIOGROUP>
+</pre>
 
   <h4>Sample usage:</h4>
   <demo #srcText="demoRadiogroup"></demo>
@@ -40,8 +54,16 @@
     <li><code>null</code> when it is indeterminate</li>
   </ul>
 
+  <h4>Signature:</h4>
+<pre class="sourcecode">
+<{}CHECKBOX @value class? ...rest>
+  <{}content><{}/content>
+<{}/CHECKBOX>
+</pre>
+
   <h4>Sample usage:</h4>
   <demo #srcText="demoCheckbox"></demo>
+
 
   <h3><{}RFORM></h3>
   The <a href="{MDN}Web/HTML/Element/form"><elm>form</elm></a> element in HTML, when it is submitted, by default sends all entered data to the web server and reloads the page.
@@ -50,37 +72,41 @@
   </p>
 
   <p>
-    The <elm>RFORM onsubmit</elm> component alleviates this by directly providing the entered form data as a plain object <code>event.data</code> to the provided <code>onsubmit</code> handler.
-    <br>It also automatically calls <code>event.preventDefault()</code>, so you can't forget this.
+    The <elm>RFORM onsubmit</elm> component alleviates this:
   </p>
+  <ul>
+    <li>
+      It calls <code>event.preventDefault()</code>, so you can't forget this.
+    </li>
+    <li>
+      It directly provides the entered form data as a plain object <code>event.data</code> to the given <code>onsubmit</code> handler.
+      <br>So you don't have to write an <code>onformdata</code> handler, and don't need to know the <code>FormData</code>interface.
+    </li>
+    <li>
+      The full <code>Formdata</code> object is still available as <code>event.formData</code>.
+    </li>
+  </ul>
 
-  <import src="../OtoLib.html"><RFORM onsubmit?></RFORM></import>
-  <def rvar="list" #value="[]"></def>
+  <p>
+    In RHTML, you can create a form without using <code><{}form></code> or <code><{}rform></code>, by binding separate RVAR's, or properties of a single RVAR, to each and every input element.
+    <br>But using <code><{}form></code> or <code><{}rform></code> gives access to additional <{}form> functionality, such as:
+  </p>
+  <ul>
+    <li>You don't need to bind every input element</li>
+    <li>You can use more validation functionality: the submit button will be disabled, and can be differently styled, when any input is invalid</li>
+    <li>Pressing <i>Enter</i> in any field triggers submission</li>
+    <li>Calling <code>this.reset()</code> resets all input fields</li>
+  </ul>
 
-  <rform 
-    style="padding:1em; border: solid 1px"
-    onsubmit="
-      list.U.push(event.data); 
-      this.reset();" 
-  >
-    <label>Name <input type=text name=name></label>
-    
-    <label><input type="radio" name="sex" value="F">Female</label>
-    <label><input type="radio" name="sex" value="M">Male</label>
-    <label><input type="radio" name="sex" value="X">Other</label>
+  <h4>Signature:</h4>
+<pre class="sourcecode">
+<{}RFORM onsubmit? ...rest>
+  <{}content><{}/content>
+<{}/RFORM>
+</pre>
 
-    <input type="submit">
-  </rform>
-
-  <table.>
-    <tr.><th.>Name</th.> <th.>Sex</th.></tr.>
-    <for let="rec" of="list">
-      <tr.>
-        <td.>{rec.name}</td.>
-        <td.>{rec.sex}</td.>
-      </tr.>
-    </for>
-  </table.>
+  <h4>Sample usage:</h4>  
+  <demo #srcText="demo_RFORM"></demo>
 
   <h2>Source code</h2>
   This is the actual library file:

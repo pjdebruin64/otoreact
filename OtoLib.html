@@ -5,7 +5,7 @@
   -->
   <component>
     <signature>
-      <A href #target? ...rest><content></content></A>
+      <A href target? ...rest><content></content></A>
     </signature>
 
     <template><if cond="/^http/i.test(href)">
@@ -32,7 +32,7 @@
   -->
   <component>
     <signature>
-      <RADIOGROUP name? @value? onclick? #disabled?>
+      <RADIOGROUP name? @value? required? onclick? #disabled?>
         <content>
           <RADIOBUTTON value? #disabled? ...rest><content></content></RADIOBUTTON>
         </content>
@@ -42,7 +42,7 @@
     <!-- Static variable counting the number of unnamed radiogroups -->
     <def var="num" #value="{V:0}"></def>
 
-    <template @value=groupValue onclick=groupOnclick #disabled=groupDisabled>
+    <template @value=groupValue required="req" onclick=groupOnclick #disabled=groupDisabled>
       <def let="groupName" #value="name || `RadioGroup${num.V++}`"></def>
       <!-- A <RADIOGROUP> expands into its content: -->
       <content>
@@ -50,6 +50,7 @@
         <radiobutton value #disabled=buttonDisabled ...rest>
           <label #class:checked="value === groupValue.V" ...rest>
             <input type=radio #name=groupName #value=value
+              #required="req !== undefined"
               #checked="value === groupValue.V"
               #disabled="groupDisabled || buttonDisabled"
               onclick="groupValue.V = value; groupOnclick();"

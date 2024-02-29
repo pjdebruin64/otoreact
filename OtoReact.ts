@@ -458,7 +458,7 @@ class Signat {
                     throw 'Empty parameter name';
                 let pDf =
                     v   ? m ? RC.CExpr(v, a) : RC.CText(v, a)
-                        : on && (() => dU)
+                        : on && K(dU)
                 ;
                 this.Pams.push(
                     { 
@@ -572,11 +572,9 @@ export class RV<T = unknown> {
     // When setting, it will be marked dirty.
     set V(v: T) {
         this.$C++;
-        if (v !== this.$V) {
-            let p = this.$V;
-            this.$V = v;
-            this.SetDirty(p);
-        }
+        let p = this.$V;
+        this.$V = v;
+        v === p || this.SetDirty(p);
     }
 
     // Add a subscriber 's', when it is not null.
@@ -613,8 +611,8 @@ export class RV<T = unknown> {
     {
         return t => {
             if (t instanceof Promise) {
-                this.$V = U;
-                let c = ++this.$C;
+                this.V = U;
+                let c = this.$C;
                 t.then(
                     v => this.$C == c && (this.V = v)
                     , oes.e);
@@ -746,7 +744,7 @@ export function RVAR<T>(
 // or an updating routine to some area .ar, yielding a promise that has to be awaited for,
 // because no two updating routines may run in parallel.
 type Subscriber<T = unknown> = 
-      ((t?: T, prev?: T) =>unknown);
+      ((t?: T, prev?: T) => unknown);
 
 //#endregion
 
@@ -759,24 +757,40 @@ let env: Environment       // Current runtime environment
 ,   pN: ParentNode         // Current html node
 ,   oes: OES = {e: N, s: N}    // Current onerror and onsuccess handlers
 
+// Dirty variables, which can be either RVAR's or RVAR_Light or any async function
+,   Jobs = new Set<Job>
+
+,   hUpd: number        // Handle to a scheduled update
+,   ro: booly = F    // Truthy while evaluating element properties so RVAR's should not be set dirty
+
+,   upd = 0       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
+,   nodeCnt = 0  // Count of the number of updated nodes (elements and text)
+,   start: number   // Start time of the current update
+
 /* Auto-react functionality */
+    // The following globals are used during RVAR-reference detection.
+    // When an RVAR is referenced, then the given range, area and builder are to be subscribed to that RVAR.
+    // When arA is falsy, no detection takes place, and arVars should be falsy too.
+,   arA: AreaR
     // Range to be subscribed to any referenced RVARs
     // In .uv we'll store the RVARs so that the range can be unsubscribed from them when needed
 ,   arR:Range & {uv?:Map<RV, booly>;}
-,   arA: AreaR
     // Builder to be used for updating the range
 ,   arB: DOMBuilder
     // Here we collect the referenced RVAR's
     // The associated booly indicates whether (true) a full tree update is required or just a node update.
 ,   arVars: Map<RV, booly>
+;
+const
     // Routine to add an RVAR to the collection
-,   AR = (rv: RV, bA?: booly) => 
+    AR = (rv: RV, bA?: booly) => 
         arA && 
             (arVars ||= new Map).set(
                 rv
                 , bA || arVars?.get(rv)
             )
-    // Routine to check the collection and subscribe the Range when needed
+
+// Routine to check the arVars collection and subscribe the Range when needed
 ,   arChk = () => {
         if (arA){
             if (arR || arVars && (arR = arA.prR)) {
@@ -793,32 +807,22 @@ let env: Environment       // Current runtime environment
         }
     }
 
-    // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
-,   Jobs = new Set<Job>
-
-,   hUpd: number        // Handle to a scheduled update
-,   ro: booly = F    // Truthy while evaluating element properties so RVAR's should not be set dirty
-
-,   upd = 0       // Iteration count of the update loop; used to make sure a DOM element isn't updated twice in the same iteration
-,   nodeCnt = 0  // Count of the number of updated nodes (elements and text)
-,   start: number   // Start time of the current update
-    // Child windows to be closed when the app is closed
+// Child windows to be closed when the app is closed
 ,   chWins  = new Set<Window>
-    // Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
+// Map of all Otoreact modules that are being fetched and compiled, so they won't be fetched and compiled again
 ,   OMods   = new Map<string, Promise<[DOMBuilder, Context]>>
 
 // Runtime utilities
 ,   NoTime = <T>(prom: Promise<T>) => {
-        // Just await for the given promise, but increment 'start' time with the time the promise has taken,
-        // so that this time isn't counted for the calling (runtime) task.
-        let t= now();
-        return prom.finally(() => start += now()-t )
-    }
+    // Just await for the given promise, but increment 'start' time with the time the promise has taken,
+    // so that this time isn't counted for the calling (runtime) task.
+    let t= now();
+    return prom.finally(() => start += now()-t )
+}
 ,   AJ = (job: Job) => {
-        Jobs.add(job);
-        hUpd ||= setTimeout(DoUpdate, 1);
-    }
-;
+    Jobs.add(job);
+    hUpd ||= setTimeout(DoUpdate, 1);
+}
 //#endregion
 
 //#region Element modifiers
@@ -1745,9 +1749,9 @@ class RComp {
                                         return w;
                                     },
                                     async print(...args: unknown[]) {
-                                        let f = doc.createElement('iframe');
+                                        let f = D.createElement('iframe');
                                         f.hidden = T;
-                                        doc.body.appendChild(f);
+                                        D.body.appendChild(f);
                                         await this.render(f.contentWindow, T, args);
                                         f.contentWindow.print();
                                         f.remove();
@@ -2318,7 +2322,7 @@ class RComp {
         this.CT = postCT;
 
         return aList.length && async function CASE(ar: Area, bR) {
-            let val = dV?.()
+            let val = dr(dV?.())
             ,   RRE: RegExpExecArray
             ,   cAlt: Alt;
             try {
@@ -2380,7 +2384,7 @@ class RComp {
             ix?: RV<number>;  // Index number
         }
         // We'll start with collecting the following item information
-        type ItemInfo = {item:Item, key: Key, hash:Hash[], ix: number};
+        type ItemInfo = {it:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = ats.g('let')
         ,   ixNm = ats.g('index',F,F,T) || ats.g('rindex',F,F,T)
@@ -2430,9 +2434,9 @@ class RComp {
                         // Map of the current set of child ranges
                         let 
                             si: booly =
-                                // Check for being iterable
+                                // Check for being simply iterable
                                 Symbol.iterator in iter
-                                || (Symbol.asyncIterator in iter ? arChk() 
+                                || (Symbol.asyncIterator in iter ? arChk() // returns falsy
                                     : thro(`[of] Value (${iter}) is not iterable`)
                                 )
                         ,   kMap: Map<Key, ForRange> = r.v ||= new Map
@@ -2444,23 +2448,29 @@ class RComp {
                         // Note that a Map remembers the order in which items are added.
                         ,   ix=0
                         ,   {EF} = SF(N, <Range>{})
-                        ,   ci = (item: Item) => {
+                        ;
+                        try {
+                            if (si)
+                                // A simple iterator
+                                for (let i of iter) ci(i);
+                            else
+                                // An async iterator
+                                // Note that 'for await' accepts simple iterators too, but would
+                                // destroy our auto-react functionality (and be less efficient)
+                                for await (let i of iter) ci(i);
+
+                            function ci(it: Item) {
                                 // Set bound variables, just to evaluate the 'key' and 'hash' expressions.
                                 // Later on, we set them again.
-                                vLet(item);
+                                vLet(it);
                                 vIx(<any>ix);
                                 let hash = dHash?.()
                                 ,   key = dKey?.() ?? hash?.[0];
                                 if (key != N && nMap.has(key))
                                     throw `Duplicate key '${key}'`;
 
-                                nMap.set(key ?? {}, {item, key, hash, ix: ix++});
+                                nMap.set(key ?? {}, {it, key, hash, ix: ix++});
                             }
-                        try {
-                            if (si)
-                                for (let i of iter) ci(i);
-                            else
-                                for await (let i of iter) ci(i);
                         }
                         finally { EF() }
                         
@@ -2495,7 +2505,7 @@ class RComp {
                             // Erase unneeded child ranges, and set 'bf'
                             EC();
                             // Inspect the next wanted item
-                            let {item, key, hash, ix} = <ItemInfo>nxIR.value
+                            let {it, key, hash, ix} = <ItemInfo>nxIR.value
                                 // See if it already occured in the previous iteration
                             ,   chR = kMap.get(key)
                             ,   cr = !chR
@@ -2575,12 +2585,12 @@ class RComp {
                                 if (bRe) // if 'reacting'
                                     if(cr)
                                         // Turn 'item' into an RVAR
-                                        vLet(chR.rv = RVAR(U,item,N,N,N, dUpd?.()));                                    
+                                        vLet(chR.rv = RVAR(U,it,N,N,N, dUpd?.()));                                    
                                     else
                                         // Update the RVAR but don't set it dirty yet; that may depend on the hash
-                                        (vLet(rv) as RV).$V = item;
+                                        (vLet(rv) as RV).$V = it;
                                 else
-                                    vLet(item);
+                                    vLet(it);
 
                                 vPv( prIt );
                                 vNx( nxIR.value?.item );
@@ -2602,7 +2612,7 @@ class RComp {
                             finally { EF(); }
 
                             chR.hash = hash;
-                            prIt = item;
+                            prIt = it;
                         }
                         EC();
                         if (prR) prR.nx = N; else r.ch = N;

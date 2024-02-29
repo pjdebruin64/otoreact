@@ -504,7 +504,7 @@ const sampleA =
 <p>This link opens in a blank window:
 <a href="https://www.otolift.com/">Otolift Stairlifts</a>
 
-<p>This link navigates within the current window:
+<p>This link reroutes the current window:
 <a href="./#Introduction">Introduction</a>`;
 
 const sampleTableMaker =
@@ -660,37 +660,42 @@ const sampleFormatting =
 
 const sampleDocument = 
 `<style>
-h3 {color: green}
+  h3 {color: green}
 </style>
 <def rvar=check #value="false"></def>
+<def rvar=num #value=0></def>
 
-<document name=demoDoc ondestroy="demoDoc.closeAll()">
-    <style> 
-        label { display: block; margin: 30px }
-    </style>
-    <h3>This is a separate document.</h3>
-    <label>
-        <input type=checkbox @checked=check> Check me!
-    </label>
+<document name=demoDoc
+    params="id"
+    ondestroy="demoDoc.closeAll()">
+  <style> 
+      label { display: block; margin: 30px }
+  </style>
+  <h3>This is a separate document {id}.</h3>
+  <label>
+      <input type=checkbox @checked=check> Check me!
+  </label>
 </document>
 
 Please click
 <button onclick="
-    demoDoc.open(''
-        ,\`screenX=\${window.screenX + event.clientX},
-        screenY=\${window.screenY + event.clientY + 200},
-        width=250,height=120\`
-        )"
+  demoDoc.open(
+    ''
+    , \`screenX=\${window.screenX + event.clientX},
+      screenY=\${window.screenY + event.clientY + 200},
+      width=250,height=120\`
+    , ++num.V
+  )"
 >Pop up</button>
 and note how the checkbox in the popup browser window is synchronized with the checkbox below.
 
 <p>
-<label>
+  <label>
     <input type=checkbox @checked=check> Checked.
-</label>
+  </label>
 <p>
 
-Click <button onclick="demoDoc.print()">Print</button>
+Click <button onclick="demoDoc.print('for printing')">Print</button>
 to open a print dialog for a document without showing it in a browser window`
 
 const sampleRadioGroup=
@@ -822,12 +827,14 @@ const demoRadiogroup=
   <radiobutton value="None">I don't have a favorite</radiobutton>
 </radiogroup>
 
-<case #value="favColor">
+<case #value="favColor" reacton=favColor>
   <when match="None">
     <p>Oh, I'm sorry to hear that.</p>
   </when>
   <when match="{C}"> <!-- This binds the case-value to 'C' -->
-    <p #style.backgroundcolor="C">Yes, {C.toLowerCase()} is a great color.</p>
+    <p #style.backgroundcolor="C">
+      Yes, {C.toLowerCase()} is a great color.
+    </p>
   </when>
 </case>`;
 
@@ -941,20 +948,22 @@ const demoLocalRstyles =
 <p>`
 
 const demoModule =
-`<!-- Let's import some variable and some construct -->
-<import async src="/hi" defines="pi">
+`<!-- Import a variable and a construct  from a module -->
+<import async src="/mod_hi" defines="pi">
   <hi mark?></hi>
 </import>
 
 <!-- See that it works -->
 <hi></hi>
 
+<hi mark="!"></hi>
+
 pi = {pi}
 
-<!-- Here follows the Module; normally it would be in a separate file -->
-<module id="/hi">
+<!-- Here follows the module; normally it would be in a separate file -->
+<module id="/mod_hi">
   <component>
-    <hi mark="!"></hi>
+    <hi mark="?"></hi>
     <template>
       <p>Hi {mark}</p>
     </template>
@@ -962,3 +971,62 @@ pi = {pi}
 
   <def var=pi #value="3.14"></def>
 </module>`
+
+const demo_RFORM =
+`<style>
+  form { padding:1em; border: solid 1px; }
+
+  input:invalid,
+  select:invalid,
+  form:invalid input[type=submit]
+  { background-color: rgb(255, 200, 150); }
+</style>
+
+<import src="OtoLib.html">
+  <RFORM onsubmit?></RFORM>
+  <radiogroup></radiogroup>
+</import>
+
+<def rvar="datalist" #value="[]"></def>
+
+<RFORM onsubmit="
+  datalist.U.push(event.data); 
+  this.reset();" 
+>
+  <p>
+    <label>
+      Name: <input type=text name="name" required minlength=2>
+    </label>
+  <p>
+    <label>
+      Age: <input type=number name="age" required min=18>
+    </label>
+  <p>
+    <radiogroup name="sex" required>
+        <radiobutton value="F">Female</radiobutton>
+        <radiobutton value="M">Male</radiobutton>
+        <radiobutton value="O">Other</radiobutton>
+        <radiobutton value="?">Don't tell</radiobutton>
+      </radiogroup>
+  </p>
+  <center>
+    <input type="submit" value="Submit">
+  </center>
+</RFORM>
+
+<p>
+<table.>
+  <caption>Submitted data:</caption>
+  <tr.>
+<th.>Name</th.>
+<th.>Age</th.> 
+<th.>Sex</th.>
+</tr.>
+  <for let="data" of="datalist">
+    <tr.>
+      <td.>{data.name}</td.>
+      <td.>{data.age}</td.>
+      <td.>{data.sex}</td.>
+    </tr.>
+  </for>
+</table.>`

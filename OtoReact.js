@@ -178,7 +178,7 @@ class Signat {
                 if (!nm && !rp)
                     throw 'Empty parameter name';
                 let pDf = v ? m ? RC.CExpr(v, a) : RC.CText(v, a)
-                    : on && (() => dU);
+                    : on && K(dU);
                 this.Pams.push({
                     mode: m,
                     nm,
@@ -238,11 +238,9 @@ export class RV {
     }
     set V(v) {
         this.$C++;
-        if (v !== this.$V) {
-            let p = this.$V;
-            this.$V = v;
-            this.SetDirty(p);
-        }
+        let p = this.$V;
+        this.$V = v;
+        v === p || this.SetDirty(p);
     }
     Subscribe(s, bImm, cr) {
         if (s) {
@@ -268,8 +266,8 @@ export class RV {
     get Set() {
         return t => {
             if (t instanceof Promise) {
-                this.$V = U;
-                let c = ++this.$C;
+                this.V = U;
+                let c = this.$C;
                 t.then(v => this.$C == c && (this.V = v), oes.e);
             }
             else
@@ -345,7 +343,8 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
         G[nm] = rv;
     return rv;
 }
-let env, pN, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA &&
+let env, pN, oes = { e: N, s: N }, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, arA, arR, arB, arVars;
+const AR = (rv, bA) => arA &&
     (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
     if (arA) {
         if (arR || arVars && (arR = arA.prR)) {
@@ -356,7 +355,7 @@ let env, pN, oes = { e: N, s: N }, arR, arA, arB, arVars, AR = (rv, bA) => arA &
         }
         arA = arVars = N;
     }
-}, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, chWins = new Set, OMods = new Map, NoTime = (prom) => {
+}, chWins = new Set, OMods = new Map, NoTime = (prom) => {
     let t = now();
     return prom.finally(() => start += now() - t);
 }, AJ = (job) => {
@@ -863,9 +862,9 @@ class RComp {
                                             return w;
                                         },
                                         async print(...args) {
-                                            let f = doc.createElement('iframe');
+                                            let f = D.createElement('iframe');
                                             f.hidden = T;
-                                            doc.body.appendChild(f);
+                                            D.body.appendChild(f);
                                             await this.render(f.contentWindow, T, args);
                                             f.contentWindow.print();
                                             f.remove();
@@ -1211,7 +1210,7 @@ class RComp {
         this.ws = !bE && ws > postWs ? ws : postWs;
         this.CT = postCT;
         return aList.length && async function CASE(ar, bR) {
-            let val = dV?.(), RRE, cAlt;
+            let val = dr(dV?.()), RRE, cAlt;
             try {
                 for (var alt of aList)
                     if (!((!alt.cond || alt.cond())
@@ -1264,14 +1263,7 @@ class RComp {
                         ({ env, oes } = sEnv);
                         let si = Symbol.iterator in iter
                             || (Symbol.asyncIterator in iter ? arChk()
-                                : thro(`[of] Value (${iter}) is not iterable`)), kMap = r.v || (r.v = new Map), nMap = new Map, ix = 0, { EF } = SF(N, {}), ci = (item) => {
-                            vLet(item);
-                            vIx(ix);
-                            let hash = dHash?.(), key = dKey?.() ?? hash?.[0];
-                            if (key != N && nMap.has(key))
-                                throw `Duplicate key '${key}'`;
-                            nMap.set(key ?? {}, { item, key, hash, ix: ix++ });
-                        };
+                                : thro(`[of] Value (${iter}) is not iterable`)), kMap = r.v || (r.v = new Map), nMap = new Map, ix = 0, { EF } = SF(N, {});
                         try {
                             if (si)
                                 for (let i of iter)
@@ -1279,6 +1271,14 @@ class RComp {
                             else
                                 for await (let i of iter)
                                     ci(i);
+                            function ci(it) {
+                                vLet(it);
+                                vIx(ix);
+                                let hash = dHash?.(), key = dKey?.() ?? hash?.[0];
+                                if (key != N && nMap.has(key))
+                                    throw `Duplicate key '${key}'`;
+                                nMap.set(key ?? {}, { it, key, hash, ix: ix++ });
+                            }
                         }
                         finally {
                             EF();
@@ -1299,7 +1299,7 @@ class RComp {
                         sub.pR = r;
                         while (!nxIR.done) {
                             EC();
-                            let { item, key, hash, ix } = nxIR.value, chR = kMap.get(key), cr = !chR, chAr;
+                            let { it, key, hash, ix } = nxIR.value, chR = kMap.get(key), cr = !chR, chAr;
                             if (cr) {
                                 sub.r = N;
                                 sub.prR = prR;
@@ -1348,11 +1348,11 @@ class RComp {
                                     vIx(chR.ix || (chR.ix = new RV)).V = ix;
                                 if (bRe)
                                     if (cr)
-                                        vLet(chR.rv = RVAR(U, item, N, N, N, dUpd?.()));
+                                        vLet(chR.rv = RVAR(U, it, N, N, N, dUpd?.()));
                                     else
-                                        vLet(rv).$V = item;
+                                        vLet(rv).$V = it;
                                 else
-                                    vLet(item);
+                                    vLet(it);
                                 vPv(prIt);
                                 vNx(nxIR.value?.item);
                                 if (cr || !hash || hash.some((h, i) => h != chR.hash[i]))
@@ -1367,7 +1367,7 @@ class RComp {
                                 EF();
                             }
                             chR.hash = hash;
-                            prIt = item;
+                            prIt = it;
                         }
                         EC();
                         if (prR)
