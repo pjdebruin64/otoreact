@@ -412,12 +412,13 @@ Internal or external <elm>STYLE</elm> style sheets can be included anywhere and 
 
 
 <h2>How it works</h2>
-OtoReact's <code>RCompile</code> does not, as one might perhaps expect, translate the whole chunk of RHTML into one large string of JavaScript.
+OtoReact's RHTML compiler does not, as one might perhaps expect, translate the whole chunk of RHTML into one large string of JavaScript.
 <br>Rather:
 <ol>
     <li>
         Each snippet of JavaScript is compiled <i>separately</i> into a routine, by offering it to JavaScripts <code>eval</code> function (in global scope, of course).
         <br>E.g., an RHTML property expression <code>a+b</code> is compiled by calling <code>eval("([a,b]) => (a+b)")</code>.
+        <p>Each snippet is compiled just once, including event handlers <code>on...</code> occuring in a repeated element.</p>
         <p>OtoReact does not itself parse and analyse the JavaScript, so it is unaware which variables are actually used and which are not.</p>
     </li>
     <li>

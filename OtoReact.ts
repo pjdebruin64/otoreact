@@ -443,10 +443,18 @@ type Parameter = {
 
 // A SIGNATURE describes an RHTML user construct: a component or a slot
 class Signat {
+    public srcE: Element;
+    public RC: RComp;
     constructor(
-        public srcE: Element, RC: RComp     
-    ){ 
-        this.nm = srcE.tagName;
+        srcE: Element, RC: RComp     
+    ){
+        ass(this,
+            {
+                nm: srcE.tagName
+            ,   srcE, RC
+            ,   Pams: []
+            ,   Slots: new Map<string, Signat>
+        });
         for (let attr of srcE.attributes) {
             let [a,m,rp,dum,nm,on,q]
                 = /^(#|@|(\.\.\.)|(_)|)((on)?.*?)(\?)?$/.exec(attr.name)
@@ -491,9 +499,9 @@ class Signat {
     }
 
     public nm: string;
-    public Pams: Array<Parameter> = [];   // Parameters
+    public Pams: Array<Parameter>;   // Parameters
     public RP: string;            // Rest parameter (is also in Params)
-    public Slots = new Map<string, Signat>;
+    public Slots: Map<string, Signat>;
     public CSlot: Signat;    // Content slot (is also in Slots)
 
     // In case of a non-async <import>, details of the signature will initially be missing, and the compilation of instances shall await this promise for the signature to be completed
@@ -1026,6 +1034,7 @@ function ApplyAtts(
                         }
                         if (x)
                             switch (typeof x) {
+                                default: throw `Invalid value`;
                                 case 'string':
                                     // Might be multiple names
                                     x.split(/\s+/).forEach(AC);
@@ -1036,8 +1045,6 @@ function ApplyAtts(
                                     else
                                         for (let [nm, b] of Object.entries(x))
                                             b && AC(nm);
-                                    break;
-                                default: throw `Invalid value`;
                             }
                         if (p)
                             for (let v of p)
@@ -1108,7 +1115,7 @@ let   iRC = 0       // Numbering of RComp instances
 ,   iLS = 0      // Numbering of local stylesheet classnames
     ;
 class RComp {
-    public num = iRC++;  // Rcompiler instance number, just for identification during debugging
+    public num: number;  // Rcompiler instance number, just for identification during debugging
     public S: Settings;
 
     public CT: Context         // Compile-time context
@@ -1130,13 +1137,22 @@ class RComp {
     ,   settings?: Settings
     ,   CT = RC?.CT
     ) { 
-        this.S   = {... RC ? RC.S : dflts, ...settings};
-        this.fp  = FP || RC?.fp;
-        this.doc = RC?.doc || D
+        ass(this,
+            {
+                num: iRC++
+            ,   S: {... RC ? RC.S : dflts, ...settings}
+            ,   fp: FP || RC?.fp
+            ,   doc: RC?.doc || D
+            ,   CT: new Context(CT, T)
+            ,   lscl: RC?.lscl || E
+            ,   ndcl: RC?.ndcl || 0
+            ,   rActs: []
+            ,   sPRE: new Set(['PRE'])
+            ,   ws: WSpc.block
+            ,   rt: T
+            }
+        );
         this.hd  = RC?.hd || this.doc.head;
-        this.CT    = new Context(CT, T);
-        this.lscl= RC?.lscl || E;
-        this.ndcl = RC?.ndcl || 0;
     }
 
 /*
@@ -1187,7 +1203,7 @@ class RComp {
         });
     }
 
-    private rActs: Array<() => void> = [];  // Restore actions
+    private rActs: Array<() => void>;  // Restore actions
 
     /* Start a new scope, while staying in the same frame.
         Returns a routine 'EndScope' to end the scope.
@@ -1257,7 +1273,15 @@ class RComp {
     private LVars(varlist: string): Array<LVar> {
         return Array.from(split(varlist), nm => this.LV(nm));
     }
-
+/*
+    public LRV<T>(nm: string, ...r: any[]) : (t:T) => void {
+        let lv = this.LV<RV<T>>(nm)
+        ,   gv = this.CT.getV<RV<T>>(this.CT.lvM.get(lv.nm))
+        if (lv)
+            return (t:T) => 
+                (gv() || lv(RVAR(U,U,U,...r))).V = t;
+    }
+*/
     // At compiletime, declare a number of local constructs, according to the supplied signatures.
     // Returns a single routine to set them all at once.
     private LCons(listS: Iterable<Signat>) {
@@ -1301,7 +1325,7 @@ class RComp {
             console.log(new Date().toISOString().substring(11)+` ${this.num}: `+msg);
     }
 
-    private sPRE = new Set(['PRE']);        // Elements needing whitespace to be preserved
+    private sPRE: Set<string>;        // Elements needing whitespace to be preserved
 
     public async Build(ar: Area) {
         R = this;
@@ -1317,8 +1341,8 @@ class RComp {
 
     public bldr: DOMBuilder;
 
-    private ws = WSpc.block;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
-    private rt: booly = T;    // While compiling: may the generated DOM output be right-trimmed
+    private ws: WSpc;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
+    private rt: booly;    // While compiling: may the generated DOM output be right-trimmed
 
     private srcCnt: number;   // To check for empty Content
 
@@ -1529,8 +1553,8 @@ class RComp {
                                     vLet(v);
                             }
                         }
-                       
-                    } break;
+                        break;
+                    }
 
                     case 'IF':
                     case 'CASE': 
@@ -1623,7 +1647,8 @@ class RComp {
                                     lv(lv.g(MEnv));
                             }
                         };
-                    } break;
+                        break;
+                    }
 
                     case 'REACT':
                         b = await this.CChilds(srcE);
@@ -1679,7 +1704,8 @@ class RComp {
                             }
                             pN = ar.pN;
                         };
-                    } break;
+                        break;
+                    }
 
                     case 'SCRIPT': 
                         bA = await this.CScript(srcE as HTMLScriptElement, ats); 
@@ -1761,7 +1787,8 @@ class RComp {
                                 });
                             }
                         }
-                     } break;
+                        break;
+                     }
 
                     case 'RHEAD':
                         let {ws} = this;
@@ -1809,8 +1836,9 @@ class RComp {
                                 hd.appendChild(srcE);
                             });
                             
-                        ats.clear();                        
-                    } break;
+                        ats.clear();
+                        break;       
+                    }
 
                     case 'RSTYLE': {
                         let s: [boolean, RegExp, WSpc] = [this.S.bDollarRequired, this.rIS, this.ws]
@@ -1892,7 +1920,8 @@ class RComp {
                                     , T);
                             };
                         this.ws = ws;
-                    } break;
+                        break;
+                    }
                     
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -2005,7 +2034,7 @@ class RComp {
                         }
                         : m[8]  // #if
                         ?   function hIf(ar: Area, bR) {
-                                let c = <booly>dV()
+                                let c = <booly>dr(dV())
                                 ,   p = PrepRng(ar, srcE, at, 1, !c)
                                 if (c)
                                     return b(p.sub, bR)
@@ -2219,6 +2248,7 @@ class RComp {
     private async CCase(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
         let bH = ats.gB('hiding')
         ,   dV = this.CAttExp<string>(ats, 'value')
+        ,   bRe = gRe(ats)
         ,   cases: Array<{
                 n: HTMLElement,
                 ats: Atts,
@@ -2270,14 +2300,13 @@ class RComp {
         for (let {n, ats, body} of cases) {
             if (!bH)
                 this.CT = new Context(CT);
-            let ES = 
-                ass(this, {ws, rt}).SS();
+            let ES = ass(this, {ws, rt}).SS()
+            ,   cond: Dep<booly>
+            ,   not: boolean = F
+            ,   patt:  {lvars: LVar[], RE: RegExp, url?: boolean}
+            ,   p: string
+            ;
             try {
-                let cond: Dep<booly>
-                ,   not: boolean = F
-                ,   patt:  {lvars: LVar[], RE: RegExp, url?: boolean}
-                ,   p: string
-                ;
                 switch (n.tagName) {
                     case 'IF':
                     case 'THEN':
@@ -2389,17 +2418,17 @@ class RComp {
         type ItemInfo = {it:Item, key: Key, hash:Hash[], ix: number};
 
         let letNm = ats.g('let')
-        ,   ixNm = ats.g('index',F,F,T) || ats.g('rindex',F,F,T)
+        ,   ixNm = ats.g('index',F,F,T)
             ;
         this.rt = F;
 
         if (letNm != N) { /* A regular iteration */
-            let dOf =
-                this.CAttExp<Iterable<Item> | Promise<Iterable<Item>>>(ats, 'of', T)
+            let 
+                dOf = this.CAttExp<Iterable<Item> | Promise<Iterable<Item>>>(ats, 'of', T)
             ,   pvNm = ats.g('previous',F,F,T)
             ,   nxNm = ats.g('next',F,F,T)
             ,   dUpd = this.CAttExp<RV>(ats, 'updates')
-            ,   bRe: booly = ats.gB('reacting') || ats.gB('reactive') || dUpd
+            ,   bRe: booly = gRe(ats) || dUpd
                 ;
 
             return this.Framed(async SF => {
@@ -3144,15 +3173,15 @@ class RComp {
         }
     }
 
-    // Compile a simple pattern (with wildcards ?, *, [] and capturing expressions) into a RegExp and a list of bound LVars
+    // Compile a simple pattern (with wildcards ?, *, [], escaped  and capturing expressions) into a RegExp and a list of bound LVars
     private CPatt(patt:string, url?: boolean): {lvars: LVar[], RE: RegExp, url: boolean}
     {
         let reg = Q, lvars: LVar[] = []
         
         // These are the subpatterns that are need converting; all remaining characters are literals and will be quoted when needed
         ,   rP =
-            /\\[{}]|\{((?:[^}]|\\\})*)\}|\?|\*|(\\[^])|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
-
+            /\{((?:[^}]|\\\})*)\}|(\?)|(\*)|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
+        //            1--------------1   2--2 3--3 4-----4
         while (rP.lastIndex < patt.length) {
             let ix = rP.lastIndex
             ,   m = rP.exec(patt)
@@ -3160,12 +3189,12 @@ class RComp {
 
             reg += // Quote 'lits' such that it can be literally included in a RegExp
                     lits.replace(/\W/g, s => '\\'+s)
-                +   ( m[1]!=N       // A capturing group
-                                    ? (lvars.push(this.LV(m[1])), '(.*?)')
-                    : m[0] == '?'   ? '.'
-                    : m[0] == '*'   ? '.*'
-                    : m[2]          ? m[2] // An escaped character
-                                    : m[0] // A character class or "\{"
+                +   ( m[1]!=N   ? (lvars.push(this.LV(m[1])), '(.*?)')
+                                        // A capturing group
+                    : m[2]      ? '.'   // '?'
+                    : m[3]      ? '.*'  // '*'
+                    : m[0]              // a character class or end of text
+                        
                     );
         }
 
@@ -3447,6 +3476,8 @@ const
 // Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
 , S2Hash = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
+
+, gRe = (ats: Atts) => ats.gB('reacting') || ats.gB('reactive')
 ;
 
 // Map an iterable to another iterable, for items satisfying an optional condition

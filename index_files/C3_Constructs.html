@@ -126,14 +126,22 @@ All three variants are case-insensitive, and all can be combined with a simple c
         <ul>
             <li><code>?</code> matches any single character</li>
             <li><code>*</code> matches any string of characters</li>
-            <li><code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where all <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">rules for JavaScript character classes</a> apply</li>
+            <li>
+                <code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where all <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">rules for JavaScript character classes</a> apply
+                <ul>
+                    <li>
+                        To escape a special character <i>c</i>, use <code>[<i>c</i>]</code>.
+                    </li>
+                </ul>
+            </li>
             <li>
                 <code>\{ <i>varName</i> \}</code> matches non-greedily any string of characters, and 
-                <ul><li>
-                    The matched string will be captured in <a href=#Variables>local variable</a> <i>varName</i>
-                </li></ul>
+                <ul>
+                    <li>
+                        The matched string will be captured in <a href=#Variables>local variable</a> <i>varName</i>
+                    </li>
+                </ul>
             </li>
-            <li><code>\</code> followed by any character matches just that character</li>
         </ul>
         The whole value has to match, not just a substring.
     </dd>
