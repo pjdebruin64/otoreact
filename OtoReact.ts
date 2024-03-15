@@ -449,8 +449,7 @@ class Signat {
         srcE: Element, RC: RComp     
     ){
         ass(this,
-            {
-                nm: srcE.tagName
+            {   nm: srcE.tagName
             ,   srcE, RC
             ,   Pams: []
             ,   Slots: new Map<string, Signat>
@@ -1138,8 +1137,7 @@ class RComp {
     ,   CT = RC?.CT
     ) { 
         ass(this,
-            {
-                num: iRC++
+            {   num: iRC++
             ,   S: {... RC ? RC.S : dflts, ...settings}
             ,   fp: FP || RC?.fp
             ,   doc: RC?.doc || D
@@ -2248,7 +2246,7 @@ class RComp {
     private async CCase(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
         let bH = ats.gB('hiding')
         ,   dV = this.CAttExp<string>(ats, 'value')
-        ,   bRe = gRe(ats)
+        //,   bRe = gRe(ats)
         ,   cases: Array<{
                 n: HTMLElement,
                 ats: Atts,
@@ -2446,7 +2444,7 @@ class RComp {
                 ;
                 // Dit wordt de runtime routine voor het updaten:
                 // bR = update root only
-                return b && async function FOR(ar: Area, bR: booly) {
+                return b && async function FOR(ar: Area) {
                     let iter: Iterable<Item> | Promise<Iterable<Item>>
                             = dr(dOf()) || E
                     ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>, u:number}>(ar, srcE, Q)
@@ -2629,16 +2627,15 @@ class RComp {
                                 // Does current range need building or updating?
                                 if (cr || !hash || hash.some((h,i) => h != chR.hash[i])
                                 )
-                                    if (rv) // I.e. when !cr && bRe
+                                    rv ? // I.e. when !cr && bRe
                                         // Then set the RVAR dirty
-                                        AJ(rv);
-                                    else if (cr || !bR)
-                                    {   // Else build
+                                        AJ(rv)
+                                    :
+                                        // Else build
                                         await b(iSub);
 
                                         // Subscribe the range to the new RVAR
-                                        chR.rv?.$SR(iSub, b, chR.ch);
-                                    }
+                                        //chR.rv?.$SR(iSub, b, chR.ch);
                             }
                             finally { EF(); }
 
@@ -2950,7 +2947,10 @@ class RComp {
         // Whitespace-mode after this element
         ,   postWs: WSpc;
 
+        // Preserve whitespace when style.whiteSpace is pre, pre-wrap, pre-line or break-spaces
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
+        // This doesn't work:
+        //if (/^.r/.test(getComputedStyle(srcE).whiteSpace)) {
             this.ws = WSpc.preserve; postWs = WSpc.block;
         }
         else if (rBlock.test(nm))

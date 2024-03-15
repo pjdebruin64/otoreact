@@ -166,8 +166,7 @@ const PrepRng = (ar, srcE, text = Q, nWipe, res) => {
 };
 class Signat {
     constructor(srcE, RC) {
-        ass(this, {
-            nm: srcE.tagName,
+        ass(this, { nm: srcE.tagName,
             srcE, RC,
             Pams: [],
             Slots: new Map
@@ -500,8 +499,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
 let iRC = 0, iLS = 0;
 class RComp {
     constructor(RC, FP, settings, CT = RC?.CT) {
-        ass(this, {
-            num: iRC++,
+        ass(this, { num: iRC++,
             S: { ...RC ? RC.S : dflts, ...settings },
             fp: FP || RC?.fp,
             doc: RC?.doc || D,
@@ -1140,7 +1138,7 @@ class RComp {
         }
     }
     async CCase(srcE, ats) {
-        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), bRe = gRe(ats), cases = [], body = [], bI = srcE.tagName == 'IF', bT, bE;
+        let bH = ats.gB('hiding'), dV = this.CAttExp(ats, 'value'), cases = [], body = [], bI = srcE.tagName == 'IF', bT, bE;
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement)
                 switch (n.tagName) {
@@ -1248,7 +1246,7 @@ class RComp {
             let dOf = this.CAttExp(ats, 'of', T), pvNm = ats.g('previous', F, F, T), nxNm = ats.g('next', F, F, T), dUpd = this.CAttExp(ats, 'updates'), bRe = gRe(ats) || dUpd;
             return this.Framed(async (SF) => {
                 let vLet = this.LV(letNm), vIx = this.LV(ixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
-                return b && async function FOR(ar, bR) {
+                return b && async function FOR(ar) {
                     let iter = dr(dOf()) || E, { r, sub } = PrepRng(ar, srcE, Q), sEnv = { env, oes }, u = r.u = r.u + 1 || 0;
                     ;
                     if (iter instanceof Promise)
@@ -1352,12 +1350,10 @@ class RComp {
                                 vPv(prIt);
                                 vNx(nxIR.value?.item);
                                 if (cr || !hash || hash.some((h, i) => h != chR.hash[i]))
-                                    if (rv)
-                                        AJ(rv);
-                                    else if (cr || !bR) {
-                                        await b(iSub);
-                                        chR.rv?.$SR(iSub, b, chR.ch);
-                                    }
+                                    rv ?
+                                        AJ(rv)
+                                        :
+                                            await b(iSub);
                             }
                             finally {
                                 EF();
