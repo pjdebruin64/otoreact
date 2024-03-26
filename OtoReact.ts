@@ -283,8 +283,8 @@ class Range<NodeType extends ChildNode = ChildNode>{
         })(this)
     }
 
-    bD?: EventListener;   // Before destroy handler
-    aD?: EventListener;   // After destroy handler
+    bD?: () => void;   // Before destroy handler
+    aD?: () => void;   // After destroy handler
     upd?: number;   // Update stamp
 
     // For reactive elements
@@ -1120,6 +1120,7 @@ class RComp {
     public CT: Context         // Compile-time context
 
     private doc: Document;
+    private bDR: 0|1;
 
     // During compilation: node to which all static stylesheets are moved
     public hd: HTMLHeadElement|DocumentFragment|ShadowRoot;
@@ -1151,6 +1152,7 @@ class RComp {
             }
         );
         this.hd  = RC?.hd || this.doc.head;
+        this.bDR = this.S.bDollarRequired?1:0;
     }
 
 /*
@@ -1839,13 +1841,12 @@ class RComp {
                     }
 
                     case 'RSTYLE': {
-                        let s: [boolean, RegExp, WSpc] = [this.S.bDollarRequired, this.rIS, this.ws]
+                        let s: [0|1, WSpc] = [this.bDR, this.ws]
                         ,   sc = ats.g('scope')
                         ,   {bf,af} = this.CAtts(ats)
                         ,   i: number
                         try {
-                            this.S.bDollarRequired = T;
-                            this.rIS = N;
+                            this.bDR = 1;
                             this.ws = WSpc.block;
 
                             let b = await (sc ?
@@ -1880,7 +1881,7 @@ class RComp {
                             }
                         }
                         finally {
-                            [this.S.bDollarRequired, this.rIS, this.ws] = s;
+                            [this.bDR, this.ws] = s;
                         }
                         break;
                     }
@@ -1897,13 +1898,15 @@ class RComp {
                         let dN = this.CPam<string>(ats, 'name', T)
                         ,   dV = this.CPam<string>(ats, 'value', T);
                         bl = async function ATTRIB(ar: Area){
-                            let r = PrepRng<{v:string}>(ar, srcE).r
-                            ,   n0 = r.v
-                            ,   nm = r.v = dN();
-                            if (n0 && nm != n0)
-                                (pN as HTMLElement).removeAttribute(n0);
-                            if (nm)
-                                (pN as HTMLElement).setAttribute(nm, dV());
+                            let {r,cr} = PrepRng<{v:string}>(ar, srcE)
+                            ,   e = (pN as HTMLElement)
+                            ,   nm = dN();
+                            if (cr)
+                                r.aD = () => e.removeAttribute(r.v);
+                            if (r.v && nm != r.v)
+                                r.aD();
+                            if (r.v = nm)
+                                e.setAttribute(nm, dV());
                         };
                         break;
 
@@ -2293,7 +2296,7 @@ class RComp {
         let aList: Array<Alt> = []
         ,   {ws, rt, CT}= this
         ,   postCT = CT
-        ,   postWs: WSpc = 0 // Highest whitespace mode to be reached after any alternative
+        ,   postW: WSpc = 0 // Highest whitespace mode to be reached after any alternative
         ;
         for (let {n, ats, body} of cases) {
             if (!bH)
@@ -2338,14 +2341,14 @@ class RComp {
                             , n
                         });
                         ats.None();
-                        postWs = Math.max(postWs, this.ws);
+                        postW = Math.max(postW, this.ws);
                         postCT = postCT.max(this.CT);
                 }
             } 
             catch (m) { throw bI ? m : ErrM(n, m); }
             finally { ES(); }
         }
-        this.ws = !bE && ws > postWs ? ws : postWs;
+        this.ws = !bE && ws > postW ? ws : postW;
         this.CT = postCT;
 
         return aList.length && async function CASE(ar: Area, bR) {
@@ -2943,26 +2946,26 @@ class RComp {
         // Remove trailing dots
         let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q)
         // Remember preceeding whitespace-mode
-        ,   preWs = this.ws
+        ,   preW = this.ws
         // Whitespace-mode after this element
-        ,   postWs: WSpc;
+        ,   postW: WSpc;
 
         // Preserve whitespace when style.whiteSpace is pre, pre-wrap, pre-line or break-spaces
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
-        // This doesn't work:
+        // This works for the main document only:
         //if (/^.r/.test(getComputedStyle(srcE).whiteSpace)) {
-            this.ws = WSpc.preserve; postWs = WSpc.block;
+            this.ws = WSpc.preserve; postW = WSpc.block;
         }
         else if (rBlock.test(nm))
-            this.ws = this.rt = postWs = WSpc.block;
+            this.ws = this.rt = postW = WSpc.block;
         
         else if (rInline.test(nm)) {  // Inline-block
             this.ws = this.rt = WSpc.block;
-            postWs = WSpc.inline;
+            postW = WSpc.inline;
         }
         
-        if (preWs == WSpc.preserve)
-            postWs = preWs;
+        if (preW == WSpc.preserve)
+            postW = preW;
 
         // We turn each given attribute into a modifier on created elements
         let {bf,af} = this.CAtts(ats, nm=='SELECT')
@@ -2971,8 +2974,8 @@ class RComp {
         ,   b = await this.CChilds(srcE)
         ,   {lscl,ndcl}= this  // List of scoping-classnames to be added to all instances of this source element
 
-        if (postWs)
-            this.ws = postWs;
+        if (postW)
+            this.ws = postW;
 
         if (nm=='A' && this.S.bAutoReroute && bf.every(({nm}) => nm != 'click')) // Handle bAutoReroute
             af.push({mt: MType.AutoReroute, d: dU, cu : 1 });
@@ -3116,7 +3119,7 @@ class RComp {
         return {bf, af};
     }
 
-    private rIS: RegExp;
+    private static rIS: RegExp[] = [];
     // Compile interpolated text.
     // When the text contains no expressions, .fx will contain the (fixed) text.
     CText(text: string, nm?: string): Dep<string> & {fx?: string} {
@@ -3132,9 +3135,9 @@ class RComp {
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |[^])*?`
-        ,   rIS = this.rIS ||= 
+        ,   rIS = RComp.rIS[this.bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`
+                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`
                     , 'g'
                 )
         ,   gens: Array< string | Dep<unknown> > = []
@@ -3226,10 +3229,13 @@ class RComp {
             };
     }
 
-    private cTwoWay<T = unknown>(exp: string, nm: string, bT: booly=T) {
+    private cTwoWay<T = unknown>(exp: string, nm: string, bT: booly=T)
+                                : {G: Dep<T>, S: Dep<(v:T) => void>}
+// Compile a two-way expression into a getter and a setter
+    {
         return {
             G: this.CExpr<T>(exp, nm),
-            S: bT && this.CRout<T>(`(${exp})=$` , '$', `\nin assigment target "${exp}"`)
+            S: bT && this.CRout<T>(`(${exp}\n)=$` , '$', `\nin assigment target "${exp}"`)
         };
     }
     
@@ -3503,9 +3509,9 @@ export function range(from: number, count?: number, step: number = 1) {
     //If we did the coercion within the iterator function, it would be delayed, and OtoReact wouldn't mark the RVARs as used.
     return (
         function*(f:number,c:number,s:number) {
-            for (let i=0;i<count;i++) {
-                yield from;
-                from += step;
+            while (c--) {
+                yield f;
+                f += s;
             }
         }
     )(Number(from),Number(count),Number(step))

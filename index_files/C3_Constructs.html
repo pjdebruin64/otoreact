@@ -1107,13 +1107,15 @@ Here is a sample component where each instance has its own local stylesheet:
 
 <p>When the value is null or empty, no attribute is added.</p>
 <p>Updates to the attribute name are handled accordingly.</p>
+<p>When the source node is conditional, and the condition fails after having succeeded, or when the name becomes empty after having been nonempty, the created attribute is removed.</p>
 
 <demo srctext=
 '<def rvar=aName></def>
 <def rvar=aValue value="80"></def>
 
 Choose attribute:
-<select @value=aName.V size=3>
+<select @value=aName.V size=4>
+    <option value="">(none)</option>
 	<option>width</option>
 	<option>height</option>
     <option>title</option>
@@ -1122,8 +1124,8 @@ Choose attribute:
 
 <p>
 <canvas style.backgroundcolor=ivory>
-    <ATTRIBUTE 
-		#name="aName .V" 
+    <ATTRIBUTE
+		#name="aName.V" 
 		#value="aValue.V"
 	></ATTRIBUTE>
 </canvas>'></demo>

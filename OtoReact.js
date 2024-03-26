@@ -512,6 +512,7 @@ class RComp {
             rt: T
         });
         this.hd = RC?.hd || this.doc.head;
+        this.bDR = this.S.bDollarRequired ? 1 : 0;
     }
     Framed(Comp) {
         let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M;
@@ -907,10 +908,9 @@ class RComp {
                         break;
                     }
                     case 'RSTYLE': {
-                        let s = [this.S.bDollarRequired, this.rIS, this.ws], sc = ats.g('scope'), { bf, af } = this.CAtts(ats), i;
+                        let s = [this.bDR, this.ws], sc = ats.g('scope'), { bf, af } = this.CAtts(ats), i;
                         try {
-                            this.S.bDollarRequired = T;
-                            this.rIS = N;
+                            this.bDR = 1;
                             this.ws = 1;
                             let b = await (sc ?
                                 (/^local$/i.test(sc) || thro('Invalid scope')
@@ -933,7 +933,7 @@ class RComp {
                             };
                         }
                         finally {
-                            [this.S.bDollarRequired, this.rIS, this.ws] = s;
+                            [this.bDR, this.ws] = s;
                         }
                         break;
                     }
@@ -945,11 +945,13 @@ class RComp {
                         NoChilds(srcE);
                         let dN = this.CPam(ats, 'name', T), dV = this.CPam(ats, 'value', T);
                         bl = async function ATTRIB(ar) {
-                            let r = PrepRng(ar, srcE).r, n0 = r.v, nm = r.v = dN();
-                            if (n0 && nm != n0)
-                                pN.removeAttribute(n0);
-                            if (nm)
-                                pN.setAttribute(nm, dV());
+                            let { r, cr } = PrepRng(ar, srcE), e = pN, nm = dN();
+                            if (cr)
+                                r.aD = () => e.removeAttribute(r.v);
+                            if (r.v && nm != r.v)
+                                r.aD();
+                            if (r.v = nm)
+                                e.setAttribute(nm, dV());
                         };
                         break;
                     case 'COMMENT': {
@@ -1160,7 +1162,7 @@ class RComp {
         }
         if (bI && !bT)
             cases.unshift({ n: srcE, ats, body });
-        let aList = [], { ws, rt, CT } = this, postCT = CT, postWs = 0;
+        let aList = [], { ws, rt, CT } = this, postCT = CT, postW = 0;
         for (let { n, ats, body } of cases) {
             if (!bH)
                 this.CT = new Context(CT);
@@ -1190,7 +1192,7 @@ class RComp {
                             n
                         });
                         ats.None();
-                        postWs = Math.max(postWs, this.ws);
+                        postW = Math.max(postW, this.ws);
                         postCT = postCT.max(this.CT);
                 }
             }
@@ -1201,7 +1203,7 @@ class RComp {
                 ES();
             }
         }
-        this.ws = !bE && ws > postWs ? ws : postWs;
+        this.ws = !bE && ws > postW ? ws : postW;
         this.CT = postCT;
         return aList.length && async function CASE(ar, bR) {
             let val = dr(dV?.()), RRE, cAlt;
@@ -1520,22 +1522,22 @@ class RComp {
         };
     }
     async CHTML(srcE, ats, dTag) {
-        let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q), preWs = this.ws, postWs;
+        let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q), preW = this.ws, postW;
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = 4;
-            postWs = 1;
+            postW = 1;
         }
         else if (rBlock.test(nm))
-            this.ws = this.rt = postWs = 1;
+            this.ws = this.rt = postW = 1;
         else if (rInline.test(nm)) {
             this.ws = this.rt = 1;
-            postWs = 3;
+            postW = 3;
         }
-        if (preWs == 4)
-            postWs = preWs;
+        if (preW == 4)
+            postW = preW;
         let { bf, af } = this.CAtts(ats, nm == 'SELECT'), b = await this.CChilds(srcE), { lscl, ndcl } = this;
-        if (postWs)
-            this.ws = postWs;
+        if (postW)
+            this.ws = postW;
         if (nm == 'A' && this.S.bAutoReroute && bf.every(({ nm }) => nm != 'click'))
             af.push({ mt: 11, d: dU, cu: 1 });
         bf.length || (bf = U);
@@ -1615,12 +1617,13 @@ class RComp {
         return { bf, af };
     }
     CText(text, nm) {
+        var _a, _b;
         let f = (re) => `(?:\\{(?:\\{${re}\\}|[^])*?\\}\
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
-|[^])*?`, rIS = this.rIS || (this.rIS = new RegExp(`\\\\([{}])|\\$${this.S.bDollarRequired ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
             let lastIx = rIS.lastIndex, m = rIS.exec(text);
@@ -1680,7 +1683,7 @@ class RComp {
     cTwoWay(exp, nm, bT = T) {
         return {
             G: this.CExpr(exp, nm),
-            S: bT && this.CRout(`(${exp})=$`, '$', `\nin assigment target "${exp}"`)
+            S: bT && this.CRout(`(${exp}\n)=$`, '$', `\nin assigment target "${exp}"`)
         };
     }
     CHandlr(txt, nm) {
@@ -1755,6 +1758,7 @@ class RComp {
         return m.childNodes;
     }
 }
+RComp.rIS = [];
 class Atts extends Map {
     constructor(elm) {
         super();
@@ -1831,9 +1835,9 @@ export function range(from, count, step = 1) {
         from = 0;
     }
     return (function* (f, c, s) {
-        for (let i = 0; i < count; i++) {
-            yield from;
-            from += step;
+        while (c--) {
+            yield f;
+            f += s;
         }
     })(Number(from), Number(count), Number(step));
 }

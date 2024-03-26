@@ -40,8 +40,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     get Nxt(): ChildNode;
     get FstOrNxt(): ChildNode;
     Nodes(): Generator<ChildNode>;
-    bD?: EventListener;
-    aD?: EventListener;
+    bD?: () => void;
+    aD?: () => void;
     upd?: number;
     rvars?: Set<RV>;
     erase(par: false | Node): void;
