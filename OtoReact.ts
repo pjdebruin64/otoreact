@@ -3578,6 +3578,7 @@ class DL extends RV<URL>{
 const dL = new Proxy( new DL, ProxH ) as DL & URL;
 export const
     docLocation = dL
+,   viewport = RVAR<{height: number, width: number}>('viewport', <any>{})
 ,   reroute = 
         (arg: MouseEvent | string) => {
             if (typeof arg == 'object') {
@@ -3588,6 +3589,12 @@ export const
             }
             dL.V = new URL(arg, L.href);
         };
+(W.onresize =
+    () => {
+        viewport.height = Math.min(innerHeight, screen.availHeight);
+        viewport.width = Math.min(innerWidth, screen.availWidth);
+    }
+)();
 //#endregion
 
 let _ur = import.meta.url

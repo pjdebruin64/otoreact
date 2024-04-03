@@ -1886,7 +1886,7 @@ class DL extends RV {
     }
 }
 const dL = new Proxy(new DL, ProxH);
-export const docLocation = dL, reroute = (arg) => {
+export const docLocation = dL, viewport = RVAR('viewport', {}), reroute = (arg) => {
     if (typeof arg == 'object') {
         if (arg.ctrlKey)
             return;
@@ -1895,6 +1895,11 @@ export const docLocation = dL, reroute = (arg) => {
     }
     dL.V = new URL(arg, L.href);
 };
+(W.onresize =
+    () => {
+        viewport.height = Math.min(innerHeight, screen.availHeight);
+        viewport.width = Math.min(innerWidth, screen.availWidth);
+    })();
 let _ur = import.meta.url, R;
 if (G._ur) {
     alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`);

@@ -106,7 +106,13 @@ declare class DL extends RV<URL> {
     search(key: string, val: string): string;
     RVAR(key: string, df?: string, nm?: string): RV<string> & string;
 }
-export declare const docLocation: DL & URL, reroute: (arg: MouseEvent | string) => void;
+export declare const docLocation: DL & URL, viewport: RV<{
+    height: number;
+    width: number;
+}> & {
+    height: number;
+    width: number;
+}, reroute: (arg: MouseEvent | string) => void;
 export declare function RCompile(srcN: HTMLElement & {
     b?: booly;
 }, setts?: string | Settings): Promise<void>;
