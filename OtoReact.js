@@ -818,61 +818,64 @@ class RComp {
                     case 'COMPONENT':
                         bA = await this.CComp(srcE, ats);
                         break;
-                    case 'DOCUMENT': {
-                        let vNm = this.LV(ats.g('name', T)), bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LV(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
-                        bA = async function DOCUMENT(a) {
-                            if (PrepRng(a).cr) {
-                                let { doc, hd } = PC, docEnv = env, wins = new Set;
-                                vNm({
-                                    async render(w, cr, args) {
-                                        let s = env, Cdoc = RC.doc = w.document;
-                                        RC.hd = Cdoc.head;
-                                        env = docEnv;
-                                        SetLVs(vPams, args);
-                                        vWin(w);
-                                        try {
-                                            if (cr) {
-                                                if (!bEncaps)
-                                                    for (let SSh of hd.styleSheets || doc.styleSheets) {
-                                                        let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
-                                                        for (let rule of SSh.cssRules)
-                                                            DSh.insertRule(rule.cssText);
-                                                    }
-                                                for (let S of H.childNodes)
-                                                    Cdoc.head.append(S.cloneNode(T));
+                    case 'DOCUMENT':
+                        let vNm = this.LV(ats.g('name', T));
+                        bA = await this.Framed(async (SF) => {
+                            let bEncaps = ats.gB('encapsulate'), PC = this, RC = new RComp(this), vPams = RC.LVars(ats.g('params')), vWin = RC.LV(ats.g('window', F, F, T)), H = RC.hd = D.createDocumentFragment(), b = await RC.CChilds(srcE);
+                            return async function DOCUMENT(a) {
+                                if (PrepRng(a).cr) {
+                                    let { doc, hd } = PC, docEnv = env, wins = new Set;
+                                    vNm({
+                                        async render(w, cr, args) {
+                                            let s = env, Cdoc = RC.doc = w.document;
+                                            RC.hd = Cdoc.head;
+                                            env = docEnv;
+                                            let { sub } = SF({ pN: Cdoc.body });
+                                            SetLVs(vPams, args);
+                                            vWin(w);
+                                            try {
+                                                if (cr) {
+                                                    if (!bEncaps)
+                                                        for (let SSh of hd.styleSheets || doc.styleSheets) {
+                                                            let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
+                                                            for (let rule of SSh.cssRules)
+                                                                DSh.insertRule(rule.cssText);
+                                                        }
+                                                    for (let S of H.childNodes)
+                                                        Cdoc.head.append(S.cloneNode(T));
+                                                }
+                                                await b(sub);
                                             }
-                                            await b({ pN: Cdoc.body });
-                                        }
-                                        finally {
-                                            env = s;
-                                        }
-                                    },
-                                    open(target, features, ...args) {
-                                        let w = W.open(Q, target || Q, features), cr = !chWins.has(w);
-                                        if (cr) {
-                                            EL(w, 'keydown', (ev) => ev.key == 'Escape' && w.close());
-                                            EL(w, 'close', _ => { chWins.delete(w); wins.delete(w); });
-                                            chWins.add(w);
-                                            wins.add(w);
-                                        }
-                                        w.document.body.innerHTML = Q;
-                                        this.render(w, cr, args);
-                                        return w;
-                                    },
-                                    async print(...args) {
-                                        let f = D.createElement('iframe');
-                                        f.hidden = T;
-                                        D.body.appendChild(f);
-                                        await this.render(f.contentWindow, T, args);
-                                        f.contentWindow.print();
-                                        f.remove();
-                                    },
-                                    closeAll: () => wins.forEach(w => w.close())
-                                });
-                            }
-                        };
+                                            finally {
+                                                env = s;
+                                            }
+                                        },
+                                        open(target, features, ...args) {
+                                            let w = W.open(Q, target || Q, features), cr = !chWins.has(w);
+                                            if (cr) {
+                                                EL(w, 'keydown', (ev) => ev.key == 'Escape' && w.close());
+                                                EL(w, 'close', _ => { chWins.delete(w); wins.delete(w); });
+                                                chWins.add(w);
+                                                wins.add(w);
+                                            }
+                                            w.document.body.innerHTML = Q;
+                                            this.render(w, cr, args);
+                                            return w;
+                                        },
+                                        async print(...args) {
+                                            let f = D.createElement('iframe');
+                                            f.hidden = T;
+                                            D.body.appendChild(f);
+                                            await this.render(f.contentWindow, T, args);
+                                            f.contentWindow.print();
+                                            f.remove();
+                                        },
+                                        closeAll: () => wins.forEach(w => w.close())
+                                    });
+                                }
+                            };
+                        });
                         break;
-                    }
                     case 'RHEAD':
                         let { ws } = this;
                         this.ws = this.rt = 1;

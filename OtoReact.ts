@@ -1715,80 +1715,85 @@ class RComp {
                         bA = await this.CComp(srcE, ats);
                         break;
 
-                    case 'DOCUMENT': {
-                        let vNm = this.LV(ats.g('name', T))
-                        ,   bEncaps = ats.gB('encapsulate')
-                        ,   PC = this
-                        ,   RC = new RComp(this)
-                        ,   vPams = RC.LVars(ats.g('params'))
-                        ,   vWin = RC.LV(ats.g('window',F,F,T))
-                        ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
-                        ,   b = await RC.CChilds(srcE)
-                        ;
-                        bA = async function DOCUMENT(a: Area) {
-                            if (PrepRng(a).cr) {
-                                let {doc, hd} = PC
-                                ,   docEnv = env
-                                ,   wins = new Set<Window>
-                                ;
-                                //Set the 'name' variable to an object containing the wanted routines
-                                vNm({
-                                    async render(w: Window, cr: boolean, args: unknown[]) {
-                                        let s = env
-                                        ,   Cdoc = RC.doc = w.document
-                                        ;
-                                        RC.hd = Cdoc.head;
-                                        env = docEnv;
-                                        SetLVs(vPams, args);
-                                        vWin(w);
-                                        try {
-                                            if (cr) {
-                                                if (!bEncaps)
-                                                    // Copy all style sheet rules of parent document
-                                                    for (let SSh of (hd as ShadowRoot).styleSheets || doc.styleSheets) {
-                                                        let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
-                                                        for (let rule of SSh.cssRules) 
-                                                            DSh.insertRule(rule.cssText);
-                                                    }
-                                                // Copy static style sheets of document template
-                                                for (let S of H.childNodes)
-                                                    Cdoc.head.append(S.cloneNode(T));
+                    case 'DOCUMENT': 
+                        let vNm = this.LV(ats.g('name', T));
+                        bA = await this.Framed(async SF => {
+                            let   bEncaps = ats.gB('encapsulate')
+                            ,   PC = this
+                            ,   RC = new RComp(this)
+                            ,   vPams = RC.LVars(ats.g('params'))
+                            ,   vWin = RC.LV(ats.g('window',F,F,T))
+                            ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
+                            ,   b = await RC.CChilds(srcE)
+                            ;
+                            return async function DOCUMENT(a: Area) {
+                                if (PrepRng(a).cr) {
+                                    let {doc, hd} = PC
+                                    ,   docEnv = env
+                                    ,   wins = new Set<Window>
+                                    ;
+                                    //Set the 'name' variable to an object containing the wanted routines
+                                    vNm({
+                                        async render(w: Window, cr: boolean, args: unknown[]) {
+                                            let s = env
+                                            ,   Cdoc = RC.doc = w.document
+                                            ;
+                                            RC.hd = Cdoc.head;
+                                            env = docEnv;
+                                            let {sub} = SF({pN: Cdoc.body})
+                                            SetLVs(vPams, args);
+                                            vWin(w);
+                                            try {
+                                                if (cr) {
+                                                    if (!bEncaps)
+                                                        // Copy all style sheet rules of parent document
+                                                        for (let SSh of (hd as ShadowRoot).styleSheets || doc.styleSheets) {
+                                                            let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
+                                                            for (let rule of SSh.cssRules) 
+                                                                DSh.insertRule(rule.cssText);
+                                                        }
+                                                    // Copy static style sheets of document template
+                                                    for (let S of H.childNodes)
+                                                        Cdoc.head.append(S.cloneNode(T));
+                                                }
+                                                
+                                                await b(sub);
                                             }
-                                            
-                                            await b({pN: Cdoc.body});
-                                        }
-                                        finally {env = s}
-                                    },
-                                    open(target?: string, features?: string, ...args: unknown[]) {
-                                        let w = W.open(Q, target || Q, features)
-                                        ,   cr = !chWins.has(w);
-                                        if (cr) {
-                                            EL(w, 'keydown', 
-                                                (ev:KeyboardEvent) => ev.key=='Escape' && w.close()
-                                            );
-                                            EL(w, 'close', 
-                                                _ => {chWins.delete(w); wins.delete(w);} );
-                                            chWins.add(w); wins.add(w);
-                                        }
-                                        w.document.body.innerHTML=Q // Just in case an existing target was used
-                                        this.render(w, cr, args);
-                                        return w;
-                                    },
-                                    async print(...args: unknown[]) {
-                                        let f = D.createElement('iframe');
-                                        f.hidden = T;
-                                        D.body.appendChild(f);
-                                        await this.render(f.contentWindow, T, args);
-                                        f.contentWindow.print();
-                                        f.remove();
-                                    },
-                                    closeAll: () =>
-                                        wins.forEach(w => w.close())
-                                });
+                                            finally { 
+                                                // EF();    // Not needed
+                                                env = s;
+                                            }
+                                        },
+                                        open(target?: string, features?: string, ...args: unknown[]) {
+                                            let w = W.open(Q, target || Q, features)
+                                            ,   cr = !chWins.has(w);
+                                            if (cr) {
+                                                EL(w, 'keydown', 
+                                                    (ev:KeyboardEvent) => ev.key=='Escape' && w.close()
+                                                );
+                                                EL(w, 'close', 
+                                                    _ => {chWins.delete(w); wins.delete(w);} );
+                                                chWins.add(w); wins.add(w);
+                                            }
+                                            w.document.body.innerHTML=Q // Just in case an existing target was used
+                                            this.render(w, cr, args);
+                                            return w;
+                                        },
+                                        async print(...args: unknown[]) {
+                                            let f = D.createElement('iframe');
+                                            f.hidden = T;
+                                            D.body.appendChild(f);
+                                            await this.render(f.contentWindow, T, args);
+                                            f.contentWindow.print();
+                                            f.remove();
+                                        },
+                                        closeAll: () =>
+                                            wins.forEach(w => w.close())
+                                    });
+                                }
                             }
-                        }
+                        });
                         break;
-                     }
 
                     case 'RHEAD':
                         let {ws} = this;
