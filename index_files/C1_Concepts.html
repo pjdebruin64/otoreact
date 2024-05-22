@@ -252,7 +252,7 @@ It has the following own properties and methods:</p>
                 <br>When during an update the same RVAR isn't invoked anymore, or when the node or construct is removed from the DOM tree, it will be unsubscribed from the RVAR.
             </li>
             <li>
-                When <code>x.V</code> is set to a different (not <a href="{MDN}Web/JavaScript/Reference/Operators/Strict_equality">strictly equal</a>) value than it had before, then the RVAR is marked as dirty, and all RHTML code that is subscribed to it will get updated.
+                When <code>x.V</code> is set to a different (i.e. not <a href="{MDN}Web/JavaScript/Reference/Operators/Strict_equality">strictly equal</a>) value than it had before, then the RVAR is marked as dirty, and all RHTML code that is subscribed to it will get updated.
             </li>
             <li>
                 In many cases one can abbreviate <code>x.V</code> to just <code>x</code>:
@@ -263,25 +263,37 @@ It has the following own properties and methods:</p>
                             <li>
                                 As the argument of a math or string operator or function: <code>x+1</code>, <code>x > y</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
                             </li>
-                            <li>
+                            <li>             
                                 When comparing with a literal value: <code>x == 1</code>, <code>x != 'hello'</code>.
                             </li>
                             <li>In OtoReact and JavaScript interpolated strings: <code>x = \{ x \}</code>, <code>`x = $\{x}`</code></li>.
                         </ul>
                     </li>
                     <li>
-                        When the initial value of an RVAR is an object or <code>null</code>, then the RVAR is created as a <a href="Web/JavaScript/Reference/Global_Objects/Proxy">Proxy object</a>, so that one can get, set, and delete properties of its value without writing <code>.V</code>:
+                        RVAR's are <a href="Web/JavaScript/Reference/Global_Objects/Proxy">Proxy objects</a>, so that one can get, set, and delete properties of its value without writing <code>.V</code>:
                         <pre>
 let x = RVAR( '', \{prop: 0} );
 let a = x.prop;     // Same as: let a = x.V.prop
-x.prop = 1;         // Same as: x.V.prop = 1, except that x will be set dirty if (and only if) x.V.prop !== 1
-delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty if x.V</pre>
+x.prop = 1;         // Same as: x.V.prop = 1, except that x will be set dirty <i>if and only if</i> x.V.prop !== 1
+delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty if x.V.prop exists</pre>
+                        Exceptions:
+                        <ul>
+                            <li>
+                                One cannot omit <code>.V</code> when the property name is equal to one of the RVAR property or method names.
+                                <br>
+                                E.g., one cannot write <code>x.Set</code> to access <code>x.V.Set</code>.</li>
+                            <li>
+                                When calling a <i>method</i> <code>x.doSomething()</code> of <code>x.V</code>, omitting <code>.V</code>, then the value of <code>this</code> during method execution will be the RVAR proxy object <code>x</code> rather than the target object <code>x.V</code>.
+                                <br>
+                                For many method implementations this will be ok, but some methods may not work properly.
+                            </li>
+                        </ul>
                     </li>
                     <li>
                         RVAR's may be supplied as targets for all sorts of two-way properties: <code>@value="x"</code>.
                     </li>
                     <li>
-                        The <elm>FOR</elm> construct accepts RVARs: <elm>FOR let="i" of="x"</elm>
+                        The <elm>FOR</elm>, <elm>CASE</elm>, and <elm>IF</elm> constructs accept RVARs: <elm>FOR let="i" of="x"</elm>
                     </li>
                 </ol>
             </li>

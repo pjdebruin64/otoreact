@@ -198,7 +198,7 @@ type Area<RT extends object = {}, T extends true = true> = {
     prR?: Range;        // Or the next sibling of this previous range
 }
 
-/* An 'AreaR' is an Area 'ar' where 'ar.r' is a 'Range' or 'null', not just 'true' */
+/* An 'AreaR' is an Area 'a' where 'a.r' is a 'Range' or 'null', not just 'true' */
 type AreaR<RT extends object = {}> = Area<RT, never>;
 
 /* A RANGE object describe a (possibly empty) range of constructed DOM nodes, in relation to the source RHTML.
@@ -213,28 +213,28 @@ class Range<NodeType extends ChildNode = ChildNode>{
     nx: Range;         // Next range in linked list
 
     pR?: Range;       // Parent range, only when both belong to the SAME DOM node
-    pN?: false | Node;        // Parent node, only when this range has a DIFFERENT parent node than its parent range
+    pN?: false | ParentNode;        // Parent node, only when this range has a DIFFERENT parent node than its parent range
 
     constructor(
-        ar: Area             // The constructor puts the new Range into this Area
+        a: Area             // The constructor puts the new Range into this Area
     ,   n?: NodeType        // Optional DOM node
     ,   public text?: string  // Description, used only for comments
     ) {
         this.n = n;
-        if (ar) {
-            let {pR: p, prR: q} = ar;
+        if (a) {
+            let {pR: p, prR: q} = a;
             if (p && !p.n)
                 // Set the parent range, only when that range isn't a DOM node
                 this.pR = p;
             
-            // Insert this range in a linked list, as indicated by 'ar'
+            // Insert this range in a linked list, as indicated by 'a'
             if (q) 
                 q.nx = this;
             else if (p)
                 p.ch = this;
         
             // Update the area, so the new range becomes its previous range
-            ar.prR = this;
+            a.prR = this;
         }
     }
 
@@ -337,10 +337,10 @@ class Range<NodeType extends ChildNode = ChildNode>{
     and on updating it can optionally erase the range, either when the result value has changed or always.
 */
 const PrepRng = <RT extends object>(
-    ar: Area            // Given area
+    a: Area            // Given area
 ,   srcE?: HTMLElement  // Source element, just for error messages
 ,   text: string = Q    // Optional text for error messages
-,   nWipe?: 1|2         // 1=erase 'ar.r' when 'res' has changed; 2=erase always
+,   nWipe?: 1|2         // 1=erase 'a.r' when 'res' has changed; 2=erase always
 ,   res?: any           // Some result value to be remembered
 ) : {
     r: Range & Partial<RT>,     // The newly created or updated child range
@@ -348,21 +348,21 @@ const PrepRng = <RT extends object>(
     cr: booly           // True when the sub-range has to be created
 } =>
 {
-    let {pN, r} = ar as AreaR<{res?: unknown}>
-    ,   sub: Area = {pN }
+    let {pN, r} = a as AreaR<{res?: unknown}>
+    ,   sub: Area = {pN}
     ,   cr: boolean
     ;
     if (cr = !r) {
-        sub.srcN = ar.srcN;
-        sub.bfor = ar.bfor;
+        sub.srcN = a.srcN;
+        sub.bfor = a.bfor;
         
-        r = sub.pR = new Range(ar, N
+        r = sub.pR = new Range(a, N
             , srcE ? srcE.tagName + (text && ' ' + text) : text
             );
     }
     else {
         sub.r = r.ch || T;
-        ar.r = r.nx || T;
+        a.r = r.nx || T;
 
         if (cr = nWipe && (nWipe>1 || res != r.res)) {
             (sub.pR = r).erase(pN); 
@@ -379,22 +379,22 @@ const PrepRng = <RT extends object>(
     When updating, return the the range created before.
     Also returns a subarea to build or update the elements childnodes. */
 , PrepElm = <RT extends object>(
-    ar: Area 
+    a: Area 
 ,   tag: string
 ): {
     r: Range<HTMLElement> & RT, // Sub-range
     sub: Area,                  // Sub-area
     cr: boolean                 // True when the sub-range is being created
 } => {
-    let r = ar.r as Range<HTMLElement> & RT
+    let r = a.r as Range<HTMLElement> & RT
     ,   cr = !r;
     if (cr)
-        r = new Range(ar,
-                ar.srcN
-                || ar.pN.insertBefore<HTMLElement>(D.createElement(tag), ar.bfor)
+        r = new Range(a,
+                a.srcN
+                || a.pN.insertBefore<HTMLElement>(D.createElement(tag), a.bfor)
             ) as Range<HTMLElement> & RT;
     else
-        ar.r = r.nx || T;
+        a.r = r.nx || T;
 
     nodeCnt++;
     return { 
@@ -415,17 +415,17 @@ const PrepRng = <RT extends object>(
 
     On updating, update 'area' to point to the next range.
 */
-, PrepData = (ar: Area, data: string, bC?: boolean) => {
-    let r = ar.r as Range<CharacterData> & {uv?: Set<RV>};
+, PrepData = (a: Area, data: string, bC?: boolean) => {
+    let r = a.r as Range<CharacterData> & {uv?: Set<RV>};
     if (!r)
-        r = new Range(ar,
-            ar.pN.insertBefore(
+        r = new Range(a,
+            pN.insertBefore(
                 bC ? D.createComment(data) : D.createTextNode(data)
-                , ar.bfor)
+                , a.bfor)
         );
     else {
         r.n.data = data;
-        ar.r = r.nx || T;
+        a.r = r.nx || T;
     }
     nodeCnt++;
     return r;
@@ -542,7 +542,7 @@ type ConstructDef = {
 */
 type ArgSet = {[nm: string]: unknown};
 type Template =
-    (args: ArgSet, mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, ar: Area)
+    (args: ArgSet, mSlotTemplates: Map<string, Template[]>, slotEnv: Environment, a: Area)
     => Promise<void>;
 // #endregion
 
@@ -748,7 +748,7 @@ export function RVAR<T>(
 }
 
 // A subscriber to an RV<T> is either any routine on T (not having a property .T),
-// or an updating routine to some area .ar, yielding a promise that has to be awaited for,
+// or an updating routine to some area .a, yielding a promise that has to be awaited for,
 // because no two updating routines may run in parallel.
 type Subscriber<T = unknown> = 
       ((t?: T, prev?: T) => unknown);
@@ -761,8 +761,8 @@ type Job = {Ex: () => Promise<unknown> }
 
 // Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
 let env: Environment       // Current runtime environment
-,   pN: ParentNode         // Current html node
 ,   oes: OES = {e: N, s: N}    // Current onerror and onsuccess handlers
+,   pN: ParentNode         // Current html node (only for JS evaluation)
 
 // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
 ,   Jobs = new Set<Job>
@@ -893,13 +893,13 @@ class Hndlr {
             if (this.h)
                 try {
                     var {e,s} = this.oes
-                    ,   a = this.h.call(ev?.currentTarget, ev, ...r);
+                    ,   v = this.h.call(ev?.currentTarget, ev, ...r);
                     // Mimic return value treatment of 'onevent' attribute/property
-                    a === false && ev.preventDefault();
+                    v === false && ev.preventDefault();
 
-                    a instanceof Promise
+                    v instanceof Promise
                         // When the handler returns a promise, the result is awaited for before calling an onerror or onsuccess handler
-                        ? a.then(_ => s?.(ev), e)
+                        ? v.then(_ => s?.(ev), e)
                         // Otherwise call an onsuccess handler
                         : s?.(ev);
                 }
@@ -1020,31 +1020,31 @@ function ApplyAtts(
                         // Set or update a collection of class names, without disturbing classnames added by other routines
                         let p = <Set<string>>r[k]  // Previous set of classnames, possibly to be removed
                         ,   n = M.cu & 2 ? (r[k] = new Set<string>) : N; // New set of classnames to remember, onl
-                        function AC(C: string) {
-                            // Add a class name
-                            if (C) {
-                                // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
-                                p?.delete(C)
-                                    //Otherwise add it to the element
-                                    || e.classList.add(C);
-                                // And in both cases, add it to the new set
-                                n?.add(C);
-                            }
-                        }
-                        if (x)
-                            switch (typeof x) {
-                                default: throw `Invalid value`;
-                                case 'string':
-                                    // Might be multiple names
-                                    x.split(/\s+/).forEach(AC);
-                                    break;
-                                case 'object':
-                                    if (Array.isArray(x)) 
-                                        x.forEach(AC);
-                                    else
-                                        for (let [nm, b] of Object.entries(x))
-                                            b && AC(nm);
-                            }
+                        (function AC(x: any) {
+                            if (x)
+                                switch (typeof x) {
+                                    default: throw `Invalid value`;
+                                    case 'string':
+                                        // Might be multiple names
+                                        for (let C of x.split(/\s+/))
+                                            // Add a class name
+                                            if (C) {
+                                                // If this name occured in the previous set p, then remove it from this set, so it won't be removed from the element
+                                                p?.delete(C)
+                                                    //Otherwise add it to the element
+                                                    || e.classList.add(C);
+                                                // And in both cases, add it to the new set
+                                                n?.add(C);
+                                            }
+                                        break;
+                                    case 'object':
+                                        if (Array.isArray(x)) 
+                                            x.forEach(AC);
+                                        else
+                                            for (let [nm, b] of Object.entries(x))
+                                                b && AC(nm);
+                                }
+                        })(x)
                         if (p)
                             for (let v of p)
                                 e.classList.remove(v);
@@ -1089,11 +1089,11 @@ type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
 
 /* A 'DOMBuilder' is the semantics of a piece of RHTML.
     It can both build (construct, create) a new range of DOM within an Area, and update an earlier created range of DOM within that same Area.
-    The created DOM is yielded in 'ar.r'.
+    The created DOM is yielded in 'a.r'.
     'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
         false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder<RT = void|boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) 
+type DOMBuilder<RT = void|booly> = ((a: Area, bR?: boolean) => Promise<RT>) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -1327,11 +1327,12 @@ class RComp {
 
     private sPRE: Set<string>;        // Elements needing whitespace to be preserved
 
-    public async Build(ar: Area) {
+    public async Build(a: Area) {
         R = this;
         env = [];
+        pN = a.pN;
         try {
-            await this.bldr(ar);
+            await this.bldr(a);
         }
         finally {
             env = U;
@@ -1386,14 +1387,14 @@ class RComp {
                     let str = srcN.nodeValue
                     ,   getText = this.CText( str ), {fx} = getText;
                     if (fx !== Q) { // Either nonempty or undefined
-                        bl = async (ar: Area<{uv:Map<RV, booly>}, never>) => {
+                        bl = async (a: Area<{uv:Map<RV, booly>}, never>) => {
                             // Perform auto-react check on previous node, when needed
                             arA && arChk();
 
                             // Set the scene for auto-react check on this node
-                            arR = ar.r; arB = bl;                      
+                            arR = a.r; arB = bl;
                             
-                            PrepData(arA = ar, getText(), bC);
+                            PrepData(arA = a, getText(), bC);
 
                             arChk();
                         }
@@ -1411,10 +1412,10 @@ class RComp {
 
         return (L = bs.length) ?
             L < 2 ? bs[0]
-                : async function Iter(ar: Area)
+                : async function Iter(a: Area)
                 {   
                     for (let b of bs)
-                        await b(ar);
+                        await b(a);
                 }
             : N;
     }
@@ -1510,8 +1511,8 @@ class RComp {
                         ,   dSNm    = dSto && this.CPam<string>(ats, 'storename')
                         ;
 
-                        bA = async function DEF(ar, bR?) {
-                            let {cr,r} = PrepRng<{rv: RV, om: Hndlr}>(ar, srcE)
+                        bA = async function DEF(a, bR?) {
+                            let {cr,r} = PrepRng<{rv: RV, om: Hndlr}>(a, srcE)
                             ,   v: unknown;
                             // Evaluate the value only when:
                             // !r   : We are building the DOM
@@ -1626,8 +1627,8 @@ class RComp {
                             for (let sig of imps)
                                 sig.task = task;
                         
-                        bA = async function IMPORT(ar: Area) {
-                            let {sub,cr,r} = PrepRng<{v:Environment}>(ar, srcE);
+                        bA = async function IMPORT(a: Area) {
+                            let {sub,cr,r} = PrepRng<{v:Environment}>(a, srcE);
                             arA=N;
                             if (cr || bIncl) {
                                 try {
@@ -1652,10 +1653,10 @@ class RComp {
 
                     case 'REACT':
                         b = await this.CChilds(srcE);
-                        bl = b && function(ar, bR) {
-                            //let {sub} = PrepRng(ar);
-                            return !(ar.r && bR) && b(ar);
-                            //return !bR && b(ar);
+                        bl = b && function(a, bR) {
+                            //let {sub} = PrepRng(a);
+                            return !(a.r && bR) && b(a);
+                            //return !bR && b(a);
                         }
                     break;
 
@@ -1667,8 +1668,8 @@ class RComp {
                         ,   s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
                             ;
                         NoChilds(srcE);
-                        bl = async function RHTML(ar) {
-                            let {r} = PrepElm<{rR: Range, src: string}>(ar, 'r-html')
+                        bl = async function RHTML(a) {
+                            let {r} = PrepElm<{rR: Range, src: string}>(a, 'r-html')
                             ,   src = S()
                             ;
 
@@ -1702,7 +1703,6 @@ class RComp {
                                 }
                                 finally { env = sv; }
                             }
-                            pN = ar.pN;
                         };
                         break;
                     }
@@ -1725,8 +1725,8 @@ class RComp {
                         ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
                         ,   b = await RC.CChilds(srcE)
                         ;
-                        bA = async function DOCUMENT(ar: Area) {
-                            if (PrepRng(ar).cr) {
+                        bA = async function DOCUMENT(a: Area) {
+                            if (PrepRng(a).cr) {
                                 let {doc, hd} = PC
                                 ,   docEnv = env
                                 ,   wins = new Set<Window>
@@ -1793,22 +1793,23 @@ class RComp {
                     case 'RHEAD':
                         let {ws} = this;
                         this.ws = this.rt = WSpc.block;
-                        b = await this.CChilds(srcE);
-                        this.ws = ws;
-                        
-                        bl = b && (async(ar: Area) => {
-                            //PrepRng(ar, srcE);
-                            let {pN, bfor} = ar
-                            ,   p: Range;
-                            try {
-                                // Execute 'b' with the document header as parent node
-                                await b(ass(ar, {pN: this.hd, bfor: N}));
-                            }
-                            finally {
-                                if (p = ar.prR) p.pN = ar.pN;  // Allow the created range to be erased when needed
-                                ass(ar, {pN, bfor});
-                            }
+
+                        /*
+                        b = await this.CChilds(srcE);                        
+                        bl = b && (async(a: Area) => {
+                            let {sub,r} = PrepRng(a, srcE);
+                            sub.pN = r.pN = this.hd;
+                            sub.bfor = N;
+                            
+                            // Execute 'b' with the document header as parent node
+                            await b(sub);
                         });
+                        //*/
+                        //*
+                        bl = await this.CUncN(srcE,U, this.hd);
+                        //*/
+                       
+                        this.ws = ws;
                     break;
 
                     case 'STYLE': {
@@ -1851,19 +1852,19 @@ class RComp {
 
                             let b = await (sc ?
                                 ( /^local$/i.test(sc) || thro('Invalid scope')
-                            ,   (i = this.ndcl++)
-                            ,   this.rActs.push(() => this.ndcl--)
-                            ,   this.CUncN(srcE, ats)
+                                ,   (i = this.ndcl++)
+                                ,   this.rActs.push(() => this.ndcl--)
+                                ,   this.CUncN(srcE, ats)
                                 ) 
                                 : this.CIncl(srcE, ats)
                             );
 
-                            bl = b && async function RSTYLE(ar: Area) {
-                                let {r,cr,sub} = PrepElm<{cn: string, cl: string[], tx:string} & ModifierData>(ar, 'STYLE')
+                            bl = b && async function RSTYLE(a: Area) {
+                                let {r,cr,sub} = PrepElm<{cn: string, cl: string[], tx:string} & ModifierData>(a, 'STYLE')
                                 ,   k = ApplyAtts(r, cr, bf);
 
                                 if (sc) {
-                                    let txt = (await b(ar) as HTMLElement).innerText
+                                    let txt = (await b(a) as HTMLElement).innerText
                                     ,   nm =  r.cn ||= `\uFFFE${iLS++}`;
                                 
                                     if (txt != r.tx)
@@ -1877,7 +1878,6 @@ class RComp {
                                     await b(sub);
 
                                 ApplyAtts(r, cr, af, k);
-                                pN = ar.pN;
                             }
                         }
                         finally {
@@ -1897,16 +1897,15 @@ class RComp {
                         NoChilds(srcE);
                         let dN = this.CPam<string>(ats, 'name', T)
                         ,   dV = this.CPam<string>(ats, 'value', T);
-                        bl = async function ATTRIB(ar: Area){
-                            let {r,cr} = PrepRng<{v:string}>(ar, srcE)
-                            ,   e = (pN as HTMLElement)
+                        bl = async function ATTRIB(a: Area){
+                            let {r,cr} = PrepRng<{v:string}>(a, srcE)
                             ,   nm = dN();
                             if (cr)
-                                r.aD = () => e.removeAttribute(r.v);
+                                r.aD = () => (pN as HTMLElement).removeAttribute(r.v);
                             if (r.v && nm != r.v)
                                 r.aD();
                             if (r.v = nm)
-                                e.setAttribute(nm, dV());
+                                (pN as HTMLElement).setAttribute(nm, dV());
                         };
                         break;
 
@@ -1915,9 +1914,9 @@ class RComp {
                         ,   b = (this.rt = F, this.ws = WSpc.preserve,
                                     await this.CUncN(srcE)
                              );
-                        bl = async function COMMENT(ar:Area) {
-                                PrepData(ar, 
-                                    (await b(ar)).innerText
+                        bl = async function COMMENT(a:Area) {
+                                PrepData(a, 
+                                    (await b(a)).innerText
                                     , T);
                             };
                         this.ws = ws;
@@ -1946,8 +1945,8 @@ class RComp {
                     g.h = this.CHandlr(g.txt, g.at);
 
                 let b = bl;
-                bl = async function Pseu(ar: AreaR, bR) {                   
-                    let {r, sub, cr} = PrepRng<{bU: EventListener, aU: EventListener}>(ar, srcE)
+                bl = async function Pseu(a: AreaR, bR) {                   
+                    let {r, sub, cr} = PrepRng<{bU: EventListener, aU: EventListener}>(a, srcE)
                     ,   sr = sub.r || T
 
                     ,   bD = ph(bf, 'bU', sr != T && sr.n || pN);
@@ -1996,7 +1995,7 @@ class RComp {
 
                 if (m[2]) // reacton / thisreactson
                     bl = this.ErrH(
-                        function on(ar: Area, bR) {
+                        function on(a: Area, bR) {
                             // Consider the currently provided rvars
                             for (let rv of dV() as RVAR[])
                                 if (rv) {
@@ -2005,16 +2004,16 @@ class RComp {
                                     AR(rv, bA);
                                 }  
                             
-                            return b(PrepRng(ar, srcE).sub, bR);
+                            return b(PrepRng(a, srcE).sub, bR);
                         }
                         , srcE);
                 
                 else
                     bl = 
                         m[5]  // set onerror or onsuccess
-                        ? async function SetOnES(ar: Area, bR) {
+                        ? async function SetOnES(a: Area, bR) {
                             let s = oes    // Remember current setting
-                            ,   {sub, r} = PrepRng<{oes: object}>(ar, srcE, at);
+                            ,   {sub, r} = PrepRng<{oes: object}>(a, srcE, at);
 
                             // Create a copy. On updates, assign current values to the copy created before.
                             oes = ass(r.oes ||= <any>{}, oes);
@@ -2026,17 +2025,17 @@ class RComp {
                         }
 
                         : m[7]   // hash
-                        ? function HASH(ar: Area, bR) {
-                            let {sub, r,cr} = PrepRng<{v:unknown[]}>(ar, srcE, at)
+                        ? function HASH(a: Area, bR) {
+                            let {sub, r,cr} = PrepRng<{v:unknown[]}>(a, srcE, at)
                             ,   ph  = r.v;
                             r.v = <unknown[]>dV();
                             if (cr || r.v.some((hash, i) => hash !== ph[i]))
                                 return b(sub, bR);
                         }
                         : m[8]  // #if
-                        ?   function hIf(ar: Area, bR) {
+                        ?   function hIf(a: Area, bR) {
                                 let c = <booly>dr(dV())
-                                ,   p = PrepRng(ar, srcE, at, 1, !c)
+                                ,   p = PrepRng(a, srcE, at, 1, !c)
                                 if (c)
                                     return b(p.sub, bR)
                             }
@@ -2062,8 +2061,8 @@ class RComp {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled.
         // This routine also handles auto-react checking.
-        let bl = b && (async (ar: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
-            let r = ar.r;
+        let bl = b && (async (a: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
+            let r = a.r;
             if (r?.eN) {
                 // Remove an earlier error message in the DOM tree at this point
                 pN.removeChild(r.eN);
@@ -2074,19 +2073,21 @@ class RComp {
                 arA && arChk();
 
                 // Then set the scene for auto-react checking on the current node
-                arR = ar.r; arB = bl;
+                arR = a.r; arB = bl;
                 // Initiate the node builder, without awaiting the result.
                 // It is required that auto-react checking is done BEFORE awaiting any promise, and before 'env' is set to a different value.
                 // All code paths should respect that.
-                let prom = b(arA = ar, bR);
+                let prom = b(arA = a, bR);
 
                 // Now do the check, if still needed
                 arA && arChk();
 
                 // Then we can await the builder result.
                 await prom;
+                pN = a.pN;
             } 
             catch (m) {
+                pN = a.pN;
                 if (m) {
                     let msg = 
                         srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
@@ -2098,7 +2099,7 @@ class RComp {
                     this.log(msg);
                     e ? e(m)
                     : this.S.bShowErrors ?
-                        (r||{} as typeof r).eN = ar.pN.insertBefore(crErrN(msg), ar.r?.FstOrNxt)
+                        (r||{} as typeof r).eN = pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                     : U;
                     if (bA)
                         throw Q;
@@ -2130,10 +2131,10 @@ class RComp {
                         //.catch(e => {alert(e); throw e})
                         ;
 
-                return async function INCL(ar) {
-                    PrepRng(ar, srcE);
+                return async function INCL(a) {
+                    PrepRng(a, srcE);
                     arChk();
-                    let {sub,EF} = SF(ar);
+                    let {sub,EF} = SF(a);
                     await (await NoTime(task))(sub).finally(EF);
                 };
             })
@@ -2141,17 +2142,17 @@ class RComp {
             : this.CChilds(srcE, cn)
     }
 
-    private async CUncN(srcE: HTMLElement, ats?: Atts): Promise<DOMBuilder<HTMLElement>> {
+    private async CUncN(srcE: HTMLElement, ats?: Atts, pN?: ParentNode): Promise<DOMBuilder<HTMLElement>> {
         // Compile the children of an "unconnected node", that won't be included in the output DOM tree, but that yields data for some other purpose (Comment, RSTYLE).
         // When 'ats' is provided, then a 'src' attribute is accepted.
         let b = await this.CIncl(srcE, ats);
 
-        return b && (async (ar:Area) => {
-            let {r, sub} = PrepRng<{p: HTMLElement}>(ar, srcE)
-            ,   p = sub.pN = r.p ||= D.createElement(srcE.tagName);
-            r.pN = F; sub.bfor = N;
+        return b && (async (a:Area) => {
+            let {r, sub} = PrepRng(a, srcE);
+            sub.pN = r.pN ||= pN || D.createElement(srcE.tagName);
+            sub.bfor = N;
             await b(sub);
-            return p;
+            return !pN && (r.pN as HTMLElement);
         });
     }
 
@@ -2232,10 +2233,10 @@ class RComp {
                 // else (m[5] || defer) defer execution till it is required
             }
 
-            return async function SCRIPT(ar: Area) {
-                PrepRng(ar,srcE);
+            return async function SCRIPT(a: Area) {
+                PrepRng(a,srcE);
                 bU || arChk();
-                if (!ar.r || bU) {
+                if (!a.r || bU) {
                     let obj = await ex();
                     if (lvars)
                         lvars.forEach(lv => lv(obj[lv.nm]));
@@ -2351,7 +2352,7 @@ class RComp {
         this.ws = !bE && ws > postW ? ws : postW;
         this.CT = postCT;
 
-        return aList.length && async function CASE(ar: Area, bR) {
+        return aList.length && async function CASE(a: Area, bR) {
             let val = dr(dV?.())
             ,   RRE: RegExpExecArray
             ,   cAlt: Alt;
@@ -2371,17 +2372,16 @@ class RComp {
                 if (bH) {
                     // In this CASE variant, all subtrees are kept in place, some are hidden
                     for (let alt of aList) {
-                        let {r, sub, cr} = PrepElm(ar, 'WHEN');
+                        let {r, sub, cr} = PrepElm(a, 'WHEN');
                         if ( !(r.n.hidden = alt != cAlt) && !bR
                             || cr
                         )
                             await alt.b(sub);
                     }
-                    pN = ar.pN;
                 }
                 else {
                     // This is the regular CASE  
-                    let {sub, cr} = PrepRng(ar, srcE, Q, 1, cAlt);
+                    let {sub, cr} = PrepRng(a, srcE, Q, 1, cAlt);
                     if (cAlt) {
                         if (RRE)
                             RRE.shift(),
@@ -2447,10 +2447,10 @@ class RComp {
                 ;
                 // Dit wordt de runtime routine voor het updaten:
                 // bR = update root only
-                return b && async function FOR(ar: Area) {
+                return b && async function FOR(a: Area) {
                     let iter: Iterable<Item> | Promise<Iterable<Item>>
                             = dr(dOf()) || E
-                    ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>, u:number}>(ar, srcE, Q)
+                    ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>, u:number}>(a, srcE, Q)
                     ,   sEnv = {env, oes}
                     ,   u = r.u = r.u+1||0;
                     ;                            
@@ -2664,9 +2664,9 @@ class RComp {
                     ,   DC = this.LCons([S])
                     ,   b = await this.CChilds(srcE)
                     
-                    return b && async function FOREACH_Slot(ar: Area) {
+                    return b && async function FOREACH_Slot(a: Area) {
                         let {tmps, env} = dC()
-                        ,   {EF, sub} = SF(ar)
+                        ,   {EF, sub} = SF(a)
                         ,   i = 0
                         ;
                         try {
@@ -2755,11 +2755,11 @@ class RComp {
 
         DC ||= this.LCons(sigs);
 
-        return async function COMP(ar: Area) {
+        return async function COMP(a: Area) {
             // At run time, C must be cloned, as it receives its own environment
             DC(CDefs.map(C => ({...C, env})));
             
-            await b(ar);
+            await b(a);
         };
     }
 
@@ -2799,10 +2799,10 @@ class RComp {
                 args: ArgSet                        // Arguments to the template
                 , mSlots: Map<string, Template[]>   // Map of slot templates
                 , env: Environment                 // Environment to be used for the slot templates
-                , ar: Area
+                , a: Area
             ) {
                 // Handle defaults, in the constructdef environment,
-                if (!ar.r)
+                if (!a.r)
                     for (let {nm, pDf} of S.Pams)
                         if (pDf && args[nm] === U)
                             args[nm] =  pDf();
@@ -2810,7 +2810,7 @@ class RComp {
                 ro = F;
                 
                 // Start frame
-                let {sub, EF} = SF(ar);
+                let {sub, EF} = SF(a);
 
                 // Set parameter values in the new frame
                 for (let [nm,lv] of lvars)
@@ -2839,7 +2839,6 @@ class RComp {
                     sub = s;
                 }
                 await b(sub).finally(EF);
-                pN = ar.pN;
             }
         }).catch(m => { throw `<${S.nm}> template: ` + m; });
     }
@@ -2902,8 +2901,8 @@ class RComp {
         
         this.ws = WSpc.inline;
 
-        return async function INST(ar: Area, bR:booly) {
-            let {r, sub, cr} = PrepRng<{args: ArgSet}>(ar, srcE)
+        return async function INST(a: Area, bR:booly) {
+            let {r, sub, cr} = PrepRng<{args: ArgSet}>(a, srcE)
             ,   sEnv = env
             ,   cdef = dC()
             ,   args = r.args ||= {__proto__:N}
@@ -2984,10 +2983,10 @@ class RComp {
         af.length || (af=U);
 
         // Now the runtime action
-        return async function ELM(ar: Area, bR: booly) {
+        return async function ELM(a: Area, bR: booly) {
                 let {r, sub, cr} = 
                     PrepElm<ModifierData>(
-                        ar,
+                        a,
                         nm || dTag()
                     )
                 ,   k = bf && ApplyAtts(r, cr, bf)
@@ -3008,8 +3007,6 @@ class RComp {
                     await b?.(sub);
                 
                 af && ApplyAtts(r, cr, af, k, xs);
-
-                pN = ar.pN;
             };
     }
 
@@ -3406,7 +3403,7 @@ class Atts extends Map<string,string> {
 //#region Utilities
 const
     dU: DepE<any>     = _ => U             // Undefined dependent value
-,   dB: DOMBuilder  = async (ar) => {PrepRng(ar);}       // A dummy DOMBuilder
+,   dB: DOMBuilder  = async (a) => {PrepRng(a);}       // A dummy DOMBuilder
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
 ,   rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST

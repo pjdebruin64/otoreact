@@ -176,7 +176,7 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
 <ol>
     <li>
         Download OtoReact.js from the <a href="download" #onclick="reroute">download page</a> and place it somewhere on your server.
-        <br>It's less than 40 kilobyte, and has no dependencies.
+        <br>It's less than 36 kilobyte, and has no dependencies.
     </li>
     <li>
         Include the OtoReact compiler into your application:
@@ -192,7 +192,7 @@ By using file extension ".html" for RHTML files, file editors can provide HTML s
     <li>Optionally, add an <a href="docu#Options">option list</a> to the <code>rhtml</code> attribute.</li>
     <li>
         You may also want to hide all or part of your application until it has been built, e.g. by using:
-    <code><{}body rhtml hidden></code>.
+    <code><{}body rhtml hidden></code> or <code><{}body rhtml hidden="until-found"></code>.
         <br>OtoReact will unhide its target after it has been built.
     </li>
 </ol>

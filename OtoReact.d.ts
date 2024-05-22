@@ -33,8 +33,8 @@ declare class Range<NodeType extends ChildNode = ChildNode> {
     ch: Range;
     nx: Range;
     pR?: Range;
-    pN?: false | Node;
-    constructor(ar: Area, n?: NodeType, text?: string);
+    pN?: false | ParentNode;
+    constructor(a: Area, n?: NodeType, text?: string);
     toString(): string;
     get Fst(): ChildNode;
     get Nxt(): ChildNode;
@@ -89,7 +89,7 @@ type OES = {
     e: EventListener;
     s: EventListener;
 };
-type DOMBuilder<RT = void | boolean> = ((ar: Area, bR?: boolean) => Promise<RT>) & {
+type DOMBuilder<RT = void | booly> = ((a: Area, bR?: boolean) => Promise<RT>) & {
     auto?: string;
     nm?: string;
 };
