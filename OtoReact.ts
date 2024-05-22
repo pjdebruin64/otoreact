@@ -1120,7 +1120,7 @@ class RComp {
     public CT: Context         // Compile-time context
 
     private doc: Document;
-    private bDR: 0|1;
+    private bDR: 1|0;           // Dollar required yes or no
 
     // During compilation: node to which all static stylesheets are moved
     public hd: HTMLHeadElement|DocumentFragment|ShadowRoot;
@@ -1448,7 +1448,9 @@ class RComp {
                 // Pre-declared variables for various purposes
             ,   b: DOMBuilder
             ,   m: RegExpExecArray
-            ,   nm: string;
+            ,   nm: string
+            
+            ,   ws = this.ws;
 
                 // Check for generic attributes
             for (let [at] of ats)
@@ -1661,8 +1663,7 @@ class RComp {
                     break;
 
                     case 'RHTML': {
-                        let {ws,rt} = this
-                        ,   S = this.CPam<string>(ats, 'srctext',T)
+                        let S = this.CPam<string>(ats, 'srctext',T)
                             // Undocumented feature: a pseudo-event fired after the compile phase
                         ,   dO = this.CPam<EventListener>(ats, "onc")
                         ,   s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
@@ -1675,8 +1676,7 @@ class RComp {
 
                             if (src != r.src) {
                                 let sv = env
-                                ,   C = ass( new RComp(N, L.origin + dL.basepath, s)
-                                            , {ws,rt})
+                                ,   C = new RComp(N, L.origin + dL.basepath, s)
                                 ,   sh = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
                                 ,   pR = r.rR ||= new Range(N, N, tag)
                                 ,   tmp = D.createElement(tag)
@@ -1693,6 +1693,7 @@ class RComp {
                                     // Parsing
                                     tmp.innerHTML = r.src = src;
                                     // Compiling
+                                    C.ws = ws;
                                     await C.Compile(tmp, tmp.childNodes);
                                     dO && dO()(U);
                                     // Building
@@ -1715,99 +1716,90 @@ class RComp {
                         bA = await this.CComp(srcE, ats);
                         break;
 
-                    case 'DOCUMENT': {
-                        let vNm = this.LV(ats.g('name', T))
-                        ,   bEncaps = ats.gB('encapsulate')
-                        ,   PC = this
-                        ,   RC = new RComp(this)
-                        ,   vPams = RC.LVars(ats.g('params'))
-                        ,   vWin = RC.LV(ats.g('window',F,F,T))
-                        ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
-                        ,   b = await RC.CChilds(srcE)
-                        ;
-                        bA = async function DOCUMENT(a: Area) {
-                            if (PrepRng(a).cr) {
-                                let {doc, hd} = PC
-                                ,   docEnv = env
-                                ,   wins = new Set<Window>
-                                ;
-                                //Set the 'name' variable to an object containing the wanted routines
-                                vNm({
-                                    async render(w: Window, cr: boolean, args: unknown[]) {
-                                        let s = env
-                                        ,   Cdoc = RC.doc = w.document
-                                        ;
-                                        RC.hd = Cdoc.head;
-                                        env = docEnv;
-                                        SetLVs(vPams, args);
-                                        vWin(w);
-                                        try {
-                                            if (cr) {
-                                                if (!bEncaps)
-                                                    // Copy all style sheet rules of parent document
-                                                    for (let SSh of (hd as ShadowRoot).styleSheets || doc.styleSheets) {
-                                                        let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
-                                                        for (let rule of SSh.cssRules) 
-                                                            DSh.insertRule(rule.cssText);
-                                                    }
-                                                // Copy static style sheets of document template
-                                                for (let S of H.childNodes)
-                                                    Cdoc.head.append(S.cloneNode(T));
+                    case 'DOCUMENT': 
+                        let vNm = this.LV(ats.g('name', T));
+                        bA = await this.Framed(async SF => {
+                            let   bEncaps = ats.gB('encapsulate')
+                            ,   PC = this
+                            ,   RC = new RComp(this)
+                            ,   vPams = RC.LVars(ats.g('params'))
+                            ,   vWin = RC.LV(ats.g('window',F,F,T))
+                            ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
+                            ,   b = await RC.CChilds(srcE)
+                            ;
+                            return async function DOCUMENT(a: Area) {
+                                if (PrepRng(a).cr) {
+                                    let {doc, hd} = PC
+                                    ,   docEnv = env
+                                    ,   wins = new Set<Window>
+                                    ;
+                                    //Set the 'name' variable to an object containing the wanted routines
+                                    vNm({
+                                        async render(w: Window, cr: boolean, args: unknown[]) {
+                                            let s = env
+                                            ,   Cdoc = RC.doc = w.document
+                                            ;
+                                            RC.hd = Cdoc.head;
+                                            env = docEnv;
+                                            let {sub} = SF({pN: Cdoc.body})
+                                            SetLVs(vPams, args);
+                                            vWin(w);
+                                            try {
+                                                if (cr) {
+                                                    if (!bEncaps)
+                                                        // Copy all style sheet rules of parent document
+                                                        for (let SSh of (hd as ShadowRoot).styleSheets || doc.styleSheets) {
+                                                            let DSh = Cdoc.head.appendChild(D.createElement('style')).sheet;
+                                                            for (let rule of SSh.cssRules) 
+                                                                DSh.insertRule(rule.cssText);
+                                                        }
+                                                    // Copy static style sheets of document template
+                                                    for (let S of H.childNodes)
+                                                        Cdoc.head.append(S.cloneNode(T));
+                                                }
+                                                
+                                                await b(sub);
                                             }
-                                            
-                                            await b({pN: Cdoc.body});
-                                        }
-                                        finally {env = s}
-                                    },
-                                    open(target?: string, features?: string, ...args: unknown[]) {
-                                        let w = W.open(Q, target || Q, features)
-                                        ,   cr = !chWins.has(w);
-                                        if (cr) {
-                                            EL(w, 'keydown', 
-                                                (ev:KeyboardEvent) => ev.key=='Escape' && w.close()
-                                            );
-                                            EL(w, 'close', 
-                                                _ => {chWins.delete(w); wins.delete(w);} );
-                                            chWins.add(w); wins.add(w);
-                                        }
-                                        w.document.body.innerHTML=Q // Just in case an existing target was used
-                                        this.render(w, cr, args);
-                                        return w;
-                                    },
-                                    async print(...args: unknown[]) {
-                                        let f = D.createElement('iframe');
-                                        f.hidden = T;
-                                        D.body.appendChild(f);
-                                        await this.render(f.contentWindow, T, args);
-                                        f.contentWindow.print();
-                                        f.remove();
-                                    },
-                                    closeAll: () =>
-                                        wins.forEach(w => w.close())
-                                });
+                                            finally { 
+                                                // EF();    // Not needed
+                                                env = s;
+                                            }
+                                        },
+                                        open(target?: string, features?: string, ...args: unknown[]) {
+                                            let w = W.open(Q, target || Q, features)
+                                            ,   cr = !chWins.has(w);
+                                            if (cr) {
+                                                EL(w, 'keydown', 
+                                                    (ev:KeyboardEvent) => ev.key=='Escape' && w.close()
+                                                );
+                                                EL(w, 'close', 
+                                                    _ => {chWins.delete(w); wins.delete(w);} );
+                                                chWins.add(w); wins.add(w);
+                                            }
+                                            w.document.body.innerHTML=Q // Just in case an existing target was used
+                                            this.render(w, cr, args);
+                                            return w;
+                                        },
+                                        async print(...args: unknown[]) {
+                                            let f = D.createElement('iframe');
+                                            f.hidden = T;
+                                            D.body.appendChild(f);
+                                            await this.render(f.contentWindow, T, args);
+                                            f.contentWindow.print();
+                                            f.remove();
+                                        },
+                                        closeAll: () =>
+                                            wins.forEach(w => w.close())
+                                    });
+                                }
                             }
-                        }
+                        });
                         break;
-                     }
 
                     case 'RHEAD':
-                        let {ws} = this;
                         this.ws = this.rt = WSpc.block;
 
-                        /*
-                        b = await this.CChilds(srcE);                        
-                        bl = b && (async(a: Area) => {
-                            let {sub,r} = PrepRng(a, srcE);
-                            sub.pN = r.pN = this.hd;
-                            sub.bfor = N;
-                            
-                            // Execute 'b' with the document header as parent node
-                            await b(sub);
-                        });
-                        //*/
-                        //*
                         bl = await this.CUncN(srcE,U, this.hd);
-                        //*/
                        
                         this.ws = ws;
                     break;
@@ -1842,7 +1834,7 @@ class RComp {
                     }
 
                     case 'RSTYLE': {
-                        let s: [0|1, WSpc] = [this.bDR, this.ws]
+                        let dr = this.bDR
                         ,   sc = ats.g('scope')
                         ,   {bf,af} = this.CAtts(ats)
                         ,   i: number
@@ -1881,7 +1873,7 @@ class RComp {
                             }
                         }
                         finally {
-                            [this.bDR, this.ws] = s;
+                            this.bDR = dr; this.ws = ws;
                         }
                         break;
                     }
@@ -1909,19 +1901,17 @@ class RComp {
                         };
                         break;
 
-                    case 'COMMENT': {
-                        let {ws} = this
-                        ,   b = (this.rt = F, this.ws = WSpc.preserve,
-                                    await this.CUncN(srcE)
-                             );
+                    case 'COMMENT':
+                        this.rt = F;
+                        this.ws = WSpc.preserve
+                        let c = await this.CUncN(srcE);
                         bl = async function COMMENT(a:Area) {
                                 PrepData(a, 
-                                    (await b(a)).innerText
+                                    (await c(a)).innerText
                                     , T);
                             };
                         this.ws = ws;
                         break;
-                    }
                     
                     default:             
                         /* It's a regular element that should be included in the runtime output */
@@ -2142,17 +2132,19 @@ class RComp {
             : this.CChilds(srcE, cn)
     }
 
-    private async CUncN(srcE: HTMLElement, ats?: Atts, pN?: ParentNode): Promise<DOMBuilder<HTMLElement>> {
-        // Compile the children of an "unconnected node", that won't be included in the output DOM tree, but that yields data for some other purpose (Comment, RSTYLE).
+    private async CUncN(srcE: HTMLElement, ats?: Atts, p: ParentNode|false = F): Promise<DOMBuilder<HTMLElement>> {
+        // Compile the children of an "unconnected node", that won't be included in the output DOM tree,
+        // but that yields data for some other purpose (Comment, RSTYLE).
         // When 'ats' is provided, then a 'src' attribute is accepted.
         let b = await this.CIncl(srcE, ats);
 
         return b && (async (a:Area) => {
-            let {r, sub} = PrepRng(a, srcE);
-            sub.pN = r.pN ||= pN || D.createElement(srcE.tagName);
+            let {r, sub} = PrepRng<{p: ParentNode}>(a, srcE);
+            pN = sub.pN = r.p ||= (r.pN = p) || D.createElement(srcE.tagName);
             sub.bfor = N;
-            await b(sub);
-            return !pN && (r.pN as HTMLElement);
+            try { await b(sub); }
+            finally {pN = a.pN; } 
+            return !p && (r.p as HTMLElement);
         });
     }
 
