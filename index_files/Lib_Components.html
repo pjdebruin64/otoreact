@@ -7,7 +7,6 @@
         <template><a. #href="href"
             #target="!target && /^http/i.test(href) ? '_blank' : target"
             #style.fontWeight="href == (docLocation.subpath || '.') || href==location.hash ? 'bold' : null"
-            _#onclick="/^(https?:|#)/i.test(href) ? null : reroute"
             ...rest
             ><content></content></a.
         ></template>

@@ -663,10 +663,9 @@ export class RV<T = unknown> {
 
     valueOf()  { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
-    // Just in case this.V is a RegEp
-    test(x: string) {
-        return (this.V as RegExp).test(x);
-    }
+    // Just in case this.V is a RegEp,
+    // because RegExp.test doesn't work when 'this' is a proxy
+    //test(x: string) { return (this.V as RegExp).test(x); }
 }
 // An RVAR<T> is a proxy to an instance of RV<T>, that also supports the properties of T itself.
 export type RVAR<T = any> = // RV<T> & T
@@ -684,7 +683,16 @@ const
     ProxH: ProxyHandler<RV<object>> = 
     {
         get(rv: RV, p) {
-            return p in rv ? rv[p] : rv.V?.[p];
+            //return (p in rv ? rv : rv.V)?.[p];
+            if (p in rv) return rv[p];
+
+            let
+            //  ob = p in rv ? rv : rv.V
+                ob = rv.V
+            ,   v = ob?.[p]
+            ;
+            // When the value is a method, bind it to the object, not to the proxy           
+            return v instanceof Function ? v.bind(ob) : v;
         },
 
         set(rv: RV, p, v) {
@@ -1822,7 +1830,7 @@ class RComp {
                             this.rActs.push(() => this.lscl = l);
                         }
 
-                        (src ? this.FetchText(src) : Promise.resolve(srcE.innerText))
+                        (src ? this.FetchT(src) : Promise.resolve(srcE.innerText))
                             .then(txt => {
                                 if (src || nm)
                                     srcE.innerHTML = AddC(txt, nm);
@@ -2179,7 +2187,7 @@ class RComp {
                  = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    V(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`
+                    V(US + `(function([${ct}]){{\n${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`
                     ) as DepE<object>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
@@ -2211,7 +2219,7 @@ class RComp {
             else {
                 // Classic or otoreact/static or otoreact/global script
                 let pTxt: Promise<string>
-                    = (async() => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)()
+                    = (async() => `${m[5] ? US : Q}${src ? await this.FetchT(src) : text}\n;({${defs}})`)()
                 ,   Xs: Array<unknown>;
                 // Routine to initiate execution, at most once
                 ex = async() => Xs ||= V(await pTxt);
@@ -2939,7 +2947,8 @@ class RComp {
         // Remember preceeding whitespace-mode
         ,   preW = this.ws
         // Whitespace-mode after this element
-        ,   postW: WSpc;
+        ,   postW: WSpc
+        , m: RegExpExecArray;
 
         // Preserve whitespace when style.whiteSpace is pre, pre-wrap, pre-line or break-spaces
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
@@ -2947,12 +2956,9 @@ class RComp {
         //if (/^.r/.test(getComputedStyle(srcE).whiteSpace)) {
             this.ws = WSpc.preserve; postW = WSpc.block;
         }
-        else if (rBlock.test(nm))
-            this.ws = this.rt = postW = WSpc.block;
-        
-        else if (rInline.test(nm)) {  // Inline-block
+        else if (m = rBlock.exec(nm)) {
             this.ws = this.rt = WSpc.block;
-            postW = WSpc.inline;
+            postW = m[2] ? WSpc.inline : WSpc.block;
         }
         
         if (preW == WSpc.preserve)
@@ -3310,7 +3316,7 @@ class RComp {
     }
 
     // Fetches text from an URL
-    async FetchText(src: string): Promise<string> {
+    async FetchT(src: string): Promise<string> {
         return (
             await RFetch(this.gURL(src), {headers: this.S.headers})
         ).text();
@@ -3319,21 +3325,21 @@ class RComp {
     // Fetch an RHTML module, either from a <MODULE id> element within the current document,
     // or else from an external file
     async fetchM(src: string): Promise<Iterable<ChildNode>> {
-        let m = this.doc.getElementById(src);
+        let m = this.doc.getElementById(src), M='MODULE';
         if (!m) {
             // External
-            let {head,body} = P.parseFromString(await this.FetchText(src), 'text/html') as Document
+            let {head,body} = P.parseFromString(await this.FetchT(src), 'text/html') as Document
             ,   e = body.firstElementChild as HTMLElement
             ;
             // If the file contains a <MODULE> element we will return its children.
-            if (e?.tagName != 'MODULE')
+            if (e?.tagName != M)
                 // If not, we return everything: the document head and body concatenated
                 return [...head.childNodes, ...body.childNodes];
 
             m = e;
         }
-        else if (m.tagName != 'MODULE') 
-            throw `'${src}' must be a <MODULE>`;
+        else if (m.tagName != M) 
+            throw `'${src}' must be a <${M}>`;
         return m.childNodes;
     }
 }
@@ -3398,8 +3404,8 @@ const
 ,   dB: DOMBuilder  = async (a) => {PrepRng(a);}       // A dummy DOMBuilder
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
-,   rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
-,   rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/     // Elements that trigger inline mode before/after
+    // and Inline elements with block mode contents
+,   rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE|(BUTTON|INPUT|IMG|SELECT|TEXTAREA))$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
 
     // Routine to add a class name to all selectors in a style sheet
 ,   AddC = (txt: string, nm: string) =>

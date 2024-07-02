@@ -302,13 +302,13 @@ export class RV {
     }
     valueOf() { return this.V?.valueOf(); }
     toString() { return this.V?.toString() ?? Q; }
-    test(x) {
-        return this.V.test(x);
-    }
 }
 const ProxH = {
     get(rv, p) {
-        return p in rv ? rv[p] : rv.V?.[p];
+        if (p in rv)
+            return rv[p];
+        let ob = rv.V, v = ob?.[p];
+        return v instanceof Function ? v.bind(ob) : v;
     },
     set(rv, p, v) {
         if (p in rv)
@@ -890,7 +890,7 @@ class RComp {
                             this.lscl = [...l, nm];
                             this.rActs.push(() => this.lscl = l);
                         }
-                        (src ? this.FetchText(src) : Promise.resolve(srcE.innerText))
+                        (src ? this.FetchT(src) : Promise.resolve(srcE.innerText))
                             .then(txt => {
                             if (src || nm)
                                 srcE.innerHTML = AddC(txt, nm);
@@ -1110,7 +1110,7 @@ class RComp {
         if (m[5] && (!m[10] || thro("Invalid script type"))
             || m[2] != N && this.S.bSubf) {
             if (m[9]) {
-                let prom = (async () => V(US + `(function([${ct}]){{\n${src ? await this.FetchText(src) : text}\nreturn{${defs}}}})`))();
+                let prom = (async () => V(US + `(function([${ct}]){{\n${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`))();
                 ex = async () => (await prom)(env);
             }
             else if (m[4] || m[11])
@@ -1118,7 +1118,7 @@ class RComp {
                     ? import(this.gURL(src))
                     : import(src = URL.createObjectURL(new Blob([text.replace(/\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g, (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
             else {
-                let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchText(src) : text}\n;({${defs}})`)(), Xs;
+                let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchT(src) : text}\n;({${defs}})`)(), Xs;
                 ex = async () => Xs || (Xs = V(await pTxt));
                 if (src && async)
                     ex();
@@ -1519,16 +1519,14 @@ class RComp {
         };
     }
     async CHTML(srcE, ats, dTag) {
-        let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q), preW = this.ws, postW;
+        let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q), preW = this.ws, postW, m;
         if (this.sPRE.has(nm) || /^.re/.test(srcE.style.whiteSpace)) {
             this.ws = 4;
             postW = 1;
         }
-        else if (rBlock.test(nm))
-            this.ws = this.rt = postW = 1;
-        else if (rInline.test(nm)) {
+        else if (m = rBlock.exec(nm)) {
             this.ws = this.rt = 1;
-            postW = 3;
+            postW = m[2] ? 3 : 1;
         }
         if (preW == 4)
             postW = preW;
@@ -1738,19 +1736,19 @@ class RComp {
     GetP(src) {
         return this.gURL(src).replace(/[^/]*$/, Q);
     }
-    async FetchText(src) {
+    async FetchT(src) {
         return (await RFetch(this.gURL(src), { headers: this.S.headers })).text();
     }
     async fetchM(src) {
-        let m = this.doc.getElementById(src);
+        let m = this.doc.getElementById(src), M = 'MODULE';
         if (!m) {
-            let { head, body } = P.parseFromString(await this.FetchText(src), 'text/html'), e = body.firstElementChild;
-            if (e?.tagName != 'MODULE')
+            let { head, body } = P.parseFromString(await this.FetchT(src), 'text/html'), e = body.firstElementChild;
+            if (e?.tagName != M)
                 return [...head.childNodes, ...body.childNodes];
             m = e;
         }
-        else if (m.tagName != 'MODULE')
-            throw `'${src}' must be a <MODULE>`;
+        else if (m.tagName != M)
+            throw `'${src}' must be a <${M}>`;
         return m.childNodes;
     }
 }
@@ -1789,7 +1787,7 @@ class Atts extends Map {
             throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
     }
 }
-const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE)$/, rInline = /^(BUTTON|INPUT|IMG|SELECT|TEXTAREA)$/, AddC = (txt, nm) => nm ? txt.replaceAll(/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi, (m, p) => p ? `${m}.${nm}` : m)
+const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE|(BUTTON|INPUT|IMG|SELECT|TEXTAREA))$/, AddC = (txt, nm) => nm ? txt.replaceAll(/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi, (m, p) => p ? `${m}.${nm}` : m)
     : txt, Cnms = { __proto__: N }, ChkNm = (obj, nm) => {
     let c = Cnms[nm], r;
     if (!c) {

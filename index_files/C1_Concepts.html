@@ -22,12 +22,12 @@ means:
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces: <idemo src="1 + 1 = \{1 + 1}"></idemo>
-<br>This is called <a href="{wiki}String_interpolation">string interpolation</a> or, in JavaScript terminology, 'template literals'.
+<br>This is called <a href="{wiki}String_interpolation" rel="nofollow">string interpolation</a> or, in JavaScript terminology, 'template literals'.
 
 <p>
-    The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection">code injection</a>.
+    The expressions are evaluated, converted to string, and inserted <i>as text</i>; there is absolutely no risk of <a href="{wiki}Code_injection" rel="nofollow">code injection</a>.
 </p>
-<p>Within JavaScript, you can of course use the <a href="{MDN}Web/JavaScript/Reference/Template_literals"></a>JavaScript syntax for template literals</a>, using backquotes and dollar signs:</p>
+<p>Within JavaScript, you can of course use the <MDN href="JavaScript/Reference/Template_literals"></MDN>JavaScript syntax for template literals</a>, using backquotes and dollar signs:</p>
 <pre>let x = `Some text ${<i>expression</i>} et cetera`;</pre>
 <p>
     If you prefer, you may add a dollar sign in RHTML as well: <idemo src="1 + 1 = $\{1 + 1}"></idemo>
@@ -118,11 +118,11 @@ The OtoReact module makes the following functions available for import. They are
         <code>reroute()</code> and <code>docLocation</code> are used with <a href=#URLRouting>URL routing</a>.
     </li>
     <li>
-        <code>debug()</code> is a very simple utility to insert a breakpoint within a JavaScript expression, using the <a href="{MDN}Web/JavaScript/Reference/Operators/Comma_operator">comma operator</a> like <code>debug(),<i>expr</i></code>.
-        <br>The routine executes the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>, so that one can e.g. inspect the value of local variables just before <i>expr</i> is evaluated.
+        <code>debug()</code> is a very simple utility to insert a breakpoint within a JavaScript expression, using the <MDN href="JavaScript/Reference/Operators/Comma_operator">comma operator</MDN> like <code>debug(),<i>expr</i></code>.
+        <br>The routine executes the <MDN href="JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</MDN>, so that one can e.g. inspect the value of local variables just before <i>expr</i> is evaluated.
     </li>
     <li id=RFetch>
-        * <code>RFetch(resource, init?)</code> is the same as <a href="{MDN}Web/API/fetch"><code>fetch(resource, init?)</code></a>, except that it throws an error when an HTTP error status is  received.
+        * <code>RFetch(resource, init?)</code> is the same as <MDN href="API/fetch"><code>fetch(resource, init?)</code></MDN>, except that it throws an error when an HTTP error status is  received.
     </li>
     <li>
         * <code>RCompile(HTMLElement, options?)</code> is available as an alternative way to initiate RHTML compilation.
@@ -166,7 +166,7 @@ Browser-based JavaScript also has a distinction between <i>classic</i> JavaScrip
     </li>
 </ul>
 <p>
-    RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
+    RHTML local variable names obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope" rel="nofollow">lexical scoping</a> rules, see <a href="#lexicalScoping"><elm>DEFINE</elm></a> for a demonstration.
 </p>
 <p>RHTML local variables are <u>not</u> visible within non-local <elm>SCRIPT</elm> embedded or external scripts; these scripts are executed just once in global scope.</p>
 
@@ -177,7 +177,7 @@ Global variables are visible in RHTML inline scripts, of course.
 </p>
 <ul>
     <li>
-        Either as properties of the JavaScript <a href="{MDN}Glossary/Global_object">global object</a>, which is preferably refered to as <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></a>:
+        Either as properties of the JavaScript <a href="{MDN}Glossary/Global_object" rel="nofollow">global object</a>, which is preferably refered to as <MDN href="JavaScript/Reference/Global_Objects/globalThis"><code>globalThis</code></MDN>:
         <pre>globalThis.<i>varName</i> = <i>value</i>;</pre>
         In web browsers, the global object is commonly named "<code>window</code>" or "<code>self</code>", but in other JavaScript environments it is named otherwise, and using "<code>window</code>" causes confusion with real window properties. Hence ECMAScript 2020 introduced the new cross-platform name <code>globalThis</code> to refer to the global object, and we suggest you use this rather than <code>window</code> or <code>self</code>.
     </li>
@@ -218,7 +218,7 @@ Global variables are visible in RHTML inline scripts, of course.
     <dt><code>initialValue</code></dt>
     <dd>
         Provides the initial value of the RVAR.
-        <br>When <code>initialValue</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the RVAR will initially be <code>undefined</code>, and when the promise resolves to a value, then the RVAR will be set to that value.
+        <br>When <code>initialValue</code> is a <MDN href="JavaScript/Reference/Global_Objects/Promise">Promise</MDN>, then the value of the RVAR will initially be <code>undefined</code>, and when the promise resolves to a value, then the RVAR will be set to that value.
     </dd>
     <dt><code>store</code>*</dt>
     <dd>
@@ -252,13 +252,13 @@ It has the following own properties and methods:</p>
                 <br>When during an update the same RVAR isn't invoked anymore, or when the node or construct is removed from the DOM tree, it will be unsubscribed from the RVAR.
             </li>
             <li>
-                When <code>x.V</code> is set to a different (i.e. not <a href="{MDN}Web/JavaScript/Reference/Operators/Strict_equality">strictly equal</a>) value than it had before, then the RVAR is marked as dirty, and all RHTML code that is subscribed to it will get updated.
+                When <code>x.V</code> is set to a different (i.e. not <MDN href="JavaScript/Reference/Operators/Strict_equality">strictly equal</MDN>) value than it had before, then the RVAR is marked as dirty, and all RHTML code that is subscribed to it will get updated.
             </li>
             <li>
                 In many cases one can abbreviate <code>x.V</code> to just <code>x</code>:
                 <ol>
                     <li>
-                        The <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</a> and <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Object/toString">toString</a> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead, e.g.:
+                        The <MDN href="JavaScript/Reference/Global_Objects/Object/valueOf">valueOf</MDN> and <MDN href="JavaScript/Reference/Global_Objects/Object/toString">toString</MDN> methods of an RVAR operate on <code>x.V</code>, so that whenever <code>x</code> is used in a context where a literal value is expected, <code>x.V</code> will be used instead, e.g.:
                         <ul>
                             <li>
                                 As the argument of a math or string operator or function: <code>x+1</code>, <code>x > y</code>, <code>Math.max(x, y)</code>, and also <code>range(x, y)</code>
@@ -355,7 +355,7 @@ delete x.prop;      // Same as: delete x.V.prop, except that x will be set dirty
 
     <dt><code class=sourcecode>x.Set(value)</code> *</dt>
     <dd>
-        Sets <code>x.V</code> either synchronously, or asynchronously when <code>value</code> is a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>.
+        Sets <code>x.V</code> either synchronously, or asynchronously when <code>value</code> is a <MDN href="JavaScript/Reference/Global_Objects/Promise">Promise</MDN>.
         <p>
             When it is a Promise, then <code>x.V</code> will initially be <code>undefined</code>, and when the promise resolves to a value, then <code>x.V</code> will be set to that value.
         </p>
@@ -384,7 +384,7 @@ When you provide a <code>store</code> parameter to <code>RVAR()</code> or to <a 
 <ul>
     <li><code>sessionStorage</code>, meaning that the value will be restored when the user reloads the page, or leaves it and returns again while staying in the same browser window</li>
     <li><code>localStorage</code>, meaning that the value will be preserved in local browser storage and restored when the user returns to the same site in the same browser on the same machine</li>
-    <li>Any other object that supports the <code>setItem</code> and <code>getItem</code> methods of the <a href="{MDN}Web/API/Storage">Storage interface</a>.
+    <li>Any other object that supports the <code>setItem</code> and <code>getItem</code> methods of the <MDN href="API/Storage">Storage interface</MDN>.
         <br>It could be an object that saves values to a database.
     </li>
 </ul>
@@ -450,7 +450,7 @@ OtoReact's RHTML compiler does not, as one might perhaps expect, translate the w
         <br>It will do so again anytime the DOM tree changes.
     </li>
     <li>
-        Whenever some RVAR is being marked dirty by a user event or otherwise, it will schedule (by <a href="{MDN}Web/API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></a>) all reacting DOM tree parts to be updated by their registered builder routine in its registered environment.
+        Whenever some RVAR is being marked dirty by a user event or otherwise, it will schedule (by <MDN href="API/WindowOrWorkerGlobalScope/setTimeout"><code>setTimeout</code></MDN>) all reacting DOM tree parts to be updated by their registered builder routine in its registered environment.
         <br>The updating takes place at the next 'event cycle'.
         <br>While updating, all present HTML elements will remain in place as much as possible, so that any elements that had received focus or input data will keep that.
     </li>
@@ -498,7 +498,7 @@ Using the browser HTML parser inflicts on us some limitations, as the parser isn
 `<p> … 
 <if …><ul> … </ul></if>`
                 "></pre>
-                , without closing the <elm>p</elm>, perhaps because you know the parser will automatically close it when needed, or because you didn't know block-level element <a href="{MDN}Web/HTML/Element/ul"><elm>ul</elm></a> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> before the <elm>ul</elm> but <i>after</i> the <elm>if</elm>, because <elm>if</elm> is unknown to the parser.
+                , without closing the <elm>p</elm>, perhaps because you know the parser will automatically close it when needed, or because you didn't know block-level element <MDN href="HTML/Element/ul"><elm>ul</elm></MDN> is not allowed inside <elm>p</elm>, then the parser will silently close the <elm>p</elm> before the <elm>ul</elm> but <i>after</i> the <elm>if</elm>, because <elm>if</elm> is unknown to the parser.
                 <br>So the <elm>ul</elm> ends up <i>outside</i> the <elm>if</elm>, without you or OtoReact being informed:
                 <pre #innertext="
 `<p> … <if …></if></p>
@@ -532,7 +532,7 @@ Using the browser HTML parser inflicts on us some limitations, as the parser isn
     <ol>
         <li>Outcomment or remove your compiler invocation, like <code>_RHTML</code> or <code>// RCompile(&hellip;)</code></li>
         <li>Reload your application</li>
-        <li>Inspect the parsed DOM-tree using your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools">developer tools</a>. Either:
+        <li>Inspect the parsed DOM-tree using your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools" rel="nofollow">developer tools</a>. Either:
             <ul>
                 <li>Right click in your document and select 'Inspect'</li>
                 <li>Press F12 or Ctrl-Shift-I or Cmd-Option-I and select tab 'Elements' (Chrome) or 'Inspector' (Firefox)</li>
@@ -550,8 +550,8 @@ Using the browser HTML parser inflicts on us some limitations, as the parser isn
         When some JavaScript code doesn't work as expected, you may want to insert a breakpoint:
         <ul>
             <li>
-                Inside an event handler or some other block of JavaScript statements, insert the <a href="{MDN}Web/JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</a>.
-                <br>Then when you open your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools">developer tools</a> as above, the JavaScript engine will enter break mode when the statement is hit.
+                Inside an event handler or some other block of JavaScript statements, insert the <MDN href="JavaScript/Reference/Statements/debugger"><code>debugger</code> statement</MDN>.
+                <br>Then when you open your browsers <a href="{MDN}Learn/Common_questions/Tools_and_setup/What_are_browser_developer_tools" rel="nofollow">developer tools</a> as above, the JavaScript engine will enter break mode when the statement is hit.
             </li>
             <li>
                 A breakpoint may be placed before a JavaScript expression by prefixing it with a call to OtoReacts <code>debug</code> function, like: <code>debug(),<i>expr</i></code>.

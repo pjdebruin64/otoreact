@@ -38,7 +38,7 @@
 <h2>What is it?</h2>
 
 <p>
-    '<i>Reactive web applications</i>', or '<a href="{wiki}Single-page_application">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or the receival of server data requested by the application, instead of having the web server generate and send a new HTML page.
+    '<i>Reactive web applications</i>', or '<a href="{wiki}Single-page_application" rel="nofollow">Single Page Applications</a>', are web applications that, when possible, react immediately on user input, timer events etc, or the receival of server data requested by the application, instead of having the web server generate and send a new HTML page.
     <br>This results in both a much better user experience and much less server load.
 </p>
 <p>
@@ -47,7 +47,7 @@
 </p>
 <p>
     Reactivity is attained by means of JavaScript programming code running inside the web browser. The JavaScript code has to manipulate the so-called "DOM" ("Document Object Model"), which is the internal object model of a web page ("document").
-    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks"><i>framework</i></a> makes it much easier to create reactive web applications.
+    <br>Writing such JavaScript by hand can get quite complicated and might result in very cluttered programming code. A <a href="{MDN}Learn/Tools_and_testing/Client-side_JavaScript_frameworks" rel="nofollow"><i>framework</i></a> makes it much easier to create reactive web applications.
 </p>
 <p>
     <b>OtoReact</i></b> is a small and fast framework library to attain reactivity by loading so-called <b>Reactive HTML</b>, or <b>RHTML</b>, <i>straight into the browser</i>:
@@ -59,7 +59,7 @@
     <li>Reactive HTML is easy to learn, and one doesn't need to install a compiler, a bunch of libraries, node.js, or <i>anything</i>.
         <br>Just a text editor (like <a href="https://code.visualstudio.com/">Visual Studio Code</a>) suffices.</li>
     <li>Reactive HTML makes it easy to build dynamic <a href="#colorTable">pages based on data</a>, even if no reactivity is needed.</li>
-    <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
+    <li>Reactive HTML makes it easy to follow the <a href="{wiki}Model–view–controller" rel="nofollow"><i>Model-view-controller</i></a> design pattern, separating your data model and program logic from the presentation.</li>
     <li>Reactive HTML can build dynamic CSS style sheets; you may not need a separate CSS framework.</li>
     <li>Reactive HTML has a powerful <a href="docu#COMPONENT">component system</a>, <a. href="./routing" #onclick="reroute">URL routing</a.>, <a href="docu#onerror">global error handling</a>, some <a href="docu#Persistence">persistence</a>, et cetera.
         <ul>
@@ -96,7 +96,7 @@ See also <a href="#WhyOtoReact">Why OtoReact</a>.
         <code>@value="yourName"</code> or <code>@value="yourName.V"</code> binds the value of the reactive variable to the value of the input element. Whenever the input element receives input, OtoReact will update the reactive variable and all document content that reacts on it.
     </li>
     <li>
-        <elm>IF cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
+        <elm>IF cond=&hellip;</elm> is an RHTML conditional. Whenever the JavaScript condition is '<a href="{MDN}Glossary/Truthy" rel="nofollow">truthy</a>', in this case when <code>yourName.V</code> is non-empty, then the body of the conditional is rendered.
     </li>
     <li>
         <code>\{yourName\}</code> and <code>\{yourName.length\}</code>, or <code>\{yourName.V\}</code> and <code>\{yourName.V.length\}</code>, are embedded expressions. The rendered document will contain the value of the expression between the braces, and will be updated when needed.
@@ -159,7 +159,7 @@ Study the source code after you have read more of this documentation.
     This document for example changes its layout when being printed or viewed on a narrow screen: the table of contents moves to the top, and on a mobile device font sizes are adapted.
 </p>
 <p>
-    Responsiveness is usually attained by using <a href="{MDN}Web/CSS/@media">CSS media queries</a>, which is perfectly possible in Reactive HTML.
+    Responsiveness is usually attained by using <MDN href="CSS/@media">CSS media queries</MDN>, which is perfectly possible in Reactive HTML.
     <br>When you get stuck with media queries, then reactivity may come to the rescue, to make responsive adaptations to your document or style definitions not possible with media queries.
 </p>
 
@@ -335,7 +335,7 @@ items.map( item => (
 <h2 id="Playgrounds">Playground(s)</h2>
 Here you have a playground to enter your own Reactive HTML.
 <p>
-    All code you enter will be saved by your browser in <a href="{MDN}Web/API/Web_Storage_API">localStorage</a>, and should be available when you return to this page.
+    All code you enter will be saved by your browser in <MDN href="API/Web_Storage_API">localStorage</MDN>, and should be available when you return to this page.
 </p>
 
 <def rvar=playCount #value=1 store=localStorage></def>

@@ -19,7 +19,7 @@
   <demo #srctext=sampleA></demo>
 
   <h3><{}RADIOGROUP></h3>
-  In HTML, individual radiobuttons (<a href="{MDN}Web/HTML/Element/input/radio"><elm>input type='radio'</elm></a>) are grouped by giving them the same <i>name</i>. When they are on a <elm>form</elm>, and when the form is submitted, then among its formdata will an entry <i>name</i> bound to the value of the radiobutton selected at the moment of submission.
+  In HTML, individual radiobuttons (<MDN href="HTML/Element/input/radio"><elm>input type='radio'</elm></MDN>) are grouped by giving them the same <i>name</i>. When they are on a <elm>form</elm>, and when the form is submitted, then among its formdata will an entry <i>name</i> bound to the value of the radiobutton selected at the moment of submission.
 
   <p>This is not quite suited for reactive applications, as there is no single property that provides at any moment the value of the currently selected radiobutton.
   <br>Also, it is somewhat tedious having to provide the group name to each button.
@@ -43,7 +43,7 @@
   <demo #srcText="demoRadiogroup"></demo>
 
   <h3><{}CHECKBOX></h3>
-  In HTML, a checkbox (<a href="{MDN}Web/HTML/Element/input/checkbox"><elm>input type='checkbox'</elm></a>) can have three states: checked, unchecked, and indeterminate, but it doesn't have a single property that in all three cases provides its current state. Instead, it has separate properties <code>checked</code> and <code>indeterminate</code> that are true just when the current state is checked, or indeterminate.
+  In HTML, a checkbox (<MDN href="HTML/Element/input/checkbox"><elm>input type='checkbox'</elm></MDN>) can have three states: checked, unchecked, and indeterminate, but it doesn't have a single property that in all three cases provides its current state. Instead, it has separate properties <code>checked</code> and <code>indeterminate</code> that are true just when the current state is checked, or indeterminate.
 
   <p>
     The <elm>CHECKBOX</elm> component resolves this by providing a single two-way reactive property <code>@value</code> that can have three values:
@@ -66,7 +66,7 @@
 
 
   <h3><{}RFORM></h3>
-  The <a href="{MDN}Web/HTML/Element/form"><elm>form</elm></a> element in HTML, when it is submitted, by default sends all entered data to the web server and reloads the page.
+  The <MDN href="HTML/Element/form"><elm>form</elm></MDN> element in HTML, when it is submitted, by default sends all entered data to the web server and reloads the page.
   <p>
     Reactive applications can call <code>event.preventDefault()</code> to prevent this, but still need nontrivial coding to access the entered form data. That requires adding a separate <code>onformdata</code> handler, and triggering it by creating a <MDN href="API/FormData">FormData</MDN> object.
   </p>

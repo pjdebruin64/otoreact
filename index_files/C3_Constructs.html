@@ -39,7 +39,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     <elm>DEFINE</elm> may be abbreviated to <elm class=sourcecode>DEF</elm>.
 </p>
 <p id=lexicalScoping>
-    Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope">lexical scoping</a> rules:
+    Local variable names (including loop variables and component parameters) obey strict <a href="{wiki}Scope_(computer_science)#Lexical_scope" rel="nofollow">lexical scoping</a> rules:
 </p>
 <demo #srctext=demoScoping></demo>
 
@@ -53,7 +53,7 @@ N.B. All construct attributes which must be JavaScript expressions, like <code>c
     One can use <code>value="<i>string</i>"</code> instead of <code>#value="<i>expression</i>"</code>, as before.
 </p>
 <p>
-    When <i>expression</i> yields a <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Promise">Promise</a>, then the value of the rvar wil initially be <code>undefined</code>, and once the promise resolves to a value, then the rvar will be set to that value.
+    When <i>expression</i> yields a <MDN href="JavaScript/Reference/Global_Objects/Promise">Promise</MDN>, then the value of the rvar wil initially be <code>undefined</code>, and once the promise resolves to a value, then the rvar will be set to that value.
 </p>
 <p>
     When <code class=sourcecode>store</code> is specified, then the rvar value is stored in the given storage, see <a href=#Persistence>Persistence</a>.
@@ -93,13 +93,13 @@ introduces a local <u>two-way</u> reactive variable. "<i>Expression</i>" must be
         There may be multiple <elm>WHEN</elm> parts.
     </li>
     <li>
-        The first <i>WhenPart</i> for which the value of <i>condition</i> is true (or <a href="{MDN}Glossary/Truthy">truthy</a>), is included in the document.
+        The first <i>WhenPart</i> for which the value of <i>condition</i> is true (or <a href="{MDN}Glossary/Truthy" rel="nofollow">truthy</a>), is included in the document.
     </li>
     <li>
         If none is truthy, and there is an <elm>ELSE</elm> part, then <i>ElsePart</i> is included.
     </li>
     <li>
-        When <code class=sourcecode>hiding</code> is specified, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden">hidden</a>.
+        When <code class=sourcecode>hiding</code> is specified, then <i>all</i> alternatives will be included in the DOM tree, but the unwanted ones will be <a href="{MDN}HTML/Global_attributes/hidden" rel="nofollow">hidden</a>.
         <br>This may result in slower initial building, but faster switching between alternatives (especially when using <a href="#GlobalAtts"><code>thisreactson</code></a>).
     </li>
 </ul>
@@ -127,7 +127,7 @@ All three variants are case-insensitive, and all can be combined with a simple c
             <li><code>?</code> matches any single character</li>
             <li><code>*</code> matches any string of characters</li>
             <li>
-                <code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where all <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">rules for JavaScript character classes</a> apply
+                <code>[<i>charString</i>]</code> matches any character in <i>charString</i>, where all <MDN href="JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">rules for JavaScript character classes</MDN> apply
                 <ul>
                     <li>
                         To escape a special character <i>c</i>, use <code>[<i>c</i>]</code>.
@@ -148,14 +148,14 @@ All three variants are case-insensitive, and all can be combined with a simple c
     <dt><code>urlmatch="<i>pattern</i>"</code></dt>
     <dd>
         This form is meant to be matched against (parts of) an URL, and is useful for routing.
-        <br>The recognized patterns are the same simple patterns as above, but any substring captured in a local variable will be <a href="{wiki}Percent-encoding">URL-decoded</a>.
+        <br>The recognized patterns are the same simple patterns as above, but any substring captured in a local variable will be <a href="{wiki}Percent-encoding" rel="nofollow">URL-decoded</a>.
     </dd>
 
     <dt><code>regmatch="<i>regExp</i>" captures?="<i>nameList</i>"</code></dt>
     <dd>
-        <i>regExp</i> can be any JavaScript <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Cheatsheet">regular expression pattern</a>.
+        <i>regExp</i> can be any JavaScript <MDN href="JavaScript/Guide/Regular_Expressions/Cheatsheet">regular expression pattern</MDN>.
         <p>The match succeeds when a substring of the string value matches against <i>regExp</i>.</p>
-        <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</a> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
+        <p>When <code>captures="<i>nameList</i>"</code> is specified, then the values captured by any <MDN href="JavaScript/Guide/Regular_Expressions/Groups_and_Ranges#types">capturing groups</MDN> in the pattern will be stored in local variables with the specified names, in order of appearance. Use empty names to skip unneeded capturing groups.</p>
     </dd>
     <dt><code>cond="..."</code></dt>
     <dd>
@@ -216,7 +216,7 @@ is the same as:
     The normal FOR-construct repeats its <i>BodyPart</i> for each item yielded by the value of <i>iterableExpression</i>.
 </p>
 <p>
-    The value of <i>iterableExpression</i> must be an <a href="{MDN}Web/JavaScript/Reference/Statements/for...of">iterable object</a>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
+    The value of <i>iterableExpression</i> must be an <MDN href="JavaScript/Reference/Statements/for...of">iterable object</MDN>, e.g. an Array, or the result of the RHTML <a href="#rangeFunction">range function</a>, if you want a numeric repetition. 
 </p>
 <p>
     Attribute <code>let=<i>name</i></code> (or <code>var=<i>name</i></code>) is compulsory, but <i>name</i> may be missing or empty. When nonempty, <i>name</i> becomes a local (immutable) variable bound to the respective item.
@@ -274,7 +274,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
             If, however, you specify a <i>hashExpressionList</i>, then OtoReact will assume an item (identified by its key) has not changed when the values of the expressions in <i>hashExpressionList</i> haven't changed, and it won't spend time on updating its DOM subtree.
         </p>
         <p>
-            The hash expression need not be a real <a href="{wiki}Hash_function">hash function</a>; it could be a possibly long string.
+            The hash expression need not be a real <a href="{wiki}Hash_function" rel="nofollow">hash function</a>; it could be a possibly long string.
             <br>If, e.g., items are read from an external source and parsed using <code>JSON.parse</code>, then one could preserve the unparsed string and use it as the hash value.
         </p>
     </dd>
@@ -312,7 +312,7 @@ Further on, <elm>FOR</elm> can have the following attributes:
     You have to be aware that scripts included in the main document, except those tagged with <code>nomodule</code>, are automatically executed by the browser before OtoReact has had any opportunity to intervene.
 </p>
 <p>
-    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="{MDN}Web/HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript <a href="{MDN}Web/JavaScript/Guide/Modules"><i>module</i></a>.
+    You have also to be aware that scripts in browser-based JavaScript come in two flavours: <i>classic</i> JavaScript and JavaScript <i>modules</i>, see <a href="HTML/Element/script">MDN</a>, and that OtoReact is imported as a JavaScript <MDN href="JavaScript/Guide/Modules"><i>module</i></MDN>.
 </p>
 <p>
     Outside the main document, both classic and module scripts will be executed by OtoReact, and OtoReact adds a number of extra options.
@@ -329,8 +329,8 @@ These are the two regular forms of JavaScript.
                 When these elements occur <i>in the main document file</i>, the browser will execute the internal or external script as <u>classic</u> JavaScript <i>while parsing the file</i>.
                 <br>That is <i>before</i> OtoReact has been loaded, so it cannot immediately execute OtoReact functions like <code>RVAR</code>.
                 <br>Any names defined in the script are automatically put in the global scope and are available in RHTML code.
-                <br>One can invoke <a href="{MDN}Web/JavaScript/Reference/Strict_mode">strict mode</a> by placing the statement <code>"use strict";</code> or <code>'use strict';</code> (including the quotes) at the beginning of the script.
-                <br>One can add <code>async</code> or <code>defer</code> as described on <a href="{MDN}Web/HTML/Element/script">MDN</a>.
+                <br>One can invoke <MDN href="JavaScript/Reference/Strict_mode">strict mode</MDN> by placing the statement <code>"use strict";</code> or <code>'use strict';</code> (including the quotes) at the beginning of the script.
+                <br>One can add <code>async</code> or <code>defer</code> as described on <MDN href="HTML/Element/script">MDN</MDN>.
             </li>
             <li>
                 <i>Outside</i> the main file, in included or imported RHTML files, OtoReact will execute the internal or external script as classic JavaScript <i>while compiling the file</i>.
@@ -352,7 +352,7 @@ These are the two regular forms of JavaScript.
                 <br>To execute OtoReact functions, one can either import the functions from OtoReact.js, or invoke them from global scope.
                 <br>With <code>async</code>, the script will be fetched and executed <i>in parallel</i> to parsing.
                 
-                <p>Names defined in a JavaScript module are not automatically put in the global scope. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <a href="{MDN}Web/JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</a>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
+                <p>Names defined in a JavaScript module are not automatically put in the global scope. You have to explicitly define them as properties of the global object: <code class=sourcecode>window.<i>name</i> = &hellip;</code> or <MDN href="JavaScript/Reference/Global_Objects/globalThis" title="What is globalThis?">better</MDN>: <code class=sourcecode>globalThis.<i>name</i> = &hellip;</code> before they are available in RHTML code.
                 <br>An easy way to define a series of names in global scope is:
                 <pre>Object.assign(globalThis, \{<i>name1</i>, <i>name2</i>, <i>name3</i>, ... \} );</pre>
                 <p>Modules use strict mode automatically.
@@ -609,7 +609,7 @@ Notes:
     </li>
 </ul>
 <p>
-    Note: RHTML component templates and slots are not the same as <a href="{MDN}Web/Web_Components">HTML web component templates and slots</a>. It's the same idea but a different syntax and implementation, that is much simpler and at the same time much more powerful.
+    Note: RHTML component templates and slots are not the same as <MDN href="Web_Components">HTML web component templates and slots</MDN>. It's the same idea but a different syntax and implementation, that is much simpler and at the same time much more powerful.
 </p>
 
 
@@ -794,7 +794,7 @@ The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">enca
     </li>
     <li>
         <i>With</i> <code>encapsulate</code>, <elm>COMPONENT</elm> defines a new <i>custom element</i>.
-        <br>The output of the component template defines the appearance of the element, but is encapsulated inside, using the so-called <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>.
+        <br>The output of the component template defines the appearance of the element, but is encapsulated inside, using the so-called <MDN href="Web_Components/Using_shadow_DOM">Shadow DOM</MDN>.
         <p>
             Any styling rules of the surrounding document do not apply to the encapsulated content, and vice versa. The component can have its own style sheet(s), independent of the main document.
             <br>Styling rules and inline styles specifically targeted at the custom element, however, are inherited by the encapsulated content.
@@ -904,7 +904,7 @@ allows you to include another RHTML file as if it were inserted into the main fi
 </ul>
 
 <p>
-    To speed things up, you can insert a <a href="{MDN}Web/HTML/Link_types/preload">preload</a> link in the main document header:
+    To speed things up, you can insert a <MDN href="HTML/Link_types/preload">preload</MDN> link in the main document header:
 </p>
 <pre>
 <{}link rel=preload href="<i>URL</i>" as=fetch crossorigin>
@@ -916,7 +916,7 @@ allows you to include another RHTML file as if it were inserted into the main fi
     A drawback of using <elm>INCLUDE</elm> may be that not all search engines will see the content of the included file.
     <br>Some engines, including Google, do execute JavaScript and will see the full document as it is built by OtoReact, while others won't.
     <br>So if you want all search engines to see the content of your document, then do not use <elm>INCLUDE</elm>.
-    <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes">Server Side Includes</a> (SSI) to include your file, if your server supports it.
+    <br>An alternative might be to use server-side technology like <a href="{wiki}Server_Side_Includes" rel="nofollow">Server Side Includes</a> (SSI) to include your file, if your server supports it.
 </p>
 <p>
     It is possible to use both types of inclusion at once, if you have e.g. a production server that supports SSI and a development environment that does not.
@@ -1016,7 +1016,7 @@ All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the doc
 <dl>
     <dt><code class="sourcecode">scope="local"</code></dt>
     <dd>
-        With <code>scope="local"</code>, the style sheet and the RHTML code that follows it are modified so that the sheet is effective in local scope only: all its <a href="{MDN}Web/CSS/CSS_Selectors">CSS selectors</a> will match only with HTML elements that are created by the subsequent RHTML code till the closing tag of its parent element.
+        With <code>scope="local"</code>, the style sheet and the RHTML code that follows it are modified so that the sheet is effective in local scope only: all its <MDN href="CSS/CSS_Selectors">CSS selectors</MDN> will match only with HTML elements that are created by the subsequent RHTML code till the closing tag of its parent element.
         <p>
             In particular, if you place such a sheet within a component definition, then it will apply to the HTML content created by the component template, and by components defined locally within that component, but not to HTML content created by components called from that template but defined elsewhere.
         </p>
@@ -1036,7 +1036,7 @@ All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the doc
         ></demo>
         <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
         <p>
-            Note: <code>scope="local"</code> applies to some but not all <a href="{MDN}Web/CSS/At-rule">at-rules</a>:
+            Note: <code>scope="local"</code> applies to some but not all <MDN href="CSS/At-rule">at-rules</MDN>:
         </p>
         <ul>
             <li>It works with conditional group rules (<code>@media</code>, <code>@supports</code>, <code>@document</code>);</li>
@@ -1066,7 +1066,7 @@ While <elm>STYLE</elm> sheets are static, <elm>RSTYLE</elm> allows you to build 
 
     <li><elm>RSTYLE</elm> supports <code>scope</code> and <code>src</code> just as <elm>STYLE</elm>.</li>
 
-    <li>Other attributes,like <a href="{MDN}Web/HTML/Element/style#attributes"><code>media</code></a>, are compiled as usual and applied to the created <elm>style</elm> element.</li>
+    <li>Other attributes,like <MDN href="HTML/Element/style#attributes"><code>media</code></MDN>, are compiled as usual and applied to the created <elm>style</elm> element.</li>
 </ul>
 <p>
     Here is a sample style sheet template that, upon pressing the button, gives all <elm>h2</elm> elements an identical random hue, without needing inline styles:
@@ -1143,14 +1143,14 @@ Choose attribute:
 <h2 id=RHTML><{}RHTML #srctext>*</h2>
 <code class=sourcecode><{}RHTML #srctext="<i>sourceExpr</i>"><{}/RHTML></code>
 allows you to interpret dynamically generated text as Reactive HTML.
-<p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then it is compiled as RHTML, built, encapsulated using <a href="{MDN}Web/Web_Components/Using_shadow_DOM">Shadow DOM</a>, and shown.</p>
+<p>After each build or update, when the text value of <i>sourceExpr</i> has changed, then it is compiled as RHTML, built, encapsulated using <MDN href="Web_Components/Using_shadow_DOM">Shadow DOM</MDN>, and shown.</p>
 <p>The demo component on this page uses <elm>RHTML</elm>, of course.</p>
 <p>Here you have an <elm>RHTML</elm> within the demo component, i.e. an <elm>RHTML</elm> within an <elm>RHTML</elm>:</p>
 
 <demo #srctext="sampleRHTML"></demo>
 
 <h4>Caution</h4>
-When you use <elm>RHTML</elm> on your site, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
+When you use <elm>RHTML</elm> on your site, you should be cautious of client-side (DOM-based) <a href="{wiki}Cross-site_scripting#Server-side_versus_DOM-based_vulnerabilities" rel="nofollow">cross-site scripting</a> (XSS, or code injection) attacks, when the text content can be entered by (or influenced by) the user, as on this site.
 <br>Client-side XSS is much less dangerous than server-side XSS, but still: don't ever use <elm>RHTML</elm> on sites with any security impact.
 
 <h3 id="RHTML-demo">Demo HTML vs RHTML</h3>
@@ -1211,10 +1211,10 @@ Any scripts within <i>content</i> are executed within the same browsing context 
 <dl>
     <dt><code><i>docName</i>.open(<i>target?</i>, <i>windowFeatures?</i>, ...<i>args</i>)</code></dt>
     <dd>
-        The construct content is rendered in a separate browser window, using the optionally specified <i>target</i> and <i>windowFeatures</i> as in <a href="{MDN}Web/API/Window/open"><code>Window.open()</code></a>, and parameter names bound to the given <i>args</i>.
+        The construct content is rendered in a separate browser window, using the optionally specified <i>target</i> and <i>windowFeatures</i> as in <MDN href="API/Window/open"><code>Window.open()</code></MDN>, and parameter names bound to the given <i>args</i>.
         <br>The window gets an <code>onkeydown</code> handler that closes the window when the escape key is pressed.
         <br>The method returns a reference to the opened window.
-        <br>All windows opened through this method are automatically closed when the user leaves the current RHTML application (through the <a href="{MDN}Web/API/Window/pagehide_event">pagehide event</a>).
+        <br>All windows opened through this method are automatically closed when the user leaves the current RHTML application (through the <MDN href="API/Window/pagehide_event">pagehide event</MDN>).
     </dd>
     <dt><code><i>docName</i>.print(...<i>args</i>)</code></dt>
     <dd>

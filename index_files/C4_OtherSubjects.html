@@ -28,7 +28,7 @@
 
             <dt><code>docLocation.query</code></dt>
             <dd>
-                An object, whose properties <code>docLocation.query.<i>field</i></code> correspond to the decoded field values (also called 'search parameters') of the current <a href="{wiki}Query_string">URL query string</a>.
+                An object, whose properties <code>docLocation.query.<i>field</i></code> correspond to the decoded field values (also called 'search parameters') of the current <a href="{wiki}Query_string" rel="nofollow">URL query string</a>.
                 <br>One can add or set properties of this object, and the current URL and docLocation.V will be modified accordingly.
                 <br>When a property is set to <code>null</code>, it is removed from the query string.
                 <p>
@@ -74,7 +74,7 @@
     </dd>
     <dt id=basePattern><code>\{basePattern: &hellip;\}</code></dt>
     <dd>
-        Compiler option, specifying a <a href="{MDN}Web/JavaScript/Guide/Regular_Expressions">RegExp</a> to identify the part of the compile-time URL that constitutes the <a href=BasePath>base path</a>.
+        Compiler option, specifying a <MDN href="JavaScript/Guide/Regular_Expressions">RegExp</MDN> to identify the part of the compile-time URL that constitutes the <a href=BasePath>base path</a>.
         <br>This is only needed for applications that want to use routing on subpathes containing slashes.
         <br>The initial part of the compile-time pathname up to and including the <i>last match</i> to this RegExp, constitutes the base path.
         <br>If there is no match, then the base path is empty.
@@ -91,7 +91,7 @@
 <h2>Formatting</h2>
 OtoReact does not have its own formatting functionality for numbers and dates, etc.
 <p>
-    You can use standard JavaScript features like the <a href="{MDN}Web/JavaScript/Reference/Global_Objects/Intl">Internationalization API</a>, a library like <a href="https://day.js.org/">Day.js</a>,
+    You can use standard JavaScript features like the <MDN href="JavaScript/Reference/Global_Objects/Intl">Internationalization API</MDN>, a library like <a href="https://day.js.org/">Day.js</a>,
     or the (quite limited) standard methods of Date objects.
 </p>
 
@@ -188,7 +188,7 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
                 By default, OtoReact may skip white space when it reckons it is irrelevant for the visual appearance of the page.
                 <br>Only within the preformatted <elm>pre</elm> element, and within elements with an explicit in-line <code>style="white-space: pre..."</code> style setting, all white space is preserved.
                 <br>With the 'preformatted' option, you can set an array of other (case insensitive) element names that should have all white space preserved in the DOM.
-                <p>You may need to use this when you have set the <a href="{MDN}Web/CSS/white-space"><code>white-space</code> CSS property</a> so that white space is not collapsed for other elements.
+                <p>You may need to use this when you have set the <MDN href="CSS/white-space"><code>white-space</code> CSS property</MDN> so that white space is not collapsed for other elements.
             </td>
         </tr>
         <tr>

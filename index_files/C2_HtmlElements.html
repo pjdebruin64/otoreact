@@ -18,7 +18,7 @@
     </li>
     
     <li>
-        * Attributes and properties <code class="sourcecode">src</code> and <code class="sourcecode"><a href="{MDN}Web/HTML/Element/img#srcset">srcset</a></code> (of i.a. the <elm>IMG</elm> element) get special treatment.
+        * Attributes and properties <code class="sourcecode">src</code> and <code class="sourcecode"><MDN href="HTML/Element/img#srcset">srcset</MDN></code> (of i.a. the <elm>IMG</elm> element) get special treatment.
         <br>They may contain relative URLs, but when they occur in an RHTML module or include file, then the pathname of the RHTML source file in which they occur may be different from the path name of the target DOM document, causing ambiguity.
         <br>To solve this, OtoReact interprets all URLs in these attributes and properties as relative to the pathname of their <u>source file</u>, and inserts the resulting disambiguated absolute URLs into the target document.
     </li>
@@ -35,7 +35,7 @@
     <br>So by setting a property rather than an attribute, you avoid unnecessary type conversions, and you spare an attribute node in the created DOM tree.
 </p>
 <p>
-    Documentation of all properties can be found at <a href="{MDN}Web/API#interfaces">MDN</a> or partly at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
+    Documentation of all properties can be found at <MDN href="API#interfaces">MDN</MDN> or partly at <a href="https://www.w3schools.com/jsref/default.asp">W3schools</a>.
 </p>
 <p>
     When the expression yields value <code>null</code>, <code>undefined</code>, or <code>NaN</code>, and the property had a string value, then the property is set to the empty string, because otherwise the DOM would turn the value into string "null" or "undefined".
@@ -138,8 +138,8 @@ For each DOM event attribute, say <code>onclick</code>, there is a corresponding
 </ul>
 
 <h3>DOM events without DOM event properties*</h3>
-HTML has a very small number of events, notably <a href="{MDN}Web/API/Element/focusin_event"><code>focusin</code></a> and <a href="{MDN}Web/API/Element/focusout_event"><code>focusout</code></a>, for which there is no corresponding DOM event property.
-<br>One cannot set these from JavaScript through an event property, but only through calling <a href="{MDN}Web/API/EventTarget/addEventListener"><code>addEventListener()</code></a>.
+HTML has a very small number of events, notably <MDN href="API/Element/focusin_event"><code>focusin</code></MDN> and <MDN href="API/Element/focusout_event"><code>focusout</code></MDN>, for which there is no corresponding DOM event property.
+<br>One cannot set these from JavaScript through an event property, but only through calling <MDN href="API/EventTarget/addEventListener"><code>addEventListener()</code></MDN>.
 
 <p>
     OtoReact, on the other hand, sets all event handlers through <code>addEventListener()</code>, and removes them as needed, so in RHTML one can simply write <code>onfocusin="&hellip;"</code> or <code>#onfocusin="&hellip;"</code> <i>as if</i> there were a property <code>onfocusin</code>.
@@ -287,7 +287,7 @@ Normally, errors occuring in HTML event handlers are logged to the console and n
     </dd>
 </dl>
 
-Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror"><code>window.onerror</code></a> global event handler of the DOM API.
+Alternatively, you can use the <MDN href="API/GlobalEventHandlers/onerror"><code>window.onerror</code></MDN> global event handler of the DOM API.
 
 <p>
     If you want to handle the <i>DOM</i> event <code>onerror</code> of e.g. an <elm>img</elm> or <elm>audio</elm> element, then you must add a dot: <elm>img src="&hellip;" onerror.="&hellip;"</elm>
@@ -295,7 +295,7 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
 
 <h2 id="classnames">Class names</h2>
 <p>
-    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <a href="{MDN}Web/HTML/Global_attributes/class"><code>class</code> attribute</a> or the <a href="{MDN}Web/API/Element/className"><code>#className</code> DOM property</a>.
+    "Class names" are used in HTML to select CSS styling rules from a stylesheet, and can of course be set with the <MDN href="HTML/Global_attributes/class"><code>class</code> attribute</MDN> or the <MDN href="API/Element/className"><code>#className</code> DOM property</MDN>.
 </p>
 <p>
     Besides these, RHTML recognizes the following attributes:
@@ -305,14 +305,14 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
     <dd>
         <ul>
             <li>
-                When <i>expression</i> evaluates to a string <code>"&hellip;"</code>, then this is similar to setting the <a href="{MDN}Web/API/Element/className">className property</a>: the string is split into words, and each word is added to the list of class names of the target element.
+                When <i>expression</i> evaluates to a string <code>"&hellip;"</code>, then this is similar to setting the <MDN href="API/Element/className">className property</MDN>: the string is split into words, and each word is added to the list of class names of the target element.
             </li>
             <li>
                 When it evaluates to an array <code>[ &hellip; ]</code>, then each array element is processed just like an <i>expression</i> value.
                 <br>In particular, when the elements are strings, then the words in these strings are added to the list of class names.
             </li>
             <li>
-                Otherwise, when it evaluates to an object <code>\{ <i>name</i>: <i>condition</i>, &hellip; \}</code>, then each (enumerable) property <i>name</i> of the object is included in the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy">truthy</a>.
+                Otherwise, when it evaluates to an object <code>\{ <i>name</i>: <i>condition</i>, &hellip; \}</code>, then each (enumerable) property <i>name</i> of the object is included in the list of class names if and only if its property value is <a href="{MDN}Glossary/Truthy" rel="nofollow">truthy</a>.
             </li>
         </ul>
     </dd>
@@ -328,12 +328,12 @@ Alternatively, you can use the <a href="{MDN}Web/API/GlobalEventHandlers/onerror
         , but the latter works for names containing uppercase characters as well.
     </dd>
 </dl>
-* Unlike the native <a href="{MDN}Web/API/Element/className">className property</a>, setting <code>class</code>, <code>#class</code>, or <code>#classname</code> is nondestructive: class names already added by other sources (other source attributes, JavaScript code, the OtoReact <a href="#STYLE">local styling</a> engine) won't be removed.
+* Unlike the native <MDN href="API/Element/className">className property</MDN>, setting <code>class</code>, <code>#class</code>, or <code>#classname</code> is nondestructive: class names already added by other sources (other source attributes, JavaScript code, the OtoReact <a href="#STYLE">local styling</a> engine) won't be removed.
 <br>Still, when at an update a class name that was added by one of these source attributes, is no longer present in the result, then that class name is removed from the target element.
 
 <h2 id="InlineStyles">Inline styles</h2>
-HTML, and hence RHTML, allow you set style properties of individual elements with the <a href="{MDN}Web/HTML/Global_attributes/style"><code>style</code> global attribute</a>. These are called "inline styles".
-<br>The corresponding <a href="{MDN}Web/API/HTMLElement/style"><code>style</code> DOM property</a> yields the inline style as an object, but can't be set.
+HTML, and hence RHTML, allow you set style properties of individual elements with the <mdn href="HTML/Global_attributes/style"><code>style</code> global attribute</mdn>. These are called "inline styles".
+<br>The corresponding <mdn href="API/HTMLElement/style"><code>style</code> DOM property</mdn> yields the inline style as an object, but can't be set.
 <br>One can, however, set its properties. RHTML recognizes the following attributes:
 <dl>
     <dt><code class=sourcecode>#style="<i>expression</i>"</code></dt>
@@ -359,7 +359,7 @@ HTML, and hence RHTML, allow you set style properties of individual elements wit
 
 
 <h2>'this' is the current element</h2>
-In all RHTML JavaScript code, such as embedded expressions, property values, and event handlers, JavaScript keyword <a href="{MDN}Web/JavaScript/Reference/Operators/this"><code>this</code></a> is bound to the current <a href="{MDN}API/HTMLElement">HTMLElement</a> object:
+In all RHTML JavaScript code, such as embedded expressions, property values, and event handlers, JavaScript keyword <mdn href="JavaScript/Reference/Operators/this"><code>this</code></mdn> is bound to the current <a href="{MDN}API/HTMLElement" rel="nofollow">HTMLElement</a> object:
 <demo srctext=
 '<blockquote>
     This is a \{this.tagName} element.
@@ -392,14 +392,14 @@ DOM properties are not static but can change. RHTML allows four variants of outp
     </dd>
     <dt><code class=sourcecode>!<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/input_event">input event</a>.
+        The assignment target receives the value of the property at every <MDN href="API/HTMLElement/input_event">input event</MDN>.
         <br>This is the same as setting a handler:
         <pre>oninput="<i>target</i> = this.<i>propertyName</i>"</pre>
         <p>For elements which allow text input, an input event happens at <em>every keystroke</em>. You see the effect in several samples on this page.
     </dd>
     <dt><code class=sourcecode>!!<i>propertyName</i>="<i>target</i>"</code></dt>
     <dd>
-        The assignment target receives the value of the property at every <a href="{MDN}Web/API/HTMLElement/change_event">change event</a>.
+        The assignment target receives the value of the property at every <MDN href="API/HTMLElement/change_event">change event</MDN>.
         <p>
             Note that only <elm>input</elm>, <elm>select</elm>, and <elm>textarea</elm> produce change events.
             <br>For elements which allow text input, a change event happens when the user presses ‹Enter› or when the element looses focus, so less often than input events.
@@ -428,7 +428,7 @@ is the same as <code>#<i>propertyName</i>="<i>target</i>" !<i>propertyName</i>="
     </dd>
 </dl>
 <p>
-    These bindings are especially useful for the <code>value</code> or <code>checked</code> property of <a href="{MDN}Web/API/HTMLInputElement">input elements</a>, or the <code>textContent</code>, <code>innerText</code>, or <code>innerHTML</code> properties of elements with <code><a href="{MDN}Web/API/HTMLElement/contentEditable">contentEditable</a>=true</code>.
+    These bindings are especially useful for the <code>value</code> or <code>checked</code> property of <MDN href="API/HTMLInputElement">input elements</MDN>, or the <code>textContent</code>, <code>innerText</code>, or <code>innerHTML</code> properties of elements with <code><MDN href="API/HTMLElement/contentEditable">contentEditable</MDN>=true</code>.
     <br>See the example in the <a href="#Persistence">Persistence paragraph</a>.
 </p>
 <p>Or you can use them to capture the innerHTML or outerHTML of an element:
