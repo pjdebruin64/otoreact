@@ -115,19 +115,19 @@ class Context {
 
     // Construct a new context, optionally based on an existing context.
     constructor(
-        C?: Context
+        CT?: Context
     ,   a?: booly
         // When 'a' is truthy, the context is to be used for asynchronous compilation and a copy of the maps is to be made.
         // With synchronous compilation, this is not needed because the maps will always be restored to their previous value.
     ) {
         ass(
             this,
-            C || {
+            CT || {
                 d: 0, L: 0, M: 0, ct: Q,
                 lvM: new Map, csM: new Map
             }
         );
-        if (a && C) {
+        if (a && CT) {
             this.lvM = new Map(this.lvM);
             this.csM = new Map(this.csM);
         }
@@ -163,13 +163,12 @@ class Context {
     }
     
     // Used by the <CASE> construct, that has alternative scopes all stored in the same frame.
-    max(C: Context) {
+    max(CT: Context) {
         return ass(
-            //C,
-            C.L > this.L ? C : this, 
+            CT.L > this.L ? CT : this, 
             {
-                //L: Math.max(this.L, C.L),
-                M: Math.min(this.M, C.M)
+                //L: Math.max(this.L, CT.L),
+                M: Math.min(this.M, CT.M)
             }
         );
     }
@@ -1134,6 +1133,7 @@ class RComp {
     public hd: HTMLHeadElement|DocumentFragment|ShadowRoot;
 
     // Source file path, used for interpreting relative URLs
+    public src: string;
     public fp: string;
 
     lscl: string[];     // Local static stylesheet classlist
@@ -1141,14 +1141,14 @@ class RComp {
  
     constructor(
         RC?: RComp
-    ,   FP?: string
+    ,   SRC?: string
     ,   settings?: Settings
     ,   CT = RC?.CT
     ) { 
         ass(this,
             {   num: iRC++
             ,   S: {... RC ? RC.S : dflts, ...settings}
-            ,   fp: FP || RC?.fp
+            ,   src: SRC || RC?.src
             ,   doc: RC?.doc || D
             ,   CT: new Context(CT, T)
             ,   lscl: RC?.lscl || E
@@ -1159,6 +1159,7 @@ class RComp {
             ,   rt: T
             }
         );
+        this.fp = this.src.replace(/[^/]*$/, Q);
         this.hd  = RC?.hd || this.doc.head;
         this.bDR = this.S.bDollarRequired?1:0;
     }
@@ -1432,7 +1433,8 @@ class RComp {
     private async CElm(srcE: HTMLElement, bI?: boolean
         ): Promise<DOMBuilder> {       
         try {
-            let tag = srcE.tagName
+            let RC = this
+            ,   tag = srcE.tagName
                 // List of source attributes, to check for unrecognized attributes
             ,   ats =  new Atts(srcE)
 
@@ -1451,14 +1453,14 @@ class RComp {
             ,   bA: DOMBuilder
                 
                 // See if this node is a user-defined construct (component or slot) instance
-            ,   constr = this.CT.getCS(tag)
+            ,   constr = RC.CT.getCS(tag)
 
                 // Pre-declared variables for various purposes
             ,   b: DOMBuilder
             ,   m: RegExpExecArray
             ,   nm: string
             
-            ,   ws = this.ws;
+            ,   ws = RC.ws;
 
                 // Check for generic attributes
             for (let [at] of ats)
@@ -1476,11 +1478,11 @@ class RComp {
                                     m, 
                                     dV: 
                                         m[5]  // on((error)|success)
-                                            ? this.CHandlr(ats.g(at), at)
+                                            ? RC.CHandlr(ats.g(at), at)
                                         : m[8] // if
-                                            ? this.CAttExp(ats, at)
+                                            ? RC.CAttExp(ats, at)
                                         :   // reacton, hash
-                                          this.CAttExps<RVAR>(ats, at)
+                                          RC.CAttExps<RVAR>(ats, at)
                                 });
                     else { 
                         let txt = ats.g(at);
@@ -1494,7 +1496,7 @@ class RComp {
                                 U: /u/.test(at),    // 'at' contains 'update'
                                 D: /y/.test(at),    // 'at' contains 'destroy'
                                 // 'before' events are compiled now, before the element is compiled
-                                h: m[9] && this.CHandlr(txt, at)
+                                h: m[9] && RC.CHandlr(txt, at)
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
@@ -1504,21 +1506,21 @@ class RComp {
                     }
 
             if (constr)
-                bl = await this.CInst(srcE, ats, constr);
+                bl = await RC.CInst(srcE, ats, constr);
             else
                 switch (tag) {
                     case 'DEF':
                     case 'DEFINE': {
                         NoChilds(srcE);
                         let rv      = ats.g('rvar') // An RVAR
-                        ,   vLet    = this.LV(rv || ats.g('let') || ats.g('var', T))
-                        ,   vGet    = rv && this.CT.getLV(rv) as DepE<RVAR>
-                        ,   {G,S}   = this.cAny(ats, 'value')
+                        ,   vLet    = RC.LV(rv || ats.g('let') || ats.g('var', T))
+                        ,   vGet    = rv && RC.CT.getLV(rv) as DepE<RVAR>
+                        ,   {G,S}   = RC.cAny(ats, 'value')
                         ,   bU      = ats.gB('updating') || rv
-                        ,   dUpd    = rv   && this.CAttExp<RVAR>(ats, 'updates')
-                        ,   onMod   = rv && this.CPam<EventListener>(ats, 'onmodified')
-                        ,   dSto    = rv   && this.CAttExp<Store>(ats, 'store')
-                        ,   dSNm    = dSto && this.CPam<string>(ats, 'storename')
+                        ,   dUpd    = rv   && RC.CAttExp<RVAR>(ats, 'updates')
+                        ,   onMod   = rv && RC.CPam<EventListener>(ats, 'onmodified')
+                        ,   dSto    = rv   && RC.CAttExp<Store>(ats, 'store')
+                        ,   dSNm    = dSto && RC.CPam<string>(ats, 'storename')
                         ;
 
                         bA = async function DEF(a, bR?) {
@@ -1569,11 +1571,11 @@ class RComp {
 
                     case 'IF':
                     case 'CASE': 
-                        bl = await this.CCase(srcE, ats);
+                        bl = await RC.CCase(srcE, ats);
                     break;
 
                     case 'FOR':
-                        bl = await this.CFor(srcE, ats);
+                        bl = await RC.CFor(srcE, ats);
                     break;
 
                     case 'MODULE': // Skip completely!
@@ -1581,7 +1583,7 @@ class RComp {
                         break;
                         
                     case 'INCLUDE':
-                        bl = await this.CIncl(srcE, ats, T);
+                        bl = await RC.CIncl(srcE, ats, T);
                     break;
 
                     case 'IMPORT': {
@@ -1589,23 +1591,23 @@ class RComp {
                         ,   bIncl = ats.gB('include')
                         ,   bAsync = ats.gB('async')
                         ,   lvars: Array<LVar & {g?: DepE<unknown>}> 
-                                        = this.LVars(ats.g('defines'))
+                                        = RC.LVars(ats.g('defines'))
                         ,   imps: Array<Signat & {g?: DepE<ConstructDef>}>
-                                        = Array.from(mapI(srcE.children, ch => new Signat(ch, this)))
-                        ,   DC = this.LCons(imps)
+                                        = Array.from(mapI(srcE.children, ch => new Signat(ch, RC)))
+                        ,   DC = RC.LCons(imps)
                         ,   cTask: Promise<[DOMBuilder, Context]>
                                 = OMods.get(src)   // Check whether module has already been compiled
                             ;
                             
                         if (!cTask) {
                             // When the same module is imported at multiple places, it needs to be compiled only once
-                            let C = new RComp(this, this.GetP(src), {bSubf: T}, new Context);
+                            let C = new RComp(RC, RC.gURL(src), {bSubf: T}, new Context);
                             C.log(src);
                             cTask = 
-                                this.fetchM(src)
+                                RC.fetchM(src)
                                 .then(iter => C.Compile(N,iter))
                                 .then(b => [b, C.CT]);
-                            if (this.S.bSubf != 2)
+                            if (RC.S.bSubf != 2)
                                 OMods.set(src, cTask);
                         }
 
@@ -1662,7 +1664,7 @@ class RComp {
                     }
 
                     case 'REACT':
-                        b = await this.CChilds(srcE);
+                        b = await RC.CChilds(srcE);
                         bl = b && function(a, bR) {
                             //let {sub} = PrepRng(a);
                             return !(a.r && bR) && b(a);
@@ -1671,10 +1673,10 @@ class RComp {
                     break;
 
                     case 'RHTML': {
-                        let S = this.CPam<string>(ats, 'srctext',T)
+                        let S = RC.CPam<string>(ats, 'srctext',T)
                             // Undocumented feature: a pseudo-event fired after the compile phase
-                        ,   dO = this.CPam<EventListener>(ats, "onc")
-                        ,   s: Settings = {bSubf: 2, bTiming: this.S.bTiming}
+                        ,   dO = RC.CPam<EventListener>(ats, "onc")
+                        ,   s: Settings = {bSubf: 2, bTiming: RC.S.bTiming}
                             ;
                         NoChilds(srcE);
                         bl = async function RHTML(a) {
@@ -1684,7 +1686,10 @@ class RComp {
 
                             if (src != r.src) {
                                 let sv = env
-                                ,   C = new RComp(N, L.origin + dL.basepath, s)
+                                ,   C = new RComp(N, 
+                                        //L.origin + dL.basepath
+                                        dL.href
+                                    , s)
                                 ,   sh = C.hd = r.n.shadowRoot || r.n.attachShadow({mode: 'open'})
                                 ,   pR = r.rR ||= new Range(N, N, tag)
                                 ,   tmp = D.createElement(tag)
@@ -1717,27 +1722,26 @@ class RComp {
                     }
 
                     case 'SCRIPT': 
-                        bA = await this.CScript(srcE as HTMLScriptElement, ats); 
+                        bA = await RC.CScript(srcE as HTMLScriptElement, ats); 
                         break;
 
                     case 'COMPONENT':
-                        bA = await this.CComp(srcE, ats);
+                        bA = await RC.CComp(srcE, ats);
                         break;
 
                     case 'DOCUMENT': 
-                        let vNm = this.LV(ats.g('name', T));
-                        bA = await this.Framed(async SF => {
+                        let vNm = RC.LV(ats.g('name', T));
+                        bA = await RC.Framed(async SF => {
                             let   bEncaps = ats.gB('encapsulate')
-                            ,   PC = this
-                            ,   RC = new RComp(this)
-                            ,   vPams = RC.LVars(ats.g('params'))
-                            ,   vWin = RC.LV(ats.g('window',F,F,T))
-                            ,   H = RC.hd = D.createDocumentFragment()   //To store static stylesheets
-                            ,   b = await RC.CChilds(srcE)
+                            ,   C = new RComp(RC)
+                            ,   vPams = C.LVars(ats.g('params'))
+                            ,   vWin = C.LV(ats.g('window',F,F,T))
+                            ,   H = C.hd = D.createDocumentFragment()   //To store static stylesheets
+                            ,   b = await C.CChilds(srcE)
                             ;
                             return async function DOCUMENT(a: Area) {
                                 if (PrepRng(a).cr) {
-                                    let {doc, hd} = PC
+                                    let {doc, hd} = RC
                                     ,   docEnv = env
                                     ,   wins = new Set<Window>
                                     ;
@@ -1745,9 +1749,9 @@ class RComp {
                                     vNm({
                                         async render(w: Window, cr: boolean, args: unknown[]) {
                                             let s = env
-                                            ,   Cdoc = RC.doc = w.document
+                                            ,   Cdoc = C.doc = w.document
                                             ;
-                                            RC.hd = Cdoc.head;
+                                            C.hd = Cdoc.head;
                                             env = docEnv;
                                             let {sub} = SF({pN: Cdoc.body})
                                             SetLVs(vPams, args);
@@ -1805,16 +1809,16 @@ class RComp {
                         break;
 
                     case 'RHEAD':
-                        this.ws = this.rt = WSpc.block;
+                        RC.ws = RC.rt = WSpc.block;
 
-                        bl = await this.CUncN(srcE,U, this.hd);
+                        bl = await RC.CUncN(srcE,U, RC.hd);
                        
-                        this.ws = ws;
+                        RC.ws = ws;
                     break;
 
                     case 'STYLE': {
                         let src = ats.g('src'), sc = ats.g('scope')
-                        ,   nm: string, {lscl: l, hd} = this;
+                        ,   nm: string, {lscl: l, hd} = RC;
 
                         if (sc) {
                             /^local$/i.test(sc) || thro('Invalid scope');
@@ -1825,15 +1829,14 @@ class RComp {
                             //bl = async function STYLE()
 
                             // Let all HTML elements in the current scope get this classname
-                            this.lscl = [...l, nm];
+                            RC.lscl = [...l, nm];
                             // At the end of scope, restore
-                            this.rActs.push(() => this.lscl = l);
+                            RC.rActs.push(() => RC.lscl = l);
                         }
 
-                        (src ? this.FetchT(src) : Promise.resolve(srcE.innerText))
+                        (src ? RC.FetchT(src) : Promise.resolve(srcE.innerText))
                             .then(txt => {
-                                if (src || nm)
-                                    srcE.innerHTML = AddC(txt, nm);
+                                srcE.innerHTML = RC.AddC(txt, nm, src);
                                 hd.appendChild(srcE);
                             });
                             
@@ -1842,21 +1845,21 @@ class RComp {
                     }
 
                     case 'RSTYLE': {
-                        let dr = this.bDR
+                        let dr = RC.bDR
                         ,   sc = ats.g('scope')
-                        ,   {bf,af} = this.CAtts(ats)
+                        ,   {bf,af} = RC.CAtts(ats)
                         ,   i: number
                         try {
-                            this.bDR = 1;
-                            this.ws = WSpc.block;
+                            RC.bDR = 1;
+                            RC.ws = WSpc.block;
 
                             let b = await (sc ?
                                 ( /^local$/i.test(sc) || thro('Invalid scope')
-                                ,   (i = this.ndcl++)
-                                ,   this.rActs.push(() => this.ndcl--)
-                                ,   this.CUncN(srcE, ats)
+                                ,   (i = RC.ndcl++)
+                                ,   RC.rActs.push(() => RC.ndcl--)
+                                ,   RC.CUncN(srcE, ats)
                                 ) 
-                                : this.CIncl(srcE, ats)
+                                : RC.CIncl(srcE, ats)
                             );
 
                             bl = b && async function RSTYLE(a: Area) {
@@ -1870,7 +1873,7 @@ class RComp {
                                     if (txt != r.tx)
                                         // Set the style text
                                         // Would we set '.innerText', then <br> would be inserted
-                                        r.n.innerHTML = AddC(r.tx = txt, nm);
+                                        r.n.innerHTML = RC.AddC(r.tx = txt, nm);
 
                                     (env.cl = r.cl ||= [... env.cl||E])[i] = nm;
                                 }
@@ -1881,22 +1884,22 @@ class RComp {
                             }
                         }
                         finally {
-                            this.bDR = dr; this.ws = ws;
+                            RC.bDR = dr; RC.ws = ws;
                         }
                         break;
                     }
                     case 'ELEMENT':                        
-                        bl = await this.CHTML(
+                        bl = await RC.CHTML(
                             srcE, ats
-                            , this.CPam(ats, 'tagname', T)
+                            , RC.CPam(ats, 'tagname', T)
                         );
-                        this.ws = WSpc.inline;
+                        RC.ws = WSpc.inline;
                         break;
 
                     case 'ATTRIBUTE':
                         NoChilds(srcE);
-                        let dN = this.CPam<string>(ats, 'name', T)
-                        ,   dV = this.CPam<string>(ats, 'value', T);
+                        let dN = RC.CPam<string>(ats, 'name', T)
+                        ,   dV = RC.CPam<string>(ats, 'value', T);
                         bl = async function ATTRIB(a: Area){
                             let {r,cr} = PrepRng<{v:string}>(a, srcE)
                             ,   nm = dN();
@@ -1910,20 +1913,20 @@ class RComp {
                         break;
 
                     case 'COMMENT':
-                        this.rt = F;
-                        this.ws = WSpc.preserve
-                        let c = await this.CUncN(srcE);
+                        RC.rt = F;
+                        RC.ws = WSpc.preserve
+                        let c = await RC.CUncN(srcE);
                         bl = async function COMMENT(a:Area) {
                                 PrepData(a, 
                                     (await c(a)).innerText
                                     , T);
                             };
-                        this.ws = ws;
+                        RC.ws = ws;
                         break;
                     
                     default:             
                         /* It's a regular element that should be included in the runtime output */
-                        bl = await this.CHTML(srcE, ats);
+                        bl = await RC.CHTML(srcE, ats);
                 }
             
             bI || ats.None();
@@ -1940,7 +1943,7 @@ class RComp {
             if (bf.length || af.length) {
                 // Compile after-handlers now
                 for (let g of af)
-                    g.h = this.CHandlr(g.txt, g.at);
+                    g.h = RC.CHandlr(g.txt, g.at);
 
                 let b = bl;
                 bl = async function Pseu(a: AreaR, bR) {                   
@@ -1985,14 +1988,14 @@ class RComp {
             }
 
             // Compile global attributes
-            for (let {at, m, dV} of this.S.version ? ga : ga.reverse()) {
+            for (let {at, m, dV} of RC.S.version ? ga : ga.reverse()) {
                 let b = bl
                 ,   es = m[6] ? 'e' : 's'  // onerror or onsuccess
                 ,   bA = !m[3]    // not 'thisreactson'?
                     ;
 
                 if (m[2]) // reacton / thisreactson
-                    bl = this.ErrH(
+                    bl = RC.ErrH(
                         function on(a: Area, bR) {
                             // Consider the currently provided rvars
                             for (let rv of dV() as RVAR[])
@@ -2047,7 +2050,7 @@ class RComp {
             }
 
             return bl != dB && ass(
-                this.ErrH(bl, srcE, !!bA)
+                RC.ErrH(bl, srcE, !!bA)
                 , {nm}
                 );
         }
@@ -2120,7 +2123,7 @@ class RComp {
         // , perhaps with a different base path.
         // We need a separate frame for local variables in this file, so that compilation of the main file can continue
             this.Framed(async SF => {
-                let C = new RComp(this, this.GetP(src), {bSubf: T})
+                let C = new RComp(this, this.gURL(src), {bSubf: T})
                 ,   task = 
                         srcE.children.length || srcE.textContent.trim()
                         ? C.Compile(N, cn)
@@ -3310,10 +3313,17 @@ class RComp {
     private gURL(src: string) {
         return new URL(src, this.fp).href
     }
-    // Returns the normalized form of URL 'src' without file name.
-    private GetP(src: string) {
-        return this.gURL(src).replace(/[^/]*$/, Q);
+
+    // Routine to add a class name to all selectors in a style sheet
+    private AddC(txt: string, nm: string, src?:string) {
+        return `/* From ${src || this.src} */\n` + (nm ? txt.replaceAll(
+/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi,
+//                                  1                                        2----2                                        3----3             1
+                (m,p) => p ? `${m}.${nm}` : m
+            )
+        : txt);
     }
+
 
     // Fetches text from an URL
     async FetchT(src: string): Promise<string> {
@@ -3406,15 +3416,6 @@ const
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
     // and Inline elements with block mode contents
 ,   rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE|(BUTTON|INPUT|IMG|SELECT|TEXTAREA))$/ // ADDRESS|FIELDSET|NOSCRIPT|DATALIST
-
-    // Routine to add a class name to all selectors in a style sheet
-,   AddC = (txt: string, nm: string) =>
-        nm ? txt.replaceAll(
-/{(?:{.*?}|.)*?}|@[msd].*?{|@[^{;]*|(?:\w*\|)?(\w|[-.#:()\u00A0-\uFFFF]|\[(?:(['"])(?:\\.|.)*?\2|.)*?\]|\\[0-9A-F]+\w*|\\.|(['"])(?:\\.|.)*?\3)+/gsi,
-//                                  1                                        2----2                                        3----3             1
-                (m,p) => p ? `${m}.${nm}` : m
-            )
-        : txt
 
     // Capitalized propnames cache
 ,   Cnms: {[nm: string]: string} = {__proto__:N}
@@ -3609,7 +3610,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
             ,   C = new RComp(
                     N
-                    , L.origin + (dL.basepath = m ? new URL(m[0]).pathname.replace(/[^/]*$/, Q) : Q)
+                    , L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q)
                     , setts
                 )
             ;
