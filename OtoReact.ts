@@ -551,12 +551,13 @@ export interface Store {
     setItem(key: string, value: string): void;
 }
 export class RV<T = unknown> {
-    public $name?: string = U;
+    public $name?: string;
     // The value of the variable
     $V: T = U;
     private $C: number = 0;
 
-    constructor(t?: T | Promise<T>) {
+    constructor(n: string, t?: T | Promise<T>) {
+        this.$name = n;
         if (t instanceof Promise)
             this.Set(t)
             //this.$V = U;
@@ -635,7 +636,7 @@ export class RV<T = unknown> {
     // It will be marked dirty.
     // Set var.U to to set the value and mark the rvar as dirty, even when the value has not changed.
     get U() { 
-        ro || this.SetDirty();  
+        ro ? AR(this) : this.SetDirty();  
         return this.$V;
     }
     set U(t: T) { this.$V = t; this.SetDirty(); }
@@ -732,8 +733,7 @@ export function RVAR<T>(
             catch{}
     }
 
-    let rv = new RV(val).Subscribe(imm, T);
-    rv.$name = nm || storeNm;
+    let rv = new RV(nm || storeNm, val).Subscribe(imm, T);
 
     store &&
         rv.Subscribe(v => 
@@ -2615,7 +2615,7 @@ class RComp {
                                 // Set bound variables.
                                 // Even if the range doesn't need updating! For reacting sub-elements may need them.
                                 if(ixNm)
-                                    vIx(chR.ix ||= new RV<number>) .V = ix;
+                                    vIx(chR.ix ||= new RV<number>(ixNm)) .V = ix;
 
                                 if (bRe) // if 'reacting'
                                     if(cr)
@@ -3531,7 +3531,7 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
 class DL extends RV<URL>{
     query: {[fld: string]: string};
     constructor() {
-        super(new URL(L.href));
+        super('docLocation', new URL(L.href));
 
         // Let the RV react on user-triggered browser-URL changes
         EL(W, 'popstate', _ => this.U.href = L.href );

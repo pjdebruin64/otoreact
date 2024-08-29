@@ -63,7 +63,7 @@ export declare class RV<T = unknown> {
     $name?: string;
     $V: T;
     private $C;
-    constructor(t?: T | Promise<T>);
+    constructor(n: string, t?: T | Promise<T>);
     private $imm;
     $subs: Set<Range<ChildNode> | Subscriber<T>>;
     get V(): T;

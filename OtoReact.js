@@ -222,12 +222,12 @@ class Signat {
     }
 }
 export class RV {
-    constructor(t) {
-        this.$name = U;
+    constructor(n, t) {
         this.$V = U;
         this.$C = 0;
         this.$imm = N;
         this.$subs = new Set;
+        this.$name = n;
         if (t instanceof Promise)
             this.Set(t);
         else
@@ -279,7 +279,7 @@ export class RV {
         return () => Jobs.has(this) || (this.V = U);
     }
     get U() {
-        ro || this.SetDirty();
+        ro ? AR(this) : this.SetDirty();
         return this.$V;
     }
     set U(t) { this.$V = t; this.SetDirty(); }
@@ -333,8 +333,7 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
             }
             catch { }
     }
-    let rv = new RV(val).Subscribe(imm, T);
-    rv.$name = nm || storeNm;
+    let rv = new RV(nm || storeNm, val).Subscribe(imm, T);
     store &&
         rv.Subscribe(v => store.setItem(sNm, JSON.stringify(v ?? N)));
     updTo &&
@@ -1339,7 +1338,7 @@ class RComp {
                             let { sub: iSub, EF } = SF(chAr, chR), rv = chR.rv;
                             try {
                                 if (ixNm)
-                                    vIx(chR.ix || (chR.ix = new RV)).V = ix;
+                                    vIx(chR.ix || (chR.ix = new RV(ixNm))).V = ix;
                                 if (bRe)
                                     if (cr)
                                         vLet(chR.rv = RVAR(U, it, N, N, N, dUpd?.()));
@@ -1848,7 +1847,7 @@ export async function RFetch(input, init) {
 }
 class DL extends RV {
     constructor() {
-        super(new URL(L.href));
+        super('docLocation', new URL(L.href));
         this.basepath = U;
         EL(W, 'popstate', _ => this.U.href = L.href);
         this.Subscribe(url => {
