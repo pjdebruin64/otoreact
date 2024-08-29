@@ -25,7 +25,7 @@ ErrorDocument 404 default
     # Redirect any non existing directory request (without a dot) to /index.html
     ####
     RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule "(^|/)([^/.]*)$" index.html    [L]
+    RewriteRule "(^|/)([a-zA-Z]*)$" index.html    [L]
 
     ####
     # Redirect any non existing file request (with a dot) to the base directory
