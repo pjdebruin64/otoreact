@@ -74,6 +74,7 @@ type Settings = Partial<{
     storePrefix:    string,
     version:        number,
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
+    locale:         string,
 
     // For internal use
     bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
@@ -1514,7 +1515,6 @@ class RComp {
                         NoChilds(srcE);
                         let rv      = ats.g('rvar') // An RVAR
                         ,   vLet    = RC.LV(rv || ats.g('let') || ats.g('var', T))
-                        ,   vGet    = rv && RC.CT.getLV(rv) as DepE<RVAR>
                         ,   {G,S}   = RC.cAny(ats, 'value')
                         ,   bU      = ats.gB('updating') || rv
                         ,   dUpd    = rv   && RC.CAttExp<RVAR>(ats, 'updates')
@@ -1543,16 +1543,17 @@ class RComp {
                                 }
 
                                 if (rv) {
-                                    r.rv = v instanceof RV && v;
+                                    //r.rv = v instanceof RV && v;
                                     if (onMod)
                                         (r.om ||= new Hndlr).h = onMod();
                                     
                                     if (cr) {
                                         let lr =
-                                        (vLet as LVar<RVAR>)(
+                                        (vLet as LVar<RVAR>)(r.rv =
                                             RVAR(U, dr(v),
                                                 dSto?.(),
-                                                r.rv ? r.rv.Set : S?.(),
+                                                //v instanceof RV ? v.Set : 
+                                                S?.(),
                                                 dSNm?.() || rv,
                                                 dUpd?.()
                                             )
@@ -1560,7 +1561,7 @@ class RComp {
                                         r.om && lr.Subscribe(x => r.om.handleEvent(x));
                                     }
                                     else
-                                        vGet().Set(dr(v));
+                                        r.rv.Set(dr(v));
                                 }
                                 else
                                     vLet(v);
@@ -3132,10 +3133,12 @@ class RComp {
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
+|\\?\\.\
+|\\?${re}:\
 |[^])*?`
         ,   rIS = RComp.rIS[this.bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`
+                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})(?::\\s*(.*?))?\\s*\\}|$`
                     , 'g'
                 )
         ,   gens: Array< string | Dep<unknown> > = []
@@ -3168,7 +3171,8 @@ class RComp {
                             return s;
                         };
                 
-                gens.push( this.CExpr<string>(m[2], nm, U, '{}') );
+                let dE = this.CExpr<string>(m[2], nm, U, '{}'), f=m[3];
+                gens.push( f ? () => RFormat(dr(dE()), f) : dE );
                 iT = fx = Q;
             }
         }
@@ -3217,11 +3221,13 @@ class RComp {
         return this.CExpr<T>(ats.g(at, bReq, T), '#'+at, U);
     }
 
+    // Compile either a regular attribute 'nm' into just a getter,
+    // or a two-way attribute @'nm' into a getter and a setter.
     private cAny<T = unknown>(ats: Atts, nm: string, rq?: booly)
         : {G: Dep<T>, S?: Dep<(v:T) => void>}
     {
-        let exp = ats.g('@' + nm);
-        return exp != N ? this.cTwoWay(exp, '@'+nm)
+        let a='@'+nm, exp = ats.g(a);
+        return exp != N ? this.cTwoWay(exp, a)
             : {
                 G: this.CPam(<Atts>ats, nm, rq)
             };
@@ -3524,6 +3530,53 @@ export async function RFetch(input: RequestInfo, init?: RequestInit) {
     catch (e) {
         throw `${init?.method||'GET'} ${input}: ` + e;
     }
+}
+//#endregion
+
+//#region Formatting
+const
+    fmt = new Intl.DateTimeFormat('nl', 
+    { day:'2-digit', month: '2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second: '2-digit', fractionalSecondDigits:3, hour12:false }),
+    reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g,
+    dNFM: { [f:string]: Intl.NumberFormat } = {};
+
+function gNumFM(f: string): Intl.NumberFormat {
+  let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase());
+  if (!m) throw `Invalid number format '${f}'`;
+  let p = m[2] ? parseInt(m[2]) : N, L = R.S.locale;
+  switch(m[1]) {
+      case 'D': return new Intl.NumberFormat(L, {minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false});
+      case 'F': return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false});
+      case 'X': return <Intl.NumberFormat>{ format(x: number) {
+              let s = x.toString(16),l=s.length;
+              return p>l ? '0'.repeat(p-l)+s : s;
+          }};
+  }
+  return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 0, maximumFractionDigits: p ?? 2, useGrouping: true});
+}
+(Date.prototype as any).format = function(this: Date, f: string) {
+  return fmt.format(this).replace(reg1, f.replace( 
+        /\\(.)|(\w)\2*/g, (m,a) => a || `$<${m}>`
+        // /(\w)\1*/g, '$$<$&>'
+        )
+    );
+};
+(Number.prototype as any).format = function(this: number, f: string) { return (dNFM[f] ||= gNumFM(f)).format(this); };
+/*
+(String.prototype as any).format = function(this: string, f: string) {
+    let F = parseInt(f), L = Math.abs(F) - this.length;
+    return L > 0 ?
+        F > 0 ? ' '.repeat(L) + this : this + ' '.repeat(L)
+        : this;
+}
+*/
+(Boolean.prototype as any).format = function(this: boolean, f: string): string{
+    return f.split(':')?.[this ? 0 : 1];
+}
+
+function RFormat(x: any, f: string): string {
+  return x instanceof Date || /nu|bo/.test(typeof x) ? (x as any).format(f)
+      : x?.toString(f);
 }
 //#endregion
 

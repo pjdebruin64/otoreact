@@ -693,7 +693,7 @@ class RComp {
                     case 'DEF':
                     case 'DEFINE': {
                         NoChilds(srcE);
-                        let rv = ats.g('rvar'), vLet = RC.LV(rv || ats.g('let') || ats.g('var', T)), vGet = rv && RC.CT.getLV(rv), { G, S } = RC.cAny(ats, 'value'), bU = ats.gB('updating') || rv, dUpd = rv && RC.CAttExp(ats, 'updates'), onMod = rv && RC.CPam(ats, 'onmodified'), dSto = rv && RC.CAttExp(ats, 'store'), dSNm = dSto && RC.CPam(ats, 'storename');
+                        let rv = ats.g('rvar'), vLet = RC.LV(rv || ats.g('let') || ats.g('var', T)), { G, S } = RC.cAny(ats, 'value'), bU = ats.gB('updating') || rv, dUpd = rv && RC.CAttExp(ats, 'updates'), onMod = rv && RC.CPam(ats, 'onmodified'), dSto = rv && RC.CAttExp(ats, 'store'), dSNm = dSto && RC.CPam(ats, 'storename');
                         bA = async function DEF(a, bR) {
                             let { cr, r } = PrepRng(a, srcE), v;
                             if (bU || arChk() || cr || bR != N) {
@@ -705,15 +705,15 @@ class RComp {
                                     ro = F;
                                 }
                                 if (rv) {
-                                    r.rv = v instanceof RV && v;
                                     if (onMod)
                                         (r.om || (r.om = new Hndlr)).h = onMod();
                                     if (cr) {
-                                        let lr = vLet(RVAR(U, dr(v), dSto?.(), r.rv ? r.rv.Set : S?.(), dSNm?.() || rv, dUpd?.()));
+                                        let lr = vLet(r.rv =
+                                            RVAR(U, dr(v), dSto?.(), S?.(), dSNm?.() || rv, dUpd?.()));
                                         r.om && lr.Subscribe(x => r.om.handleEvent(x));
                                     }
                                     else
-                                        vGet().Set(dr(v));
+                                        r.rv.Set(dr(v));
                                 }
                                 else
                                     vLet(v);
@@ -1616,7 +1616,9 @@ class RComp {
 |"(?:\\\\.|[^])*?"\
 |\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
-|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+|\\?\\.\
+|\\?${re}:\
+|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})(?::\\s*(.*?))?\\s*\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
             let lastIx = rIS.lastIndex, m = rIS.exec(text);
@@ -1639,7 +1641,8 @@ class RComp {
                                 s += typeof g == 'string' ? g : g()?.toString() ?? Q;
                             return s;
                         };
-                gens.push(this.CExpr(m[2], nm, U, '{}'));
+                let dE = this.CExpr(m[2], nm, U, '{}'), f = m[3];
+                gens.push(f ? () => RFormat(dr(dE()), f) : dE);
                 iT = fx = Q;
             }
         }
@@ -1667,8 +1670,8 @@ class RComp {
         return this.CExpr(ats.g(at, bReq, T), '#' + at, U);
     }
     cAny(ats, nm, rq) {
-        let exp = ats.g('@' + nm);
-        return exp != N ? this.cTwoWay(exp, '@' + nm)
+        let a = '@' + nm, exp = ats.g(a);
+        return exp != N ? this.cTwoWay(exp, a)
             : {
                 G: this.CPam(ats, nm, rq)
             };
@@ -1844,6 +1847,33 @@ export async function RFetch(input, init) {
     catch (e) {
         throw `${init?.method || 'GET'} ${input}: ` + e;
     }
+}
+const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g, dNFM = {};
+function gNumFM(f) {
+    let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase());
+    if (!m)
+        throw `Invalid number format '${f}'`;
+    let p = m[2] ? parseInt(m[2]) : N, L = R.S.locale;
+    switch (m[1]) {
+        case 'D': return new Intl.NumberFormat(L, { minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false });
+        case 'F': return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false });
+        case 'X': return { format(x) {
+                let s = x.toString(16), l = s.length;
+                return p > l ? '0'.repeat(p - l) + s : s;
+            } };
+    }
+    return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 0, maximumFractionDigits: p ?? 2, useGrouping: true });
+}
+Date.prototype.format = function (f) {
+    return fmt.format(this).replace(reg1, f.replace(/\\(.)|(\w)\2*/g, (m, a) => a || `$<${m}>`));
+};
+Number.prototype.format = function (f) { return (dNFM[f] || (dNFM[f] = gNumFM(f))).format(this); };
+Boolean.prototype.format = function (f) {
+    return f.split(':')?.[this ? 0 : 1];
+};
+function RFormat(x, f) {
+    return x instanceof Date || /nu|bo/.test(typeof x) ? x.format(f)
+        : x?.toString(f);
 }
 class DL extends RV {
     constructor() {

@@ -344,7 +344,7 @@ const sampleGreeting2 =
 
 const sampleSqrt=
 `<define rvar=x #value=2></define>
-<p  title="sqrt({x}) = {Math.sqrt(x)}"
+<p  title="sqrt({x}) = { Math.sqrt(x) : F8}"
 >
     What is sqrt({x})? Check the tooltip.
 </p>
@@ -895,7 +895,6 @@ const demoTables =
 const demoTwoWayRVAR = `
 <style>
   input {
-    display: block;
     width: 6em;
     margin: 4px 0px;
   }
@@ -905,13 +904,19 @@ const demoTwoWayRVAR = `
 
 Please enter some numbers:
 <for let="i" of="range(5)">
-  <DEFINE RVAR="num" @VALUE="data[i]"></DEFINE>
 
-  <input type="number" @valueasnumber="num">
+  <DEFINE RVAR="num" @VALUE="data[i]"></DEFINE>
+  <!-- When 'num.V' is modified, 'data[i]' is updated as well -->
+
+  <div>
+    <input type="number" @valueasnumber="num">
+    value = {num}
+  </div>
+
 </for>
 
 <p>
-  The sum is \{data.reduce((a,b)=>a+b,0)}
+  The sum is: \{data.reduce((a,b)=>a+b,0)}
 </p>`
 
 const demoLocalRstyles = 

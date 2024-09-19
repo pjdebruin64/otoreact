@@ -14,6 +14,7 @@ type Settings = Partial<{
     storePrefix: string;
     version: number;
     headers: HeadersInit;
+    locale: string;
     bSubf: boolean | 2;
 }>;
 type Environment = [Environment?, ...unknown[]] & {

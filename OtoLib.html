@@ -94,15 +94,9 @@
         event.preventDefault();
         // construct a FormData object, which fires the formdata event
         event.data = Object.fromEntries(new FormData(this).entries());
-        debugger;
         // Call the 'onsubmit' handler
         return onsubmit.call(this, event);"
-      _onformdata="
-        // Turn the FormData object into a normal object.
-        event.data = Object.fromEntries(event.formData.entries());
-        // Call the 'onsubmit' handler
-        return onsubmit.call(this, event);
-        ">
+      >
         <content></content>
       </form>
     </template>
