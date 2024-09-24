@@ -10,8 +10,8 @@ const
 ,   F = <false>!T
 ,   U = <undefined> void 0
 ,   Q = ''
-,   E = []        // Empty array, must remain empty
-,   G = <typeof globalThis>self
+,   E = []                          // Empty array, must remain empty
+,   G = <typeof globalThis>self     // = globalThis
 ,   W = window
 ,   D = document
 ,   L = location    
@@ -24,7 +24,7 @@ const
 ,   P   = new DOMParser
 ,   now = () => performance.now()
     // Throwing an error from within an expression
-,   thro= (e: any) => {throw e}
+,   thro= (e?: any) => {throw e}
     // The eval function.
     ,   V  = eval
     // Note that calling 'V(txt)' triggers an INDIRECT eval, so that variables from this file cannot be accessed,
@@ -102,7 +102,7 @@ type Environment =  [Environment?, ...unknown[] ] & {cl?: string[]};
 // An Environment Key points to a value in an environment. It consists of a frame depth number and an index into that frame.
 type EnvKey = {d: number, i: number};
 
-// A CONTEXT keeps track at runtime of all visible local variables and constructs, and where they are stored
+// A CONTEXT keeps track at compile time of all visible local variables and constructs, and where they are stored
 class Context {
     d: number;          // Depth = number of parent frames
     L: number;          // Length = number of positive (local variable) array elements
@@ -128,7 +128,7 @@ class Context {
                 lvM: new Map, csM: new Map
             }
         );
-        if (a && CT) {
+        if (a) {
             this.lvM = new Map(this.lvM);
             this.csM = new Map(this.csM);
         }
@@ -461,8 +461,8 @@ class Signat {
             if (!dum) {
                 if (this.RP) 
                     throw `Rest parameter must be last`;
-                if (!nm && !rp)
-                    throw 'Empty parameter name';
+                nm || rp 
+                    || thro('Empty parameter name');
                 let pDf =
                     v   ? m ? RC.CExpr(v, a) : RC.CText(v, a)
                         : on && K(dU)
@@ -488,10 +488,9 @@ class Signat {
                 // Compile and register slot signature
                 mapNm(this.Slots, s = new Signat(eSlot, RC));
                 // Check whether it's a content slot
-                if (/^CONTENT/.test(s.nm)) {
-                    if (this.CSlot) throw 'Multiple content slots';
-                    this.CSlot = s;
-                }
+                if (/^CONTENT/.test(s.nm))
+                    this.CSlot ? thro('Multiple content slots')
+                    : this.CSlot = s;
             }
         }
         finally {RC.CT.ct = ct}
@@ -560,9 +559,7 @@ export class RV<T = unknown> {
     constructor(n: string, t?: T | Promise<T>) {
         this.$name = n;
         if (t instanceof Promise)
-            this.Set(t)
-            //this.$V = U;
-            //t.then(v => this.V = v, oes.e);
+            this.Set(t);
         else
             this.$V = t;
     }
@@ -764,12 +761,12 @@ type Subscriber<T = unknown> =
 //#endregion
 
 //#region Runtime data and utilities
-type OES = {e: EventListener, s: EventListener};     // Holder for onerror and onsuccess handlers
+type OES = {e: EventListener, s: EventListener, t:Settings};     // Holder for onerror and onsuccess handlers
 type Job = {Ex: () => Promise<unknown> }
 
 // Runtime data. All OtoReact DOM updates run synchronously, so the its current state ca
 let env: Environment       // Current runtime environment
-,   oes: OES = {e: N, s: N}    // Current onerror and onsuccess handlers
+,   oes: OES = <any>{}    // Current onerror and onsuccess handlers
 ,   pN: ParentNode         // Current html node (only for JS evaluation)
 
 // Dirty variables, which can be either RVAR's or RVAR_Light or any async function
@@ -809,7 +806,6 @@ const
 ,   arChk = () => {
         if (arA){
             if (arR || arVars && (arR = arA.prR)) {
-                //if(<any>arR===T) throw 'arCheck!'
                 arVars?.forEach((bA, rv) =>
                     // bA = true means update the whole tree
                     arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA)
@@ -900,7 +896,7 @@ class Hndlr {
     handleEvent(ev: Event, ...r: any[]) {
             if (this.h)
                 try {
-                    var {e,s} = this.oes
+                    var {e,s} = oes = this.oes
                     ,   v = this.h.call(ev?.currentTarget, ev, ...r);
                     // Mimic return value treatment of 'onevent' attribute/property
                     v === false && ev.preventDefault();
@@ -1151,7 +1147,7 @@ class RComp {
             ,   S: {... RC ? RC.S : dflts, ...settings}
             ,   src: SRC || RC?.src
             ,   doc: RC?.doc || D
-            ,   CT: new Context(CT, T)
+            ,   CT: new Context(CT, CT)
             ,   lscl: RC?.lscl || E
             ,   ndcl: RC?.ndcl || 0
             ,   rActs: []
@@ -1247,8 +1243,7 @@ class RComp {
         {
                 try {
                     // Check valid JavaScript identifier
-                    if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
-                        throw N;
+                    /^[A-Z_$][A-Z0-9_$]*$/i.test(nm) || thro();
                     // Check for reserved keywords
                     V(`let ${nm}=0`); 
                 }
@@ -1327,7 +1322,11 @@ class RComp {
             : await this.CElm(elm as HTMLElement, T)
             ) || dB;
         this.log(`Compiled ${this.srcCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return this.bldr = b;
+        return this.bldr = (a, bR) => {
+            let S = oes.t;
+            oes.t = this.S;
+            return b(a, bR).finally(() => oes.t = S);
+        };
     }
 
     log(msg: string) {
@@ -1350,7 +1349,7 @@ class RComp {
         await DoUpdate();
     }
 
-    public bldr: DOMBuilder;
+    private bldr: DOMBuilder;
 
     private ws: WSpc;  // While compiling: whitespace mode for the node(s) to be compiled; see enum WSpc
     private rt: booly;    // While compiling: may the generated DOM output be right-trimmed
@@ -1466,8 +1465,8 @@ class RComp {
                 // Check for generic attributes
             for (let [at] of ats)
                 if (m = 
-/^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
-//     123                4       56                7      8              9          
+/^#?(?:(((this)?reacts?on|(on))|(on(error|success)|rhtml)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
+//     123----3           4--42 5  6-------------6      5 7----7 8--8      1    9------9          
                      .exec(at))
                     if (m[1])       // (?:this)?reacts?on|on
                         m[4] && tag!='REACT'    // 'on' is only for <REACT>
@@ -1478,8 +1477,9 @@ class RComp {
                                     at, 
                                     m, 
                                     dV: 
-                                        m[5]  // on((error)|success)
+                                        m[6]  // on((error)|success)
                                             ? RC.CHandlr(ats.g(at), at)
+                                        : m[5] ? this.CExpr<Settings>(`{${ats.g(at, F, T)}}`, at, U)
                                         : m[8] // if
                                             ? RC.CAttExp(ats, at)
                                         :   // reacton, hash
@@ -1501,7 +1501,7 @@ class RComp {
                                 // 'after' events are compiled after the element has been compiled, so they may
                                 // refer to local variables introduced by the element.
                             });
-                        if (/m/.test(at))    // oncompile
+                        if (/mp/.test(at))    // oncompile
                             // Execute now, with 'srcE' as 'this'
                             TryV(`(function(){${txt}\n})`, at).call(srcE);
                     }
@@ -1991,20 +1991,17 @@ class RComp {
             // Compile global attributes
             for (let {at, m, dV} of RC.S.version ? ga : ga.reverse()) {
                 let b = bl
-                ,   es = m[6] ? 'e' : 's'  // onerror or onsuccess
+                ,   es = m[5]?.[2]  // onerror or onsuccess
                 ,   bA = !m[3]    // not 'thisreactson'?
                     ;
 
                 if (m[2]) // reacton / thisreactson
                     bl = RC.ErrH(
-                        function on(a: Area, bR) {
+                        (a: Area, bR) => {
                             // Consider the currently provided rvars
                             for (let rv of dV() as RVAR[])
-                                if (rv) {
-                                    if (!rv.$SR)
-                                        throw `This is not an RVAR\nat '${at}'`; 
-                                    AR(rv, bA);
-                                }  
+                                if (rv)
+                                    rv.$SR ? AR(rv, bA) : thro(`This is not an RVAR\nat '${at}'`);
                             
                             return b(PrepRng(a, srcE).sub, bR);
                         }
@@ -2015,10 +2012,10 @@ class RComp {
                         m[5]  // set onerror or onsuccess
                         ? async function SetOnES(a: Area, bR) {
                             let s = oes    // Remember current setting
-                            ,   {sub, r} = PrepRng<{oes: object}>(a, srcE, at);
+                            ,   {sub, r} = PrepRng<{oes: OES}>(a, srcE, at);
 
                             // Create a copy. On updates, assign current values to the copy created before.
-                            oes = ass(r.oes ||= <any>{}, oes);
+                            oes = ass<OES>(r.oes ||= <any>{}, oes);
                             try {
                                 oes[es] = dV();     // Now set the new value
                                 await b(sub, bR);   // Run the builder
@@ -2042,12 +2039,8 @@ class RComp {
                                     return b(p.sub, bR)
                             }
                         :   // Renew
-                            function renew(sub: Area, bR) {
-                                return b(
-                                    PrepRng(sub, srcE, at, 2).sub
-                                    , bR
-                                );
-                            }
+                            (sub: Area, bR) =>
+                                b( PrepRng(sub, srcE, at, 2).sub , bR);
             }
 
             return bl != dB && ass(
@@ -2095,16 +2088,15 @@ class RComp {
                         srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
                     ,   e = oes.e;
 
-                    if (this.S.bAbortOnError)
-                        throw msg;
+                    this.S.bAbortOnError && thro(msg);
 
                     this.log(msg);
                     e ? e(m)
                     : this.S.bShowErrors ?
                         (r||{} as typeof r).eN = pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                     : U;
-                    if (bA)
-                        throw Q;
+                    //if (bA) throw Q;
+                    bA && thro(Q);
                 }
             }
         });
@@ -2130,7 +2122,6 @@ class RComp {
                         ? C.Compile(N, cn)
                         // Parse the contents of the file, and compile the parsed contents of the file in the original context
                         : this.fetchM(src).then(cn => C.Compile(N, cn))
-                        //.catch(e => {alert(e); throw e})
                         ;
 
                 return async function INCL(a) {
@@ -2191,13 +2182,14 @@ class RComp {
                  = (async () => 
                     //this.Closure<unknown[]>(`{${src ? await this.FetchText(src) : text}\nreturn[${defs}]}`)
                     // Can't use 'this.Closure' because the context has changed when 'FetchText' has resolved.
-                    V(US + `(function([${ct}]){{\n${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`
+                    V(US + `(function([${ct}]){{${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`
                     ) as DepE<object>
                     // The '\n' is needed in case 'text' ends with a comment without a newline.
                     // The additional braces are needed because otherwise, if 'text' defines an identifier that occurs also in 'ct',
                     // the compiler gives a SyntaxError: Identifier has already been declared
                     )();
-                ex = async() => (await prom)(env);
+                //ex = async() => (await prom)(env);
+                ex = () => prom.then(f => f(env));
             } 
             else if (m[4] || m[11])
                 // A Module script, either 'type=module' or type="otoreact...;type=module"
@@ -2252,18 +2244,19 @@ class RComp {
     }
 
     private async CCase(srcE: HTMLElement, ats: Atts): Promise<DOMBuilder> {
+        // This routine compiles both <IF> and <CASE>  nodes
         let bH = ats.gB('hiding')
         ,   dV = this.CAttExp<string>(ats, 'value')
-        //,   bRe = gRe(ats)
+        // We collect an array of cases
         ,   cases: Array<{
                 n: HTMLElement,
                 ats: Atts,
                 body?: Iterable<ChildNode>,
             }> = []
         ,   body: ChildNode[] = []
-        ,   bI = srcE.tagName == 'IF'
-        ,   bT: booly
-        ,   bE: booly
+        ,   bI = srcE.tagName == 'IF'   // true when <IF>
+        ,   bT: booly       // Truthy when there is a <THEN>
+        ,   bE: booly       // Truthy when there is an <ELSE>
         ;
         for (let n of srcE.childNodes) {
             if (n instanceof HTMLElement) 
@@ -2275,20 +2268,24 @@ class RComp {
                         new Atts(n as HTMLElement).None();
                         continue;
                     case 'ELSE':
-                        if (bE) 
-                            throw "Double <ELSE>";
+                        bE && thro("Double <ELSE>");
                         bE = T;
                         // Fall through!
                     case 'WHEN':
+                        bE || bI && thro("<IF> contains <WHEN>");
                         cases.push({n, ats: new Atts(n)});
-                        if (bI && !bE)
-                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (bI && !bT)
-            cases.unshift({n: srcE, ats, body});
+        // When we have an <IF>  without <THEN>,
+        bI && !bT
+            // then the remaining body nodes form the THEN part:
+            ? cases.unshift({n: srcE, ats, body})   // (unshift = insert at the beginning)
+            // Otherwise it's an error to have nontrivial child nodes:
+            : NoChilds(srcE, body);
+
+        // Now we compile the array of cases into an array of (compiled) alternatives
 
         type Alt = // represents an "alternative": a compiled WHEN/THEN/ELSE part
         {
@@ -2334,8 +2331,8 @@ class RComp {
                             : N
                         );
 
-                        if (patt?.lvars.length && (bH || not))
-                            throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
+                        patt?.lvars.length && (bH || not)
+                            && thro(`'match' can't be combined with 'hiding' or 'not'`);
 
                         // Fall through!
 
@@ -2502,8 +2499,8 @@ class RComp {
                                 vIx(<any>ix);
                                 let hash = dHash?.()
                                 ,   key = dKey?.() ?? hash?.[0];
-                                if (key != N && nMap.has(key))
-                                    throw `Duplicate key '${key}'`;
+                                key != N && nMap.has(key)
+                                    && thro(`Duplicate key '${key}'`);
 
                                 nMap.set(key ?? {}, {it, key, hash, ix: ix++});
                             }
@@ -2844,7 +2841,7 @@ class RComp {
                 }
                 await b(sub).finally(EF);
             }
-        }).catch(m => { throw `<${S.nm}> template: ` + m; });
+        }).catch(m => thro(`<${S.nm}> template: ` + m));
     }
 
     // Compile a construct instance, given its signature and definition
@@ -2869,7 +2866,6 @@ class RComp {
         for (let {mode, nm, rq} of S.Pams)
             if (nm!=RP) {
                 let {G,S} = this.cAny(ats, nm, rq);
-                //if (S && mode!='@') throw ``
                 mode=='@' && !S && (S=K(F));
                 if (G)
                     gArgs.push( {nm,G,S} );
@@ -3106,12 +3102,11 @@ class RComp {
                     cu && addM(MType.GetProp, w, S, cu);
                 }
 
-                else //if (n) 
-                {
+                else
                     // Rest parameter
-                    if (V) throw 'A rest parameter cannot have a value';
-                    addM(MType.RestParam, A, this.CT.getLV(r) );
-                }
+                    V ? thro('A rest parameter cannot have a value')
+                    : addM(MType.RestParam, A, this.CT.getLV(r) );
+                
                 ats.delete(A);
             }
 
@@ -3138,7 +3133,7 @@ class RComp {
 |[^])*?`
         ,   rIS = RComp.rIS[this.bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})(?::\\s*(.*?))?\\s*\\}|$`
+                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
                     , 'g'
                 )
         ,   gens: Array< string | Dep<unknown> > = []
@@ -3258,10 +3253,12 @@ class RComp {
     ,   x: string
     ,   i: string): DepE<(v: V) => any> {
         let ct = this.gsc(txt)
+            // Handles compiletime errors
         ,   C = TryV(`${US}(function(${x},${ct}){${txt}\n})`, i, Q)
         return (e: Environment = env) =>
                 function($) {
                     try { return C.call(this,$,e); }
+                    // Handle runtime errors
                     catch(m) {throw m+i;}
                 };
     }
@@ -3275,7 +3272,7 @@ class RComp {
         if (e == N)
             return <null>e;  // when 'e' is either null or undefined, return the same
         
-        e.trim() || thro(`${nm}: Empty expression`);
+        e.trim() || thro(nm + `: Empty expression`);
         
         var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1] // Error text
         ,   f = TryV(
@@ -3390,7 +3387,7 @@ class Atts extends Map<string,string> {
         if (v != N)
             super.delete(m);
         else if (bReq)
-            throw `Missing attribute '` + nm + `'`;
+            throw `Missing attribute '${nm}'`;
         return bI && v == Q ? nm : v;
     }
 
@@ -3409,7 +3406,7 @@ class Atts extends Map<string,string> {
     public None() {
         super.delete('hidden'); // Hidden may be added to any construct, so it remains hidden until compiled
         if (this.size)
-            throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
+            throw `Unknown attribute(s): ` + Array.from(super.keys()).join(',');
     }
 }
 //#endregion
@@ -3463,22 +3460,22 @@ const
     v!=N ? m.set(nm, v) : m.delete(nm)
 
 , ErrM = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
-    e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`
+    e + `\nat ${Abbr(elm.outerHTML, maxL)}>`
 
 // Create an error DOM node
 , crErrN = (m: string) => 
     ass(D.createElement('div')
-        , { style: 'color:crimson;font-family:sans-serif;font-size:10pt'
+        , { style: 'color:crimson;font-family:sans-serif;font-size:10pt;white-space: pre;'
             , innerText: m})
 
 // Check that some element has no nonblank content
-, NoChilds = (srcE: HTMLElement) => {
-    for (let n of srcE.childNodes)
+, NoChilds = (srcE: HTMLElement, cn: Iterable<ChildNode> = srcE.childNodes) => {
+    for (let n of cn)
         if ( n.nodeType == 1         //Node.ELEMENT_NODE
             || n.nodeType == 3       //Node.TEXT_NODE 
                 && n.nodeValue.trim()
             )
-            throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
+            throw `<${srcE.tagName} ...> has unwanted content`;
 }
 
 // Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
@@ -3520,15 +3517,14 @@ export function range(from: number, count?: number, step: number = 1) {
 }
 
 // Fetch an URL with error handling
-export async function RFetch(input: RequestInfo, init?: RequestInit) {
+export async function RFetch(req: RequestInfo, init?: RequestInit) {
     try {
-        let rp = await fetch(input, init);
-        if (!rp.ok)
-            throw `Status ${rp.status} ${rp.statusText}`;
+        let rp = await fetch(req, init);
+        rp.ok || thro(`Status ${rp.status} ${rp.statusText}`);
         return rp;
     }
     catch (e) {
-        throw `${init?.method||'GET'} ${input}: ` + e;
+        throw `${init?.method||'GET'} ${req}: ` + e;
     }
 }
 //#endregion
@@ -3541,9 +3537,9 @@ const
     dNFM: { [f:string]: Intl.NumberFormat } = {};
 
 function gNumFM(f: string): Intl.NumberFormat {
-  let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase());
-  if (!m) throw `Invalid number format '${f}'`;
-  let p = m[2] ? parseInt(m[2]) : N, L = R.S.locale;
+  let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase()) || thro(`Invalid number format '${f}'`)
+    , p = m[2] ? parseInt(m[2]) : N
+    , L = oes.t.locale;
   switch(m[1]) {
       case 'D': return new Intl.NumberFormat(L, {minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false});
       case 'F': return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false});
@@ -3643,7 +3639,7 @@ viewport.onresize = viewport.onscroll = _ => viewport.SetDirty();
 
 let _ur = import.meta.url
 ,   R: RComp;
-if (G._ur) {alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`); throw Q;}
+if (G._ur) alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`),thro();
 
 // Define global constants
 ass(G, {

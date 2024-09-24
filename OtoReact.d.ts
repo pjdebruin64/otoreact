@@ -88,13 +88,14 @@ type Subscriber<T = unknown> = ((t?: T, prev?: T) => unknown);
 type OES = {
     e: EventListener;
     s: EventListener;
+    t: Settings;
 };
 type DOMBuilder<RT = void | booly> = ((a: Area, bR?: boolean) => Promise<RT>) & {
     auto?: string;
     nm?: string;
 };
 export declare function range(from: number, count?: number, step?: number): Generator<number, void, unknown>;
-export declare function RFetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
+export declare function RFetch(req: RequestInfo, init?: RequestInit): Promise<Response>;
 declare class DL extends RV<URL> {
     query: {
         [fld: string]: string;

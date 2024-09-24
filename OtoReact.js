@@ -17,7 +17,7 @@ class Context {
             d: 0, L: 0, M: 0, ct: Q,
             lvM: new Map, csM: new Map
         });
-        if (a && CT) {
+        if (a) {
             this.lvM = new Map(this.lvM);
             this.csM = new Map(this.csM);
         }
@@ -176,8 +176,8 @@ class Signat {
             if (!dum) {
                 if (this.RP)
                     throw `Rest parameter must be last`;
-                if (!nm && !rp)
-                    throw 'Empty parameter name';
+                nm || rp
+                    || thro('Empty parameter name');
                 let pDf = v ? m ? RC.CExpr(v, a) : RC.CText(v, a)
                     : on && K(dU);
                 this.Pams.push({
@@ -194,11 +194,9 @@ class Signat {
         try {
             for (let eSlot of srcE.children) {
                 mapNm(this.Slots, s = new Signat(eSlot, RC));
-                if (/^CONTENT/.test(s.nm)) {
-                    if (this.CSlot)
-                        throw 'Multiple content slots';
-                    this.CSlot = s;
-                }
+                if (/^CONTENT/.test(s.nm))
+                    this.CSlot ? thro('Multiple content slots')
+                        : this.CSlot = s;
             }
         }
         finally {
@@ -343,7 +341,7 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
         G[nm] = rv;
     return rv;
 }
-let env, oes = { e: N, s: N }, pN, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, arA, arR, arB, arVars;
+let env, oes = {}, pN, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, arA, arR, arB, arVars;
 const AR = (rv, bA) => arA &&
     (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
     if (arA) {
@@ -378,7 +376,7 @@ class Hndlr {
     handleEvent(ev, ...r) {
         if (this.h)
             try {
-                var { e, s } = this.oes, v = this.h.call(ev?.currentTarget, ev, ...r);
+                var { e, s } = oes = this.oes, v = this.h.call(ev?.currentTarget, ev, ...r);
                 v === false && ev.preventDefault();
                 v instanceof Promise
                     ? v.then(_ => s?.(ev), e)
@@ -502,7 +500,7 @@ class RComp {
             S: { ...RC ? RC.S : dflts, ...settings },
             src: SRC || RC?.src,
             doc: RC?.doc || D,
-            CT: new Context(CT, T),
+            CT: new Context(CT, CT),
             lscl: RC?.lscl || E,
             ndcl: RC?.ndcl || 0,
             rActs: [],
@@ -544,8 +542,7 @@ class RComp {
     LV(nm) {
         if (nm = nm?.trim()) {
             try {
-                if (!/^[A-Z_$][A-Z0-9_$]*$/i.test(nm))
-                    throw N;
+                /^[A-Z_$][A-Z0-9_$]*$/i.test(nm) || thro();
                 V(`let ${nm}=0`);
             }
             catch {
@@ -587,7 +584,11 @@ class RComp {
             ? await this.CIter(nodes)
             : await this.CElm(elm, T)) || dB;
         this.log(`Compiled ${this.srcCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return this.bldr = b;
+        return this.bldr = (a, bR) => {
+            let S = oes.t;
+            oes.t = this.S;
+            return b(a, bR).finally(() => oes.t = S);
+        };
     }
     log(msg) {
         if (this.S.bTiming)
@@ -656,7 +657,7 @@ class RComp {
             let RC = this, tag = srcE.tagName, ats = new Atts(srcE), ga = [], bf = [], af = [], bl, bA, constr = RC.CT.getCS(tag), b, m, nm, ws = RC.ws;
             for (let [at] of ats)
                 if (m =
-                    /^#?(?:(((this)?reacts?on|(on))|on((error)|success)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
+                    /^#?(?:(((this)?reacts?on|(on))|(on(error|success)|rhtml)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
                         .exec(at))
                     if (m[1])
                         m[4] && tag != 'REACT'
@@ -664,12 +665,13 @@ class RComp {
                             || ga.push({
                                 at,
                                 m,
-                                dV: m[5]
+                                dV: m[6]
                                     ? RC.CHandlr(ats.g(at), at)
-                                    : m[8]
-                                        ? RC.CAttExp(ats, at)
-                                        :
-                                            RC.CAttExps(ats, at)
+                                    : m[5] ? this.CExpr(`{${ats.g(at, F, T)}}`, at, U)
+                                        : m[8]
+                                            ? RC.CAttExp(ats, at)
+                                            :
+                                                RC.CAttExps(ats, at)
                             });
                     else {
                         let txt = ats.g(at);
@@ -683,7 +685,7 @@ class RComp {
                                 D: /y/.test(at),
                                 h: m[9] && RC.CHandlr(txt, at)
                             });
-                        if (/m/.test(at))
+                        if (/mp/.test(at))
                             TryV(`(function(){${txt}\n})`, at).call(srcE);
                     }
             if (constr)
@@ -989,15 +991,12 @@ class RComp {
                 };
             }
             for (let { at, m, dV } of RC.S.version ? ga : ga.reverse()) {
-                let b = bl, es = m[6] ? 'e' : 's', bA = !m[3];
+                let b = bl, es = m[5]?.[2], bA = !m[3];
                 if (m[2])
-                    bl = RC.ErrH(function on(a, bR) {
+                    bl = RC.ErrH((a, bR) => {
                         for (let rv of dV())
-                            if (rv) {
-                                if (!rv.$SR)
-                                    throw `This is not an RVAR\nat '${at}'`;
-                                AR(rv, bA);
-                            }
+                            if (rv)
+                                rv.$SR ? AR(rv, bA) : thro(`This is not an RVAR\nat '${at}'`);
                         return b(PrepRng(a, srcE).sub, bR);
                     }, srcE);
                 else
@@ -1028,9 +1027,7 @@ class RComp {
                                             return b(p.sub, bR);
                                     }
                                     :
-                                        function renew(sub, bR) {
-                                            return b(PrepRng(sub, srcE, at, 2).sub, bR);
-                                        };
+                                        (sub, bR) => b(PrepRng(sub, srcE, at, 2).sub, bR);
             }
             return bl != dB && ass(RC.ErrH(bl, srcE, !!bA), { nm });
         }
@@ -1058,15 +1055,13 @@ class RComp {
                 pN = a.pN;
                 if (m) {
                     let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m, e = oes.e;
-                    if (this.S.bAbortOnError)
-                        throw msg;
+                    this.S.bAbortOnError && thro(msg);
                     this.log(msg);
                     e ? e(m)
                         : this.S.bShowErrors ?
                             (r || {}).eN = pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                             : U;
-                    if (bA)
-                        throw Q;
+                    bA && thro(Q);
                 }
             }
         });
@@ -1109,8 +1104,8 @@ class RComp {
         if (m[5] && (!m[10] || thro("Invalid script type"))
             || m[2] != N && this.S.bSubf) {
             if (m[9]) {
-                let prom = (async () => V(US + `(function([${ct}]){{\n${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`))();
-                ex = async () => (await prom)(env);
+                let prom = (async () => V(US + `(function([${ct}]){{${src ? await this.FetchT(src) : text}\nreturn{${defs}}}})`))();
+                ex = () => prom.then(f => f(env));
             }
             else if (m[4] || m[11])
                 ex = K(src
@@ -1147,19 +1142,18 @@ class RComp {
                         new Atts(n).None();
                         continue;
                     case 'ELSE':
-                        if (bE)
-                            throw "Double <ELSE>";
+                        bE && thro("Double <ELSE>");
                         bE = T;
                     case 'WHEN':
+                        bE || bI && thro("<IF> contains <WHEN>");
                         cases.push({ n, ats: new Atts(n) });
-                        if (bI && !bE)
-                            throw "<IF> contains <WHEN>";
                         continue;
                 }
             body.push(n);
         }
-        if (bI && !bT)
-            cases.unshift({ n: srcE, ats, body });
+        bI && !bT
+            ? cases.unshift({ n: srcE, ats, body })
+            : NoChilds(srcE, body);
         let aList = [], { ws, rt, CT } = this, postCT = CT, postW = 0;
         for (let { n, ats, body } of cases) {
             if (!bH)
@@ -1181,8 +1175,8 @@ class RComp {
                                         lvars: this.LVars(ats.g('captures'))
                                     }
                                     : N);
-                        if (patt?.lvars.length && (bH || not))
-                            throw `Pattern capturing can't be combined with 'hiding' or 'not'`;
+                        patt?.lvars.length && (bH || not)
+                            && thro(`'match' can't be combined with 'hiding' or 'not'`);
                     case 'ELSE':
                         aList.push({
                             cond, not, patt,
@@ -1268,8 +1262,8 @@ class RComp {
                                 vLet(it);
                                 vIx(ix);
                                 let hash = dHash?.(), key = dKey?.() ?? hash?.[0];
-                                if (key != N && nMap.has(key))
-                                    throw `Duplicate key '${key}'`;
+                                key != N && nMap.has(key)
+                                    && thro(`Duplicate key '${key}'`);
                                 nMap.set(key ?? {}, { it, key, hash, ix: ix++ });
                             }
                         }
@@ -1457,7 +1451,7 @@ class RComp {
                 }
                 await b(sub).finally(EF);
             };
-        }).catch(m => { throw `<${S.nm}> template: ` + m; });
+        }).catch(m => thro(`<${S.nm}> template: ` + m));
     }
     async CInst(srcE, ats, { S, dC }) {
         await S.task;
@@ -1600,11 +1594,9 @@ class RComp {
                         mT && addM(8, w, S, 1, mT[2] ? 'change' : 'input');
                     cu && addM(10, w, S, cu);
                 }
-                else {
-                    if (V)
-                        throw 'A rest parameter cannot have a value';
-                    addM(9, A, this.CT.getLV(r));
-                }
+                else
+                    V ? thro('A rest parameter cannot have a value')
+                        : addM(9, A, this.CT.getLV(r));
                 ats.delete(A);
             }
         return { bf, af };
@@ -1618,7 +1610,7 @@ class RComp {
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |\\?\\.\
 |\\?${re}:\
-|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{\\s*(${f(f(f('[^]*?')))})(?::\\s*(.*?))?\\s*\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
             let lastIx = rIS.lastIndex, m = rIS.exec(text);
@@ -1701,7 +1693,7 @@ class RComp {
     CExpr(e, nm, src = e, dl = '""') {
         if (e == N)
             return e;
-        e.trim() || thro(`${nm}: Empty expression`);
+        e.trim() || thro(nm + `: Empty expression`);
         var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1], f = TryV(`${US}(function(${this.gsc(e)}){return(${e}\n)})`, m, Q);
         return () => {
             try {
@@ -1775,7 +1767,7 @@ class Atts extends Map {
         if (v != N)
             super.delete(m);
         else if (bReq)
-            throw `Missing attribute '` + nm + `'`;
+            throw `Missing attribute '${nm}'`;
         return bI && v == Q ? nm : v;
     }
     gB(nm, df = F) {
@@ -1787,7 +1779,7 @@ class Atts extends Map {
     None() {
         super.delete('hidden');
         if (this.size)
-            throw `Unknown attribute(s): ${Array.from(super.keys()).join(',')}`;
+            throw `Unknown attribute(s): ` + Array.from(super.keys()).join(',');
     }
 }
 const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOTE|D[DLT]|DIV|FORM|H\d|HR|LI|[OU]L|P|TABLE|T[RHD]|PRE|(BUTTON|INPUT|IMG|SELECT|TEXTAREA))$/, Cnms = { __proto__: N }, ChkNm = (obj, nm) => {
@@ -1807,13 +1799,13 @@ const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOT
     return c;
 }, Abbr = (s, m = 65) => s.length > m ?
     s.slice(0, m - 3) + "..."
-    : s, SetLVs = (vars, data) => vars.forEach((v, i) => v(data[i])), mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrM = (elm, e = Q, maxL) => e + `\nat ${Abbr(/<[^]*?(?=>)/.exec(elm.outerHTML)[0], maxL)}>`, crErrN = (m) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt',
-    innerText: m }), NoChilds = (srcE) => {
-    for (let n of srcE.childNodes)
+    : s, SetLVs = (vars, data) => vars.forEach((v, i) => v(data[i])), mapNm = (m, o) => m.set(o.nm, o), mapSet = (m, nm, v) => v != N ? m.set(nm, v) : m.delete(nm), ErrM = (elm, e = Q, maxL) => e + `\nat ${Abbr(elm.outerHTML, maxL)}>`, crErrN = (m) => ass(D.createElement('div'), { style: 'color:crimson;font-family:sans-serif;font-size:10pt;white-space: pre;',
+    innerText: m }), NoChilds = (srcE, cn = srcE.childNodes) => {
+    for (let n of cn)
         if (n.nodeType == 1
             || n.nodeType == 3
                 && n.nodeValue.trim())
-            throw `<${srcE.tagName} ...> must be followed by </${srcE.tagName}>`;
+            throw `<${srcE.tagName} ...> has unwanted content`;
 }, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6), gRe = (ats) => ats.gB('reacting') || ats.gB('reactive');
 function* mapI(I, f, c) {
     for (let x of I)
@@ -1837,23 +1829,19 @@ export function range(from, count, step = 1) {
         }
     })(Number(from), Number(count), Number(step));
 }
-export async function RFetch(input, init) {
+export async function RFetch(req, init) {
     try {
-        let rp = await fetch(input, init);
-        if (!rp.ok)
-            throw `Status ${rp.status} ${rp.statusText}`;
+        let rp = await fetch(req, init);
+        rp.ok || thro(`Status ${rp.status} ${rp.statusText}`);
         return rp;
     }
     catch (e) {
-        throw `${init?.method || 'GET'} ${input}: ` + e;
+        throw `${init?.method || 'GET'} ${req}: ` + e;
     }
 }
 const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g, dNFM = {};
 function gNumFM(f) {
-    let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase());
-    if (!m)
-        throw `Invalid number format '${f}'`;
-    let p = m[2] ? parseInt(m[2]) : N, L = R.S.locale;
+    let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase()) || thro(`Invalid number format '${f}'`), p = m[2] ? parseInt(m[2]) : N, L = oes.t.locale;
     switch (m[1]) {
         case 'D': return new Intl.NumberFormat(L, { minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false });
         case 'F': return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false });
@@ -1920,10 +1908,8 @@ export const docLocation = dL, viewport = RVAR('viewport', visualViewport), rero
 };
 viewport.onresize = viewport.onscroll = _ => viewport.SetDirty();
 let _ur = import.meta.url, R;
-if (G._ur) {
-    alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`);
-    throw Q;
-}
+if (G._ur)
+    alert(`OtoReact loaded twice,\nfrom: ${G._ur}\nand: ${_ur}`), thro();
 ass(G, {
     RVAR, range, reroute, RFetch, DoUpdate, docLocation,
     debug: V('()=>{debugger}'),
