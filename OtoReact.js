@@ -1,4 +1,4 @@
-const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, V = eval, TryV = (e, m, s = '\nin ') => {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, tU = (s) => s.toUpperCase(), K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, V = eval, TryV = (e, m, s = '\nin ') => {
     try {
         return V(e);
     }
@@ -207,14 +207,14 @@ class Signat {
         if (sig) {
             let c = T, mP = new Map(mapI(sig.Pams, p => [p.nm, p])), p;
             for (let { nm, rq } of this.Pams)
-                if (c && (c = p = mP.get(nm))) {
-                    c && (c = rq || !p.rq);
+                if (c &&= p = mP.get(nm)) {
+                    c &&= (rq || !p.rq);
                     mP.delete(nm);
                 }
             for (let p of mP.values())
-                c && (c = !p.rq);
+                c &&= !p.rq;
             for (let [nm, slotSig] of this.Slots)
-                c && (c = sig.Slots.get(nm)?.IsCompat(slotSig));
+                c &&= sig.Slots.get(nm)?.IsCompat(slotSig);
             return c;
         }
     }
@@ -245,7 +245,8 @@ export class RV {
         if (s) {
             if (cr)
                 s(this.$V);
-            (bImm ? this.$imm || (this.$imm = new Set) : this.$subs).add(s);
+            (bImm ? this.$imm ||= new Set
+                : this.$subs).add(s);
         }
         return this;
     }
@@ -254,9 +255,9 @@ export class RV {
         this.$subs.delete(s);
     }
     $SR({ pR, pN }, b, r, bR = true) {
-        r.uInfo || (r.uInfo = { b, env, oes, pN, pR, bR });
+        r.uInfo ||= { b, env, oes, pN, pR, bR };
         this.$subs.add(r);
-        (r.rvars || (r.rvars = new Set)).add(this);
+        (r.rvars ||= new Set).add(this);
     }
     $UR(r) {
         this.$subs.delete(r);
@@ -343,7 +344,7 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
 }
 let env, oes = {}, pN, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, arA, arR, arB, arVars;
 const AR = (rv, bA) => arA &&
-    (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
+    (arVars ||= new Map).set(rv, bA || arVars?.get(rv)), arChk = () => {
     if (arA) {
         if (arR || arVars && (arR = arA.prR)) {
             arVars?.forEach((bA, rv) => arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA));
@@ -358,7 +359,7 @@ const AR = (rv, bA) => arA &&
     return prom.finally(() => start += now() - t);
 }, AJ = (job) => {
     Jobs.add(job);
-    hUpd || (hUpd = setTimeout(DoUpdate, 1));
+    hUpd ||= setTimeout(DoUpdate, 1);
 };
 let evM = (M) => {
     let v = M.d();
@@ -392,7 +393,7 @@ class Targ {
         this.nm = nm;
     }
     handleEvent(ev) {
-        this.S(ev.currentTarget[this.c || (this.c = ChkNm(ev.currentTarget, this.nm))]);
+        this.S(ev.currentTarget[this.c ||= ChkNm(ev.currentTarget, this.nm)]);
     }
 }
 function ApplyAtts(r, cr, ms, k = 0, xs) {
@@ -407,10 +408,10 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                         e.setAttribute(nm, x);
                         break;
                     case 1:
-                        if (M.isS ?? (M.isS = typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
+                        if (M.isS ??= typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
                             : nm == 'valueasnumber'
                                 ? 'value'
-                                : nm)] == 'string'))
+                                : nm)] == 'string')
                             x = x == N || x != x ? Q : x.toString();
                         if (x != e[nm = M.c])
                             e[nm] = x;
@@ -425,7 +426,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                             EL(e, nm, r[k] = new Hndlr);
                         r[k].h = x;
                         if (M.ap)
-                            hc || (hc = x);
+                            hc ||= x;
                         break;
                     case 4:
                         if (x)
@@ -434,7 +435,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                                 : ass(e.style, x);
                         break;
                     case 2:
-                        e.style[M.c || (M.c = ChkNm(e.style, nm))] = x || x === 0 ? x : Q;
+                        e.style[M.c ||= ChkNm(e.style, nm)] = x || x === 0 ? x : Q;
                         break;
                     case 6:
                         e[nm] = x.replace(M.ev ? /(.+?)(,|$)/gs : /(.+)()/s, (_, u, r) => new URL(u, M.fp).href + r);
@@ -473,7 +474,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                             k = ApplyAtts(r, cr, x.ms, k, x.xs);
                         break;
                     case 10:
-                        x(nm ? e[M.c || (M.c = ChkNm(e, nm))] : e);
+                        x(nm ? e[M.c ||= ChkNm(e, nm)] : e);
                         break;
                     case 11:
                         if (!e.download
@@ -522,7 +523,7 @@ class RComp {
         return Comp((sub, r) => {
             let e = env;
             r || ({ r, sub } = PrepRng(sub));
-            env = r.env || (r.env = ass([nf ? e : e[0]], { cl: e.cl }));
+            env = r.env ||= ass([nf ? e : e[0]], { cl: e.cl });
             return { sub, EF: () => env = e };
         }).finally(() => {
             this.CT = ass(CT, { ct, d, L, M });
@@ -578,7 +579,7 @@ class RComp {
     }
     async Compile(elm, nodes) {
         for (let tag of this.S.preformatted)
-            this.sPRE.add(tag.toUpperCase());
+            this.sPRE.add(tU(tag));
         this.srcCnt = 0;
         let t0 = now(), b = (nodes
             ? await this.CIter(nodes)
@@ -653,8 +654,8 @@ class RComp {
             : N;
     }
     async CElm(srcE, bI) {
+        let RC = this, tag = srcE.tagName, ats = new Atts(srcE), ga = [], bf = [], af = [], bl, bA, constr = RC.CT.getCS(tag), b, m, nm, ws = RC.ws, S = this.S;
         try {
-            let RC = this, tag = srcE.tagName, ats = new Atts(srcE), ga = [], bf = [], af = [], bl, bA, constr = RC.CT.getCS(tag), b, m, nm, ws = RC.ws;
             for (let [at] of ats)
                 if (m =
                     /^#?(?:(((this)?reacts?on|(on))|(on(error|success)|rhtml)|(hash)|(if)|renew)|(?:(before)|on|after)(?:create|update|destroy|compile)+)$/
@@ -667,7 +668,8 @@ class RComp {
                                 m,
                                 dV: m[6]
                                     ? RC.CHandlr(ats.g(at), at)
-                                    : m[5] ? this.CExpr(`{${ats.g(at, F, T)}}`, at, U)
+                                    : m[5] ?
+                                        K(this.S = { ...S, ...TryV(`({${ats.g(at)}})`, at) })
                                         : m[8]
                                             ? RC.CAttExp(ats, at)
                                             :
@@ -708,7 +710,7 @@ class RComp {
                                 }
                                 if (rv) {
                                     if (onMod)
-                                        (r.om || (r.om = new Hndlr)).h = onMod();
+                                        (r.om ||= new Hndlr).h = onMod();
                                     if (cr) {
                                         let lr = vLet(r.rv =
                                             RVAR(U, dr(v), dSto?.(), S?.(), dSNm?.() || rv, dUpd?.()));
@@ -769,7 +771,7 @@ class RComp {
                             arA = N;
                             if (cr || bIncl) {
                                 try {
-                                    var b = await NoTime(task), s = env, MEnv = env = r.v || (r.v = []);
+                                    var b = await NoTime(task), s = env, MEnv = env = r.v ||= [];
                                     await b(bIncl ? sub : { pN: D.createDocumentFragment() });
                                 }
                                 finally {
@@ -794,7 +796,7 @@ class RComp {
                         bl = async function RHTML(a) {
                             let { r } = PrepElm(a, 'r-html'), src = S();
                             if (src != r.src) {
-                                let sv = env, C = new RComp(N, dL.href, s), sh = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), pR = r.rR || (r.rR = new Range(N, N, tag)), tmp = D.createElement(tag);
+                                let sv = env, C = new RComp(N, dL.href, s), sh = C.hd = r.n.shadowRoot || r.n.attachShadow({ mode: 'open' }), pR = r.rR ||= new Range(N, N, tag), tmp = D.createElement(tag);
                                 (C.doc = D.createDocumentFragment()).appendChild(tmp);
                                 pR.erase(sh);
                                 sh.innerHTML = Q;
@@ -914,10 +916,10 @@ class RComp {
                             bl = b && async function RSTYLE(a) {
                                 let { r, cr, sub } = PrepElm(a, 'STYLE'), k = ApplyAtts(r, cr, bf);
                                 if (sc) {
-                                    let txt = (await b(a)).innerText, nm = r.cn || (r.cn = `\uFFFE${iLS++}`);
+                                    let txt = (await b(a)).innerText, nm = r.cn ||= `\uFFFE${iLS++}`;
                                     if (txt != r.tx)
                                         r.n.innerHTML = RC.AddC(r.tx = txt, nm);
-                                    (env.cl = r.cl || (r.cl = [...env.cl || E]))[i] = nm;
+                                    (env.cl = r.cl ||= [...env.cl || E])[i] = nm;
                                 }
                                 else
                                     await b(sub);
@@ -960,7 +962,7 @@ class RComp {
                         bl = await RC.CHTML(srcE, ats);
                 }
             bI || ats.None();
-            nm = (bl || (bl = bA || (bA = dB))).name;
+            nm = (bl ||= bA ||= dB).name;
             if (bf.length || af.length) {
                 for (let g of af)
                     g.h = RC.CHandlr(g.txt, g.at);
@@ -1004,7 +1006,7 @@ class RComp {
                         m[5]
                             ? async function SetOnES(a, bR) {
                                 let s = oes, { sub, r } = PrepRng(a, srcE, at);
-                                oes = ass(r.oes || (r.oes = {}), oes);
+                                oes = ass(r.oes ||= {}, oes);
                                 try {
                                     oes[es] = dV();
                                     await b(sub, bR);
@@ -1033,6 +1035,9 @@ class RComp {
         }
         catch (m) {
             throw ErrM(srcE, m);
+        }
+        finally {
+            this.S = S;
         }
     }
     ErrH(b, srcN, bA) {
@@ -1087,7 +1092,7 @@ class RComp {
         let b = await this.CIncl(srcE, ats);
         return b && (async (a) => {
             let { r, sub } = PrepRng(a, srcE);
-            pN = sub.pN = r.p || (r.p = (r.pN = p) || D.createElement(srcE.tagName));
+            pN = sub.pN = r.p ||= (r.pN = p) || D.createElement(srcE.tagName);
             sub.bfor = N;
             try {
                 await b(sub);
@@ -1113,7 +1118,7 @@ class RComp {
                     : import(src = URL.createObjectURL(new Blob([text.replace(/\/\/.*|\/\*[^]*?\*\/|(['"`])(?:\\.|[^])*?\1|(\bimport\b(?:(?:[a-zA-Z0-9_,*{}]|\s)*\bfrom)?\s*(['"]))(.*?)\3/g, (p0, _, p2, p3, p4) => p2 ? p2 + this.gURL(p4) + p3 : p0)], { type: 'text/javascript' }))).finally(() => URL.revokeObjectURL(src)));
             else {
                 let pTxt = (async () => `${m[5] ? US : Q}${src ? await this.FetchT(src) : text}\n;({${defs}})`)(), Xs;
-                ex = async () => Xs || (Xs = V(await pTxt));
+                ex = async () => Xs ||= V(await pTxt);
                 if (src && async)
                     ex();
                 else if (!m[5] && !defer)
@@ -1250,7 +1255,7 @@ class RComp {
                         ({ env, oes } = sEnv);
                         let si = Symbol.iterator in iter
                             || (Symbol.asyncIterator in iter ? arChk()
-                                : thro(`[of] Value (${iter}) is not iterable`)), kMap = r.v || (r.v = new Map), nMap = new Map, ix = 0, { EF } = SF(N, {});
+                                : thro(`[of] Value (${iter}) is not iterable`)), kMap = r.v ||= new Map, nMap = new Map, ix = 0, { EF } = SF(N, {});
                         try {
                             if (si)
                                 for (let i of iter)
@@ -1332,7 +1337,7 @@ class RComp {
                             let { sub: iSub, EF } = SF(chAr, chR), rv = chR.rv;
                             try {
                                 if (ixNm)
-                                    vIx(chR.ix || (chR.ix = new RV(ixNm))).V = ix;
+                                    vIx(chR.ix ||= new RV(ixNm)).V = ix;
                                 if (bRe)
                                     if (cr)
                                         vLet(chR.rv = RVAR(U, it, N, N, N, dUpd?.()));
@@ -1365,7 +1370,7 @@ class RComp {
             });
         }
         else {
-            let nm = ats.g('of', T, T).toUpperCase(), { S, dC } = this.CT.getCS(nm) ||
+            let nm = tU(ats.g('of', T, T)), { S, dC } = this.CT.getCS(nm) ||
                 thro(`Missing attribute [let]`);
             return this.Framed(async (SF) => {
                 let vIx = this.LV(ixNm), DC = this.LCons([S]), b = await this.CChilds(srcE);
@@ -1415,7 +1420,7 @@ class RComp {
             ES();
             ass(this, { head: hd, ws });
         }
-        DC || (DC = this.LCons(sigs));
+        DC ||= this.LCons(sigs);
         return async function COMP(a) {
             DC(CDefs.map(C => ({ ...C, env })));
             await b(a);
@@ -1483,7 +1488,7 @@ class RComp {
         }
         this.ws = 3;
         return async function INST(a, bR) {
-            let { r, sub, cr } = PrepRng(a, srcE), sEnv = env, cdef = dC(), args = r.args || (r.args = { __proto__: N });
+            let { r, sub, cr } = PrepRng(a, srcE), sEnv = env, cdef = dC(), args = r.args ||= { __proto__: N };
             if (cdef)
                 try {
                     ro = T;
@@ -1491,7 +1496,7 @@ class RComp {
                         let v = G();
                         if (!S
                             || v instanceof RV) {
-                            bR && (bR = v == args[nm]);
+                            bR &&= v == args[nm];
                             args[nm] = v;
                         }
                         else if (cr)
@@ -1602,7 +1607,6 @@ class RComp {
         return { bf, af };
     }
     CText(text, nm) {
-        var _a, _b;
         let f = (re) => `(?:\\{(?:\\{${re}\\}|[^])*?\\}\
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
@@ -1610,7 +1614,8 @@ class RComp {
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |\\?\\.\
 |\\?${re}:\
-|[^])*?`, rIS = (_a = RComp.rIS)[_b = this.bDR] || (_a[_b] = new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+|[^])*?`, rIS = RComp.rIS[this.bDR] ||=
+            new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g'), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rIS.lastIndex = 0;
         while (T) {
             let lastIx = rIS.lastIndex, m = rIS.exec(text);
@@ -1841,21 +1846,23 @@ export async function RFetch(req, init) {
 }
 const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g, dNFM = {};
 function gNumFM(f) {
-    let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase()) || thro(`Invalid number format '${f}'`), p = m[2] ? parseInt(m[2]) : N, L = oes.t.locale;
+    let m = /^([CDFXN])(\d*)$/.exec(tU(f)) || thro(`Invalid number format '${f}'`), p = m[2] ? parseInt(m[2]) : U, L = oes.t.locale;
     switch (m[1]) {
         case 'D': return new Intl.NumberFormat(L, { minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false });
         case 'F': return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false });
         case 'X': return { format(x) {
-                let s = x.toString(16), l = s.length;
+                let s = tU(x.toString(16)), l = s.length;
                 return p > l ? '0'.repeat(p - l) + s : s;
             } };
     }
-    return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 0, maximumFractionDigits: p ?? 2, useGrouping: true });
+    return new Intl.NumberFormat(L, { minimumFractionDigits: p, maximumFractionDigits: p, useGrouping: true,
+        style: m[1] == 'C' ? 'currency' : U, currency: oes.t.currency
+    });
 }
 Date.prototype.format = function (f) {
     return fmt.format(this).replace(reg1, f.replace(/\\(.)|(\w)\2*/g, (m, a) => a || `$<${m}>`));
 };
-Number.prototype.format = function (f) { return (dNFM[f] || (dNFM[f] = gNumFM(f))).format(this); };
+Number.prototype.format = function (f) { return (dNFM[f] ||= gNumFM(f)).format(this); };
 Boolean.prototype.format = function (f) {
     return f.split(':')?.[this ? 0 : 1];
 };

@@ -17,6 +17,7 @@ const
 ,   L = location    
 ,   US = "'use strict';"
 ,   ass = Object.assign as <T extends {}>(obj: T, props: {}) => T
+,   tU = (s:string) => s.toUpperCase()
     
 // Some utilities
 ,   K   = x => () => x
@@ -75,6 +76,7 @@ type Settings = Partial<{
     version:        number,
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
     locale:         string,
+    currency:       string,
 
     // For internal use
     bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
@@ -1312,7 +1314,7 @@ class RComp {
     ): Promise<DOMBuilder>
     {
         for (let tag of this.S.preformatted)
-            this.sPRE.add(tag.toUpperCase());
+            this.sPRE.add(tU(tag));
         this.srcCnt = 0;
         //this.log('Compile');
         let t0 = now()
@@ -1431,37 +1433,38 @@ class RComp {
 
     // Compile any source element
     private async CElm(srcE: HTMLElement, bI?: boolean
-        ): Promise<DOMBuilder> {       
-        try {
-            let RC = this
-            ,   tag = srcE.tagName
-                // List of source attributes, to check for unrecognized attributes
-            ,   ats =  new Atts(srcE)
+        ): Promise<DOMBuilder> { 
+        let RC = this
+        ,   tag = srcE.tagName
+            // List of source attributes, to check for unrecognized attributes
+        ,   ats =  new Atts(srcE)
 
-                // Global attributes (this)react(s)on / hash / if / renew handlers,
-                // to be compiled after the the element itself has been compiled
-            ,   ga: Array<{at: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = []
+            // Global attributes (this)react(s)on / hash / if / renew handlers,
+            // to be compiled after the the element itself has been compiled
+        ,   ga: Array<{at: string, m: RegExpExecArray, dV: Dep<RVAR[] | unknown[] | booly>}> = []
 
-                // Generic pseudo-event handlers to be handled at runtime BEFORE and AFTER building
-            ,   bf: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
-            ,   af: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
-                                
-                // The intermediate builder will be put here
-            ,   bl: DOMBuilder
-                // 'bA' is set rather than 'bl' for builders that should abort the current range of nodes when an error occurs.
-                // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
-            ,   bA: DOMBuilder
-                
-                // See if this node is a user-defined construct (component or slot) instance
-            ,   constr = RC.CT.getCS(tag)
-
-                // Pre-declared variables for various purposes
-            ,   b: DOMBuilder
-            ,   m: RegExpExecArray
-            ,   nm: string
+            // Generic pseudo-event handlers to be handled at runtime BEFORE and AFTER building
+        ,   bf: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
+        ,   af: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
+                            
+            // The intermediate builder will be put here
+        ,   bl: DOMBuilder
+            // 'bA' is set rather than 'bl' for builders that should abort the current range of nodes when an error occurs.
+            // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
+        ,   bA: DOMBuilder
             
-            ,   ws = RC.ws;
+            // See if this node is a user-defined construct (component or slot) instance
+        ,   constr = RC.CT.getCS(tag)
 
+            // Pre-declared variables for various purposes
+        ,   b: DOMBuilder
+        ,   m: RegExpExecArray
+        ,   nm: string
+        
+        ,   ws = RC.ws
+        ,   S = this.S;
+      
+        try {
                 // Check for generic attributes
             for (let [at] of ats)
                 if (m = 
@@ -1479,7 +1482,8 @@ class RComp {
                                     dV: 
                                         m[6]  // on((error)|success)
                                             ? RC.CHandlr(ats.g(at), at)
-                                        : m[5] ? this.CExpr<Settings>(`{${ats.g(at, F, T)}}`, at, U)
+                                        : m[5] ? //this.CExpr<Settings>(`{${ats.g(at, F, T)}}`, at, U)
+                                               K(this.S = {...S, ...<Settings>TryV(`({${ats.g(at)}})`, at)})
                                         : m[8] // if
                                             ? RC.CAttExp(ats, at)
                                         :   // reacton, hash
@@ -2049,6 +2053,7 @@ class RComp {
                 );
         }
         catch (m) { throw ErrM(srcE, m); }
+        finally {this.S = S; }
     }
 
     private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder
@@ -2654,7 +2659,7 @@ class RComp {
         }
         else { 
             /* Iterate over multiple slot instances */
-            let nm = ats.g('of',T,T).toUpperCase()
+            let nm = tU(ats.g('of',T,T))
             ,   {S,dC} = this.CT.getCS(nm) ||
                     // Slot doesn't exist; it's probably a missing 'let'
                     thro(`Missing attribute [let]`);
@@ -3281,9 +3286,7 @@ class RComp {
             ) as (e:Environment) => T
             ;
         return () => {
-                try { 
-                    return f.call(pN, env);
-                } 
+                try { return f.call(pN, env); } 
                 catch (e) {throw e+m; } // Runtime error
             };
     }
@@ -3530,6 +3533,7 @@ export async function RFetch(req: RequestInfo, init?: RequestInit) {
 //#endregion
 
 //#region Formatting
+// Undocumented
 const
     fmt = new Intl.DateTimeFormat('nl', 
     { day:'2-digit', month: '2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second: '2-digit', fractionalSecondDigits:3, hour12:false }),
@@ -3537,18 +3541,22 @@ const
     dNFM: { [f:string]: Intl.NumberFormat } = {};
 
 function gNumFM(f: string): Intl.NumberFormat {
-  let m = /^([DFXN])(\d*)$/.exec(f.toUpperCase()) || thro(`Invalid number format '${f}'`)
-    , p = m[2] ? parseInt(m[2]) : N
+  let m = /^([CDFXN])(\d*)$/.exec(tU(f)) || thro(`Invalid number format '${f}'`)
+    , p = m[2] ? parseInt(m[2]) : U
     , L = oes.t.locale;
   switch(m[1]) {
       case 'D': return new Intl.NumberFormat(L, {minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false});
       case 'F': return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false});
       case 'X': return <Intl.NumberFormat>{ format(x: number) {
-              let s = x.toString(16),l=s.length;
+              let 
+                s = tU(x.toString(16)),
+                l = s.length;
               return p>l ? '0'.repeat(p-l)+s : s;
           }};
   }
-  return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 0, maximumFractionDigits: p ?? 2, useGrouping: true});
+  return new Intl.NumberFormat(L, {minimumFractionDigits: p, maximumFractionDigits: p, useGrouping: true
+    , style: m[1]=='C' ? 'currency' : U, currency: oes.t.currency
+  });
 }
 (Date.prototype as any).format = function(this: Date, f: string) {
   return fmt.format(this).replace(reg1, f.replace( 

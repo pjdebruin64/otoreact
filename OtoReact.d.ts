@@ -15,6 +15,7 @@ type Settings = Partial<{
     version: number;
     headers: HeadersInit;
     locale: string;
+    currency: string;
     bSubf: boolean | 2;
 }>;
 type Environment = [Environment?, ...unknown[]] & {
