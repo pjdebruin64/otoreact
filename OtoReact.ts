@@ -50,6 +50,7 @@ const
         preformatted:   E as string[],
         //storePrefix:    "RVAR_",
         version:        1,
+        currency:       'EUR'
     }
     // Dereference if RVAR
 ,   dr  = (v: unknown) => v instanceof RV ? v.V : v
@@ -1141,12 +1142,12 @@ class RComp {
     constructor(
         RC?: RComp
     ,   SRC?: string
-    ,   settings?: Settings
+    ,   S?: Settings | string
     ,   CT = RC?.CT
     ) { 
         ass(this,
             {   num: iRC++
-            ,   S: {... RC ? RC.S : dflts, ...settings}
+            ,   S: addS( RC ? RC.S : dflts, S)
             ,   src: SRC || RC?.src
             ,   doc: RC?.doc || D
             ,   CT: new Context(CT, CT)
@@ -1482,8 +1483,8 @@ class RComp {
                                     dV: 
                                         m[6]  // on((error)|success)
                                             ? RC.CHandlr(ats.g(at), at)
-                                        : m[5] ? //this.CExpr<Settings>(`{${ats.g(at, F, T)}}`, at, U)
-                                               K(this.S = {...S, ...<Settings>TryV(`({${ats.g(at)}})`, at)})
+                                        : m[5] ?    // rhtml (change settings)
+                                               K(this.S = addS(S, ats.g(at)))
                                         : m[8] // if
                                             ? RC.CAttExp(ats, at)
                                         :   // reacton, hash
@@ -3486,6 +3487,12 @@ const
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 
 , gRe = (ats: Atts) => ats.gB('reacting') || ats.gB('reactive')
+//, isS: (x:any) => x is string = (x: any) => (typeof x == 'string')
+, addS = (S: Settings, A: string | Settings) => 
+    ({
+        ...S, 
+        ... typeof A == 'string' ? <Settings>TryV(`({${A}})`, 'settings') : A
+    })
 ;
 
 // Map an iterable to another iterable, for items satisfying an optional condition
@@ -3540,22 +3547,27 @@ const
     reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g,
     dNFM: { [f:string]: Intl.NumberFormat } = {};
 
-function gNumFM(f: string): Intl.NumberFormat {
-  let m = /^([CDFXN])(\d*)$/.exec(tU(f)) || thro(`Invalid number format '${f}'`)
+function gNumFM(fm: string): Intl.NumberFormat {
+  let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
     , p = m[2] ? parseInt(m[2]) : U
+    , f = m[4] ? parseInt(m[3]) : U
+    , ug: boolean = F, s: string
     , L = oes.t.locale;
   switch(m[1]) {
-      case 'D': return new Intl.NumberFormat(L, {minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false});
-      case 'F': return new Intl.NumberFormat(L, {minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false});
+      case 'D': p ??= 1; break;
+      case 'C': s = 'currency';
+      case 'N': ug=T;
+      case 'F': f = p ?? 2; p = 1; break;
       case 'X': return <Intl.NumberFormat>{ format(x: number) {
-              let 
+              let
                 s = tU(x.toString(16)),
                 l = s.length;
               return p>l ? '0'.repeat(p-l)+s : s;
           }};
   }
-  return new Intl.NumberFormat(L, {minimumFractionDigits: p, maximumFractionDigits: p, useGrouping: true
-    , style: m[1]=='C' ? 'currency' : U, currency: oes.t.currency
+  return new Intl.NumberFormat(L, {
+    minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f
+    , useGrouping: ug, style: s, currency: oes.t.currency
   });
 }
 (Date.prototype as any).format = function(this: Date, f: string) {
@@ -3660,7 +3672,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {            
             if (typeof setts == 'string')
-                setts = <Settings>TryV(`({${setts}})`, `settings '${setts}'`);
+                setts = addS(N,setts);
 
             srcN.b = T;   // No duplicate compilation
 

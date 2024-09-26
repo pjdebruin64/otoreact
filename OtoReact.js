@@ -10,6 +10,7 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     bAutoPointer: T,
     preformatted: E,
     version: 1,
+    currency: 'EUR'
 }, dr = (v) => v instanceof RV ? v.V : v;
 class Context {
     constructor(CT, a) {
@@ -496,9 +497,9 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
 }
 let iRC = 0, iLS = 0;
 class RComp {
-    constructor(RC, SRC, settings, CT = RC?.CT) {
+    constructor(RC, SRC, S, CT = RC?.CT) {
         ass(this, { num: iRC++,
-            S: { ...RC ? RC.S : dflts, ...settings },
+            S: addS(RC ? RC.S : dflts, S),
             src: SRC || RC?.src,
             doc: RC?.doc || D,
             CT: new Context(CT, CT),
@@ -669,7 +670,7 @@ class RComp {
                                 dV: m[6]
                                     ? RC.CHandlr(ats.g(at), at)
                                     : m[5] ?
-                                        K(this.S = { ...S, ...TryV(`({${ats.g(at)}})`, at) })
+                                        K(this.S = addS(S, ats.g(at)))
                                         : m[8]
                                             ? RC.CAttExp(ats, at)
                                             :
@@ -1811,7 +1812,10 @@ const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOT
             || n.nodeType == 3
                 && n.nodeValue.trim())
             throw `<${srcE.tagName} ...> has unwanted content`;
-}, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6), gRe = (ats) => ats.gB('reacting') || ats.gB('reactive');
+}, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6), gRe = (ats) => ats.gB('reacting') || ats.gB('reactive'), addS = (S, A) => ({
+    ...S,
+    ...typeof A == 'string' ? TryV(`({${A}})`, 'settings') : A
+});
 function* mapI(I, f, c) {
     for (let x of I)
         if (!c || c(x))
@@ -1845,18 +1849,26 @@ export async function RFetch(req, init) {
     }
 }
 const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g, dNFM = {};
-function gNumFM(f) {
-    let m = /^([CDFXN])(\d*)$/.exec(tU(f)) || thro(`Invalid number format '${f}'`), p = m[2] ? parseInt(m[2]) : U, L = oes.t.locale;
+function gNumFM(fm) {
+    let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`), p = m[2] ? parseInt(m[2]) : U, f = m[4] ? parseInt(m[3]) : U, ug = F, s, L = oes.t.locale;
     switch (m[1]) {
-        case 'D': return new Intl.NumberFormat(L, { minimumIntegerDigits: p ?? 1, maximumFractionDigits: 0, useGrouping: false });
-        case 'F': return new Intl.NumberFormat(L, { minimumFractionDigits: p ?? 2, maximumFractionDigits: p ?? 2, useGrouping: false });
+        case 'D':
+            p ??= 1;
+            break;
+        case 'C': s = 'currency';
+        case 'N': ug = T;
+        case 'F':
+            f = p ?? 2;
+            p = 1;
+            break;
         case 'X': return { format(x) {
                 let s = tU(x.toString(16)), l = s.length;
                 return p > l ? '0'.repeat(p - l) + s : s;
             } };
     }
-    return new Intl.NumberFormat(L, { minimumFractionDigits: p, maximumFractionDigits: p, useGrouping: true,
-        style: m[1] == 'C' ? 'currency' : U, currency: oes.t.currency
+    return new Intl.NumberFormat(L, {
+        minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f,
+        useGrouping: ug, style: s, currency: oes.t.currency
     });
 }
 Date.prototype.format = function (f) {
@@ -1926,7 +1938,7 @@ export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
             if (typeof setts == 'string')
-                setts = TryV(`({${setts}})`, `settings '${setts}'`);
+                setts = addS(N, setts);
             srcN.b = T;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q), setts);
             await C.Compile(srcN);
