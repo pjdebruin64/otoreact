@@ -5,13 +5,13 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     catch (x) {
         throw x + s + m;
     }
-}, EL = (et, k, el) => et.addEventListener(k, el), dflts = {
+}, isS = ((x) => typeof x == 'string'), pI = (s) => s ? parseInt(s) : N, EL = (et, k, el) => et.addEventListener(k, el), dflts = {
     bShowErrors: T,
     bAutoPointer: T,
     preformatted: E,
     version: 1,
     currency: 'EUR'
-}, dr = (v) => v instanceof RV ? v.V : v;
+}, bD = "bDollarRequired", dr = (v) => v instanceof RV ? v.V : v;
 class Context {
     constructor(CT, a) {
         ass(this, CT || {
@@ -409,10 +409,9 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                         e.setAttribute(nm, x);
                         break;
                     case 1:
-                        if (M.isS ??= typeof e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
-                            : nm == 'valueasnumber'
-                                ? 'value'
-                                : nm)] == 'string')
+                        if (M.isS ??= isS(e[M.c = ChkNm(e, nm == 'for' ? 'htmlFor'
+                            : nm == 'valueasnumber' ? 'value'
+                                : nm)]))
                             x = x == N || x != x ? Q : x.toString();
                         if (x != e[nm = M.c])
                             e[nm] = x;
@@ -431,9 +430,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
                         break;
                     case 4:
                         if (x)
-                            typeof x == 'string'
-                                ? (e.style = x)
-                                : ass(e.style, x);
+                            isS(x) ? (e.style = x) : ass(e.style, x);
                         break;
                     case 2:
                         e.style[M.c ||= ChkNm(e.style, nm)] = x || x === 0 ? x : Q;
@@ -495,7 +492,7 @@ function ApplyAtts(r, cr, ms, k = 0, xs) {
         e.style.cursor = hc && !e.disabled ? 'pointer' : Q;
     return k;
 }
-let iRC = 0, iLS = 0;
+let iRC = 0, iLS = 0, rIS = [];
 class RComp {
     constructor(RC, SRC, S, CT = RC?.CT) {
         ass(this, { num: iRC++,
@@ -512,7 +509,6 @@ class RComp {
         });
         this.fp = this.src.replace(/[^/]*$/, Q);
         this.hd = RC?.hd || this.doc.head;
-        this.bDR = this.S.bDollarRequired ? 1 : 0;
     }
     Framed(Comp) {
         let { CT, rActs } = this, { ct, d, L, M } = CT, A = rActs.length, nf = L - M;
@@ -904,9 +900,9 @@ class RComp {
                         break;
                     }
                     case 'RSTYLE': {
-                        let dr = RC.bDR, sc = ats.g('scope'), { bf, af } = RC.CAtts(ats), i;
+                        let dr = RC.S[bD], sc = ats.g('scope'), { bf, af } = RC.CAtts(ats), i;
                         try {
-                            RC.bDR = 1;
+                            RC.S[bD] = T;
                             RC.ws = 1;
                             let b = await (sc ?
                                 (/^local$/i.test(sc) || thro('Invalid scope')
@@ -928,7 +924,7 @@ class RComp {
                             };
                         }
                         finally {
-                            RC.bDR = dr;
+                            RC.S[bD] = dr;
                             RC.ws = ws;
                         }
                         break;
@@ -1004,7 +1000,7 @@ class RComp {
                     }, srcE);
                 else
                     bl =
-                        m[5]
+                        es
                             ? async function SetOnES(a, bR) {
                                 let s = oes, { sub, r } = PrepRng(a, srcE, at);
                                 oes = ass(r.oes ||= {}, oes);
@@ -1615,11 +1611,11 @@ class RComp {
 |/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
 |\\?\\.\
 |\\?${re}:\
-|[^])*?`, rIS = RComp.rIS[this.bDR] ||=
-            new RegExp(`\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g'), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
-        rIS.lastIndex = 0;
+|[^])*?`, bDR = this.S[bD] ? 1 : 0, rI = rIS[bDR] ||=
+            new RegExp(`\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g'), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+        rI.lastIndex = 0;
         while (T) {
-            let lastIx = rIS.lastIndex, m = rIS.exec(text);
+            let lastIx = rI.lastIndex, m = rI.exec(text);
             fx += text.slice(lastIx, m.index) + (m[1] || Q);
             if (!m[0] || m[2]) {
                 if (ws < 4) {
@@ -1753,7 +1749,6 @@ class RComp {
         return m.childNodes;
     }
 }
-RComp.rIS = [];
 class Atts extends Map {
     constructor(elm) {
         super();
@@ -1814,7 +1809,8 @@ const dU = _ => U, dB = async (a) => { PrepRng(a); }, rBlock = /^(BODY|BLOCKQUOT
             throw `<${srcE.tagName} ...> has unwanted content`;
 }, S2Hash = () => L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6), gRe = (ats) => ats.gB('reacting') || ats.gB('reactive'), addS = (S, A) => ({
     ...S,
-    ...typeof A == 'string' ? TryV(`({${A}})`, 'settings') : A
+    ...isS(A) ? TryV(`({${A}})`, 'settings') : A,
+    dN: A ? {} : S.dN
 });
 function* mapI(I, f, c) {
     for (let x of I)
@@ -1848,33 +1844,36 @@ export async function RFetch(req, init) {
         throw `${init?.method || 'GET'} ${req}: ` + e;
     }
 }
-const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g, dNFM = {};
-function gNumFM(fm) {
-    let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`), p = m[2] ? parseInt(m[2]) : U, f = m[4] ? parseInt(m[3]) : U, ug = F, s, L = oes.t.locale;
-    switch (m[1]) {
-        case 'D':
-            p ??= 1;
-            break;
-        case 'C': s = 'currency';
-        case 'N': ug = T;
-        case 'F':
-            f = p ?? 2;
-            p = 1;
-            break;
-        case 'X': return { format(x) {
-                let s = tU(x.toString(16)), l = s.length;
-                return p > l ? '0'.repeat(p - l) + s : s;
-            } };
+const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g;
+Number.prototype.format = function (fm) {
+    let d = oes.t.dN, FM = d[fm];
+    if (!FM) {
+        let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`), p = pI(m[2]), f = pI(m[4]), ug = F, s, L = oes.t.locale;
+        switch (m[1]) {
+            case 'D':
+                p ??= 1;
+                break;
+            case 'C': s = 'currency';
+            case 'N': ug = T;
+            case 'F':
+                f = p ?? 2;
+                p = 1;
+                break;
+            case 'X': FM = { format(x) {
+                    let s = tU(x.toString(16)), l = s.length;
+                    return p > l ? '0'.repeat(p - l) + s : s;
+                } };
+        }
+        d[fm] = FM ||= new Intl.NumberFormat(L, {
+            minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f,
+            useGrouping: ug, style: s, currency: oes.t.currency
+        });
     }
-    return new Intl.NumberFormat(L, {
-        minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f,
-        useGrouping: ug, style: s, currency: oes.t.currency
-    });
-}
+    return FM.format(this);
+};
 Date.prototype.format = function (f) {
     return fmt.format(this).replace(reg1, f.replace(/\\(.)|(\w)\2*/g, (m, a) => a || `$<${m}>`));
 };
-Number.prototype.format = function (f) { return (dNFM[f] ||= gNumFM(f)).format(this); };
 Boolean.prototype.format = function (f) {
     return f.split(':')?.[this ? 0 : 1];
 };
@@ -1937,8 +1936,7 @@ ass(G, {
 export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
-            if (typeof setts == 'string')
-                setts = addS(N, setts);
+            setts = addS(N, setts);
             srcN.b = T;
             let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q), setts);
             await C.Compile(srcN);

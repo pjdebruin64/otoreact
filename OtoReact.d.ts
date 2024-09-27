@@ -17,6 +17,9 @@ type Settings = Partial<{
     locale: string;
     currency: string;
     bSubf: boolean | 2;
+    dN: {
+        [f: string]: Intl.NumberFormat;
+    };
 }>;
 type Environment = [Environment?, ...unknown[]] & {
     cl?: string[];

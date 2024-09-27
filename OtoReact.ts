@@ -40,7 +40,13 @@ const
             throw x + s + m;
         }
     }
+    // Check x is string
+,   isS= ((x:any) => typeof x == 'string') as (x: any) => x is string
+    // parse to integer or null
+,   pI = (s: string) => s ? parseInt(s) : N
+    // AddEventListener
 ,   EL = (et: EventTarget, k: string, el: EventListenerOrEventListenerObject) => et.addEventListener(k, el)
+
     // Default settings 
 ,   dflts: Settings = {
         bShowErrors:    T,
@@ -52,6 +58,7 @@ const
         version:        1,
         currency:       'EUR'
     }
+,   bD = "bDollarRequired"
     // Dereference if RVAR
 ,   dr  = (v: unknown) => v instanceof RV ? v.V : v
     ;
@@ -80,7 +87,8 @@ type Settings = Partial<{
     currency:       string,
 
     // For internal use
-    bSubf:          boolean|2,  // Subfile. 2 is used for RHTML.
+    bSubf:          boolean|2,          // Subfile yes or no. 2 is used for RHTML.
+    dN:             { [f:string]: Intl.NumberFormat },  // NumberFormat cache for the current settings
 }>;
 
 // A  DEPENDENT value of type T in a given context is a routine computing a T, using the current global environment 'env' that should match that context
@@ -952,16 +960,17 @@ function ApplyAtts(
                         break;
 
                     case MType.Prop:
-                        // For string properties, make sure val is a string
-                        if (M.isS ??= typeof e[
-                            // And (in any case) determine properly cased name
+                        // For string properties, make sure val is a string.
+                        // M.c becomes the properly cased property name;
+                        // we check whether the current property value e[M.c] is a string or not,
+                        // and save that info in M.isS
+                        if (M.isS ??= isS(e[
                             M.c = ChkNm(e,
                                 nm=='for' ? 'htmlFor'
-                                : nm=='valueasnumber' //&& (e as HTMLInputElement).type == 'number'
-                                        ? 'value' 
+                                : nm=='valueasnumber' ? 'value' 
                                 : nm)
-                        ]=='string')
-                            // replace null, undefined and NaN (note that NaN!=NaN) by the empty string
+                        ]))
+                            // when it is a string, replace null, undefined and NaN (note that NaN!=NaN) by the empty string
                             x = x==N || x!=x ? Q : x.toString();
                         // Avoid unnecessary property assignments; they may have side effects
                         if (x != e[nm=M.c])
@@ -992,9 +1001,7 @@ function ApplyAtts(
                         // Set #style, which may either be a string value to be set as attribute,
                         // or an object whose entries are to be set as style properties
                         if (x)
-                            typeof x == 'string'
-                            ?   ((e.style as any) = x)
-                            :   ass(e.style, x);
+                            isS(x) ?   ((e.style as any) = x) :   ass(e.style, x);
                         break;
                         
                     case MType.StyleProp:
@@ -1119,6 +1126,7 @@ const enum WSpc {
 // Everytime an asynchronous compilation is wanted, a instance shall be cloned.
 let   iRC = 0       // Numbering of RComp instances
 ,   iLS = 0      // Numbering of local stylesheet classnames
+,   rIS: RegExp[]   = []        // Cache for RegExp for interpolated string parsing
     ;
 class RComp {
     public num: number;  // Rcompiler instance number, just for identification during debugging
@@ -1127,7 +1135,6 @@ class RComp {
     public CT: Context         // Compile-time context
 
     private doc: Document;
-    private bDR: 1|0;           // Dollar required yes or no
 
     // During compilation: node to which all static stylesheets are moved
     public hd: HTMLHeadElement|DocumentFragment|ShadowRoot;
@@ -1161,7 +1168,6 @@ class RComp {
         );
         this.fp = this.src.replace(/[^/]*$/, Q);
         this.hd  = RC?.hd || this.doc.head;
-        this.bDR = this.S.bDollarRequired?1:0;
     }
 
 /*
@@ -1483,7 +1489,9 @@ class RComp {
                                     dV: 
                                         m[6]  // on((error)|success)
                                             ? RC.CHandlr(ats.g(at), at)
-                                        : m[5] ?    // rhtml (change settings)
+                                        : m[5] ?    // rhtml (change settings) UNDOCUMENTED
+                                                // Setting this.S sets the compiletime settings;
+                                                // routine K(this.S) will 
                                                K(this.S = addS(S, ats.g(at)))
                                         : m[8] // if
                                             ? RC.CAttExp(ats, at)
@@ -1851,12 +1859,12 @@ class RComp {
                     }
 
                     case 'RSTYLE': {
-                        let dr = RC.bDR
+                        let dr = RC.S[bD]   // Save 'bDollarRequired' setting
                         ,   sc = ats.g('scope')
                         ,   {bf,af} = RC.CAtts(ats)
                         ,   i: number
                         try {
-                            RC.bDR = 1;
+                            RC.S[bD] = T;
                             RC.ws = WSpc.block;
 
                             let b = await (sc ?
@@ -1890,7 +1898,7 @@ class RComp {
                             }
                         }
                         finally {
-                            RC.bDR = dr; RC.ws = ws;
+                            RC.S[bD] = dr; RC.ws = ws;
                         }
                         break;
                     }
@@ -1996,7 +2004,7 @@ class RComp {
             // Compile global attributes
             for (let {at, m, dV} of RC.S.version ? ga : ga.reverse()) {
                 let b = bl
-                ,   es = m[5]?.[2]  // onerror or onsuccess
+                ,   es = m[5]?.[2]  // onerror (e) or onsuccess (s) or update local rhtml settings (t)
                 ,   bA = !m[3]    // not 'thisreactson'?
                     ;
 
@@ -2014,7 +2022,7 @@ class RComp {
                 
                 else
                     bl = 
-                        m[5]  // set onerror or onsuccess
+                        es  // set onerror or onsuccess or rhtml settingd
                         ? async function SetOnES(a: Area, bR) {
                             let s = oes    // Remember current setting
                             ,   {sub, r} = PrepRng<{oes: OES}>(a, srcE, at);
@@ -3119,7 +3127,6 @@ class RComp {
         return {bf, af};
     }
 
-    private static rIS: RegExp[] = [];
     // Compile interpolated text.
     // When the text contains no expressions, .fx will contain the (fixed) text.
     CText(text: string, nm?: string): Dep<string> & {fx?: string} {
@@ -3137,9 +3144,10 @@ class RComp {
 |\\?\\.\
 |\\?${re}:\
 |[^])*?`
-        ,   rIS = RComp.rIS[this.bDR] ||= 
+        ,   bDR = this.S[bD]?1:0
+        ,   rI = rIS[bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${this.bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
+                    `\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
                     , 'g'
                 )
         ,   gens: Array< string | Dep<unknown> > = []
@@ -3147,9 +3155,9 @@ class RComp {
         ,   fx = Q
         ,   iT: booly = T         // truthy when the text contains no nonempty embedded expressions
         ;
-        rIS.lastIndex = 0
+        rI.lastIndex = 0
         while (T) {
-            let lastIx = rIS.lastIndex, m = rIS.exec(text);
+            let lastIx = rI.lastIndex, m = rI.exec(text);
             // Add fixed text to 'fx':
             fx += text.slice(lastIx, m.index) + (m[1]||Q)
             // When we are either at the end of the string, or have a nonempty embedded expression:
@@ -3487,11 +3495,12 @@ const
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 
 , gRe = (ats: Atts) => ats.gB('reacting') || ats.gB('reactive')
-//, isS: (x:any) => x is string = (x: any) => (typeof x == 'string')
 , addS = (S: Settings, A: string | Settings) => 
     ({
         ...S, 
-        ... typeof A == 'string' ? <Settings>TryV(`({${A}})`, 'settings') : A
+        ... isS(A) ? <Settings>TryV(`({${A}})`, 'settings') : A,
+        // Redefine the dictionary of NumberFormats, any time the settings have changed
+        dN: A ? {} : S.dN
     })
 ;
 
@@ -3539,37 +3548,41 @@ export async function RFetch(req: RequestInfo, init?: RequestInit) {
 }
 //#endregion
 
-//#region Formatting
-// Undocumented
+//#region Formatting (Undocumented)
 const
     fmt = new Intl.DateTimeFormat('nl', 
     { day:'2-digit', month: '2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second: '2-digit', fractionalSecondDigits:3, hour12:false }),
-    reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g,
-    dNFM: { [f:string]: Intl.NumberFormat } = {};
+    reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g;
 
-function gNumFM(fm: string): Intl.NumberFormat {
-  let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
-    , p = m[2] ? parseInt(m[2]) : U
-    , f = m[4] ? parseInt(m[3]) : U
-    , ug: boolean = F, s: string
-    , L = oes.t.locale;
-  switch(m[1]) {
-      case 'D': p ??= 1; break;
-      case 'C': s = 'currency';
-      case 'N': ug=T;
-      case 'F': f = p ?? 2; p = 1; break;
-      case 'X': return <Intl.NumberFormat>{ format(x: number) {
-              let
-                s = tU(x.toString(16)),
-                l = s.length;
-              return p>l ? '0'.repeat(p-l)+s : s;
-          }};
-  }
-  return new Intl.NumberFormat(L, {
-    minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f
-    , useGrouping: ug, style: s, currency: oes.t.currency
-  });
-}
+(Number.prototype as any).format = function(this: number, fm: string)  {
+    let d: { [f:string]: Intl.NumberFormat } = oes.t.dN
+        , FM: Intl.NumberFormat = d[fm];
+    if (!FM) {
+        let m = /^([CDFXN])(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
+            , p = pI(m[2])
+            , f = pI(m[4])
+            , ug: boolean = F, s: string
+            , L = oes.t.locale;
+        switch(m[1]) {
+            case 'D': p ??= 1; break;
+            case 'C': s = 'currency';
+            case 'N': ug=T;
+            case 'F': f = p ?? 2; p = 1; break;
+            case 'X': FM = <Intl.NumberFormat>{ format(x: number) {
+                    let
+                        s = tU(x.toString(16)),
+                        l = s.length;
+                    return p>l ? '0'.repeat(p-l)+s : s;
+                }};
+        }
+        d[fm] = FM ||= new Intl.NumberFormat(L, {
+            minimumIntegerDigits: p, minimumFractionDigits: f, maximumFractionDigits: f
+            , useGrouping: ug, style: s, currency: oes.t.currency
+        });
+    }
+    return FM.format(this);
+};
+
 (Date.prototype as any).format = function(this: Date, f: string) {
   return fmt.format(this).replace(reg1, f.replace( 
         /\\(.)|(\w)\2*/g, (m,a) => a || `$<${m}>`
@@ -3577,7 +3590,6 @@ function gNumFM(fm: string): Intl.NumberFormat {
         )
     );
 };
-(Number.prototype as any).format = function(this: number, f: string) { return (dNFM[f] ||= gNumFM(f)).format(this); };
 /*
 (String.prototype as any).format = function(this: string, f: string) {
     let F = parseInt(f), L = Math.abs(F) - this.length;
@@ -3670,9 +3682,8 @@ ass(G, {
 
 export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
-        try {            
-            if (typeof setts == 'string')
-                setts = addS(N,setts);
+        try {
+            setts = addS(N,setts);
 
             srcN.b = T;   // No duplicate compilation
 
