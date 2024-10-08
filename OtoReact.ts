@@ -426,21 +426,23 @@ const PrepRng = <RT extends object>(
 
     On updating, update 'area' to point to the next range.
 */
-, PrepData = (a: Area, data: string, bC?: boolean) => {
-    let r = a.r as Range<CharacterData> & {uv?: Set<RV>};
-    if (!r)
-        r = new Range(a,
-            pN.insertBefore(
-                bC ? D.createComment(data) : D.createTextNode(data)
-                , a.bfor)
-        );
-    else {
-        r.n.data = data;
-        a.r = r.nx || T;
+, PrepData = (a: Area, data: string
+    , bC?: boolean      // truthy= comment, falsy = text node
+    ) => {
+        let r = a.r as Range<CharacterData>;
+        if (!r)
+            r = new Range(a,
+                pN.insertBefore(
+                    bC ? D.createComment(data) : D.createTextNode(data)
+                    , a.bfor)
+            );
+        else {
+            r.n.data = data;
+            a.r = r.nx || T;
+        }
+        nodeCnt++;
+        return r;
     }
-    nodeCnt++;
-    return r;
-}
 // #endregion
 
 //#region Component signatures
@@ -1112,6 +1114,11 @@ type DOMBuilder<RT = void|booly> = ((a: Area, bR?: boolean) => Promise<RT>)
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
     };
+type DOMBuilder1<RT = void|booly> = ((a: Area, bR?: boolean) => (RT | Promise<RT>)) 
+    & {
+        auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
+        nm?: string;   // Name of the DOMBuilder
+    };
 
 // Whitespace modes of the compiler
 const enum WSpc {
@@ -1331,10 +1338,13 @@ class RComp {
             : await this.CElm(elm as HTMLElement, T)
             ) || dB;
         this.log(`Compiled ${this.srcCnt} nodes in ${(now() - t0).toFixed(1)} ms`);
-        return this.bldr = (a, bR) => {
+        return this.bldr = async (a, bR) => {
             let S = oes.t;
             oes.t = this.S;
-            return b(a, bR).finally(() => oes.t = S);
+            try {
+                await b(a, bR);
+            }
+            finally { oes.t = S; }
         };
     }
 
@@ -1378,16 +1388,17 @@ class RComp {
         let {rt} = this     // Indicates whether the output may be right-trimmed
         ,   arr = Array.from(iter)
         ,   L = arr.length
-        ,   bs = [] as Array< DOMBuilder >
+        ,   bs = [] as Array< DOMBuilder1 >
         ,   i=0
             ;
-        // When ' rt', then remove node at the end containing nothing but whitespace
+        // When ' rt', then remove nodes at the end containing nothing but whitespace
         while(rt && L && !/[^ \t\n\r]/.test(arr[L - 1]?.nodeValue)) 
             L--;        
 
         while (i<L) {
             let srcN = arr[i++]
-            ,   bl: DOMBuilder;
+            ,   bl: DOMBuilder1
+            ,   bC : boolean;
             this.rt = i==L && rt;
             switch (srcN.nodeType) {
                 
@@ -1399,24 +1410,21 @@ class RComp {
                 case 8:         //Node.COMMENT_NODE:
                     if (!this.S.bKeepComments)
                         break;
-                    var bC = T;
+                    bC = T;
+                    // Fall through to:
+
                 case 3:         //Node.TEXT_NODE:
                     this.srcCnt ++;
                     let str = srcN.nodeValue
-                    ,   getText = this.CText( str ), {fx} = getText;
-                    if (fx !== Q) { // Either nonempty or undefined
-                        bl = async (a: Area<{uv:Map<RV, booly>}, never>) => {
-                            // Perform auto-react check on previous node, when needed
-                            arA && arChk();
+                    ,   dText = this.CText( str )
+                    ,   x = dText.fx;
 
-                            // Set the scene for auto-react check on this node
-                            arR = a.r; arB = bl;
+                    if (x ?? T) {
+                        bl = x ? a => PrepData(a, x, bC)
+                            : this.ErrH(
+                                a => PrepData(a, dText(), bC)
+                            );
                             
-                            PrepData(arA = a, getText(), bC);
-
-                            arChk();
-                        }
-                        
                         // Update the compiler whitespace mode
                         if (!bC && this.ws < WSpc.preserve)
                             this.ws = / $/.test(str) ? WSpc.inlineSpc : WSpc.inline;
@@ -1428,9 +1436,8 @@ class RComp {
                 bs.push(bl);
         }
 
-        return (L = bs.length) ?
-            L < 2 ? bs[0]
-                : async function Iter(a: Area)
+        return bs.length ?
+                async function Iter(a: Area)
                 {   
                     for (let b of bs)
                         await b(a);
@@ -1440,7 +1447,7 @@ class RComp {
 
     // Compile any source element
     private async CElm(srcE: HTMLElement, bI?: boolean
-        ): Promise<DOMBuilder> { 
+        ): Promise<DOMBuilder1> { 
         let RC = this
         ,   tag = srcE.tagName
             // List of source attributes, to check for unrecognized attributes
@@ -1455,10 +1462,10 @@ class RComp {
         ,   af: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
                             
             // The intermediate builder will be put here
-        ,   bl: DOMBuilder
+        ,   bl: DOMBuilder1
             // 'bA' is set rather than 'bl' for builders that should abort the current range of nodes when an error occurs.
             // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
-        ,   bA: DOMBuilder
+        ,   bA: DOMBuilder1
             
             // See if this node is a user-defined construct (component or slot) instance
         ,   constr = RC.CT.getCS(tag)
@@ -1536,7 +1543,7 @@ class RComp {
                         ,   dSNm    = dSto && RC.CPam<string>(ats, 'storename')
                         ;
 
-                        bA = async function DEF(a, bR?) {
+                        bA = function DEF(a, bR?) {
                             let {cr,r} = PrepRng<{rv: RV, om: Hndlr}>(a, srcE)
                             ,   v: unknown;
                             // Evaluate the value only when:
@@ -1914,7 +1921,7 @@ class RComp {
                         NoChilds(srcE);
                         let dN = RC.CPam<string>(ats, 'name', T)
                         ,   dV = RC.CPam<string>(ats, 'value', T);
-                        bl = async function ATTRIB(a: Area){
+                        bl = function ATTRIB(a: Area){
                             let {r,cr} = PrepRng<{v:string}>(a, srcE)
                             ,   nm = dN();
                             if (cr)
@@ -2065,7 +2072,7 @@ class RComp {
         finally {this.S = S; }
     }
 
-    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: booly): DOMBuilder
+    private ErrH(b: DOMBuilder1<any>, srcN?: ChildNode, bA?: booly): DOMBuilder
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled.
@@ -2308,7 +2315,7 @@ class RComp {
             cond?: Dep<booly>,  // Condition
             patt?: {lvars: LVar[], RE: RegExp, url?: boolean},  //Pattern
             not: boolean,       // Negate
-            b: DOMBuilder,      // Builder
+            b: DOMBuilder1,      // Builder
             n: HTMLElement,     // Source node
         };
         let aList: Array<Alt> = []
@@ -2898,7 +2905,7 @@ class RComp {
                 srcE.removeChild(n);
             }
             
-        if (CSlot)  // Content slot?
+        CSlot &&  // Content slot?
             SBldrs.get(CSlot.nm).push(
                 await this.CTempl(CSlot, srcE, T, ats)
             );
@@ -2921,7 +2928,9 @@ class RComp {
             let {r, sub, cr} = PrepRng<{args: ArgSet}>(a, srcE)
             ,   sEnv = env
             ,   cdef = dC()
-            ,   args = r.args ||= {__proto__:N}
+            ,   args = r.args ||= 
+                // Create an empty object that (for efficiency) does not inherit from Object
+                Object.create(N)    // or {__proto__:N} 
             ;
             if (cdef)  //Just in case of an async imported component where the client signature has less slots than the real signature
                 try {
@@ -2940,6 +2949,7 @@ class RComp {
                             // For TWO-way parameters, create an RVAR
                             (args[nm] as RV) = RVAR(U,v,U,S());
                         else
+                            // or update it
                             (args[nm] as RV).V = v;
                     }
                     arChk();
@@ -2954,10 +2964,10 @@ class RComp {
     }
     //#endregion
 
+    // Compile a regular HTML element (not a construct)
     private async CHTML(srcE: HTMLElement, ats: Atts
         ,   dTag?: Dep<string>    // Optional routine to compute the tag name
     ) {
-        // Compile a regular HTML element
         // Remove trailing dots
         let nm = dTag ? N : srcE.tagName.replace(/\.+$/, Q)
         // Remember preceeding whitespace-mode
@@ -3133,11 +3143,11 @@ class RComp {
     // When the text contains no expressions, .fx will contain the (fixed) text.
     CText(text: string, nm?: string): Dep<string> & {fx?: string} {
         // Regular expression to recognize string interpolations, with or without dollar,
-        // with support for threeo levels of nested braces,
+        // with support for three levels of nested braces,
         // where we also must take care to skip js strings possibly containing braces,  escaped quotes, quoted strings, regexps, backquoted strings containing other expressions.
         // Backquoted js strings containing js expressions containing backquoted strings might go wrong
         // (We can't use negative lookbehinds; Safari does not support them)
-        let f = (re:string) => 
+        let F = (re:string) => 
 `(?:\\{(?:\\{${re}\\}|[^])*?\\}\
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
@@ -3149,7 +3159,7 @@ class RComp {
         ,   bDR = this.S[bD]?1:0
         ,   rI = rIS[bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${f(f(f('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
+                    `\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${F(F(F('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
                     , 'g'
                 )
         ,   gens: Array< string | Dep<unknown> > = []
@@ -3159,21 +3169,21 @@ class RComp {
         ;
         rI.lastIndex = 0
         while (T) {
-            let lastIx = rI.lastIndex, m = rI.exec(text);
+            let lastIx = rI.lastIndex, m = rI.exec(text), [a,x,e,f] = m;
             // Add fixed text to 'fx':
-            fx += text.slice(lastIx, m.index) + (m[1]||Q)
+            fx += text.slice(lastIx, m.index) + (x||Q)
             // When we are either at the end of the string, or have a nonempty embedded expression:
-            if (!m[0] || m[2]) {
+            if (!a || e) {
                 if (ws < WSpc.preserve) {
                     // Whitespace reduction
                     fx = fx.replace(/[ \t\n\r]+/g, " ");  // Reduce all whitespace to a single space, except nonbreakable space &nbsp;
                     if (ws <= WSpc.inlineSpc && !gens.length)
                         fx = fx.replace(/^ /,Q);     // No initial whitespace
-                    if (this.rt && !m[0])
+                    if (this.rt && !a)
                         fx = fx.replace(/ $/,Q);     // No trailing whitespace
                 }
-                if (fx) gens.push( fx );
-                if (!m[0])
+                fx && gens.push( fx );
+                if (!a)
                     return iT ? ass(() => fx, {fx})
                         : () => {
                             let s = Q;
@@ -3182,7 +3192,7 @@ class RComp {
                             return s;
                         };
                 
-                let dE = this.CExpr<string>(m[2], nm, U, '{}'), f=m[3];
+                let dE = this.CExpr<string>(e, nm, U, '{}');
                 gens.push( f ? () => RFormat(dr(dE()), f) : dE );
                 iT = fx = Q;
             }
@@ -3194,7 +3204,7 @@ class RComp {
     {
         let reg = Q, lvars: LVar[] = []
         
-        // These are the subpatterns that are need converting; all remaining characters are literals and will be quoted when needed
+        // These are the subpatterns that need converting; all remaining characters are literals and will be quoted when needed
         ,   rP =
             /\{((?:[^}]|\\\})*)\}|(\?)|(\*)|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
         //            1--------------1   2--2 3--3 4-----4
@@ -3429,8 +3439,8 @@ class Atts extends Map<string,string> {
 
 //#region Utilities
 const
-    dU: DepE<any>     = _ => U             // Undefined dependent value
-,   dB: DOMBuilder  = async (a) => {PrepRng(a);}       // A dummy DOMBuilder
+    dU: DepE<any>   = _ => U             // Undefined dependent value
+,   dB: DOMBuilder1 = a => {PrepRng(a);}       // A dummy DOMBuilder1
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
     // and Inline elements with block mode contents
