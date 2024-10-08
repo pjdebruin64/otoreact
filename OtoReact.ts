@@ -3311,14 +3311,13 @@ class RComp {
     private gsc(exp: string) {
         // Get Shaked Context string
         // See if the context string this.CT.ct can be abbreviated
-        let {ct,lvM, d} = this.CT, n=d+1, S = new Set<string>;
-        for (let [id] of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k: EnvKey = lvM.get(id);
-            if (k) {
-                if (k?.d < n) n = k.d;
+        let {ct,lvM, d} = this.CT, n=d+1, S = new Set<string>, k: EnvKey;
+        for (let [id] of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi))
+            if(k = lvM.get(id)) {
+                if (k.d < n) n = k.d;
                 S.add(id);
             }
-        }
+            
         if (n>d)
             return Q;
 
