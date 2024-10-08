@@ -1166,7 +1166,7 @@ class RComp {
             ,   rt: T
             }
         );
-        this.fp = this.src.replace(/[^/]*$/, Q);
+        this.fp = this.src?.replace(/[^/]*$/, Q);
         this.hd  = RC?.hd || this.doc.head;
     }
 
@@ -1601,7 +1601,7 @@ class RComp {
                     break;
 
                     case 'IMPORT': {
-                        let src = ats.g('src', T)
+                        let src = ats.src(T)
                         ,   bIncl = ats.gB('include')
                         ,   bAsync = ats.gB('async')
                         ,   lvars: Array<LVar & {g?: DepE<unknown>}> 
@@ -1831,7 +1831,7 @@ class RComp {
                     break;
 
                     case 'STYLE': {
-                        let src = ats.g('src'), sc = ats.g('scope')
+                        let src = ats.src(), sc = ats.g('scope')
                         ,   nm: string, {lscl: l, hd} = RC;
 
                         if (sc) {
@@ -2022,13 +2022,13 @@ class RComp {
                 
                 else
                     bl = 
-                        es  // set onerror or onsuccess or rhtml settingd
-                        ? async function SetOnES(a: Area, bR) {
+                        es  // set onerror or onsuccess or rhtml settings
+                        ? async function SetOES(a: Area, bR) {
                             let s = oes    // Remember current setting
                             ,   {sub, r} = PrepRng<{oes: OES}>(a, srcE, at);
 
                             // Create a copy. On updates, assign current values to the copy created before.
-                            oes = ass<OES>(r.oes ||= <any>{}, oes);
+                            oes = ass(r.oes ||= <OES>{}, oes);
                             try {
                                 oes[es] = dV();     // Now set the new value
                                 await b(sub, bR);   // Run the builder
@@ -2037,7 +2037,7 @@ class RComp {
                         }
 
                         : m[7]   // hash
-                        ? function HASH(a: Area, bR) {
+                        ? (a: Area, bR) => {
                             let {sub, r,cr} = PrepRng<{v:unknown[]}>(a, srcE, at)
                             ,   ph  = r.v;
                             r.v = <unknown[]>dV();
@@ -2047,9 +2047,9 @@ class RComp {
                         : m[8]  // #if
                         ?   function hIf(a: Area, bR) {
                                 let c = <booly>dr(dV())
-                                ,   p = PrepRng(a, srcE, at, 1, !c)
+                                ,   p = PrepRng(a, srcE, at, 1, !c);
                                 if (c)
-                                    return b(p.sub, bR)
+                                    return b(p.sub, bR);
                             }
                         :   // Renew
                             (sub: Area, bR) =>
@@ -2057,7 +2057,7 @@ class RComp {
             }
 
             return bl != dB && ass(
-                RC.ErrH(bl, srcE, !!bA)
+                RC.ErrH(bl, srcE, bA)
                 , {nm}
                 );
         }
@@ -2065,11 +2065,12 @@ class RComp {
         finally {this.S = S; }
     }
 
-    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: boolean): DOMBuilder
+    private ErrH(b: DOMBuilder<any>, srcN: ChildNode, bA?: booly): DOMBuilder
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled.
         // This routine also handles auto-react checking.
+        // srcN is the source node, bA truthy means processing should still be aborted when an error has occured and handled.
         let bl = b && (async (a: AreaR<{eN: ChildNode; uv:Map<RV, booly>;}>, bR: boolean) => {
             let r = a.r;
             if (r?.eN) {
@@ -2083,20 +2084,19 @@ class RComp {
 
                 // Then set the scene for auto-react checking on the current node
                 arR = a.r; arB = bl;
+
                 // Initiate the node builder, without awaiting the result.
                 // It is required that auto-react checking is done BEFORE awaiting any promise, and before 'env' is set to a different value.
                 // All code paths should respect that.
                 let prom = b(arA = a, bR);
 
-                // Now do the check, if still needed
+                // Now do the auto-react check, if still needed
                 arA && arChk();
 
                 // Then we can await the builder result.
                 await prom;
-                pN = a.pN;
             } 
             catch (m) {
-                pN = a.pN;
                 if (m) {
                     let msg = 
                         srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
@@ -2107,12 +2107,13 @@ class RComp {
                     this.log(msg);
                     e ? e(m)
                     : this.S.bShowErrors ?
-                        (r||{} as typeof r).eN = pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
+                        (r||{} as typeof r).eN = a.pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                     : U;
-                    //if (bA) throw Q;
+                    
                     bA && thro(Q);
                 }
             }
+            pN = a.pN;
         });
 
         return bl;
@@ -2122,7 +2123,7 @@ class RComp {
         // Compile the contents of any node that may contain a 'src' attribute to include external source code.
         // With 'bReq', 'src' is required.
         // The source code may be server side included.
-        let src = ats?.g('src', bR);
+        let src = ats?.src(bR);
 
         // When src is given,
         return src ?
@@ -2168,9 +2169,10 @@ class RComp {
     private async CScript(srcE: HTMLScriptElement, ats: Atts) {
         let {type, text, defer, async} = srcE
             // External source?
-        ,   src = ats.g('src')     // Niet srcE.src
+        ,   src = ats.src()     // Niet srcE.src
             // Any variables to define?
         ,   defs = ats.g('defines') || ''
+            // Parse the script type
         ,   m = /^\s*(((text|application)\/javascript|(module)|)|(otoreact)(\/(((local)|static)|global)|(.*?)))\s*(;\s*type\s*=\s*(")?module\12)?\s*$|/i.exec(type)
             //         123----------------3             4------4 2 5--------56  78-----8 9------9       7 A---A61   B               C-C          B 
             // True if a local script shpuld be re-executed at every update
@@ -3309,10 +3311,13 @@ class RComp {
     private gsc(exp: string) {
         // Get Shaked Context string
         // See if the context string this.CT.ct can be abbreviated
-        let {ct,lvM, d} = this.CT, n=d+1
-        for (let m of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
-            let k: EnvKey = lvM.get(m[0]);
-            if (k?.d < n) n = k.d;
+        let {ct,lvM, d} = this.CT, n=d+1, S = new Set<string>;
+        for (let [id] of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi)) {
+            let k: EnvKey = lvM.get(id);
+            if (k) {
+                if (k?.d < n) n = k.d;
+                S.add(id);
+            }
         }
         if (n>d)
             return Q;
@@ -3320,7 +3325,7 @@ class RComp {
         let p = d-n, q = p
         while (n--)
             q = ct.indexOf(']', q) + 1;
-        return `[${ct.slice(0,p)}${ct.slice(q)}]`;
+        return `[${ct.slice(0,p)}${ct.slice(q).replace(new RegExp(`\\b(${[...S].join('|')})\\b|[^\\],]+`,'g'),'$1')}]`;
     }
 
     // Returns the normalized (absolute) form of URL 'src'.
@@ -3386,16 +3391,8 @@ class Atts extends Map<string,string> {
     ,   bI?: booly          // If it is specified without value, should the attribute name be treated as its implicit value
     ) {
         let m: string
-        ,   gg = (nm:string) => {
-                let v= super.get(m = nm);
-                return v!=N ? v : 
-                    // Undocumented feature: compile-time expression evaluation
-                    TryV(super.get(m = '%'+nm), m);
-            }
-        ,   v = gg(nm)
-        ;
-        if (v==N && bHash)
-            v = gg('#' + nm);
+        ,   gg = (nm:string) => super.get(m = nm)
+        ,   v = gg(nm) ?? (bHash ? gg('#' + nm) : N);
         if (v != N)
             super.delete(m);
         else if (bReq)
@@ -3403,15 +3400,19 @@ class Atts extends Map<string,string> {
         return bI && v == Q ? nm : v;
     }
 
+    public src(bR?: booly, m='src'): string {
+        let v = this.g(m, bR);
+        return v && EC.CText(v, m)();
+    }
+
     // Get a compile-time boolean attribute value
     // If the attribute is specified without value, it is treated as "true".
     public gB(nm: string, df: boolean = F): boolean { 
-        let v = this.g(nm)
-        ,   m = /^((false|no)|true|yes)?$/i.exec(v)
-        ;
+        let v = this.g(nm);
         return v == N ? df
-            : m ? !m[2]
-            : thro(`@${nm}: invalid value`);
+            : !(
+                    /^((false|no)|true|yes)?$/i.exec(v) || thro(`@${nm}: invalid value`)
+                )[2];
     }
 
     // Check that there are no unrecognized attributes left!
@@ -3434,6 +3435,15 @@ const
 
     // Capitalized propnames cache
 ,   Cnms: {[nm: string]: string} = {__proto__:N}
+
+    // Add settings to existing Settings object
+,   addS = (S: Settings, A: string | Settings) => 
+   ({
+       ... S, 
+       ... isS(A) ? <Settings>TryV(`({${A}})`, 'settings') : A,
+       // Redefine the dictionary of NumberFormats, any time the settings have changed
+       dN: A ? {} : S.dN
+   })
 
 // Check whether object obj has a property named like attribute name nm, case insensitive,
 // and returns the properly cased name; otherwise return nm.
@@ -3472,7 +3482,7 @@ const
     v!=N ? m.set(nm, v) : m.delete(nm)
 
 , ErrM = (elm: HTMLElement, e: string=Q, maxL?: number): string =>
-    e + `\nat ${Abbr(elm.outerHTML, maxL)}>`
+    e + `\nat ${Abbr(elm.outerHTML, maxL)}`
 
 // Create an error DOM node
 , crErrN = (m: string) => 
@@ -3490,18 +3500,13 @@ const
             throw `<${srcE.tagName} ...> has unwanted content`;
 }
 
-// Scroll to hash: scroll the element identified by the current location hash into view, after the DOM has been updated
-, S2Hash = () =>
+// Scroll to hash tag: scroll the element identified by the current location hash into view, after the DOM has been updated
+, ScH = () =>
     L.hash && setTimeout((_ => D.getElementById(L.hash.slice(1))?.scrollIntoView()), 6)
 
 , gRe = (ats: Atts) => ats.gB('reacting') || ats.gB('reactive')
-, addS = (S: Settings, A: string | Settings) => 
-    ({
-        ...S, 
-        ... isS(A) ? <Settings>TryV(`({${A}})`, 'settings') : A,
-        // Redefine the dictionary of NumberFormats, any time the settings have changed
-        dN: A ? {} : S.dN
-    })
+// An empty compiler, just for evaluating compile-time interpolated strings
+, EC = new RComp
 ;
 
 // Map an iterable to another iterable, for items satisfying an optional condition
@@ -3619,7 +3624,7 @@ class DL extends RV<URL>{
         // Let the browser URL react on RV-changes
         this.Subscribe(url => {
             url.href == L.href || history.pushState(N, N, url.href);    // Change URL withour reloading the page
-            S2Hash(); // Scroll to hash, even when URL remains the same
+            ScH(); // Scroll to hash, even when URL remains the same
         });
 
         this.query = <any>new Proxy<DL>(this, {
@@ -3683,7 +3688,7 @@ ass(G, {
 export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {
-            setts = addS(N,setts);
+            setts = addS({}, setts);
 
             srcN.b = T;   // No duplicate compilation
 
@@ -3711,7 +3716,7 @@ export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string |
                     pN: srcN.parentElement,
                     srcN,           // When srcN is a non-RHTML node (like <BODY>), then it will remain and will receive childnodes and attributes
                     bfor: srcN      // When it is an RHTML-construct, then new content will be inserted before it
-                }).then(S2Hash).finally(() => srcN.hidden = F)
+                }).then(ScH).finally(() => srcN.hidden = F)
             });
         }
         catch (e) {    
