@@ -3311,6 +3311,7 @@ class RComp {
     private gsc(exp: string) {
         // Get Shaked Context string
         // See if the context string this.CT.ct can be abbreviated
+        // ct is something like '[[[,a,b],c,d],e,f,g]'
         let {ct,lvM, d} = this.CT, n=d+1, S = new Set<string>, k: EnvKey;
         for (let [id] of exp.matchAll(/\b[A-Z_$][A-Z0-9_$]*\b/gi))
             if(k = lvM.get(id)) {
@@ -3324,6 +3325,9 @@ class RComp {
         let p = d-n, q = p
         while (n--)
             q = ct.indexOf(']', q) + 1;
+        // If, e.g., exp contains just 'c' and 'f',
+        // then the slicing below results in '[[,c,d],e,f,g]',
+        // and the replacing results in '[[,c,],,f,]'
         return `[${ct.slice(0,p)}${ct.slice(q).replace(new RegExp(`\\b(${[...S].join('|')})\\b|[^\\],]+`,'g'),'$1')}]`;
     }
 
