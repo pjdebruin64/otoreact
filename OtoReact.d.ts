@@ -94,7 +94,7 @@ type OES = {
     s: EventListener;
     t: Settings;
 };
-type DOMBuilder<RT = void | booly> = ((a: Area, bR?: boolean) => Promise<RT>) & {
+type DOMBuilder<RT = void | booly> = ((a: Area, bR?: boolean) => (RT | Promise<RT>)) & {
     auto?: string;
     nm?: string;
 };
