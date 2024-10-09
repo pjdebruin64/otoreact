@@ -343,8 +343,9 @@ export function RVAR(nm, val, store, imm, storeNm, updTo) {
     return rv;
 }
 let env, oes = {}, pN, Jobs = new Set, hUpd, ro = F, upd = 0, nodeCnt = 0, start, arA, arR, arB, arVars;
-const AR = (rv, bA) => arA &&
-    (arVars || (arVars = new Map)).set(rv, bA || arVars?.get(rv)), arChk = () => {
+const AR = (rv, bA) => arA
+    && (!(arVars || (arVars = new Map)).has(rv) || bA)
+    && arVars.set(rv, bA), arChk = () => {
     if (arA) {
         if (arR || arVars && (arR = arA.prR)) {
             arVars?.forEach((bA, rv) => arR.uv?.delete(rv) || rv.$SR(arA, arB, arR, !bA));
@@ -608,9 +609,14 @@ class RComp {
         }
         await DoUpdate();
     }
-    CChilds(PN, nodes = PN.childNodes) {
+    async CChilds(PN, nodes = PN.childNodes) {
         let ES = this.SS();
-        return this.CIter(nodes).finally(ES);
+        try {
+            return await this.CIter(nodes);
+        }
+        finally {
+            ES();
+        }
     }
     async CIter(iter) {
         let { rt } = this, arr = Array.from(iter), L = arr.length, bs = [], i = 0;
@@ -641,12 +647,13 @@ class RComp {
             if (bl)
                 bs.push(bl);
         }
-        return bs.length ?
+        return (L = bs.length) > 1 ?
             async function Iter(a) {
                 for (let b of bs)
                     await b(a);
             }
-            : N;
+            : L ? bs[0]
+                : N;
     }
     async CElm(srcE, bI) {
         let RC = this, tag = srcE.tagName, ats = new Atts(srcE), ga = [], bf = [], af = [], bl, bA, constr = RC.CT.getCS(tag), b, m, nm, ws = RC.ws, S = this.S;
@@ -822,7 +829,7 @@ class RComp {
                         let vNm = RC.LV(ats.g('name', T));
                         bA = await RC.Framed(async (SF) => {
                             let bEncaps = ats.gB('encapsulate'), C = new RComp(RC), vPams = C.LVars(ats.g('params')), vWin = C.LV(ats.g('window', F, F, T)), H = C.hd = D.createDocumentFragment(), b = await C.CChilds(srcE);
-                            return async function DOCUMENT(a) {
+                            return function DOCUMENT(a) {
                                 if (PrepRng(a).cr) {
                                     let { doc, hd } = RC, docEnv = env, wins = new Set;
                                     vNm({
@@ -1077,7 +1084,12 @@ class RComp {
                     PrepRng(a, srcE);
                     arChk();
                     let { sub, EF } = SF(a);
-                    await (await NoTime(task))(sub).finally(EF);
+                    try {
+                        await (await NoTime(task))(sub);
+                    }
+                    finally {
+                        EF();
+                    }
                 };
             })
             : this.CChilds(srcE, cn);
@@ -1120,8 +1132,7 @@ class RComp {
             }
             return async function SCRIPT(a) {
                 PrepRng(a, srcE);
-                bU || arChk();
-                if (!a.r || bU) {
+                if (bU || arChk() || !a.r) {
                     let obj = await ex();
                     if (lvars)
                         lvars.forEach(lv => lv(obj[lv.nm]));
@@ -1448,7 +1459,13 @@ class RComp {
                             SR.appendChild(sn.cloneNode(T));
                     sub = s;
                 }
-                await b(sub).finally(EF);
+                try {
+                    await b(sub);
+                }
+                finally {
+                    EF();
+                }
+                ;
             };
         }).catch(m => thro(`<${S.nm}> template: ` + m));
     }

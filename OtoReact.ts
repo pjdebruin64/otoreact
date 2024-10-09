@@ -808,15 +808,21 @@ let env: Environment       // Current runtime environment
 ;
 const
     // Routine to add an RVAR to the collection
+    // bA truthy means a full tree update is required
     AR = (rv: RV, bA?: booly) => 
+        /*
         arA && 
-            (arVars ||= new Map).set(
-                rv
-                , bA || arVars?.get(rv)
-            )
+            (arVars ||= new Map)
+            .set(rv, bA || arVars?.get(rv) )
+        */
+        arA
+        && ( ! (arVars ||= new Map).has(rv) || bA)
+        && arVars.set(rv, bA)
+    
 
 // Routine to check the arVars collection and subscribe the Range when needed
-,   arChk = () => {
+,   arChk: () => void 
+    = () => {
         if (arA){
             if (arR || arVars && (arR = arA.prR)) {
                 arVars?.forEach((bA, rv) =>
@@ -1109,12 +1115,7 @@ type LVar<T=unknown> = ((value?: T) => T) & {nm: string};
     'bR' is: truthy when the DOMBuilder is called on behalf of a 'thisreactson' attribute on the current source node,
         false when called on behalf of a 'reacton' on the current node
 */
-type DOMBuilder<RT = void|booly> = ((a: Area, bR?: boolean) => Promise<RT>) 
-    & {
-        auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
-        nm?: string;   // Name of the DOMBuilder
-    };
-type DOMBuilder1<RT = void|booly> = ((a: Area, bR?: boolean) => (RT | Promise<RT>)) 
+type DOMBuilder<RT = void|booly> = ((a: Area, bR?: boolean) => (RT | Promise<RT>)) 
     & {
         auto?: string; // When defined, the DOMBuilder will create an RVAR that MIGHT need auto-subscribing.
         nm?: string;   // Name of the DOMBuilder
@@ -1375,12 +1376,15 @@ class RComp {
 
     private srcCnt: number;   // To check for empty Content
 
-    private CChilds(
+    private async CChilds(
         PN: ParentNode
     ,   nodes: Iterable<ChildNode> = PN.childNodes
     ): Promise<DOMBuilder> {
         let ES = this.SS(); // Start scope
-        return this.CIter(nodes).finally(ES)
+        try {
+            return await this.CIter(nodes);
+        }
+        finally { ES(); }
     }
 
     // Compile some stretch of childnodes
@@ -1388,7 +1392,7 @@ class RComp {
         let {rt} = this     // Indicates whether the output may be right-trimmed
         ,   arr = Array.from(iter)
         ,   L = arr.length
-        ,   bs = [] as Array< DOMBuilder1 >
+        ,   bs = [] as Array< DOMBuilder >
         ,   i=0
             ;
         // When ' rt', then remove nodes at the end containing nothing but whitespace
@@ -1397,7 +1401,7 @@ class RComp {
 
         while (i<L) {
             let srcN = arr[i++]
-            ,   bl: DOMBuilder1
+            ,   bl: DOMBuilder
             ,   bC : boolean;
             this.rt = i==L && rt;
             switch (srcN.nodeType) {
@@ -1436,18 +1440,19 @@ class RComp {
                 bs.push(bl);
         }
 
-        return bs.length ?
+        return (L = bs.length) > 1 ?
                 async function Iter(a: Area)
                 {   
                     for (let b of bs)
                         await b(a);
                 }
+            : L ? bs[0]
             : N;
     }
 
     // Compile any source element
     private async CElm(srcE: HTMLElement, bI?: boolean
-        ): Promise<DOMBuilder1> { 
+        ): Promise<DOMBuilder> { 
         let RC = this
         ,   tag = srcE.tagName
             // List of source attributes, to check for unrecognized attributes
@@ -1462,10 +1467,10 @@ class RComp {
         ,   af: Array<{at: string, txt: string, h?: Dep<EventListener>, C: boolean, U: boolean, D: boolean}> = []
                             
             // The intermediate builder will be put here
-        ,   bl: DOMBuilder1
+        ,   bl: DOMBuilder
             // 'bA' is set rather than 'bl' for builders that should abort the current range of nodes when an error occurs.
             // E.g. when a <DEF> fails then the whole range should fail, to avoid further errors
-        ,   bA: DOMBuilder1
+        ,   bA: DOMBuilder
             
             // See if this node is a user-defined construct (component or slot) instance
         ,   constr = RC.CT.getCS(tag)
@@ -1760,7 +1765,7 @@ class RComp {
                             ,   H = C.hd = D.createDocumentFragment()   //To store static stylesheets
                             ,   b = await C.CChilds(srcE)
                             ;
-                            return async function DOCUMENT(a: Area) {
+                            return function DOCUMENT(a: Area) {
                                 if (PrepRng(a).cr) {
                                     let {doc, hd} = RC
                                     ,   docEnv = env
@@ -2072,7 +2077,7 @@ class RComp {
         finally {this.S = S; }
     }
 
-    private ErrH(b: DOMBuilder1<any>, srcN?: ChildNode, bA?: booly): DOMBuilder
+    private ErrH(b: DOMBuilder<any>, srcN?: ChildNode, bA?: booly): DOMBuilder
     {
         // Transform the given DOMBuilder into a DOMBuilder that handles errors by inserting the error message into the DOM tree,
         // unless an 'onerror' handler was given or the option 'bShowErrors' was disabled.
@@ -2150,7 +2155,10 @@ class RComp {
                     PrepRng(a, srcE);
                     arChk();
                     let {sub,EF} = SF(a);
-                    await (await NoTime(task))(sub).finally(EF);
+                    try {
+                        await (await NoTime(task))(sub);
+                    }
+                    finally { EF(); }
                 };
             })
             // Otherwise we just compile just the child contents
@@ -2254,8 +2262,7 @@ class RComp {
 
             return async function SCRIPT(a: Area) {
                 PrepRng(a,srcE);
-                bU || arChk();
-                if (!a.r || bU) {
+                if (bU || arChk() || !a.r) {
                     let obj = await ex();
                     if (lvars)
                         lvars.forEach(lv => lv(obj[lv.nm]));
@@ -2315,7 +2322,7 @@ class RComp {
             cond?: Dep<booly>,  // Condition
             patt?: {lvars: LVar[], RE: RegExp, url?: boolean},  //Pattern
             not: boolean,       // Negate
-            b: DOMBuilder1,      // Builder
+            b: DOMBuilder,      // Builder
             n: HTMLElement,     // Source node
         };
         let aList: Array<Alt> = []
@@ -2862,7 +2869,8 @@ class RComp {
                     
                     sub = s;
                 }
-                await b(sub).finally(EF);
+                try { await b(sub); }
+                finally { EF() };
             }
         }).catch(m => thro(`<${S.nm}> template: ` + m));
     }
@@ -3082,6 +3090,7 @@ class RComp {
                          : a == 'enabled' ? 'disabled' : N) {
                         a = aa;
                         dV = B((b : booly) => !b, dV);
+                             
                     }
                     if (a == 'visible') {
                         // set #style.visibility
@@ -3440,7 +3449,7 @@ class Atts extends Map<string,string> {
 //#region Utilities
 const
     dU: DepE<any>   = _ => U             // Undefined dependent value
-,   dB: DOMBuilder1 = a => {PrepRng(a);}       // A dummy DOMBuilder1
+,   dB: DOMBuilder = a => {PrepRng(a);}       // A dummy DOMBuilder1
 
     // Elements that trigger block mode; whitespace before/after/inside is irrelevant
     // and Inline elements with block mode contents
