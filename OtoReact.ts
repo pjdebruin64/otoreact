@@ -810,9 +810,18 @@ let env: Environment       // Current runtime environment
 const
     // Routine to add an RVAR to the collection
     // bA truthy means a full tree update is required
+    // bA truthy means a full tree update is required
     AR = (rv: RV, bA?: booly) => 
         /*
+        /*
         arA && 
+            (arVars ||= new Map)
+            .set(rv, bA || arVars?.get(rv) )
+        */
+        arA
+        && ( ! (arVars ||= new Map).has(rv) || bA)
+        && arVars.set(rv, bA)
+    
             (arVars ||= new Map)
             .set(rv, bA || arVars?.get(rv) )
         */
