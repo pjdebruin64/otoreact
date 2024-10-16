@@ -822,13 +822,6 @@ const
         && ( ! (arVars ||= new Map).has(rv) || bA)
         && arVars.set(rv, bA)
     
-            (arVars ||= new Map)
-            .set(rv, bA || arVars?.get(rv) )
-        */
-        arA
-        && ( ! (arVars ||= new Map).has(rv) || bA)
-        && arVars.set(rv, bA)
-    
 
 // Routine to check the arVars collection and subscribe the Range when needed
 ,   arChk: () => void 
