@@ -789,8 +789,8 @@ The <elm>COMPONENT</elm> tag may have an attribute <code class="sourcecode">enca
 <ul>
     <li>
         <i>Without</i> <code>encapsulate</code>, instances of the component are <i>replaced</i> by the output of the component template.
-        <p>Any styling rules of the surrounding document apply to the component output as well, and vice versa.
-        <br>To make styling rules apply only to the component content, use CSS class names.
+        <p>Any global styling rules of the surrounding document apply to the component output as well, and vice versa.
+        <br>To make styling rules apply only to the component content, use <a href=#STYLE>local styles</a>, or use CSS class names.
     </li>
     <li>
         <i>With</i> <code>encapsulate</code>, <elm>COMPONENT</elm> defines a new <i>custom element</i>.
@@ -1022,17 +1022,24 @@ All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the doc
         </p>
         <demo #tab="-1" srctext=
 '<component>
-    <marked><content></content></marked>
+    <marked>
+		<slot></slot>
+	</marked>
     <STYLE scope=local>
-        div \{ color: red; font-weight: bold; }
+        div { color: red; font-weight: bold; }
     </STYLE>
     <template>
-        <div><content></content></div>
+		<blockquote>
+	        <div>This template <{}div> is marked.</div>
+			<slot></slot>
+		</blockquote>
     </template>
 </component>
 
-<marked>This <\{}div> is marked.</marked>
-<div>This <\{}div> is not.</div>'
+<marked>
+	<slot>This slot <{}div> is not.</slot>
+</marked>
+<div>This outside <{}div> is not marked.</div>'
         ></demo>
         <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
         <p>

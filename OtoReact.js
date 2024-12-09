@@ -905,7 +905,7 @@ class RComp {
                         break;
                     }
                     case 'RSTYLE': {
-                        let dr = RC.S[bD], sc = ats.g('scope'), { bf, af } = RC.CAtts(ats), i;
+                        let bd = RC.S[bD], sc = ats.g('scope'), { bf, af } = RC.CAtts(ats), i;
                         try {
                             RC.S[bD] = T;
                             RC.ws = 1;
@@ -929,7 +929,7 @@ class RComp {
                             };
                         }
                         finally {
-                            RC.S[bD] = dr;
+                            RC.S[bD] = bd;
                             RC.ws = ws;
                         }
                         break;
@@ -1029,7 +1029,7 @@ class RComp {
                                 }
                                 : m[8]
                                     ? function hIf(a, bR) {
-                                        let c = dr(dV()), p = PrepRng(a, srcE, at, 1, !c);
+                                        let c = dV(), p = PrepRng(a, srcE, at, 1, !c);
                                         if (c)
                                             return b(p.sub, bR);
                                     }
@@ -1211,10 +1211,10 @@ class RComp {
         this.ws = !bE && ws > postW ? ws : postW;
         this.CT = postCT;
         return aList.length && async function CASE(a, bR) {
-            let val = dr(dV?.()), RRE, cAlt;
+            let val = dV?.(), RRE, cAlt;
             try {
                 for (var alt of aList)
-                    if (!((!alt.cond || dr(alt.cond()))
+                    if (!((!alt.cond || alt.cond())
                         && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))) == alt.not) {
                         cAlt = alt;
                         break;
@@ -1253,7 +1253,7 @@ class RComp {
             return this.Framed(async (SF) => {
                 let vLet = this.LV(letNm), vIx = this.LV(ixNm), vPv = this.LV(pvNm), vNx = this.LV(nxNm), dKey = this.CAttExp(ats, 'key'), dHash = this.CAttExps(ats, 'hash'), b = await this.CIter(srcE.childNodes);
                 return b && async function FOR(a) {
-                    let iter = dr(dOf()) || E, { r, sub } = PrepRng(a, srcE, Q), sEnv = { env, oes }, u = r.u = r.u + 1 || 0;
+                    let iter = dOf() || E, { r, sub } = PrepRng(a, srcE, Q), sEnv = { env, oes }, u = r.u = r.u + 1 || 0;
                     ;
                     if (iter instanceof Promise)
                         iter.then(it => AJ({ Ex: () => r.u == u && updFor(it) }), sEnv.oes.e);
@@ -1589,11 +1589,11 @@ class RComp {
                         a == 'shown' ? 'hidden'
                             : a == 'enabled' ? 'disabled' : N) {
                         a = aa;
-                        dV = B((b) => !dr(b), dV);
+                        dV = B((b) => !b, dV);
                     }
                     if (a == 'visible') {
                         i = 'visibility';
-                        dV = B((b) => dr(b) ? N : 'hidden', dV);
+                        dV = B((b) => b ? N : 'hidden', dV);
                     }
                     addM(c ? 3
                         : i ? 2
@@ -1669,19 +1669,19 @@ class RComp {
         }
         return { lvars, RE: new RegExp(`^${reg}$`, 'i'), url };
     }
-    CPam(ats, at, bReq) {
+    CPam(ats, at, bReq, d = dr) {
         let txt = ats.g(at);
-        return (txt == N ? this.CAttExp(ats, at, bReq)
+        return (txt == N ? this.CAttExp(ats, at, bReq, d)
             : /^on/.test(at) ? this.CHandlr(txt, at)
                 : this.CText(txt, at));
     }
-    CAttExp(ats, at, bReq) {
-        return this.CExpr(ats.g(at, bReq, T), '#' + at, U);
+    CAttExp(ats, at, bReq, d = dr) {
+        return this.CExpr(ats.g(at, bReq, T), '#' + at, U, U, d);
     }
     cAny(ats, nm, rq) {
         let a = '@' + nm, exp = ats.g(a);
         return exp != N ? this.cTwoWay(exp, a)
-            : { G: this.CPam(ats, nm, rq) };
+            : { G: this.CPam(ats, nm, rq, I) };
     }
     cTwoWay(exp, nm, bT = T) {
         return {
@@ -1712,7 +1712,7 @@ class RComp {
         var m = '\nat ' + (nm ? `${nm}=` : Q) + dl[0] + Abbr(src) + dl[1], f = TryV(`${US}(function(${this.gsc(e)}){return(${e}\n)})`, m, Q);
         return () => {
             try {
-                return f.call(pN, env);
+                return d(f.call(pN, env));
             }
             catch (e) {
                 throw e + m;

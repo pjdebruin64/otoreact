@@ -1872,7 +1872,7 @@ class RComp {
                     }
 
                     case 'RSTYLE': {
-                        let dr = RC.S[bD]   // Save 'bDollarRequired' setting
+                        let bd = RC.S[bD]   // Save 'bDollarRequired' setting
                         ,   sc = ats.g('scope')
                         ,   {bf,af} = RC.CAtts(ats)
                         ,   i: number
@@ -1911,7 +1911,7 @@ class RComp {
                             }
                         }
                         finally {
-                            RC.S[bD] = dr; RC.ws = ws;
+                            RC.S[bD] = bd; RC.ws = ws;
                         }
                         break;
                     }
@@ -2062,7 +2062,7 @@ class RComp {
                         }
                         : m[8]  // #if
                         ?   function hIf(a: Area, bR) {
-                                let c = <booly>dr(dV())
+                                let c = <booly>dV()
                                 ,   p = PrepRng(a, srcE, at, 1, !c);
                                 if (c)
                                     return b(p.sub, bR);
@@ -2388,7 +2388,7 @@ class RComp {
         this.CT = postCT;
 
         return aList.length && async function CASE(a: Area, bR) {
-            let val = dr(dV?.())
+            let val = dV?.()
             ,   RRE: RegExpExecArray
             ,   cAlt: Alt;
             try {
@@ -2396,7 +2396,7 @@ class RComp {
                 for (var alt of aList)
                     if (
                         !(
-                            (!alt.cond || dr(alt.cond()))
+                            (!alt.cond ||alt.cond())
                             && (!alt.patt || val != N && (RRE = alt.patt.RE.exec(val)))
                         ) == alt.not
                     )
@@ -2484,7 +2484,7 @@ class RComp {
                 // bR = update root only
                 return b && async function FOR(a: Area) {
                     let iter: Iterable<Item> | Promise<Iterable<Item>>
-                            = dr(dOf()) || E
+                            = dOf() || E
                     ,   {r, sub} = PrepRng<{v:Map<Key, ForRange>, u:number}>(a, srcE, Q)
                     ,   sEnv = {env, oes}
                     ,   u = r.u = r.u+1||0;
@@ -3093,13 +3093,13 @@ class RComp {
                             a == 'shown' ? 'hidden' 
                          : a == 'enabled' ? 'disabled' : N) {
                         a = aa;
-                        dV = B((b : booly) => !dr(b), dV);
+                        dV = B((b : booly) => !b, dV);
                              
                     }
                     if (a == 'visible') {
                         // set #style.visibility
                         i = 'visibility';
-                        dV = B((b: booly) => dr(b) ? N : 'hidden', dV);
+                        dV = B((b: booly) => b ? N : 'hidden', dV);
                     }
                     addM(
                         c ? MType.ClassNames
@@ -3206,7 +3206,7 @@ class RComp {
                         };
                 
                 let d = this.CExpr<string>(e, nm, U, '{}');
-                gens.push( {d,f} ); //f ? () => RFormat(dr(d()), f) : d );
+                gens.push( {d,f} ); //f ? () => RFormat(d(), f) : d );
                 iT = fx = Q;
             }
         }
@@ -3240,19 +3240,19 @@ class RComp {
         return {lvars, RE: new RegExp(`^${reg}$`, 'i'), url}; 
     }
 
-    private CPam<T = unknown>(ats: Atts, at: string, bReq?: booly): Dep<T> 
+    private CPam<T = unknown>(ats: Atts, at: string, bReq?: booly, d=dr): Dep<T> 
     // Compile parameter (of some OtoReact construct) 
     {
         let txt = ats.g(at);
         return (
-            txt == N ? this.CAttExp<T>(ats, at, bReq)
+            txt == N ? this.CAttExp<T>(ats, at, bReq, d)
             : /^on/.test(at) ? this.CHandlr(txt, at) as Dep<any>
             : this.CText(txt, at) as Dep<any>
         );
     }
-    private CAttExp<T>(ats: Atts, at: string, bReq?: booly
+    private CAttExp<T>(ats: Atts, at: string, bReq?: booly, d=dr
         ) {
-        return this.CExpr<T>(ats.g(at, bReq, T), '#'+at, U);
+        return this.CExpr<T>(ats.g(at, bReq, T), '#'+at, U,U,d);
     }
 
     // Compile either a regular attribute 'nm' into just a getter,
@@ -3262,7 +3262,7 @@ class RComp {
     {
         let a='@'+nm, exp = ats.g(a);
         return exp != N ? this.cTwoWay(exp, a)
-            : { G: this.CPam(<Atts>ats, nm, rq) };
+            : { G: this.CPam(<Atts>ats, nm, rq, I) };
     }
 
     private cTwoWay<T = unknown>(exp: string, nm: string, bT: booly=T)
@@ -3307,7 +3307,7 @@ class RComp {
     ,   nm?: string             // To be inserted in an errormessage
     ,   src: string = e    // Source expression
     ,   dl: string = '""'   // Delimiters to put around the expression when encountering a compiletime or runtime error
-    ,   d = dr
+    ,   d = dr              // Should the result be dereferenced, if it is an RV? Provide 'I' if it should not.
     ): Dep<T> {
         if (e == N)
             return <null>e;  // when 'e' is either null or undefined, return the same
@@ -3321,7 +3321,7 @@ class RComp {
             ) as (e:Environment) => T
             ;
         return () => {
-                try { return f.call(pN, env); } 
+                try { return d(f.call(pN, env)); } 
                 catch (e) {throw e+m; } // Runtime error
             };
     }
