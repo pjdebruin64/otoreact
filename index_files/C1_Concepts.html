@@ -1,11 +1,4 @@
 
-<component>
-	<IDEMO src></IDEMO>
-	<template>
-		<code style="white-space: pre;">{src}</code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=src></rhtml></span>
-	</template>
-</component>
-
 <h1>RHTML Concepts</h1>
 This chapter introduces and documents a number of basic RHTML concepts.
 <p>Sections and paragraphs marked with a '*' are advanced and may be skipped on first reading.
@@ -54,6 +47,12 @@ All text content and all HTML attributes inside RHTML code, except scripts, expr
         You may omit the expression, like <code>\{ \}</code>, which comes in handy if you want the parser to not recognize an HTML tag: <idemo src="<\{}br>"></idemo>
     </li>
 </ul>
+
+<h3>String interpolation with formatting</h3>
+When inserting an embedded expression, you can also add a <i>format string</i> or a <i>format expression</i>: <idemo src="\{2.5: 2.3 }"></idemo>, <idemo src="\{2.5: C }"></idemo>, <idemo src="\{ new Date(): dd-MM HH:mm}"></idemo>.
+<p>
+    For details, see <a href="#Formatting">Formatting</a>.
+</p>
 
 <h2 id="ConstructsOverview">RHTML constructs overview</h2>
 <p>RHTML defines a number of new <i>constructs</i>, which dynamically build your HTML page:</p>

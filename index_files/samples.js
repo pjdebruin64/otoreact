@@ -1,12 +1,12 @@
 let bRSTYLE = false;
-const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/)/g, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
+const mapping = { '<': '&lt;', '>': '&gt;', '&': '&amp;' }, quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch]), markJScript = (script) => `<span style='color:purple'>${script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/|[^\/]+)/g, (m, mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m))}</span>`, markTag = (mTag) => {
     if (/^\/?RSTYLE/i.test(mTag))
         bRSTYLE = !bRSTYLE;
     return `<span class=mTag>&lt;${mTag.replace(/(\s(?:(?:on|[#*+!@]+)[a-z0-9_.]+|cond|of|let|key|hash|updates|reacton|thisreactson|on|store)\s*=\s*)(?:(['"])([^]*?)\2|([^ \t\n\r>]*))|\\{|(\{(?:\{[^]*?\}|[^])*?\})|./gi, (m, a1, a2, a3, a4, mExpr) => (mExpr ? `<span class=otored>${mExpr}</span>`
         : a2 ? `${a1}${a2}${markJScript(a3)}${a2}`
             : a1 ? `${a1}${markJScript(a4)}`
                 : quoteHTML(m)))}&gt;</span>`;
-}, reg = /(<!--[^]*?-->)|<((script|style)[^]*?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
+}, reg = /(<!--[^]*?-->)|<((script|style)(?:\s[^]*?)?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi, ColorCode = (html) => `<span style='color:black'>${html.replace(reg, (m, mComm, mScriptOpen, mScriptTag, mScriptBody, mScriptClose, mTag, mExpr, mChar) => (mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>`
     : mScriptTag ?
         markTag(mScriptOpen)
             + markJScript(mScriptBody)
@@ -494,7 +494,7 @@ const sampleRHTML = `<define rvar=source
 <textarea @value="source" rows=3 cols=50></textarea>
 <p>
 <RHTML #srctext=source.V></RHTML>`;
-const sampleStyleTemplate = `<def rvar=Hue value="0.0"></def>
+const sampleStyleTemplate = `<def rvar=Hue #value="0.0"></def>
 <RSTYLE>
   h2 {
     color: hsl( \${Hue}deg 100% 50% );
@@ -504,8 +504,8 @@ const sampleStyleTemplate = `<def rvar=Hue value="0.0"></def>
 <h2>Section head</h2>
 Section contents
 <h2>Another section head</h2>
-<button onclick="Hue.V = (Math.random() * 360).toFixed(1)">Change hue</button>
-Current hue is: {Hue}.`;
+<button onclick="Hue.V = Math.random() * 360">Change hue</button>
+Current hue is: {Hue : .1}.`;
 const C1 = `<!-- Component signature with parameter -->
 <Repeat #count>
     <!-- Slot signature with parameter -->
@@ -917,3 +917,22 @@ const demo_RFORM = `<style>
     </tr.>
   </for>
 </table.>`;
+let demo_RSTYLE = `<component>
+	<styled>
+		<slot></slot>
+	</styled>
+    <STYLE scope=local>
+        div { color: red; font-weight: bold; }
+    </STYLE>
+    <template>
+		<blockquote>
+	        <div>This template <{}div> is styled.</div>
+			<slot></slot>
+		</blockquote>
+    </template>
+</component>
+
+<styled>
+	<slot>This slot <{}div> is not styled.</slot>
+</styled>
+<div>This outside <{}div> is not styled.</div>`;

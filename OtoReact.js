@@ -1,17 +1,24 @@
-const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", ass = Object.assign, tU = (s) => s.toUpperCase(), I = x => x, K = x => () => x, B = (f, g) => x => f(g(x)), P = new DOMParser, now = () => performance.now(), thro = (e) => { throw e; }, V = eval, TryV = (e, m, s = '\nin ') => {
+const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window, D = document, L = location, US = "'use strict';", bD = "bDollarRequired", ass = Object.assign, P = new DOMParser, I = x => x, K = x => () => x, B = (f, g) => x => f(g(x)), now = () => performance.now(), thro = (e) => { throw e; }, V = eval, TryV = (e, m = e, s = '\nin ') => {
     try {
         return V(e);
     }
     catch (x) {
         throw x + s + m;
     }
-}, isS = ((x) => typeof x == 'string'), pI = (s) => s ? parseInt(s) : N, EL = (et, k, el) => et.addEventListener(k, el), dflts = {
+}, isS = (x) => typeof x == 'string', pI = (s) => s ? parseInt(s) : N, tU = (s) => s.toUpperCase(), EL = (et, k, el) => et.addEventListener(k, el), dflts = {
     bShowErrors: T,
     bAutoPointer: T,
     preformatted: E,
     version: 1,
     currency: 'EUR'
-}, bD = "bDollarRequired", dr = (v) => v instanceof RV ? v.V : v;
+}, dr = (v) => v instanceof RV ? v.V : v, rE = ((F) => F(F(F('[^]*?'))))((r) => `(?:\\{(?:\\{${r}\\}|[^])*?\\}\
+|'(?:\\\\.|[^])*?'\
+|"(?:\\\\.|[^])*?"\
+|\`(?:\\\\[^]|\\\$\\{${r}}|[^])*?\`\
+|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
+|\\?\\.\
+|\\?${r}:\
+|[^])*?`);
 class Context {
     constructor(CT, a) {
         ass(this, CT || {
@@ -1061,11 +1068,12 @@ class RComp {
                 await prom;
             }
             catch (m) {
+                arChk();
                 if (m) {
                     let msg = srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m, e = oes.e;
                     this.S.bAbortOnError && thro(msg);
                     this.log(msg);
-                    e ? e(m)
+                    e ? e(msg)
                         : this.S.bShowErrors ?
                             (r || {}).eN = a.pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                             : U;
@@ -1621,17 +1629,10 @@ class RComp {
         return { bf, af };
     }
     CText(text, nm) {
-        let F = (re) => `(?:\\{(?:\\{${re}\\}|[^])*?\\}\
-|'(?:\\\\.|[^])*?'\
-|"(?:\\\\.|[^])*?"\
-|\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
-|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
-|\\?\\.\
-|\\?${re}:\
-|[^])*?`, bDR = this.S[bD] ? 1 : 0, rI = rIS[bDR] || (rIS[bDR] = new RegExp(`\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${F(F(F('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
+        let bDR = this.S[bD] ? 1 : 0, rI = rIS[bDR] || (rIS[bDR] = new RegExp(`\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${rE})(?:::(${rE})|:\\s*(.*?)\\s*)?\\}|$`, 'g')), gens = [], ws = nm || this.S.bKeepWhiteSpace ? 4 : this.ws, fx = Q, iT = T;
         rI.lastIndex = 0;
         while (T) {
-            let lastIx = rI.lastIndex, m = rI.exec(text), [a, x, e, f] = m;
+            let lastIx = rI.lastIndex, m = rI.exec(text), [a, x, e, f, ff] = m;
             fx += text.slice(lastIx, m.index) + (x || Q);
             if (!a || e) {
                 if (ws < 4) {
@@ -1645,13 +1646,15 @@ class RComp {
                 if (!a)
                     return iT ? ass(() => fx, { fx })
                         : () => {
-                            let s = Q;
+                            let s = Q, x;
                             for (let g of gens)
-                                s += typeof g == 'string' ? g : (g.f != N ? g.d()?.format(g.f) : g.d()?.toString()) ?? Q;
+                                s += typeof g == 'string' ? g : (x = g.d(), (g.f ? x?.$fmt(g.f()) : x?.toString()) ?? Q);
                             return s;
                         };
-                let d = this.CExpr(e, nm, U, '{}');
-                gens.push({ d, f });
+                gens.push({
+                    d: this.CExpr(e, nm, U, '{}'),
+                    f: f ? this.CExpr(f) : ff != N && K(ff)
+                });
                 iT = fx = Q;
             }
         }
@@ -1753,7 +1756,7 @@ class RComp {
     async fetchM(src) {
         let m = this.doc.getElementById(src), M = 'MODULE';
         if (!m) {
-            let { head, body } = P.parseFromString(await this.FetchT(src), 'text/html'), e = body.firstElementChild;
+            let { head, body } = P.parseFromString(await this.FetchT(src).catch(e => thro(e + `\nin '${this.src}'`)), 'text/html'), e = body.firstElementChild;
             if (e?.tagName != M)
                 return [...head.childNodes, ...body.childNodes];
             m = e;
@@ -1856,43 +1859,53 @@ export async function RFetch(req, init) {
     }
 }
 const fmt = new Intl.DateTimeFormat('nl', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false }), reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g;
-Number.prototype.format = function (fm) {
+Number.prototype.$fmt = function (fm) {
     let d = oes.t.dN, FM = d[fm];
     if (!FM) {
-        let m = /^([CDFXN]?)(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`), p = pI(m[2]), f = pI(m[4]), o = { ...oes.t };
+        let m = /^([CDFXN]?)(\d*)(\.(\d*)(-(\d*))?)?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`), n = pI(m[2]), p = pI(m[4]), q = pI(m[6]) ?? p, o = { ...oes.t };
         switch (m[1]) {
             case 'D':
-                p ?? (p = 1);
+                n ?? (n = 1);
+                q = p ?? (p = 0);
                 o.useGrouping = F;
                 break;
             case 'C':
                 o.style = 'currency';
-                f = p;
-                p = N;
+                q = p = n;
+                n = N;
                 break;
             case 'F':
                 o.useGrouping = F;
             case 'N':
-                f = p ?? 2;
-                p = 1;
+                q = p = n ?? 2;
+                n = 1;
                 break;
             case 'X': FM = { format(x) {
                     let s = tU(x.toString(16)), l = s.length;
-                    return p > l ? '0'.repeat(p - l) + s : s;
+                    return n > l ? '0'.repeat(n - l) + s : s;
                 } };
         }
-        if (f != N)
-            o.minimumFractionDigits = o.maximumFractionDigits = f;
+        if (n != N)
+            o.minimumIntegerDigits = n;
         if (p != N)
-            o.minimumIntegerDigits = p;
-        d[fm] = FM || (FM = new Intl.NumberFormat(oes.t.locale, o));
+            o.minimumFractionDigits = p;
+        if (q != N)
+            o.maximumFractionDigits = q;
+        d[fm] = FM || (FM = new Intl.NumberFormat(o.locale, o));
     }
     return FM.format(this);
 };
-Date.prototype.format = function (f) {
-    return fmt.format(this).replace(reg1, f.replace(/\\(.)|(\w)\2*/g, (m, a) => a || `$<${m}>`));
+Date.prototype.$fmt = function (f) {
+    f || (f = "yyyy-MM-dd HH:mm:ss");
+    return fmt.format(this).replace(reg1, f.replace(/\\(.)|(yy|[MdHms])\2{0,1}|f{1,3}/g, (m, a) => a || `$<${m}>`));
 };
-Boolean.prototype.format = function (f) {
+String.prototype.$fmt = function (f) {
+    let w = parseInt(f), L = Math.abs(w) - this.length;
+    return L > 0 ?
+        w > 0 ? ' '.repeat(L) + this : this + ' '.repeat(L)
+        : this;
+};
+Boolean.prototype.$fmt = function (f) {
     return f.split(':')?.[this ? 0 : 1];
 };
 class DL extends RV {
@@ -1950,9 +1963,9 @@ ass(G, {
 export async function RCompile(srcN, setts) {
     if (srcN.isConnected && !srcN.b)
         try {
-            setts = addS({}, setts);
+            let s = addS({}, setts);
             srcN.b = T;
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q), setts);
+            let m = L.href.match(`^.*(${s?.basePattern || '/'})`), C = new RComp(N, L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q), s);
             await C.Compile(srcN);
             srcN.innerHTML = Q;
             for (let a of srcN.attributes)

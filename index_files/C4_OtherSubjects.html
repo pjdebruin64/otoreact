@@ -88,14 +88,182 @@
 </dl>
 
 
-<h2>Formatting</h2>
-OtoReact does not have its own formatting functionality for numbers and dates, etc.
-<p>
-    You can use standard JavaScript features like the <MDN href="JavaScript/Reference/Global_Objects/Intl">Internationalization API</MDN>, a library like <a href="https://day.js.org/">Day.js</a>,
-    or the (quite limited) standard methods of Date objects.
-</p>
+<div>
+    <style scope="local">
+        table {border-spacing: 1ex; border-collapse: separate}
+    </style>
+    <h2 id="Formatting">Formatting</h2>
+    Embedded expressions may be formatted by adding a colon and a <i>format string</i>:
+    <pre class=sourcecode>\{ <i>expression</i> : <i>format</i> \}</pre>
+    Both <i>expression</i> and <i>format</i> may contain colons; OtoReact will recognize the first colon that is not part of the JavaScript <i>expression</i>.
+    <p>
+        The interpretation of <i>format</i> depends on the expresion value type, as described below.
+    </p>
 
-<demo #srctext=sampleFormatting></demo>
+    <h3 id="NumberFormatting">Number formatting</h3>
+    OtoReact recognizes number format strings similar to both the most common .Net and Angular number format strings.
+    <p>
+        Formatting is done using <mdn href="JavaScript/Reference/Global_Objects/Intl/NumberFormat">Intl.NumberFormat</mdn> objects,
+        with <mdn href="JavaScript/Reference/Global_Objects/Intl#locales_argument">locale</mdn> and <mdn href="JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#options">options</mdn>
+        setable through the <a href="#intl"><code>rhtml</code> and <code>#intl</code> global attributes</a>
+    </p>
+    <p>
+        In the following table, <i>n</i>, <i>p</i>, and <i>q</i> stand for <i>optional</i> integer literals.
+    </p>
+    <table>
+        <tr><th>Format</th><th>Editable examples</th><th>Description</th></tr>
+        <tr>
+            <td>F<i>n</i></td>
+            <td>
+                <idemo src="\{ 1234.5 : F2 }"></idemo> <br>
+                <idemo src="\{ 1234.5 : F0 }"></idemo>
+            </td>
+            <td>
+                Format number with <i>n</i> fractional digits (default 2)
+            </td>
+        </tr>
+        <tr>
+            <td>N<i>n</i></td>
+            <td>
+                <idemo src="\{ 12345.6 : N2 }"></idemo>
+                <p>
+                <idemo src="\{ 12345.6 : N0 }"></idemo>
+            </td>
+            <td>
+                Format number with <i>n</i> fractional digits (default 2), and with thousands separators
+            </td>
+        </tr>
+        <tr>
+            <td>D<i>n</i></td>
+            <td>
+                <idemo src="\{ 12 : D4 }"></idemo>
+                <p>
+                <idemo src="\{ 12.50 : D4 }"></idemo>
+            </td>
+            <td>
+                Format number with at least <i>n</i> integer digits (default 1) and no fractional digits
+            </td>
+        </tr>
+        <tr>
+            <td>X<i>n</i></td>
+            <td>
+                <idemo src="\{ 123 : X4 }"></idemo>
+            </td>
+            <td>
+                Format integer number with at least <i>n</i> hexadecimal digits
+            </td>
+        </tr>
+        <tr>
+            <td>C</td>
+            <td>
+                <idemo src="\{ 1234.50 : C }"></idemo>
+            </td>
+            <td>
+                Format as local currency
+            </td>
+        </tr>
+        <tr>
+            <td><i>n</i>.<i>p</i></td>
+            <td>
+                <idemo src="\{ 123 : 4.2 }"></idemo>
+                <p>
+                <idemo src="\{ 123.4567 : 1.2 }"></idemo>
+            </td>
+            <td>
+                Format number with at least <i>n</i> integer digits and exactly <i>p</i> fractional digits
+            </td>
+        </tr>
+        <tr>
+            <td><i>n</i>.<i>p</i>-<i>q</i></td>
+            <td>
+                <idemo src="\{ 1 : 4.1-2 }"></idemo>
+                <p>
+                <idemo src="\{ 1.4567 : .1-2 }"></idemo>
+                <p>
+                <idemo src="\{ 1.4567 : .1- }"></idemo>
+            </td>
+            <td>
+                Format number with at least <i>n</i> integer digits and <i>p</i> &ndash; <i>q</i> fractional digits
+            </td>
+        </tr>
+        <tr>
+            <td><i>(empty)</i></td>
+            <td><idemo src="\{ 1234.5678 : }"></idemo>
+            </td>
+            <td>With an empty format string, the number is formatted using the current options and no others.</td>
+        </tr>
+    </table>
+
+    <demo srctext=
+'<def rvar=numSystem value="arab" store=sessionStorage></def>
+<import src="OtoLib.html"><radiogroup></radiogroup></import>
+Please choose a numbering system:
+<p>
+    <radiogroup @value=numSystem>
+        <for let=x of="[&apos;arab&apos;, &apos;latin&apos;, &apos;thai&apos;, &apos;tibt&apos;]">
+            <radiobutton #value=x> \{x} </radiobutton>
+        </for>
+    </radiogroup>
+</p>
+<p #intl="\{numberingSystem: numSystem.V\}" reacton="numSystem">
+    <for let=i of="range(1,10)"> \{ i : } </for>
+</p>
+'></demo>
+
+    <h3>Date formatting</h3>
+
+    Date format strings are interpreted as template strings, that may contain the following placeholders.
+
+    <table>
+        <tr><th>Placeholder</th><th>Meaning</th></tr>
+        <tr>
+            <td>yy, yyyy</td><td>Year, in 2 or 4 digits</td>
+        </tr>
+        <tr>
+            <td>M, MM</td><td>Month, in at least 1 or 2 digits</td>
+        </tr>
+        <tr>
+            <td>d, dd</td><td>Day of the month, in at least 1 or 2 digits</td>
+        </tr>
+        <tr>
+            <td>H, HH</td><td>Hour (0-23) of the day, in at least 1 or 2 digits</td>
+        </tr>
+        <tr>
+            <td>m, mm</td><td>Minutes of the hour, in at least 1 or 2 digits</td>
+        </tr>
+        <tr>
+            <td>s, ss</td><td>Seconds of the minute, in at least 1 or 2 digits</td>
+        </tr>
+        <tr>
+            <td>f, ff, fff</td><td>Fraction of the second, in exactly 1, 2, or 3 digits</td>
+        </tr>
+    </table>
+
+    <p>Any character prefixed with a backslash, and all other text, is left untouched.</p>
+
+    <p>An empty date format string is treated like ""yyyy-MM-dd HH:mm:ss".</p>
+
+    Examples:
+    <demo srctext=
+'<def var=dt #value="new Date()"></def>
+\{ dt : d - M - yy : \H HH:mm \s s.f }
+<p>
+\{ dt : yyyyMMdd }
+<p>
+\{ dt : }'></demo>
+
+    <h3>Boolean formatting</h3>
+
+    <h3>Object formatting</h3>
+
+    <h3>Alternative date formatting</h3>
+    <p>
+        You can use standard JavaScript features like the <MDN href="JavaScript/Reference/Global_Objects/Intl">Internationalization API</MDN>, a library like <a href="https://day.js.org/">Day.js</a>,
+        or the (quite limited) standard methods of Date objects.
+    </p>
+
+    <demo #srctext=sampleFormatting></demo>
+</div>
 
 <h2 id=Options>Options</h2>
 The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>, and the <a href="#Functions"><code>RCompile(<i>element</i>, <i>options</i>)</code> function</a>, that both trigger RHTML compilation, both recognize the following options.
@@ -112,7 +280,7 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
         font-weight: normal;
         font-style: oblique;
     }
-    table#tblOptions > tbody  td:nth-child(1) {
+    table#tblOptions > tbody  td:nth-child(1):not(.notBold) {
         font-weight: bold;
     }
     table#tblOptions > tbody  td:nth-child(2) {
@@ -197,6 +365,22 @@ The <a href="./#DocSetup"><code>rhtml="<i>option-list</i>"</code> attribute</a>,
                 This is the default prefix added to an RVAR-name, when the RVAR is to <a href="#Persistence">persist</a> in a store.
                 <p>
                     When there are multiple OtoReact-applications using persistence and running on the same domain, you can set this option to avoid name clashes.
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td>locale</td><td>Current user locale</td>
+            <td>Locale to be used for number formatting. This option may change at runtime.</td>
+        </tr>
+        <tr>
+            <td class="notBold">Any <mdn href="JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#options">Intl.NumberFormat option</mdn></td>
+            <td>undefined</td>
+            <td>
+                Any <mdn href="JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#options">Intl.NumberFormat option</mdn> set in RHTML
+                is applied to all <code>Intl.NumberFormat</code> objects used for OtoReact <a href="#NumberFormatting">number formatting</a>.
+                These options may change at runtime.
+                <p>
+                    <idemo src="<for let=i of=range(1,10) rhtml=&quot;numberingSystem: 'thai' &quot;> \{i : } </for>"></idemo>
                 </p>
             </td>
         </tr>

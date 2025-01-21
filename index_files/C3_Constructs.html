@@ -1020,27 +1020,7 @@ All <elm>STYLE</elm> elements within RHTML code are moved by OtoReact to the doc
         <p>
             In particular, if you place such a sheet within a component definition, then it will apply to the HTML content created by the component template, and by components defined locally within that component, but not to HTML content created by components called from that template but defined elsewhere.
         </p>
-        <demo #tab="-1" srctext=
-'<component>
-    <marked>
-		<slot></slot>
-	</marked>
-    <STYLE scope=local>
-        div { color: red; font-weight: bold; }
-    </STYLE>
-    <template>
-		<blockquote>
-	        <div>This template <{}div> is marked.</div>
-			<slot></slot>
-		</blockquote>
-    </template>
-</component>
-
-<marked>
-	<slot>This slot <{}div> is not.</slot>
-</marked>
-<div>This outside <{}div> is not marked.</div>'
-        ></demo>
+        <demo #tab="-1" #srctext=demo_RSTYLE></demo>
         <p>This works by adding a new unique class name to all CSS selectors and to all created HTML elements.</p>
         <p>
             Note: <code>scope="local"</code> applies to some but not all <MDN href="CSS/At-rule">at-rules</MDN>:

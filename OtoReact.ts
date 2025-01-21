@@ -16,24 +16,26 @@ const
 ,   D = document
 ,   L = location    
 ,   US = "'use strict';"
+,   bD = "bDollarRequired"
 ,   ass = Object.assign as <T extends {}>(obj: T, props: {}) => T
-,   tU = (s:string) => s.toUpperCase()
+,   P   = new DOMParser
     
 // Some utilities
 ,   I   = x => x
 ,   K   = x => () => x
 ,   B   = (f, g) => x => f(g(x))
-,   P   = new DOMParser
+
 ,   now = () => performance.now()
     // Throwing an error from within an expression
 ,   thro= (e?: any) => {throw e}
     // The eval function.
-    ,   V  = eval
+,   V  = eval
     // Note that calling 'V(txt)' triggers an INDIRECT eval, so that variables from this file cannot be accessed,
     // while calling 'eval(txt)' CAN access variables from this file. See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#direct_and_indirect_eval
 
-    // Try to eval
-,   TryV = (e: string, m: string, s = '\nin ') => {
+    // Try to eval, enriching any error message.
+    // 'e' is the expression, 'm' is the source code from which 'e' has been derived, 's' is a separator 
+,   TryV = (e: string, m: string = e, s = '\nin ') => {
         try {
             return V(e);
         }
@@ -42,9 +44,10 @@ const
         }
     }
     // Check x is string
-,   isS= ((x:any) => typeof x == 'string') as (x: any) => x is string
+,   isS = (x:any) => typeof x == 'string'
     // parse to integer or null
 ,   pI = (s: string) => s ? parseInt(s) : N
+,   tU = (s:string) => s.toUpperCase()
     // AddEventListener
 ,   EL = (et: EventTarget, k: string, el: EventListenerOrEventListenerObject) => et.addEventListener(k, el)
 
@@ -59,9 +62,20 @@ const
         version:        1,
         currency:       'EUR'
     }
-,   bD = "bDollarRequired"
     // Dereference if RVAR
 ,   dr  = (v: unknown) => v instanceof RV ? v.V : v
+    // Regular expression that matches JavaScript expressions
+,   rE = (
+        (F: (r: string) => string) => F(F(F('[^]*?')))
+    )( (r:string) => 
+    `(?:\\{(?:\\{${r}\\}|[^])*?\\}\
+|'(?:\\\\.|[^])*?'\
+|"(?:\\\\.|[^])*?"\
+|\`(?:\\\\[^]|\\\$\\{${r}}|[^])*?\`\
+|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
+|\\?\\.\
+|\\?${r}:\
+|[^])*?`)
     ;
 
 // Type used for truthy / falsy values
@@ -1507,7 +1521,7 @@ class RComp {
                                         : m[5] ?    // rhtml (change settings) UNDOCUMENTED
                                                 // Setting this.S sets the compiletime settings;
                                                 // routine K(this.S) will 
-                                               K(this.S = addS(S, ats.g(at)))
+                                                K(this.S = addS(S, ats.g(at)))
                                         : m[8] // if, intl
                                             ? RC.CAttExp(ats, at)
                                         :   // reacton, hash
@@ -2113,6 +2127,7 @@ class RComp {
                 await prom;
             } 
             catch (m) {
+                arChk();
                 if (m) {
                     let msg = 
                         srcN instanceof HTMLElement ? ErrM(srcN, m, 45) : m
@@ -2121,7 +2136,7 @@ class RComp {
                     this.S.bAbortOnError && thro(msg);
 
                     this.log(msg);
-                    e ? e(m)
+                    e ? e(msg)
                     : this.S.bShowErrors ?
                         (r||{} as typeof r).eN = a.pN.insertBefore(crErrN(msg), a.r?.FstOrNxt)
                     : U;
@@ -3160,29 +3175,22 @@ class RComp {
         // where we also must take care to skip js strings possibly containing braces,  escaped quotes, quoted strings, regexps, backquoted strings containing other expressions.
         // Backquoted js strings containing js expressions containing backquoted strings might go wrong
         // (We can't use negative lookbehinds; Safari does not support them)
-        let F = (re:string) => 
-`(?:\\{(?:\\{${re}\\}|[^])*?\\}\
-|'(?:\\\\.|[^])*?'\
-|"(?:\\\\.|[^])*?"\
-|\`(?:\\\\[^]|\\\$\\{${re}}|[^])*?\`\
-|/(?:\\\\.|\[]?(?:\\\\.|.)*?\])*?/\
-|\\?\\.\
-|\\?${re}:\
-|[^])*?`
-        ,   bDR = this.S[bD]?1:0
+        let 
+            bDR = this.S[bD]?1:0
         ,   rI = rIS[bDR] ||= 
                 new RegExp(
-                    `\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${F(F(F('[^]*?')))})(?::\\s*(.*?)\\s*)?\\}|$`
+                    `\\\\([{}])|\\$${bDR ? Q : '?'}\\{(${rE})(?:::(${rE})|:\\s*(.*?)\\s*)?\\}|$`
+                //   a   x                            e           ff           f                            
                     , 'g'
                 )
-        ,   gens: Array< string | {d:Dep<any>,f:string} > = []
+        ,   gens: Array< string | {d:Dep<any>,f:Dep<string>} > = []
         ,   ws: WSpc = nm || this.S.bKeepWhiteSpace ? WSpc.preserve : this.ws
         ,   fx = Q
         ,   iT: booly = T         // truthy when the text contains no nonempty embedded expressions
         ;
         rI.lastIndex = 0
         while (T) {
-            let lastIx = rI.lastIndex, m = rI.exec(text), [a,x,e,f] = m;
+            let lastIx = rI.lastIndex, m = rI.exec(text), [a,x,e,f,ff] = m;
             // Add fixed text to 'fx':
             fx += text.slice(lastIx, m.index) + (x||Q)
             // When we are either at the end of the string, or have a nonempty embedded expression:
@@ -3199,14 +3207,16 @@ class RComp {
                 if (!a)
                     return iT ? ass(() => fx, {fx})
                         : () => {
-                            let s = Q;
+                            let s = Q, x: any;
                             for (let g of gens)
-                                s+= typeof g == 'string' ? g : (g.f != N ? g.d()?.format(g.f) : g.d()?.toString()) ?? Q
+                                s+= typeof g == 'string' ? g : (x = g.d(),(g.f ? x?.$fmt(g.f()) : x?.toString()) ?? Q)
                             return s;
                         };
                 
-                let d = this.CExpr<string>(e, nm, U, '{}');
-                gens.push( {d,f} ); //f ? () => RFormat(d(), f) : d );
+                gens.push( {
+                    d: this.CExpr<string>(e, nm, U, '{}')
+                    ,f: f ? this.CExpr(f) : ff!=N && K(ff)
+                } ); 
                 iT = fx = Q;
             }
         }
@@ -3220,7 +3230,7 @@ class RComp {
         // These are the subpatterns that need converting; all remaining characters are literals and will be quoted when needed
         ,   rP =
             /\{((?:[^}]|\\\})*)\}|(\?)|(\*)|\[\^?(?:\\[^]|[^\\\]])*\]|$/g;
-        //            1--------------1   2--2 3--3 4-----4
+        //     1--------------1   2--2 3--3
         while (rP.lastIndex < patt.length) {
             let ix = rP.lastIndex
             ,   m = rP.exec(patt)
@@ -3385,7 +3395,9 @@ class RComp {
         let m = this.doc.getElementById(src), M='MODULE';
         if (!m) {
             // External
-            let {head,body} = P.parseFromString(await this.FetchT(src), 'text/html') as Document
+            let {head,body} = P.parseFromString(
+                await this.FetchT(src).catch(e => thro(e + `\nin '${this.src}'`))
+                , 'text/html') as Document
             ,   e = body.firstElementChild as HTMLElement
             ;
             // If the file contains a <MODULE> element we will return its children.
@@ -3467,7 +3479,7 @@ const
 ,   addS = (S: Settings, A: string | Settings) => 
    ({
        ... S, 
-       ... isS(A) ? <Settings>TryV(`({${A}})`, 'settings') : A,
+       ... isS(A) ? <Settings>TryV(`({${A}})`, 'settings') : <Settings>A,
        // Redefine the dictionary of NumberFormats, any time the settings have changed
        dN: A ? {} : S.dN
    })
@@ -3586,55 +3598,53 @@ const
     { day:'2-digit', month: '2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second: '2-digit', fractionalSecondDigits:3, hour12:false }),
     reg1 = /(?<dd>0?(?<d>\d+))-(?<MM>0?(?<M>\d+))-(?<yyyy>2.(?<yy>..))\D+(?<HH>0?(?<H>\d+)):(?<mm>0?(?<m>\d+)):(?<ss>0?(?<s>\d+)),(?<fff>(?<ff>(?<f>.).).)/g;
 
-(Number.prototype as any).format = function(this: number, fm: string)  {
+(Number.prototype as any).$fmt = function(this: number, fm: string)  {
     let d: { [f:string]: Intl.NumberFormat } = oes.t.dN
         , FM: Intl.NumberFormat = d[fm];
     if (!FM) {
-        let m = /^([CDFXN]?)(\d*)(\.(\d+))?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
-            , p = pI(m[2])
-            , f = pI(m[4])
-            , o: Intl.NumberFormatOptions = { ...oes.t };
+        let m = /^([CDFXN]?)(\d*)(\.(\d*)(-(\d*))?)?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
+            , n = pI(m[2]), p = pI(m[4]), q =pI(m[6]) ?? p
+            , o: Intl.NumberFormatOptions & {locale?: string} = { ...oes.t };
         switch(m[1]) {
-            case 'D': p ??= 1; 
+            case 'D': n ??= 1; q = p ??= 0;
                 o.useGrouping = F; break;
-            case 'C': o.style = 'currency'; f=p; p=N; break;
+            case 'C': o.style = 'currency'; q=p=n; n=N; break;
             case 'F': 
                 o.useGrouping = F;
                 // Fall through
             case 'N': 
-                f = p ?? 2; p = 1; break;
+                q=p = n ?? 2; n = 1; break;
             case 'X': FM = <Intl.NumberFormat>{ format(x: number) {
                     let
                         s = tU(x.toString(16)),
                         l = s.length;
-                    return p>l ? '0'.repeat(p-l)+s : s;
+                    return n>l ? '0'.repeat(n-l)+s : s;
                 }};
         }
-        if (f != N)
-            o.minimumFractionDigits = o.maximumFractionDigits = f;
-        if (p != N)
-            o.minimumIntegerDigits = p;
-        d[fm] = FM ||= new Intl.NumberFormat(oes.t.locale, o);
+        if (n != N) o.minimumIntegerDigits = n;
+        if (p != N) o.minimumFractionDigits = p;
+        if (q != N) o.maximumFractionDigits = q;
+        d[fm] = FM ||= new Intl.NumberFormat(o.locale, o);
     }
     return FM.format(this);
 };
 
-(Date.prototype as any).format = function(this: Date, f: string) {
+(Date.prototype as any).$fmt = function(this: Date, f: string) {
+    f ||= "yyyy-MM-dd HH:mm:ss";
   return fmt.format(this).replace(reg1, f.replace( 
-        /\\(.)|(\w)\2*/g, (m,a) => a || `$<${m}>`
-        // /(\w)\1*/g, '$$<$&>'
+        /\\(.)|(yy|[MdHms])\2{0,1}|f{1,3}/g, (m,a) => a || `$<${m}>`
         )
     );
 };
-/*
-(String.prototype as any).format = function(this: string, f: string) {
-    let F = parseInt(f), L = Math.abs(F) - this.length;
+
+(String.prototype as any).$fmt = function(this: string, f: string) : string {
+    let w = parseInt(f), L = Math.abs(w) - this.length;
     return L > 0 ?
-        F > 0 ? ' '.repeat(L) + this : this + ' '.repeat(L)
+        w > 0 ? ' '.repeat(L) + this : this + ' '.repeat(L)
         : this;
-}
-*/
-(Boolean.prototype as any).format = function(this: boolean, f: string): string{
+} as any;
+
+(Boolean.prototype as any).$fmt = function(this: boolean, f: string): string{
     return f.split(':')?.[this ? 0 : 1];
 }
 //#endregion
@@ -3714,15 +3724,15 @@ ass(G, {
 export async function RCompile(srcN: HTMLElement & {b?: booly}, setts?: string | Settings): Promise<void> {
     if (srcN.isConnected && !srcN.b)   // No duplicate compilation
         try {
-            setts = addS({}, setts);
+            let s = addS({}, setts);
 
             srcN.b = T;   // No duplicate compilation
 
-            let m = L.href.match(`^.*(${setts?.basePattern || '/'})`)
+            let m = L.href.match(`^.*(${s?.basePattern || '/'})`)
             ,   C = new RComp(
                     N
                     , L.origin + (dL.basepath = m ? new URL(m[0]).pathname : Q)
-                    , setts
+                    , s
                 )
             ;
             /*

@@ -6,7 +6,7 @@ const
     , quoteHTML = s => s.replace(/[<&>]/g, ch => mapping[ch])
     , markJScript = (script: string) =>
         `<span style='color:purple'>${
-            script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/)/g
+            script.replace(/\/[^\/*](?:\\\/|[^])*?\/|(\/\/[^\n]*|\/\*[^]*?\*\/|[^\/]+)/g
                 , (m,mComm) => mComm ? `<span class=demoGreen>${quoteHTML(m)}</span>` : quoteHTML(m)
             )
         }</span>`
@@ -25,7 +25,8 @@ const
                     )
             }&gt;</span>`;
     }
-    , reg = /(<!--[^]*?-->)|<((script|style)[^]*?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi
+    , reg = /(<!--[^]*?-->)|<((script|style)(?:\s[^]*?)?)>([^]*?)<(\/\3\s*)>|<((?:\/?\w[^ \t\n>]*)(?:"[^]*?"|'[^]*?'|[^])*?)>|(?:\\)\{|(\$?\{(?:\{[^]*?\}|[^])*?\})|([<>&])/gi
+    //       1               23                           4       5
     , ColorCode = (html: string) =>
       `<span style='color:black'>${
           html.replace(
@@ -576,7 +577,7 @@ const sampleRHTML =
 <RHTML #srctext=source.V></RHTML>`;
 
 const sampleStyleTemplate =
-`<def rvar=Hue value="0.0"></def>
+`<def rvar=Hue #value="0.0"></def>
 <RSTYLE>
   h2 {
     color: hsl( \${Hue}deg 100% 50% );
@@ -586,8 +587,8 @@ const sampleStyleTemplate =
 <h2>Section head</h2>
 Section contents
 <h2>Another section head</h2>
-<button onclick="Hue.V = (Math.random() * 360).toFixed(1)">Change hue</button>
-Current hue is: {Hue}.`;
+<button onclick="Hue.V = Math.random() * 360">Change hue</button>
+Current hue is: {Hue : .1}.`;
 
 const C1=
 `<!-- Component signature with parameter -->
@@ -1035,3 +1036,24 @@ const demo_RFORM =
     </tr.>
   </for>
 </table.>`
+
+let demo_RSTYLE = 
+`<component>
+	<styled>
+		<slot></slot>
+	</styled>
+    <STYLE scope=local>
+        div { color: red; font-weight: bold; }
+    </STYLE>
+    <template>
+		<blockquote>
+	        <div>This template <{}div> is styled.</div>
+			<slot></slot>
+		</blockquote>
+    </template>
+</component>
+
+<styled>
+	<slot>This slot <{}div> is not styled.</slot>
+</styled>
+<div>This outside <{}div> is not styled.</div>`

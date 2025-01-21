@@ -12,6 +12,15 @@
         ></template>
     </component>
 
+    
+    <component>
+        <IDEMO src></IDEMO>
+        <template>
+            <def rvar="s" #value="src"></def>
+            <code style="white-space: pre;" contenteditable @textContent="s"></code>&nbsp;&rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=s></rhtml></span>
+        </template>
+    </component>
+
     <!-- This component gives all <RHTML> constructs some default styling. -->
     <component>
         <RHTML srctext onc></RHTML>

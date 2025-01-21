@@ -154,6 +154,7 @@ RHTML has a number of 'global attributes' that can be applied to every element a
 <p>
     * When a source element has multiple global attributes, then attributes on the left are treated as "inner" to attributes on the right.
 </p>
+
 <h3>'#if'</h3>
 An element or construct with
 <code class=sourcecode>#if="<i>condition</i>"</code>
@@ -188,6 +189,30 @@ These global attributes can be used to trigger DOM updates when this doesn't hap
         <br>But when the result remains the same object while some property has changed, the instance DOM won't be updated, and you must add a <code>reacton</code> if updating is needed.
     </li>
 </ul>
+
+<h3 id="intl">'rhtml', '#intl'</h3>
+Attribute 'rhtml' is used to initiate RHTML compilation, and also to set RHTML <a href=#Options><i>compile time</i> options</a>, anywhere within your RHTML code.
+<br>Its value should be a comma-separated list of property settings (actually, an <mdn href="JavaScript/Reference/Operators/Object_initializer">object initializer</mdn> without braces).
+<demo srctext='\{ 1 + 1 } vs <span rhtml="bDollarRequired: true">\{ 1 + 1 }</span>'></demo>
+<p>
+    Attribute '#intl' on the other hand is used to set <i>run time</i> options, in particular the <code>Intl.NumberFormat</code> locale and options, see <a href=#NumberFormatting>Number formatting</a>.
+    <br>Its value should be an object expression.
+</p>
+<demo srctext=
+'<def rvar=frac #value=4 store=sessionStorage></def>
+<def rvar=num #value=1.5 store=sessionStorage></def>
+<p>
+	Fractional digits: <input type=number @valueasnumber=frac>
+</p>
+<p>
+	Number: <input type=number @valueasnumber=num>
+</p>
+<p rhtml="minimumFractionDigits: 2">
+	\{ num : }
+</p>
+<p #intl="\{ minimumFractionDigits: frac }" reacton=frac>
+	\{ num : }
+</p>'></demo>
 
 <h3>'hash'</h3>
 Attribute <code class=sourcecode>hash="<i>hashExpressionList</i>"</code> exists in order to speed up processing. <br>
