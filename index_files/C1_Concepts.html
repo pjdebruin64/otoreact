@@ -1,4 +1,12 @@
 
+<component>
+	<IDEMO src></IDEMO>
+	<template>
+        <def rvar="code" #value="src"></def>
+		<code style="white-space: pre;" @innertext="code" contenteditable="true"></code> &rightarrow; <span style="background-color: rgb(240, 255, 160)"><rhtml #srctext=code></rhtml></span>
+	</template>
+</component>
+
 <h1>RHTML Concepts</h1>
 This chapter introduces and documents a number of basic RHTML concepts.
 <p>Sections and paragraphs marked with a '*' are advanced and may be skipped on first reading.
@@ -11,7 +19,7 @@ means:
 <blockquote>
     Source text "{idemo}" produces output "<rhtml #srctext="idemo"></rhtml>".
 </blockquote>
-
+All source text is editable.
 
 <h2 id=StringInterpolation>String interpolation: text with embedded expressions</h2>
 All text content and all HTML attributes inside RHTML code, except scripts, expressions and event handlers that are already JavaScript, may contained embedded JavaScript expressions between braces: <idemo src="1 + 1 = \{1 + 1}"></idemo>
