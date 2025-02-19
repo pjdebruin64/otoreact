@@ -16,6 +16,7 @@ type Settings = Partial<{
     headers: HeadersInit;
     locale: string;
     currency: string;
+    useGrouping: boolean;
     bSubf: boolean | 2;
     dN: {
         [f: string]: Intl.NumberFormat;

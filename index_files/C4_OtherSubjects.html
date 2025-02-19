@@ -1,4 +1,4 @@
-<h1>Other Subjects</h1>
+<h1 id="OtherSubjects">Other Subjects</h1>
 
 <h2 id=URLRouting>URL routing</h2>
 "URL routing" in a single-page application is about routing different URLs to seemingly different pages <i>without requesting them from the server</i>.
@@ -9,7 +9,9 @@
     <dt><code>docLocation</code></dt>
     <dd>
         Predefined <a href="#RVAR">RVAR</a>, containing the current URL.
-        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code> (currently "<react on=docLocation>{docLocation.V}</react>").
+        <br>So its value <code>docLocation.V</code> is always equal to <code>location.href</code>.
+        <br>Currently it is <idemo src="\{docLocation}"></idemo>.
+
         <p>It allows applications to react on changes in the URL, and you can set its value to navigate to a different URL while staying within the application.</p>
         <p>It has four additional properties and methods:</p>
         <dl>
@@ -17,12 +19,12 @@
             <dd>
                 This property holds the <i>base path</i> of the application, and is derived from the initial URL, using the <code>basePattern</code> option described below.
                 <br>All relative URL's within an OtoReact aplication are considered relative to this base path, and it is used to determine the current subpath.
-                <br>The current base path is "{docLocation.basepath}".
+                <br>The current base path is <idemo src="\{docLocation.basepath}"></idemo>.
             </dd>
             <dt><code>docLocation.subpath</code></dt>
             <dd>
                 Gets or sets the part of the current pathname after the base path.
-                <br>For this page it is "<react on=docLocation>{docLocation.subpath}</react>".
+                <br>For this page it is <idemo src="\{docLocation.subpath}"></idemo>.
                 <p>An application can use <a href="#PatternMatching">pattern matching</a> on this value to decode encoded special characters, capture parameters into variables, and show the correct page.
             </dd>
 

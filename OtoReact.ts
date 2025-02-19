@@ -60,7 +60,8 @@ const
         preformatted:   E as string[],
         //storePrefix:    "RVAR_",
         version:        1,
-        currency:       'EUR'
+        currency:       'EUR',
+        useGrouping: F
     }
     // Dereference if RVAR
 ,   dr  = (v: unknown) => v instanceof RV ? v.V : v
@@ -100,6 +101,7 @@ type Settings = Partial<{
     headers:        HeadersInit,    // E.g. [['Cache-Control','no-cache']]
     locale:         string,
     currency:       string,
+    useGrouping:    boolean,
 
     // For internal use
     bSubf:          boolean|2,          // Subfile yes or no. 2 is used for RHTML.
@@ -1166,6 +1168,7 @@ class RComp {
 
     // Source file path, used for interpreting relative URLs
     public src: string;
+    // Source file parent folder path
     public fp: string;
 
     lscl: string[];     // Local static stylesheet classlist
@@ -3603,16 +3606,20 @@ const
         , FM: Intl.NumberFormat = d[fm];
     if (!FM) {
         let m = /^([CDFXN]?)(\d*)(\.(\d*)(-(\d*))?)?$/.exec(tU(fm)) || thro(`Invalid number format '${fm}'`)
-            , n = pI(m[2]), p = pI(m[4]), q =pI(m[6]) ?? p
+            , n = pI(m[2])      // Minimum integer digits
+            , p = pI(m[4])      // Minimum fraction digits
+            , q =pI(m[6]) ?? p  // Maximum fraction digits
             , o: Intl.NumberFormatOptions & {locale?: string} = { ...oes.t };
         switch(m[1]) {
             case 'D': n ??= 1; q = p ??= 0;
-                o.useGrouping = F; break;
-            case 'C': o.style = 'currency'; q=p=n; n=N; break;
-            case 'F': 
-                o.useGrouping = F;
-                // Fall through
+                break;
+            case 'C': 
+                o.style = 'currency'; o.useGrouping = T;
+                q=p=n; n=N; break;
             case 'N': 
+                o.useGrouping = T;
+                // Fall through
+            case 'F': 
                 q=p = n ?? 2; n = 1; break;
             case 'X': FM = <Intl.NumberFormat>{ format(x: number) {
                     let
@@ -3653,6 +3660,7 @@ const
 class DL extends RV<URL>{
     query: {[fld: string]: string};
     constructor() {
+        // Create an RVAR globally named 'docLocation'
         super('docLocation', new URL(L.href));
 
         // Let the RV react on user-triggered browser-URL changes
@@ -3678,6 +3686,8 @@ class DL extends RV<URL>{
     basepath: string = U;
     get subpath()  { return dL.pathname.slice(this.basepath.length); }
     set subpath(s) { dL.pathname = this.basepath + s; }
+
+    //get sourcePath() { return R.src; }
 
     search(key: string, val: string) {
         let U = new URL(this.V);

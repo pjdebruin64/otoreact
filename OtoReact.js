@@ -10,7 +10,8 @@ const N = null, T = !0, F = !T, U = void 0, Q = '', E = [], G = self, W = window
     bAutoPointer: T,
     preformatted: E,
     version: 1,
-    currency: 'EUR'
+    currency: 'EUR',
+    useGrouping: F
 }, dr = (v) => v instanceof RV ? v.V : v, rE = ((F) => F(F(F('[^]*?'))))((r) => `(?:\\{(?:\\{${r}\\}|[^])*?\\}\
 |'(?:\\\\.|[^])*?'\
 |"(?:\\\\.|[^])*?"\
@@ -1867,16 +1868,16 @@ Number.prototype.$fmt = function (fm) {
             case 'D':
                 n ?? (n = 1);
                 q = p ?? (p = 0);
-                o.useGrouping = F;
                 break;
             case 'C':
                 o.style = 'currency';
+                o.useGrouping = T;
                 q = p = n;
                 n = N;
                 break;
-            case 'F':
-                o.useGrouping = F;
             case 'N':
+                o.useGrouping = T;
+            case 'F':
                 q = p = n ?? 2;
                 n = 1;
                 break;
